@@ -19,15 +19,28 @@ onboardingの質問、進捗、完了、料金案内を所有しない。onboard
 
 1. `/start`でLife Managerが何を管理するかを短く説明する。
 2. Google Calendar接続ボタンを送る。Google同意だけ外部で行い、完了をserverで確認してTelegramへ戻す。
-3. Telegramでhome/baseを質問し、返信をtenant-scopedに保存する。
+3. Telegramで「自宅の住所」を質問し、返信をtenant-scopedに保存する。自宅以外を通常の出発地点にする人だけ、普段使う場所を回答できると短く補足する。
 4. Telegram通知を有効化する。
 5. 電話は「物理予定の出発10分前と5分前に知らせる任意機能」と説明し、`使う`と`スキップ`を並べる。
 6. 電話番号の保存とcall opt-inを別の操作にし、番号だけで電話を有効化しない。
-7. 決済操作なしでReadyにし、次予定と最初の通知予定をTelegramで案内する。
+7. Readyにし、次予定と最初の通知予定をTelegramで案内する。料金、card、Stripe、planを話題にしない。
 
 activationはWebのReady画面ではない。本人のCalendarから物理予定を読み、Travel blockを作成し、採用した
 乗換案内を出発前にTelegramへ1回届けた時点とする。CalendarやMapsを完全に削除したとは表現せず、
 「予定の確認、移動時間の逆算、乗換案内の検索を毎回自分で行わなくてよい」を現在の価値として伝える。
+
+日本語では製品名を「ライフマネージャー」、役割を「生活を監督する」と表現する。「管理」はDBや
+operator向け技術文書に限定する。質問は一度に1つ、説明は回答に必要な理由だけにし、完了画面へ
+料金やcardなど次の行動に不要な情報を置かない。
+
+public CTAは固定deep link `https://t.me/LifeManagerBotbot?start=lp`を開く。Telegram仕様上、初回は
+clientが`Start`ボタンを表示し、本人が一度押した後にBotが`/start lp`を受け取る。Botは開始前の本人へ
+先に送信できないため、この1 tapは削除できない。CTA横には「Telegramを開いて、画面下の『開始』を
+1回押す」とだけ表示し、slash commandを入力させない。
+
+開始後はTelegram `from.language_code`が`ja`で始まれば日本語、それ以外は英語にする。値がない場合は
+開始元localeを使い、どちらもなければ日本語へfallbackする。onboarding途中で同じ言語を保持し、
+日時は本人timezoneで表示する。言語選択画面は原則追加しないが、`/language`で後から変更できる。
 
 ## 0. 最新のowner決定と正本の優先順位
 
