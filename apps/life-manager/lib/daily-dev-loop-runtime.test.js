@@ -33,5 +33,7 @@ test("D0 isolates worktree tests from the primary repo and cannot fail after PR 
   assert.match(source, /unset LIFE_MANAGER_REPO/);
   assert.doesNotMatch(source, /LM_DEV_TELEGRAM_TARGET:\?/);
   assert.match(source, /if \[ -n "\$\{LM_DEV_TELEGRAM_TARGET:-\}" \]; then/);
+  assert.match(source, /skills\/_shared\/send-telegram\.sh/);
+  assert.doesNotMatch(source, /openclaw message send/);
   assert.match(source, /write_result "pr_open" "pr_created"/);
 });
