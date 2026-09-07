@@ -1843,6 +1843,18 @@ def _business_outcomes_match_effects(builder: dict[str, Any], verifier: dict[str
 
     return identity(builder) == identity(verifier)
 
+
+def _verifier_evidence_references(result: dict[str, Any]) -> list[tuple[str, str]]:
+    references = [(field, result.get(field)) for field in ("before_evidence", "after_evidence")
+                  if isinstance(result.get(field), str) and result.get(field).strip()]
+    single = result.get("verifier_evidence")
+    if not references and isinstance(single, str) and single.strip():
+        references = [("verifier_evidence", single)]
+    if not references and isinstance(result.get("evidence"), list):
+        references = [("evidence", value) for value in result["evidence"]
+                      if isinstance(value, str) and value.strip()]
+    return references
+
 def _validate_managed_verifier(verifier: Path, project_root: Path, intent: dict[str, Any], feedback: str, digest: str,
                                min_evidence_mtime_ns: int | None = None) -> Path:
     try:
@@ -1887,10 +1899,7 @@ def _validate_managed_verifier(verifier: Path, project_root: Path, intent: dict[
         attachment = _validated_customer_attachment(project_root, delivery_result.get("customer_attachment"))
         if (intent.get("customer_attachment") != attachment or result.get("customer_attachment") != attachment):
             raise ValueError("customer attachment verifier mismatch")
-        references = [(field, result.get(field)) for field in ("before_evidence", "after_evidence")
-                      if isinstance(result.get(field), str) and result.get(field).strip()]
-        if not references and isinstance(result.get("evidence"), list):
-            references = [("evidence", value) for value in result["evidence"] if isinstance(value, str) and value.strip()]
+        references = _verifier_evidence_references(result)
         if not references:
             raise ValueError("verifier evidence missing")
         observed = False; now_ns = time.time_ns(); evidence_records = []
