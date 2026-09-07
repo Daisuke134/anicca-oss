@@ -9,6 +9,7 @@ def test_owner_uses_shared_browser_lease_and_revenue_name():
     assert 'TASK="mercor-revenue-application"' in source
     assert 'CDP="http://127.0.0.1:9222"' in source
     assert 'cdp_context_lease.py' in source
+    assert 'park "$TASK"' in source
     assert 'MERCOR_CDP_PAGE_WS' in source
     assert 'MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT"' in source
     assert 'LEGACY_ROOT="${STATE_ROOT:h}"' in source

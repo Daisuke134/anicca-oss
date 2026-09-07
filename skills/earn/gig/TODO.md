@@ -647,6 +647,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Focused lease/Mercor verification passes 43 tests plus 2 subtests. Production still owes a following wake
    that starts authenticated without issuing email, then one new official submit, realtime Telegram receipt
    and replay-zero; this atom remains unchecked.
+   That pre-start storage bootstrap still produced `logged_out` on the next production wake before the email
+   adapter recovered authentication. The remaining divergence from Coconala/Lancers is lifecycle, not another
+   missing credential: Mercor alone disposed its authenticated browser context after every wake. The shared
+   lease now supports parking a healthy context—returning exclusive ownership without destroying its tab—and
+   rotates the ownership fence when the next wake reuses it. Mercor parks after each pass; an unhealthy or
+   crashed holder still follows the existing cleanup path. PASS remains two natural wakes where the second
+   reuses the parked context and reaches official authenticated readback without issuing login email, followed
+   by a new official application receipt, realtime Telegram and replay-zero.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

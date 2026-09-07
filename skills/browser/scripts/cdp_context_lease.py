@@ -296,7 +296,8 @@ def acquire(task, url="about:blank", no_seed=False):
     with _ledger_lock():
         leases = _leases()
         held = leases.get(task)
-        holder_dead = bool(held) and _pid_alive(held.get("pid")) is False
+        parked = bool(held) and held.get("parked") is True
+        holder_dead = bool(held) and not parked and _pid_alive(held.get("pid")) is False
         if held and (holder_dead or not target_responds(
             held.get("ws") or _page_ws(held.get("target_id") or "")
         )):
@@ -328,6 +329,10 @@ def acquire(task, url="about:blank", no_seed=False):
             held = None
         if held:  # one task owns one durable fence until release
             changed = False
+            if held.pop("parked", None) is True:
+                held["token"] = secrets.token_hex(16)
+                held["generation"] = int(held.get("generation") or 0) + 1
+                changed = True
             if not isinstance(held.get("token"), str):
                 held["token"] = secrets.token_hex(16)
                 changed = True
@@ -696,6 +701,30 @@ def release(task, token=None, generation=None):
         return result
 
 
+def park(task, token=None, generation=None):
+    """Return ownership while keeping a healthy authenticated context for the next wake."""
+    with _ledger_lock():
+        leases = _leases()
+        held = leases.get(task)
+        if not held:
+            return {"ok": True, "note": f"{task} held no context"}
+        if not _fence_matches(held, token, generation):
+            return {"ok": False, "reason": "lease_fence_mismatch"}
+        if not target_responds(held.get("ws") or _page_ws(held.get("target_id") or "")):
+            return {"ok": False, "reason": "target_unhealthy"}
+        held["parked"] = True
+        held["pid"] = None
+        held["ts"] = int(time.time())
+        leases[task] = held
+        _save(leases)
+        return {
+            "ok": True,
+            "parked": task,
+            "context_id": held["context_id"],
+            "target_id": held["target_id"],
+        }
+
+
 def gc(idle_min=45):
     """A loop killed with -9 never releases. Reap whatever it left holding.
 
@@ -789,6 +818,8 @@ if __name__ == "__main__":
             out = heartbeat(arg or "unnamed", token=token, generation=generation)
         elif cmd == "release":
             out = release(arg or "unnamed", token=token, generation=generation)
+        elif cmd == "park":
+            out = park(arg or "unnamed", token=token, generation=generation)
         elif cmd == "commit-cookies":
             domains = [
                 sys.argv[index + 1]
