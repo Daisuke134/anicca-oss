@@ -31,6 +31,7 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -38,6 +39,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCRIPT = REPO_ROOT / "skills/earn/lancers/scripts/storefront_offer.py"
+FORM_OBSERVER_SCRIPT = REPO_ROOT / "skills/_shared/marketplace-core/scripts/form_observer.py"
 
 
 def _module():
@@ -46,6 +48,21 @@ def _module():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _load_form_observer():
+    """The same platform-neutral observer storefront_offer._reach_form_observer() reaches for in
+    production, loaded directly here only so _ObservablePage (below) can reuse its internal
+    `_parse_tree`/`_Node` to resolve the exact positional locators observe_page issues -- this is
+    test-harness plumbing, not a second implementation of step detection."""
+    spec = importlib.util.spec_from_file_location("lancers_test_form_observer", FORM_OBSERVER_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_OBSERVER = _load_form_observer()
 
 
 # --- fakes ------------------------------------------------------------------------------------
@@ -617,8 +634,8 @@ def test_stall_evidence_reports_every_field_the_current_step_owns_with_filled_st
     assert payload["step"] == "基本情報"
     by_name = {item["field"]: item for item in payload["fields"]}
     assert set(by_name) == {"title", "subtitle", "category", "subcategory", "industry", "tags"}
-    assert by_name["title"] == {"field": "title", "present": True, "type": "text", "filled": True}
-    assert by_name["subtitle"] == {"field": "subtitle", "present": True, "type": "text", "filled": False}
+    assert by_name["title"] == {"field": "title", "present": True, "type": "text", "filled": True, "visible": True}
+    assert by_name["subtitle"] == {"field": "subtitle", "present": True, "type": "text", "filled": False, "visible": True}
 
 
 def test_stall_evidence_reports_absent_field_when_the_step_no_longer_carries_it():
@@ -788,6 +805,289 @@ def test_stalled_advance_error_message_embeds_the_full_evidence_payload():
     assert by_name["title"]["filled"] is True
     assert by_name["category"]["selected_label"] == product["category"]
     assert "tag_widget" in payload
+
+
+# 3c. The report hole this task closes -- which step is *actually showing* -----------------
+#
+# A live diagnostics pass reported every 基本情報 field present/filled, a real advance_control,
+# and no validation message -- and still could not tell "the click did nothing" apart from "the
+# wizard advanced and the arrival selector (ProjectPlanMenuForm[0].description) is wrong". Both
+# leave every 基本情報 field present and holding its value, because the six-step wizard keeps
+# every step's fields in the DOM at once. These tests drive _create_step_evidence against a page
+# whose `.content()` returns real, structurally wizard-shaped HTML -- the same shape
+# skills/_shared/marketplace-core/tests/fixtures/form_observer/wizard.html models: a class
+# token present on exactly 5 of 6 sibling step-wrappers -- so form_observer.observe_page runs
+# its real structural detection. Nothing about step detection is reimplemented here.
+
+_HIDING_CLASS = "_hidden_faketest_42"
+_WIZARD_STEP_NAMES = ("基本情報", "料金表", "業務内容", "確認事項", "画像ほか", "公開")
+
+
+def _wizard_step_fields_html(step_name: str, hidden_names: frozenset) -> str:
+    def _tag(kind: str, name: str) -> str:
+        style = ' style="display:none"' if name in hidden_names else ""
+        if kind == "select":
+            return f'<select name="{name}"{style}><option value="">選択してください</option></select>'
+        return f'<input type="text" name="{name}"{style}>'
+
+    if step_name == "基本情報":
+        return "".join([
+            _tag("input", "ProjectPlanForm.title"),
+            _tag("input", "ProjectPlanForm.subtitle"),
+            _tag("select", "___main_category_id"),
+            _tag("select", "ProjectPlanForm.project_category_id"),
+            _tag("select", "ProjectPlanForm.industry_type_id"),
+            _tag("input", "MultiSelectTagSearch_ProjectPlanTagForm"),
+        ])
+    if step_name == "料金表":
+        return "".join(
+            _tag("input", f"ProjectPlanMenuForm[{i}].description")
+            + _tag("select", f"ProjectPlanMenuForm[{i}].delivery_time")
+            + _tag("input", f"ProjectPlanMenuForm[{i}].price")
+            for i in range(3)
+        )
+    if step_name == "業務内容":
+        style = ' style="display:none"' if "業務内容 textarea (unnamed)" in hidden_names else ""
+        return f"<textarea{style}></textarea>"
+    if step_name == "確認事項":
+        return _tag("input", "ProjectPlanForm.notice_for_sale")
+    if step_name == "画像ほか":
+        return '<input type="file">'
+    return '<input type="hidden" name="__submit_marker" value="1">'  # 公開: still field-bearing
+
+
+def _wizard_html(current_step_index: int, hidden_names: frozenset = frozenset()) -> str:
+    """A six-step wizard page. Every step's fields sit in the DOM at once; every step but
+    `current_step_index` is wrapped in a div carrying `_HIDING_CLASS` -- present on exactly 5 of
+    the 6 siblings, the structural signature form_observer._hiding_class_signature looks for
+    (never hardcoded in production; this literal is only this test's stand-in for whatever build
+    hash a real page happens to carry). `hidden_names` additionally force-hides specific named
+    fields via their own inline style regardless of which step they belong to -- how the "wizard
+    advanced but one field lags" test below is built.
+    """
+    panels = []
+    for index, name in enumerate(_WIZARD_STEP_NAMES):
+        classes = "step-panel" if index == current_step_index else f"step-panel {_HIDING_CLASS}"
+        panels.append(f'<div class="{classes}"><h2>{name}</h2>{_wizard_step_fields_html(name, hidden_names)}</div>')
+    return f'<div class="wizard">{"".join(panels)}</div>'
+
+
+class _PositionalLocator:
+    """Resolves visibility/bounding-box for one node found via form_observer's own
+    `_Node.css_path()` -- the exact mechanism observe_page uses to re-locate a field live, and
+    also used here to resolve a plain `[name="..."]` selector against the same parsed content.
+    A node is "hidden" if it or any ancestor carries `_HIDING_CLASS` or an inline
+    `display:none`/`visibility:hidden` style.
+    """
+
+    def __init__(self, node):
+        self._node = node
+
+    def _hidden(self) -> bool:
+        node = self._node
+        while node is not None and node.tag != "#root":
+            style = (node.attrs.get("style") or "").replace(" ", "")
+            if "display:none" in style or "visibility:hidden" in style:
+                return True
+            if _HIDING_CLASS in node.classes:
+                return True
+            node = node.parent
+        return False
+
+    def count(self) -> int:
+        return 1
+
+    def is_visible(self) -> bool:
+        return not self._hidden()
+
+    def bounding_box(self):
+        return {"width": 0, "height": 0} if self._hidden() else {"width": 120, "height": 24}
+
+
+_NAME_SELECTOR = re.compile(r'^\[name="([^"]+)"\]$')
+
+
+class _ObservablePage(_FakeCreatePage):
+    """A `_FakeCreatePage` that additionally serves `.content()` and resolves both the
+    positional (`tag:nth-of-type(n) > ...`) locators form_observer.observe_page issues per field
+    and plain `[name="..."]` selectors, against the same parsed static HTML -- enough Playwright
+    surface for the real observer to run its real detection against a hand-built page. Step
+    detection itself is never reimplemented here; only locator resolution is.
+    """
+
+    def __init__(self, *, content_html: str, **kwargs):
+        super().__init__(**kwargs)
+        self._content_html = content_html
+
+    def content(self) -> str:
+        return self._content_html
+
+    def _resolve_positional(self, selector: str):
+        root = _OBSERVER._parse_tree(self.content())
+        node = root
+        for part in selector.split(" > "):
+            tag, rest = part.split(":nth-of-type(")
+            index = int(rest.rstrip(")")) - 1
+            matches = [child for child in node.children if child.tag == tag]
+            if index >= len(matches):
+                return None
+            node = matches[index]
+        return node
+
+    def _resolve_by_name(self, name_value: str):
+        root = _OBSERVER._parse_tree(self.content())
+        for node in [root, *root.iter_descendants()]:
+            if node.attrs.get("name") == name_value:
+                return node
+        return None
+
+    def locator(self, selector: str):
+        if "nth-of-type(" in selector:
+            node = self._resolve_positional(selector)
+            return _PositionalLocator(node) if node is not None else _EmptyField()
+        name_match = _NAME_SELECTOR.match(selector)
+        if name_match:
+            node = self._resolve_by_name(name_match.group(1))
+            return _PositionalLocator(node) if node is not None else _EmptyField()
+        return super().locator(selector)
+
+
+def test_stall_evidence_names_the_current_step_when_the_wizard_never_advanced():
+    """1. The wizard is still showing 基本情報 -- the payload names it as the current step."""
+    module = _module()
+    page = _ObservablePage(content_html=_wizard_html(0), fields={}, manual_button_lands_on=None)
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["current_step"] == "基本情報"
+
+
+def test_stall_evidence_names_the_current_step_when_the_wizard_advanced_but_arrival_field_lags():
+    """2. The wizard has structurally advanced to 料金表, but the one field the arrival check
+    was waiting for (ProjectPlanMenuForm[0].description) has not finished mounting. The old
+    report -- present/filled only -- cannot tell this apart from case 1: both leave every
+    基本情報 field present and holding its value. current_step must name 料金表 here. This is the
+    whole point of the task -- asserted directly, not inferred from anything else in the
+    payload. See test_current_step_derivation_is_not_vacuous below for proof this isn't vacuous.
+    """
+    module = _module()
+    hidden = frozenset({"ProjectPlanMenuForm[0].description"})
+    page = _ObservablePage(content_html=_wizard_html(1, hidden), fields={}, manual_button_lands_on=None)
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["current_step"] == "料金表"
+
+
+def test_current_step_derivation_is_not_vacuous():
+    """Per the task: prove test 2 above is not vacuous. Force the current-step derivation to
+    always answer 基本情報, confirm the advanced-wizard scenario then reads 基本情報 (a wrong
+    answer, proving the assertion above is capable of failing), then revert and confirm it
+    reads 料金表 again."""
+    module = _module()
+    hidden = frozenset({"ProjectPlanMenuForm[0].description"})
+    page = _ObservablePage(content_html=_wizard_html(1, hidden), fields={}, manual_button_lands_on=None)
+
+    original = module._create_current_step_name
+    module._create_current_step_name = lambda steps, fields_report: "基本情報"
+    try:
+        broken_payload = json.loads(module._create_step_evidence(page, "基本情報"))
+    finally:
+        module._create_current_step_name = original
+
+    assert broken_payload["current_step"] == "基本情報"  # the stand-in always answers this -- wrong here
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+    assert payload["current_step"] == "料金表"  # restored: the real derivation answers correctly
+
+
+def test_stall_evidence_reports_per_field_visibility_present_but_hidden_vs_shown():
+    """3. A present-but-hidden field (基本情報's own fields, while the wizard actually shows
+    料金表) reports visible false; a field on the step that is actually showing reports visible
+    true."""
+    module = _module()
+    hidden_page = _ObservablePage(content_html=_wizard_html(1), fields={}, manual_button_lands_on=None)
+    shown_page = _ObservablePage(content_html=_wizard_html(0), fields={}, manual_button_lands_on=None)
+
+    hidden_payload = json.loads(module._create_step_evidence(hidden_page, "基本情報"))
+    shown_payload = json.loads(module._create_step_evidence(shown_page, "基本情報"))
+
+    hidden_by_name = {item["field"]: item for item in hidden_payload["fields"]}
+    shown_by_name = {item["field"]: item for item in shown_payload["fields"]}
+    assert hidden_by_name["title"]["present"] is True
+    assert hidden_by_name["title"]["visible"] is False
+    assert shown_by_name["title"]["present"] is True
+    assert shown_by_name["title"]["visible"] is True
+
+
+def test_stall_evidence_reports_the_arrival_fields_visibility_in_both_states():
+    """4. The arrival field's visibility appears in the payload, both while it is still hidden
+    (the wizard-advanced-but-lagging scenario) and once it has become visible -- the single fact
+    the task says settles which of the two causes actually happened."""
+    module = _module()
+    hidden_page = _ObservablePage(
+        content_html=_wizard_html(1, frozenset({"ProjectPlanMenuForm[0].description"})),
+        fields={}, manual_button_lands_on=None,
+    )
+    visible_page = _ObservablePage(content_html=_wizard_html(1), fields={}, manual_button_lands_on=None)
+
+    hidden_payload = json.loads(module._create_step_evidence(
+        hidden_page, "基本情報",
+        lambda: hidden_page.locator('[name="ProjectPlanMenuForm[0].description"]'),
+        "ProjectPlanMenuForm[0].description",
+    ))
+    visible_payload = json.loads(module._create_step_evidence(
+        visible_page, "基本情報",
+        lambda: visible_page.locator('[name="ProjectPlanMenuForm[0].description"]'),
+        "ProjectPlanMenuForm[0].description",
+    ))
+
+    assert hidden_payload["arrival_field"] == {"field": "ProjectPlanMenuForm[0].description", "visible": False}
+    assert visible_payload["arrival_field"] == {"field": "ProjectPlanMenuForm[0].description", "visible": True}
+
+
+def test_stall_evidence_reports_the_observers_inferred_wrapper_class():
+    """5. The observer's inferred wrapper class appears in the payload, so a build that changes
+    the CSS-module hash is still visible rather than silently breaking detection."""
+    module = _module()
+    page = _ObservablePage(content_html=_wizard_html(0), fields={}, manual_button_lands_on=None)
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["wrapper_class"] == _HIDING_CLASS
+    assert payload["is_wizard"] is True
+
+
+def test_stall_evidence_survives_an_observer_failure_and_names_it():
+    """6. If the observer raises (here: the fake page carries no `.content()` at all, exactly
+    like every other page fake in this file), the payload still carries every other key and
+    names the observer failure -- a diagnostic must never become the thing that fails."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)  # no .content()
+    fields['[name="ProjectPlanForm.title"]'].fill(product["title_stem"])
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["observer_error"] is not None
+    assert payload["current_step"] is None
+    assert payload["wrapper_class"] is None
+    assert payload["is_wizard"] is None
+    # every key the report already promised is still present
+    assert payload["step"] == "基本情報"
+    assert "fields" in payload
+    assert "validation_messages" in payload
+    assert "advance_control" in payload
+    assert "tag_widget" in payload
+    assert "arrival_field" in payload
+
+
+# 3d. Fail-closed is unchanged by any of the above: exactly one advance click, no later-step
+# field ever written, and the raised error still names the stalled step -- already proven by
+# test_stall_is_fail_closed_with_exactly_one_advance_attempt_and_no_partial_progress above,
+# which drives the real _FakeCreatePage (no `.content()`) through the real _fill_create_form and
+# still passes unmodified; nothing about the observer wiring changes that fence.
 
 
 # 4. The unnamed-textarea locator raises a named error for zero or more than one match ---------
