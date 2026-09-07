@@ -410,6 +410,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    application back, persists its receipt, sends one real-time `Codex:::` Telegram report, and the next
    natural wake performs no duplicate application. Reuse the shared Apply lifecycle and reporting
    contracts; do not modify the Coconala/Lancers/CrowdWorks Apply-owner files currently owned by Claude.
+   Current root cause: the repo-owned pass, submission fence, official readback ledger and Telegram
+   reporter already exist and have historical verified submissions, but `run-mercor.sh` still requires
+   dedicated CDP `:9334`. That browser owner was retired by the completed PANIC work and the port is
+   officially absent. Do not resurrect the duplicate browser. Connect the bounded Mercor owner to the
+   existing Job Search browser through an owner-scoped context lease, then prove authentication and a
+   natural pass without restarting any browser.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
