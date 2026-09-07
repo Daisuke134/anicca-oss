@@ -219,7 +219,8 @@ card不要の毎月無料利用枠を全員に付与する。無料枠は毎月r
 ユーザーへ価値が届いた`successful managed action`だけを消費する。Calendar接続、設定変更、cache hit、
 内部poll、重複抑止、4xx/5xx、provider retryは無料枠を消費しない。
 
-無料枠の初期値は月20 successful managed actionsとする。枠を使い切っても、設定、接続解除、既存情報、
+無料枠の初期値は月30 successful managed actionsとする。80%到達時は完了したactionの後に1回だけ予告し、
+100%到達時は進行中・claim済みの通知を完了してから次の新規provider effectを保留する。枠を使い切っても、設定、接続解除、既存情報、
 cache済み結果は利用可能に保つ。新しい有料provider effectだけを停止し、Telegramで現在の利用数、次回reset、
 継続方法を説明する。途中でStripe情報を要求せず、本人が継続を選んだ時だけStripe Checkoutを開く。
 
@@ -269,7 +270,7 @@ continue, while new phone calls wait for the next monthly reset. This is one pla
 not a second tier. At direct cost USD 10.08, contribution before Stripe, hosting, support, and fixed costs is
 USD 18.92 and direct-API margin is 65.2%. At the expected USD 6 cost it is USD 23 and 79.3%.
 
-The free allowance is 20 completed managed events/month, not 20 internal effects. One event may create a
+The free allowance is 30 completed managed events/month, not 30 internal effects. One event may create a
 Travel block and one Telegram乗換案内 while consuming one allowance unit. Optional phone is excluded from
 the standing free allowance except for one onboarding test call; this caps expected free-user direct API
-cost below approximately USD 1 before shared fixed costs. Usage resets monthly at the tenant billing timezone.
+cost around or below approximately USD 1.50 before shared fixed costs. Usage resets monthly at the tenant billing timezone.
