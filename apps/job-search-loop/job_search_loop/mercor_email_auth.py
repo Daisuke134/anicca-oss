@@ -56,6 +56,46 @@ def newest_action_url(after_epoch: int, *, timeout_seconds: int = 30) -> str:
         time.sleep(2)
 
 
+def application_email(profile_path: Path) -> str:
+    value = json.loads(profile_path.read_text(encoding="utf-8"))
+    email = (value.get("candidate") or {}).get("application_email")
+    if not isinstance(email, str) or "@" not in email or len(email) > 320:
+        raise ValueError("private_profile_application_email_invalid")
+    return email
+
+
+async def request_email_login(ws_url: str, email: str) -> dict[str, str]:
+    async with websockets.connect(
+        ws_url, open_timeout=10, ping_interval=None, max_size=8 * 1024 * 1024
+    ) as ws:
+        expression = """(()=>{
+          const emailInput=document.querySelector('input[type="email"][name="email"]');
+          const login=[...document.querySelectorAll('button')]
+            .find(button=>(button.innerText||'').trim()==='Login');
+          if(!emailInput||!login||login.disabled) throw new Error('email_login_controls_absent');
+          const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+          setter.call(emailInput,%s);
+          emailInput.dispatchEvent(new Event('input',{bubbles:true}));
+          emailInput.dispatchEvent(new Event('change',{bubbles:true}));
+          login.click();
+          return true;
+        })()""" % json.dumps(email)
+        await _call(ws, 1, "Runtime.evaluate", {"expression": expression})
+        for index in range(80):
+            observed = await _call(ws, 10 + index, "Runtime.evaluate", {
+                "expression": "JSON.stringify({url:location.href,text:(document.body?.innerText||'').slice(0,5000)})",
+                "returnByValue": True,
+            })
+            value = json.loads(observed.get("result", {}).get("value") or "{}")
+            text = str(value.get("text", "")).casefold()
+            if "check your inbox" in text:
+                return {"status": "requested", "url": value.get("url", "")}
+            if "something went wrong" in text:
+                raise RuntimeError("mercor_email_login_provider_error")
+            await asyncio.sleep(0.25)
+    raise RuntimeError("mercor_email_login_request_not_observed")
+
+
 async def authenticate(ws_url: str, action_url: str) -> dict[str, str]:
     parsed_ws = urlsplit(ws_url)
     parsed_action = urlsplit(action_url)
@@ -92,9 +132,12 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ws", required=True)
     parser.add_argument("--after-epoch", required=True, type=int)
+    parser.add_argument("--profile", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
+        email = application_email(args.profile)
+        asyncio.run(request_email_login(args.ws, email))
         action_url = newest_action_url(args.after_epoch)
         result = asyncio.run(authenticate(args.ws, action_url))
     except Exception as exc:

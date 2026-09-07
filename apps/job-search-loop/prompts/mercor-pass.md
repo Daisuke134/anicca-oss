@@ -112,9 +112,10 @@ Pass order:
    was notified and no application was submitted; a gate never prevents scanning the
    remaining bounded candidates.
 
-An ordinary Mercor login screen is not a terminal blocker. Use only Mercor's email
-login with `mercor_auth_context.account_email` and return to authenticated
-Mercor before scanning. Do not ask Dais to log in. Never click `Google`, `Okta`, or
+An ordinary Mercor login screen is owned by the deterministic email-auth adapter before this
+pass. Never submit or retry login from this model pass. If the exact page still shows `Check your
+inbox`, `Something went wrong`, or `Sign in`, record that current state as a blocker without
+clicking any authentication control. Do not ask Dais to log in. Never click `Google`, `Okta`, or
 `Sign up`. Authentication hard stops begin only if email login reaches recovery, reset,
 registration, an unavailable confirmation challenge, or a waiting screen. Never use
 those hard-stop paths, recursive alternate methods, or a different browser profile.

@@ -20,7 +20,8 @@ def test_owner_uses_shared_browser_lease_and_revenue_name():
     assert "job_search_loop.mercor_auth_readback" in source
     assert "job_search_loop.mercor_email_auth" in source
     assert '--after-epoch "$RUN_STARTED_AT"' in source
-    assert source.count('"$ROOT/apps/job-search-loop/scripts/run-mercor.sh"') == 2
+    assert '--profile "$HOME/.config/anicca/job-search/profile.json"' in source
+    assert source.count('"$ROOT/apps/job-search-loop/scripts/run-mercor.sh"') == 1
     assert source.index("job_search_loop.mercor_auth_readback") < source.index(
         'commit-cookies "$TASK" --domain mercor.com'
     )
