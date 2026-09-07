@@ -2152,6 +2152,7 @@
       "state_root": "~/.local/state/life-manager/marketing-mine-daily"
     },
     "marketing-owner-daily": {
+      "adapter": "exec",
       "cadence": {
         "calendar_interval": {
           "Hour": 22,
@@ -2162,9 +2163,10 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "runtime/loop/entry_dispatch.py",
+      "entrypoint": "skills/earn/marketing-engine/report/owner-daily",
       "label": "ai.anicca.marketing-owner-daily",
       "log_root": "~/.local/state/life-manager/marketing-owner-daily/logs",
       "provider_route": "shared-agent-runner",

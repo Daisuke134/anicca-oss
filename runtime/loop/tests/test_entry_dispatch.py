@@ -265,6 +265,10 @@ class EntryDispatchTest(unittest.TestCase):
         self.assertEqual(command[:4],[sys.executable,str(root/'skills/earn/marketing-engine/report/owner_report_cli.py'),'sweep','--kind'])
         self.assertEqual(command[-1],'/home/.local/state/life-manager/marketing-engine')
 
+    def test_marketing_owner_daily_no_longer_has_a_handwritten_dispatch(self):
+        with self.assertRaisesRegex(ValueError, 'no dispatch command'):
+            command_for('marketing-owner-daily', Path('/release'), Path('/home'))
+
     def test_unknown_loop_fails_closed(self):
         with self.assertRaisesRegex(ValueError,'no dispatch command'):
             command_for('missing',Path('/release'),Path('/home'))

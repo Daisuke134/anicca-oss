@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan or install the remaining two Gate 15 owner-report LaunchAgents.
+"""Plan or install the remaining Gate 15 weekly owner-report LaunchAgent.
 
 The installer deliberately owns only the ``marketing-owner-*`` labels.  Gate
 16 is responsible for retiring the legacy aggregate reporters after shadow
@@ -31,7 +31,6 @@ STATE_RELATIVE = pathlib.Path("skills/earn/marketing-engine/state")
 LOG_RELATIVE = pathlib.Path("Library/Logs/anicca")
 
 LABELS = (
-    "ai.anicca.marketing-owner-daily",
     "ai.anicca.marketing-owner-weekly",
 )
 
@@ -86,7 +85,7 @@ def _sweep_args(
 
 
 def build_plists(repo_root: pathlib.Path, home: pathlib.Path) -> dict[str, bytes]:
-    """Return exactly the two remaining Gate 15 LaunchAgent plist payloads.
+    """Return the remaining Gate 15 weekly LaunchAgent plist payload.
 
     ``repo_root`` is explicit so callers can inspect a canonical checkout
     without accidentally embedding this disposable worktree.  This function
@@ -98,16 +97,8 @@ def build_plists(repo_root: pathlib.Path, home: pathlib.Path) -> dict[str, bytes
     home = pathlib.Path(home)
     cli, state_root, log_dir = _paths(repo_root, home)
 
-    daily = _common_job(
-        label=LABELS[0], repo_root=repo_root, home=home, log_dir=log_dir
-    )
-    daily["StartCalendarInterval"] = {"Hour": 22, "Minute": 0}
-    daily["ProgramArguments"] = _sweep_args(
-        python=PYTHON, cli=cli, state_root=state_root, kind="product_daily"
-    )
-
     weekly = _common_job(
-        label=LABELS[1], repo_root=repo_root, home=home, log_dir=log_dir
+        label=LABELS[0], repo_root=repo_root, home=home, log_dir=log_dir
     )
     # launchd uses Sunday == 0 for StartCalendarInterval.  No timezone is
     # embedded; calendar values therefore use the host's local timezone.
@@ -116,7 +107,7 @@ def build_plists(repo_root: pathlib.Path, home: pathlib.Path) -> dict[str, bytes
         python=PYTHON, cli=cli, state_root=state_root, kind="portfolio_weekly"
     )
 
-    jobs = (daily, weekly)
+    jobs = (weekly,)
     return {
         job["Label"]: plistlib.dumps(job, fmt=plistlib.FMT_XML, sort_keys=True)
         for job in jobs
@@ -140,7 +131,7 @@ def plan(
     home: pathlib.Path = DEFAULT_HOME,
     launch_dir: pathlib.Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Describe create/update/no-change status for the two target files."""
+    """Describe create/update/no-change status for the remaining target file."""
 
     launch_dir = pathlib.Path(launch_dir) if launch_dir is not None else pathlib.Path(home) / "Library" / "LaunchAgents"
     payloads = build_plists(repo_root, home)
@@ -348,7 +339,7 @@ def apply(
     home: pathlib.Path = DEFAULT_HOME,
     launch_dir: pathlib.Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Atomically install and read back only the two remaining owned labels."""
+    """Atomically install and read back only the remaining owned label."""
 
     repo_root = pathlib.Path(repo_root)
     home = pathlib.Path(home)
