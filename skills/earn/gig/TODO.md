@@ -823,6 +823,20 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    owner requires a scoped lifecycle restart, which Dais explicitly defers; no Mac, Aqua, browser or
    loop restart is performed here. Shared source extraction and Lancers acceptance continue without
    changing the cursor order.
+   The shared-source migration now replaces Coconala's bespoke continuous entrypoint with a finite
+   five-minute owner that enters the same `reply_kernel.py` as Lancers. The Coconala adapter retains
+   only complete official inbox observation, exact direct-thread context, authenticated reply
+   mutation and official message readback; model composition remains the existing agent-runner
+   adapter. Fifty-two focused adapter/kernel/owner/dispatch checks and three registry checks pass.
+   The exact production interpreter import-smoke found and corrected two wiring defects before
+   deployment: Coconala must preserve the proven `HF_GIG_PYTHON` runtime because the generic control
+   venv lacks `websockets`, and the CDP target must declare the `coconala-shared-reply` resource
+   owner. A subsequent read-only official inbox smoke used that exact runtime and owner, retried the
+   known transient navigation once with a fresh owned tab, and still ended
+   `authenticated tab did not finish navigation`. No provider mutation occurred. This atom remains
+   open until the stale lock-holding PID is removed in an authorized scoped lifecycle action, the
+   main-derived finite owner produces a natural terminal over the complete inbox, and official
+   reply/readback plus replay-zero are retained.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

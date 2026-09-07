@@ -979,8 +979,9 @@
       "state_root": "~/.local/state/life-manager/coconala/paid"
     },
     "hf-gig-reply-detector": {
+      "adapter": "exec",
       "cadence": {
-        "keep_alive": true
+        "start_interval_seconds": 300
       },
       "cleanup": {
         "max_age_days": 14,
@@ -988,7 +989,8 @@
       },
       "domain": "earn",
       "effect_class": "none",
-      "entrypoint": "runtime/loop/entry_dispatch.py",
+      "command": [],
+      "entrypoint": "skills/earn/gig/scripts/coconala-reply-owner",
       "label": "ai.anicca.hf-gig-reply-detector",
       "log_root": "~/.local/state/life-manager/coconala/reply/logs",
       "provider_route": "shared-agent-runner",
