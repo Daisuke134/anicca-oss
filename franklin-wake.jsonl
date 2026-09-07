@@ -42473,3 +42473,11 @@
 {"ts":1788792275,"wake_id":"00MTRCQHGYBB90499692094F45","kind":"wake_error","sleep_s":60,"model":"auto"}
 {"ts":1788792345,"wake_id":"00MTRCRZ8V602ED9EFF6214F09","kind":"wake_error","sleep_s":60,"model":"auto"}
 {"ts":1788792417,"wake_id":"00MTRCTJ5591F4A226861F4A96","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788792564,"wake_id":"00MTRCWO87CAF83E51001147E9","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: Solana yield aggregator affiliate program [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for th"}
+{"ts":1788792706,"wake_id":"00MTRCZPXM84408EA6046F41F8","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788792846,"wake_id":"00MTRD2PK8643AC9D79F6646A2","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788792977,"wake_id":"00MTRD5INSAB1058AF22FC4948","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788793116,"wake_id":"00MTRD8HX839AF2015572E41AE","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788793189,"wake_id":"00MTRDA2GL2B74028265544853","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788793333,"wake_id":"00MTRDD5VC48C3FB559E0C4B4E","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788793437,"wake_id":"00MTRDFDVADF4A9AD4162D4D3E","kind":"wake_error","sleep_s":60,"model":"auto"}
