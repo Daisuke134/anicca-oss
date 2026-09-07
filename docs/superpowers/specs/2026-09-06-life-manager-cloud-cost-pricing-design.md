@@ -264,7 +264,7 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    公式`call_duration`を取得してのみ精算するため、bridge crash、response loss、`LM_AMD=off`でもreplay-safe。
    関連test 236/236、migration二重適用、実PostgreSQLの3,480秒時並行reserve 1/2件、誤token拒否、37秒精算後
    残83秒、stale accepted保持をPASS。fresh read-only reviewはSHA `999755fe0`を`ship`判定。
-4. **IN PROGRESS — production:** 1〜3はPR #4524としてmainへmerge済み（merge SHA
+4. **DONE — production:** 1〜3はPR #4524としてmainへmerge済み（merge SHA
    `58347e26f107cd6a8f4a103a5fbc0e48f456748a`）。本番はRailway `life-manager / production /
    life-call`とSupabase project `cycgdwndgfgdbnndithc`。read-only schema probeでmonthly allowance table、
    voice ledger、Telegram OAuth claim RPCがHTTP 404、route-cache新columnがHTTP 400となり、3 migrationが
@@ -275,8 +275,10 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    4/4 HTTP 200。本番`life-call`はdeploy前からCRASHEDで、最新main deployもrepo-rootの
    `runtime/contracts/common-record.cjs`をapp-root imageが含まないため起動時MODULE_NOT_FOUNDとなった。
    起動時の不要なcontract解決だけを遅延する最小修正とRailway app-root再現testを追加し、関連62/62がPASS。
-   次はfresh review、hotfix merge/deploy、health SHA readbackで項目4を閉じる。
-5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
+   hotfixはfresh review `ship`、関連62/62 PASS後にPR #4539としてmerge。本番`life-call` deployment
+   `6b8d1be7-d3db-46c1-b0a0-0b82efd1bab6`はSUCCESS、health HTTP 200 / `ok:true` / build
+   `db1493f290b28508b6407c8ad6ec061c82b80d6a`をreadbackした。
+5. **IN PROGRESS — Telegram Web E2E:** 既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
    最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
 6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
 
