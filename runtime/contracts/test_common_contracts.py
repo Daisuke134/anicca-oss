@@ -99,6 +99,21 @@ class CommonContractTests(unittest.TestCase):
         )
         validate(json.loads(result.stdout))
 
+    def test_agent_economy_revenue_adapter_outputs_match_financial_schema(self):
+        script = (
+            "import('./skills/agent-economy/lib/revenue-receipt.mjs').then(async r=>{"
+            "const a=await import('./skills/agent-economy/lib/financial-record-adapter.mjs');"
+            "const receipt=r.normalizeRevenueReceipt({provider:'x402',payer:'buyer',recipient:'seller',"
+            "gross:'1.25',fee:'0.05',refund:'0',asset:'USDC',terminal_state:'settled',"
+            "occurred_at:'2026-09-07T01:00:00Z',proof:{chain_id:8453,tx_hash:'0x'+'a'.repeat(64),log_index:1,verified:true}});"
+            "process.stdout.write(JSON.stringify(a.revenueReceiptToFinancialRecords(receipt,{subjectId:'tenant-1'})));});"
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, text=True, capture_output=True, check=True,
+        )
+        for record in json.loads(result.stdout):
+            validate(record)
+
     def test_runtime_event_schema_matches_runtime_vocabulary(self):
         definition = SCHEMA["$defs"]["RuntimeEvent"]["properties"]
         self.assertEqual(set(definition["domain"]["enum"]), runtime_event.DOMAINS)

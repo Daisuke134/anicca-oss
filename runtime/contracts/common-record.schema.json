@@ -122,7 +122,7 @@
         "scope": {"enum": ["personal", "business"]},
         "kind": {"enum": ["asset_balance", "liability_balance", "personal_income", "personal_expense", "business_revenue", "business_cost", "payout", "fee", "tax", "transfer"]},
         "direction": {"enum": ["credit", "debit", "snapshot"]}, "amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
-        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "occurred_at": {"$ref": "#/$defs/Timestamp"}, "recorded_at": {"$ref": "#/$defs/Timestamp"},
+        "currency": {"type": "string", "pattern": "^[A-Z][A-Z0-9]{2,9}$"}, "occurred_at": {"$ref": "#/$defs/Timestamp"}, "recorded_at": {"$ref": "#/$defs/Timestamp"},
         "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 1024},
         "source": {
           "type": "object", "additionalProperties": false, "required": ["provider", "source_type", "external_ref"],
