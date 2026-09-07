@@ -278,8 +278,12 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    hotfixはfresh review `ship`、関連62/62 PASS後にPR #4539としてmerge。本番`life-call` deployment
    `6b8d1be7-d3db-46c1-b0a0-0b82efd1bab6`はSUCCESS、health HTTP 200 / `ok:true` / build
    `db1493f290b28508b6407c8ad6ec061c82b80d6a`をreadbackした。
-5. **IN PROGRESS — Telegram Web E2E:** 既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
-   最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
+5. **IN PROGRESS — Telegram production E2E:** 既存のMTProto user session
+   (`skills/tools/telegram-user/tg_user.py`, Telethon 1.44.0)でDaisのTelegram actorを読み書きする。
+   2026-09-07にCloud Life Managerを会話一覧から特定し、履歴8件のread、`/start lp`のsend
+   (message_id 67421)、4秒後のBot応答readback (message_id 67422)までPASS。Bot tokenの
+   webhook/getUpdates ownershipは変更していない。残りは新規開始相当の状態遷移、最初のTravel block・
+   乗換案内・Telegram provider receipt・replay追加送信0を本番でE2Eする。
 6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
 
 ## 10. `$29/month` unit-cost envelope
