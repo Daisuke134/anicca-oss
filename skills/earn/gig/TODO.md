@@ -861,7 +861,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Both adapters return this shared planner and no longer define a provider `decide` function;
    Coconala now projects its official conversation into the same `role` contract as Lancers.
    Reply-focused regression is 138 passed with no external effect. Provider prompt/grounding
-   convergence and live Coconala activation/official acceptance remain open.
+   convergence and live Coconala activation/official acceptance remain open. The replacement
+   Coconala adapter also currently declares only normal-message mutation: the proven legacy path
+   from an explicit buyer estimate request through structured estimate terms, the official estimate
+   form and same-session readback is not yet connected to the shared planner/kernel. Do not activate
+   the replacement owner until that capability is preserved; otherwise the migration would silently
+   regress Reply's estimate responsibility.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
