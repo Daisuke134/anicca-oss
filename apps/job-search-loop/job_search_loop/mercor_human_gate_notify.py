@@ -61,7 +61,7 @@ def record_and_notify(
         "Codex::: Mercor応募に人間操作が必要です\n\n"
         f"案件: {title.strip()}\n"
         f"必要な操作: {reason.strip()}\n"
-        "状態: applicationは保存済みです。完了後、次のwakeが自動再開します。"
+        "状態: 人間操作の直前まで進行済みです。完了後、次のwakeが自動再開します。"
     )
     receipt = _load_notification().notify_effect(
         database=outbox,
