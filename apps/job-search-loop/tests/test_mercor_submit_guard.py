@@ -9,6 +9,7 @@ from job_search_loop.mercor_submit_guard import (
     claim_submission_once,
     classify_submit_readback,
     fenced_listing_ids,
+    release_claim_without_effect,
 )
 
 
@@ -115,6 +116,24 @@ class MercorSubmitGuardTests(unittest.TestCase):
             self.assertFalse(replay)
             self.assertEqual(fenced_listing_ids(fences), {"list-new"})
             self.assertEqual(len(fences.read_text(encoding="utf-8").splitlines()), 1)
+
+    def test_fresh_submit_visible_readback_releases_false_claim_append_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / "pre.html"
+            evidence.write_text("<button>Submit application</button>", encoding="utf-8")
+            fences = root / "submission-fences.jsonl"
+            self.assertTrue(claim_submission_once(
+                fence_ledger=fences, listing_id="list-new", title="Video Evaluator",
+                url="https://work.mercor.com/explore?listingId=list-new",
+                pre_submit_evidence=evidence, run_id="run-1",
+            ))
+            release_claim_without_effect(
+                fence_ledger=fences, listing_id="list-new",
+                readback_evidence=evidence, run_id="run-2",
+            )
+            self.assertEqual(fenced_listing_ids(fences), set())
+            self.assertEqual(len(fences.read_text(encoding="utf-8").splitlines()), 2)
 
 
 if __name__ == "__main__":

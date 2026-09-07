@@ -36,8 +36,43 @@ def fenced_listing_ids(path: Path) -> set[str]:
             continue
         listing_id = value.get("listing_id") if isinstance(value, dict) else None
         if isinstance(listing_id, str) and listing_id.strip():
-            identifiers.add(listing_id.strip())
+            normalized = listing_id.strip()
+            if value.get("status") == "claim_released_no_effect":
+                identifiers.discard(normalized)
+            else:
+                identifiers.add(normalized)
     return identifiers
+
+
+def release_claim_without_effect(
+    *, fence_ledger: Path, listing_id: str, readback_evidence: Path, run_id: str,
+) -> None:
+    """Release a false claim only after fresh evidence proves the final submit is still available."""
+    evidence = readback_evidence.expanduser().resolve()
+    if not evidence.is_file():
+        raise MercorSubmitGuardError("no-effect readback evidence is missing")
+    text = evidence.read_text(encoding="utf-8", errors="replace").casefold()
+    if "submit application" not in text:
+        raise MercorSubmitGuardError("no-effect readback does not show submit application")
+    ledger = fence_ledger.expanduser().resolve()
+    lock_path = ledger.with_name(f"{ledger.name}.lock")
+    with lock_path.open("a+", encoding="utf-8") as lock:
+        os.chmod(lock_path, 0o600)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if listing_id not in fenced_listing_ids(ledger):
+            return
+        event = {
+            "listing_id": listing_id,
+            "status": "claim_released_no_effect",
+            "run_id": run_id,
+            "readback_evidence_sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with ledger.open("a", encoding="utf-8") as output:
+            output.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(ledger, 0o600)
 
 
 def claim_submission_once(
