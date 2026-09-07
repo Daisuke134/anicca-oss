@@ -28,7 +28,7 @@ class AgentRunnerTests(unittest.TestCase):
         self.assertEqual(TASK_CLASSES["submit"], "browser-lane-agent")
         self.assertEqual(TASK_CLASSES["improve"], "high-value-agent")
 
-    def test_mercor_pass_does_not_supply_escalation_reason(self):
+    def test_mercor_pass_supplies_required_escalation_reason(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             runner = AgentRunner(
@@ -60,7 +60,9 @@ class AgentRunnerTests(unittest.TestCase):
                     workdir=root,
                     run_id="mercor-pass",
                 )
-            self.assertNotIn("--escalation-reason", call.call_args.args[0])
+            argv = call.call_args.args[0]
+            self.assertIn("--escalation-reason", argv)
+            self.assertIn("Mercor application", argv[argv.index("--escalation-reason") + 1])
 
     def test_composition_prompt_uses_stdin_and_retains_private_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
