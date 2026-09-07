@@ -161,6 +161,9 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     if (url.pathname === "/rest/v1/rpc/create_lm_panel_oauth_state" && method === "POST") {
       return response(200, true);
     }
+    if (url.pathname === "/rest/v1/rpc/create_lm_telegram_oauth_state" && method === "POST") {
+      return response(200, true);
+    }
     if (url.pathname === "/rest/v1/rpc/claim_lm_telegram_oauth_state" && method === "POST") {
       return response(200, startedRow ? [{ uid: startedRow.uid, chat_id: startedRow.telegram_chat_id }] : []);
     }

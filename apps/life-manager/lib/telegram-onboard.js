@@ -23,6 +23,9 @@ function coreReady(row) {
 function computeStage(row, opts = {}) {
   if (coreReady(row)) return "done";
   if (!row || row.calendar_provider !== "composio_gcal") return "calendar";
+  const storedStage = String(row.tg_onboard_stage || "").toLowerCase();
+  if ((storedStage === "calendar" || storedStage === "home")
+    && (typeof row.home_address !== "string" || !row.home_address.trim())) return "home";
   // The panel state machine owns the canonical paid/core-ready terminal state. The legacy loop must
   // not reopen phone or Gmail for a paid user who intentionally skipped a phone, nor can it rewrite
   // a server-owned `done` marker after a browser resume.
@@ -47,7 +50,7 @@ function applyTelegramProfileName(row, from) {
   return current;
 }
 
-const NATIVE_STAGES = new Set(["phone"]);
+const NATIVE_STAGES = new Set(["home", "phone"]);
 const isNativeStage = (stage) => NATIVE_STAGES.has(stage);
 
 function normalizePhone(text) {
@@ -67,6 +70,8 @@ function stageMessage(stage, chatId, base, gmailConnectUrl, profileName) {
   switch (stage) {
     case "calendar":
       return { text: "👋 <b>Welcome to Life Manager!</b>\n\nConnect your Google Calendar (10 sec). Tap below, sign in, then come back here.", extra: urlButton("📅 Connect Calendar") };
+    case "home":
+      return { text: "自宅の住所を教えてください。ここを普段の出発地点として、次の予定に間に合う出発時刻を計算します。", extra: undefined };
     case "phone":
       return { text: "✅ <b>Calendar connected!</b>\n\nWhat's your phone number? Japanese numbers can be <code>090-1234-5678</code> or international <code>+81 90-1234-5678</code> — I'll call you before events.", extra: undefined };
     case "pay":
@@ -159,6 +164,16 @@ async function setStage(uid, stage, supaUrl, supaKey) {
   }).catch(() => {});
 }
 
+async function transitionOnboarding(uid, chatId, action, payload, supaUrl, supaKey) {
+  const response = await fetch(`${String(supaUrl || "").replace(/\/$/, "")}/rest/v1/rpc/lm_panel_onboarding_transition`, {
+    method: "POST",
+    headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_uid: uid, p_chat_id: String(chatId), p_action: action, p_payload: payload || {} }),
+  });
+  if (!response.ok) throw new Error("onboarding_transition_failed");
+  return response.json().catch(() => ({}));
+}
+
 async function backfillIfCalendarCompleted(row, opts = {}) {
   if (!row || row.tg_onboard_stage !== "calendar" || computeStage(row) === "calendar") return false;
   const backfill = opts.backfillCalendarContext || backfillCalendarContext;
@@ -173,6 +188,19 @@ async function handleOnboardingText(chatId, text, row, opts) {
   if (row && row.tg_onboard_stage === "done") return "done";
   const stage = computeStage(row);
   await backfillIfCalendarCompleted(row, opts);
+  if (stage === "home") {
+    const homeAddress = String(text || "").trim();
+    if (!homeAddress || homeAddress.length > 240) {
+      await (opts.sendMessage || sendMessage)(opts.token, chatId, "自宅の住所を240文字以内で教えてください。");
+      return "bad-home";
+    }
+    const transition = opts.transitionOnboarding || transitionOnboarding;
+    await transition(row.uid, chatId, "home.save", { home_address: homeAddress }, opts.supaUrl, opts.supaKey);
+    await transition(row.uid, chatId, "notifications.enable", {}, opts.supaUrl, opts.supaKey);
+    const message = stageMessage("phone", chatId, opts.base);
+    await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
+    return "home";
+  }
   if (stage === "phone") {
     const phone = normalizePhone(text);
     if (!phone) {
@@ -318,6 +346,6 @@ async function onboardNudgeAll(opts) {
 
 module.exports = {
   computeStage, telegramProfileName, applyTelegramProfileName, stageMessage, sendStage, isNativeStage,
-  normalizePhone, handleOnboardingText, handleGmailCallback, rowByChatId, linkedRows, setStage,
+  normalizePhone, handleOnboardingText, handleGmailCallback, rowByChatId, linkedRows, setStage, transitionOnboarding,
   saveField, backfillIfCalendarCompleted, onboardNudgeAll, NUDGE_COOLDOWN_MS,
 };

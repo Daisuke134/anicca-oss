@@ -425,15 +425,15 @@ test("a stage CHANGE inside the 30-min cooldown still waits, then fires once ela
     linkedRows: async () => [row], sendStage: async () => {},
     setStage: async (_uid, stage) => stages.push(stage), backfillCalendarContext: async () => {},
   });
-  assert.equal(await run(nudgeRow({ home_address: null, tg_onboard_stage: "calendar" }), t0), 1); // calendar → phone
-  assert.deepEqual(stages, ["phone"]);
+  assert.equal(await run(nudgeRow({ home_address: null, tg_onboard_stage: "calendar" }), t0), 1); // calendar → home
+  assert.deepEqual(stages, ["home"]);
   // stage really changed (phone → pay) but only 2 minutes have passed → hold
   assert.equal(await run(nudgeRow({ home_address: null, phone: "+81", tg_onboard_stage: "phone" }), t0 + 2 * 60000), 0);
   assert.equal(await run(nudgeRow({ home_address: null, phone: "+81", tg_onboard_stage: "phone" }), t0 + NUDGE_COOLDOWN_MS - 1), 0);
-  assert.deepEqual(stages, ["phone"]);
+  assert.deepEqual(stages, ["home"]);
   // cooldown elapsed → the pending change is finally announced
   assert.equal(await run(nudgeRow({ home_address: null, phone: "+81", tg_onboard_stage: "phone" }), t0 + NUDGE_COOLDOWN_MS), 1);
-  assert.deepEqual(stages, ["phone", "pay"]);
+  assert.deepEqual(stages, ["home", "pay"]);
 });
 
 test("the cooldown is 30 minutes and is per-uid, not global", async () => {
@@ -547,7 +547,8 @@ test("applyTelegramProfileName: fills missing name without overwriting an existi
   assert.equal(computeStage(applyTelegramProfileName(null, { first_name: "Dais" })), "calendar");
 });
 
-test("phone is the only NATIVE typed stage", () => {
+test("home and phone are the NATIVE typed stages", () => {
+  assert.ok(isNativeStage("home"));
   assert.ok(isNativeStage("phone"));
   for (const stage of ["name", "calendar", "pay", "gmail", "done"]) assert.ok(!isNativeStage(stage));
 });
@@ -623,7 +624,7 @@ test("rowByChatId-shaped paid phone-less done rows are webhook no-ops without jo
   assert.deepEqual(effects, []);
 });
 
-test("calendar completion triggers best-effort context backfill once before announcing phone", async () => {
+test("calendar completion triggers best-effort context backfill once before asking for home", async () => {
   const calls = [];
   const row = { ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar" };
   const sent = await onboardNudgeAll({ token: "t", base: "https://x", supaUrl: "s", supaKey: "k",
@@ -633,7 +634,46 @@ test("calendar completion triggers best-effort context backfill once before anno
     backfillCalendarContext: async (uid) => calls.push(`context:${uid}`),
   });
   assert.equal(sent, 1);
-  assert.deepEqual(calls, ["context:u1", "send", "stage:phone"]);
+  assert.deepEqual(calls, ["context:u1", "send", "stage:home"]);
+});
+
+test("calendar completion asks for the exact home address", () => {
+  assert.equal(computeStage({ ...full, home_address: null, tg_onboard_stage: "calendar" }), "home");
+  const message = stageMessage("home", "1", "https://x");
+  assert.match(message.text, /自宅の住所/);
+  assert.doesNotMatch(message.text, /料金|カード|Stripe/);
+});
+
+test("home text is tenant-scoped, enables notifications, then advances once", async () => {
+  const transitions = [], messages = [];
+  const row = { ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar" };
+  const result = await handleOnboardingText("1", " 東京都千代田区1-1 ", row, {
+    token: "t", base: "https://x", supaUrl: "s", supaKey: "k",
+    backfillCalendarContext: async () => {},
+    transitionOnboarding: async (...args) => transitions.push(args),
+    sendMessage: async (_token, _chat, text) => messages.push(text),
+  });
+  assert.equal(result, "home");
+  assert.deepEqual(transitions, [
+    ["u1", "1", "home.save", { home_address: "東京都千代田区1-1" }, "s", "k"],
+    ["u1", "1", "notifications.enable", {}, "s", "k"],
+  ]);
+  assert.equal(messages.length, 1);
+});
+
+test("blank or overlong home text performs no mutation", async () => {
+  for (const input of [" ", "a".repeat(241)]) {
+    const transitions = [], messages = [];
+    const row = { ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar" };
+    assert.equal(await handleOnboardingText("1", input, row, {
+      token: "t", base: "https://x", supaUrl: "s", supaKey: "k",
+      backfillCalendarContext: async () => {},
+      transitionOnboarding: async (...args) => transitions.push(args),
+      sendMessage: async (_token, _chat, text) => messages.push(text),
+    }), "bad-home");
+    assert.deepEqual(transitions, []);
+    assert.equal(messages.length, 1);
+  }
 });
 
 test("calendar completion hook also runs on immediate /start or text resume", async () => {

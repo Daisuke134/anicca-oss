@@ -576,6 +576,11 @@ const server = http.createServer(async (req, res) => {
   }
   if (path === "/telegram/oauth/calendar") {
     const botUsername = String(process.env.LM_TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+    if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(botUsername)) {
+      res.writeHead(503, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      res.end("Return to Telegram and send /start again.");
+      return;
+    }
     handleTelegramOAuthCallback(req, res, {
       supaUrl: SUPA_URL, supaKey: SUPA_KEY, composioKey: COMPOSIO_KEY,
       sendMessage: (chatId, text) => sendMessage(LM_TG_TOKEN, chatId, text),
@@ -995,10 +1000,12 @@ const server = http.createServer(async (req, res) => {
             if (claim.status !== "claimed" || String(claim.chat_id) !== String(u.chatId)) throw new Error("telegram actor claim failed");
             row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
             if (!row || !row.uid) throw new Error("telegram actor unavailable");
+            const commandStore = createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+            commandStore.createOAuthState = commandStore.createTelegramOAuthState;
             const result = await executeUserCommand({ uid: row.uid, chatId: u.chatId }, {
               type: "connection.start", provider: "calendar",
             }, {
-              store: createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY }),
+              store: commandStore,
               idempotencyKey: `telegram-start:${u.messageId || update.update_id}`,
               composioKey: COMPOSIO_KEY,
               composioAuthConfig: process.env.COMPOSIO_GCAL_AUTH_CONFIG,

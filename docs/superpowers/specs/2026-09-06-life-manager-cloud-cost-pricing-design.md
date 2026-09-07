@@ -244,11 +244,13 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    `/start`のprivate-chat actor claim、Telegram言語による日英表示、通常URLのGoogle consent button、
    WebApp非使用、cookie不要のone-time OAuth callback、Calendar ACTIVE同期、Telegram復帰と自宅住所質問を
    branch `feat/lm-telegram-native-start-20260907`で実装。ローカルcontractはPASS済み。
-   未完はmigrationの本番適用、production deploy/readback、実actor E2E。
+   この項目ではローカル実装とcontractを完了する。本番反映は項目4でまとめて行う。
 2. 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
 3. 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
-4. DaisのTelegram actorと隔離test actorで、新規開始から最初のTravel block・乗換案内・Telegram receiptまでE2Eする。
-5. E2E receipt後にだけ公開導線を再開する。
+4. 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
+5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
+   最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
+6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
 
 ## 10. `$29/month` unit-cost envelope
 
