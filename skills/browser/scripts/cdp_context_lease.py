@@ -505,10 +505,18 @@ def _seed_web_storage(ws_url, target_url, origins):
     })()""" % (
         json.dumps(target_origin), json.dumps(matching_local), json.dumps(matching_session)
     )
-    (result,) = asyncio.run(_page_calls(ws_url, [(
-        "Runtime.evaluate",
-        {"expression": expression, "awaitPromise": True, "returnByValue": True},
-    )], timeout=15.0))
+    deadline = time.monotonic() + 10.0
+    while True:
+        try:
+            (result,) = asyncio.run(_page_calls(ws_url, [(
+                "Runtime.evaluate",
+                {"expression": expression, "awaitPromise": True, "returnByValue": True},
+            )], timeout=15.0))
+            break
+        except RuntimeError as error:
+            if "Cannot find default execution context" not in str(error) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.1)
     if result.get("exceptionDetails"):
         raise RuntimeError("web_storage_seed_failed")
     return len(matching_local) + len(matching_session)

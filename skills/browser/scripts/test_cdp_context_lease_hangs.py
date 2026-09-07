@@ -372,6 +372,28 @@ def test_seed_web_storage_targets_exact_origin_and_reloads(monkeypatch):
     assert "setTimeout(()=>location.reload(),50)" in expression
 
 
+def test_seed_web_storage_waits_for_navigation_execution_context(monkeypatch):
+    module = load_module()
+    attempts = []
+
+    async def page_calls(_ws_url, _pairs, timeout=None):
+        attempts.append(timeout)
+        if len(attempts) == 1:
+            raise RuntimeError("Cannot find default execution context")
+        return [{"result": {"value": 1}}]
+
+    monkeypatch.setattr(module, "_page_calls", page_calls)
+    monkeypatch.setattr(module.time, "sleep", lambda _seconds: None)
+    assert module._seed_web_storage(
+        "ws://leased-page", "https://work.mercor.com/explore",
+        [{
+            "origin": "https://work.mercor.com",
+            "sessionStorage": [{"name": "mercor-session-id", "value": "session"}],
+        }],
+    ) == 1
+    assert len(attempts) == 2
+
+
 def test_acquire_disposes_context_when_local_storage_seed_fails(monkeypatch, tmp_path):
     module = load_module()
     monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(tmp_path / "leases.json"))

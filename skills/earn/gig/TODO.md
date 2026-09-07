@@ -631,6 +631,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    pre-effect claims can be released append-only only when fresh readback still shows the final submit.
    Focused verification passes 42 tests plus 2 subtests. The existing false Video Evaluator claim must be
    released from that exact evidence, then the fixed release must complete official submit/TG/replay-zero.
+   The false Video Evaluator claim is now append-only released from that exact submit-visible evidence.
+   First installed release `616c14effff920980030fb420b577d3426bbfe65` then failed before its pass:
+   preserving the requested URL correctly began real navigation, but Web Storage seed raced the new page's
+   execution context and Chrome returned `Cannot find default execution context`. No login or application
+   mutation occurred. The shared lease now retries only that transient navigation boundary until the exact
+   origin has an execution context, then seeds storage. Focused verification passes 43 tests plus 2 subtests.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
