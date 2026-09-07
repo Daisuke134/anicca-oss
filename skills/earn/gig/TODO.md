@@ -741,6 +741,17 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    prefers visible `1-click apply`, submits only candidates whose live detail exposes no person-bound
    requirement, and continues after a human-gate report. Keep the currently running guarded wake
    alive to its natural terminal, then target the next release while idle; do not stop the loop again.
+   That guarded wake ended naturally `pass` at `2026-09-07 20:33 JST` and produced a second fresh
+   verified application: `Product management / roadmap / PRD Evaluator`. It inspected twelve
+   distinct listings, claimed the provider-effect fence, read the official submitted result back,
+   advanced the durable application ledger to 23 rows and sent the realtime Telegram receipt as
+   message `66448`; blocked is empty. The next targeted apply receipt
+   `2d2217d04fbfe2afdcf4bf74` loads release `0ef13b86358fea87fe20ec172c826c449315b20d`,
+   a descendant containing both the media deny and incomplete-card skip repairs. Its replay wake is
+   currently running: it retained the 23-row ledger, reconciled the prior success without duplicate
+   submission, returned to Explore, and has not entered the Bilingual application ceremony or
+   requested an OS media permission. Keep the atom open until this wake reaches a natural terminal;
+   then record whether it submitted another distinct ready listing or completed replay-zero.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
