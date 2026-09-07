@@ -678,6 +678,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    remains unchecked until the owner stops immediately after persisting a verified effect, a following
    natural wake reuses the parked context without issuing login email, and the same listing produces
    replay-zero with no duplicate Telegram or provider submit.
+   The following release wake reuses the exact parked context and target with `reused=true`, generation
+   `2`, proving that no browser or tab was recreated. Its first auth readback nevertheless returns
+   `indeterminate` on the still-authenticated `/jobs/apply/candidate...` success page, so the preflight
+   unnecessarily attempts email login and fails with `mercor_email_login_controls_not_ready`. This is
+   a classifier bug, not a Mercor logout: the page URL and text still contain the official application
+   surface and submitted state. Auth readback now accepts a `/jobs/apply/` page only when it also has
+   strong application controls or official submitted text, while `Sign in` and `/login` continue to win
+   as logged out. A clean natural replay on that same parked context remains required.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

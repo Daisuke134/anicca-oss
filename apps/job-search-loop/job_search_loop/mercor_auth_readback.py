@@ -23,6 +23,17 @@ def classify_auth_snapshot(*, url: object, visible_text: object) -> str:
     text = visible_text.casefold()
     if parsed.path.startswith("/login") or "continue to mercor" in text or "sign in" in text:
         return "logged_out"
+    if parsed.path.startswith("/jobs/apply/") and "application" in text and any(
+        marker in text
+        for marker in (
+            "upload resume",
+            "work authorization",
+            "submit application",
+            "your application has been submitted",
+            "view application",
+        )
+    ):
+        return "authenticated"
     if "profile" in text and ("earnings" in text or "applications" in text or "explore" in text):
         return "authenticated"
     return "indeterminate"
