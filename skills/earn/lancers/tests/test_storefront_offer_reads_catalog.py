@@ -32,9 +32,12 @@ REAL_IMAGE = REPO_ROOT / "skills/earn/lancers/assets/monthly-sns-content-ops-v1.
 # mvp_web_app_build carries three tiers with delivery_days 14/21/30, all in Lancers' allowed
 # set, and a title/subtitle short enough to pass validation -- it projects clean.
 REAL_FAMILY = "mvp_web_app_build"
-# ai_agent_integration carries an 18-day tier. 18 is not in Lancers' fixed delivery_days set,
-# so its projection is a real catalogue entry that cannot make a legal Lancers listing.
-BROKEN_FAMILY = "ai_agent_integration"
+# Eighteen of the catalogue's twenty families carry two tiers. Lancers' product validator
+# requires exactly three plans, so their projections are real catalogue entries that cannot
+# make a legal Lancers listing -- the largest single obstacle to selling the catalogue there.
+# (ai_agent_integration used to serve as this fixture because of its 18-day tier; the Lancers
+# projection now rounds that to 21, so it no longer fails and no longer proves anything.)
+BROKEN_FAMILY = "line_bot_dev"
 
 
 def _module():
