@@ -43,6 +43,7 @@ migration status live in
 | Change a loop, its cadence, release or plist | `skills/loop-development/SKILL.md` |
 | Build or fix an Apply lane on any marketplace | `references/marketplace-apply-lane.md` |
 | Build or fix a Paid/Fulfillment lane on any marketplace | `references/marketplace-paid-lane.md` |
+| Build or fix a Storefront lane on any marketplace | `references/marketplace-storefront-lane.md` |
 | Decide whether a failure may end a wake, or add a retry | `references/transient-vs-fatal.md` |
 | Decide whether a loop may earn on a platform, and what to ask a human for | `references/platform-automation-map.md` |
 | Reuse the shared marketplace runtime | `skills/_shared/marketplace-core/scripts/` |
