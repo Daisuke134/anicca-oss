@@ -88,7 +88,8 @@ if [ "$VERDICT" = "CAP_FULL" ] && [ ! -f "$SELFHEAL_REQUEST" ]; then
   OFFLINE_PROMPT='Build exactly ONE differentiated, honest Capafy skill candidate OFFLINE inside $LIFE_MANAGER_SOURCE_REPO/skills/capafy/catalog/<new-slug>/. Use only executables from $LIFE_MANAGER_RELEASE_ROOT. This is a CAP_FULL pass: NEVER call Capafy create/publish/configure/ship/submit APIs or UI, and never modify any remote platform state. Use sales_selector.py plus current inventory and existing catalog to avoid duplicates. Produce SKILL.md, LISTING.md, icon.svg, and evidence/verified-demonstration.md containing a concrete input, actual output, and verification notes. Follow the repository skill-creator quality contract, keep claims within what the skill can actually do, require No Free Trial in every plan, and run the release-owned listing lint. Commit, push, merge through a PR, and verify origin/main contains the completed source change. Return status=success only after all four repo-owned artifacts exist, lint passes, and the commit is an ancestor of origin/main; otherwise status=failure. Include the created path, commit, merged-main readback, and lint evidence.'
   printf '%s\n' "$OFFLINE_PROMPT" | AGENT_RUNNER_EVIDENCE_MIN_FREE_BYTES=67108864 "$RUN_AGENT" \
     --task-class browser-lane-agent --schema "$PASS_SCHEMA" --evidence-dir "$EVIDENCE_DIR" \
-    --task-label capafy-offline-daily --loop capafy >>"$LOG" 2>&1
+    --task-label capafy-offline-daily --loop capafy \
+    --escalation-reason "authorized Capafy browser publishing workflow" >>"$LOG" 2>&1
   RC=$?
   [ "$RC" -eq 0 ] || exit "$RC"
   python3 "$TERMINAL_TOOL" result --summary "$EVIDENCE_DIR/summary.json" >>"$LOG" 2>&1 || exit $?
@@ -126,7 +127,8 @@ printf '%s\n' "$PROMPT" | AGENT_RUNNER_EVIDENCE_MIN_FREE_BYTES=67108864 "$RUN_AG
   --schema "$PASS_SCHEMA" \
   --evidence-dir "$EVIDENCE_DIR" \
   --task-label capafy-marketplace-daily \
-  --loop capafy >>"$LOG" 2>&1
+  --loop capafy \
+  --escalation-reason "authorized Capafy browser publishing workflow" >>"$LOG" 2>&1
 RC=$?
 echo "=== capafy-loop-daily done rc=$RC $(date '+%F %T %Z') ===" >>"$LOG"
 [ "$RC" -eq 0 ] || exit "$RC"
