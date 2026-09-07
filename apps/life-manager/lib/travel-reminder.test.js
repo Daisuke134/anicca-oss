@@ -689,6 +689,23 @@ test("monthly allowance blocks new route effects; the separate receipt-safe noti
     assert.equal(releases, 1);
 });
 
+test("claim failure releases every owned allowance reservation", async () => {
+  let releases = 0;
+  const due = event({ id: "claim-throws", startMs: NOW + T5_MS });
+  const result = await travelReminderOnce({ uid: "allowance-user", telegram_chat_id: "chat", notifications_enabled: true }, NOW, {
+    events: [due], home: HOME, telegramToken: "token", supaUrl: "supa", supaKey: "key",
+    reserveManagedAction: async () => ({ allowed: true, periodStart: "2026-09-01",
+      reservationToken: "11111111-1111-4111-8111-111111111111" }),
+    releaseManagedAction: async (_uid, _key, _url, _secret, opts) => {
+      assert.equal(opts.reservation.periodStart, "2026-09-01"); releases += 1;
+    },
+    directionsRoute: async () => null,
+    claimTravel: async () => { throw new Error("claim unavailable"); },
+  });
+  assert.deepEqual(result, { status: "suppressed", reason: "claim-failed" });
+  assert.equal(releases, 1);
+});
+
 test("travelReminderOnce does not send before threshold", async () => {
   let sends = 0;
   const dueEvent = event({ id: "early", startMs: NOW + 15 * T5_MS, startIso: "2026-08-28T14:15:00+09:00" });

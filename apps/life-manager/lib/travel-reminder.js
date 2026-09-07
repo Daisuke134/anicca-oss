@@ -408,7 +408,10 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   for (const candidate of dueCandidates) {
     let claimed = false;
     try { claimed = await (deps.claimTravel || claimTravel)(user.uid, candidate.key, "telegram-t5", supaUrl, supaKey); }
-    catch { return { status: "suppressed", reason: "claim-failed" }; }
+    catch {
+      await Promise.all(prepared.map(releaseCandidate));
+      return { status: "suppressed", reason: "claim-failed" };
+    }
     if (claimed) {
       selected = candidate;
       break;

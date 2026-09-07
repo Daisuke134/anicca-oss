@@ -69,7 +69,7 @@ function originFor(ev, allEvents, home) {
 // Structured routing is authoritative when supplied. directionsFn is the legacy compatibility path
 // only for callers that do not have routeFn; it must never issue a second provider call after routeFn.
 async function resolveDeparture(ev, allEvents, {
-  home, mapsKey, nowMs = Date.now(), bufferMin = 5, directionsFn, routeFn, uid, timezone,
+  home, mapsKey, nowMs = Date.now(), bufferMin = 5, directionsFn, routeFn, uid, timezone, routeOptions,
 } = {}) {
   const blockDep = departureMs(ev, allEvents);
   if (blockDep !== ev.startMs) return blockDep;           // a Travel block already pins door departure
@@ -80,7 +80,7 @@ async function resolveDeparture(ev, allEvents, {
     try {
       const eventId = String(ev.id || `${ev.startMs}:${ev.summary || ""}`);
       route = await routeFn(origin, ev.location, mapsKey, ev.startMs, nowMs, false, {
-        uid, timezone, eventId, purpose: "go",
+        uid, timezone, eventId, purpose: "go", ...(routeOptions || {}),
       });
     } catch { route = null; }
     const exact = computeDoorDepartureMs(ev.startMs, route, { bufferMin });

@@ -106,6 +106,9 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended(p_uid || ':' || period::text, 0));
   SELECT CASE WHEN paid THEN 500 ELSE 30 END INTO cap FROM public.lm_users WHERE uid = p_uid;
   IF cap IS NULL THEN RAISE EXCEPTION 'unknown tenant'; END IF;
+  DELETE FROM public.lm_managed_action_ledger
+    WHERE uid = p_uid AND period_start = period AND status = 'pending'
+      AND created_at < clock_timestamp() - INTERVAL '15 minutes';
   SELECT status INTO existing_status FROM public.lm_managed_action_ledger
     WHERE uid = p_uid AND period_start = period AND action_key = p_action_key;
   IF existing_status IS NOT NULL THEN
@@ -114,9 +117,6 @@ BEGIN
     RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key,
       existing_status = 'succeeded', NULL, existing_status);
   ELSE
-    DELETE FROM public.lm_managed_action_ledger
-      WHERE uid = p_uid AND period_start = period AND status = 'pending'
-        AND created_at < clock_timestamp() - INTERVAL '15 minutes';
     SELECT count(*) INTO active_count FROM public.lm_managed_action_ledger
       WHERE uid = p_uid AND period_start = period;
     IF active_count < cap THEN
@@ -126,7 +126,8 @@ BEGIN
       allowed := true;
     ELSE
       DELETE FROM public.lm_managed_allowance_notice
-       WHERE uid = p_uid AND period_start = period AND notice_kind = 'eighty' AND delivered_at IS NULL;
+       WHERE uid = p_uid AND period_start = period AND notice_kind = 'eighty'
+         AND delivery_state = 'pending' AND delivered_at IS NULL;
       INSERT INTO public.lm_managed_allowance_notice(uid, period_start, notice_kind, action_key)
       VALUES (p_uid, period, 'exhausted', p_action_key) ON CONFLICT DO NOTHING;
     END IF;
@@ -190,6 +191,11 @@ DECLARE
   period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
   picked public.lm_managed_allowance_notice%ROWTYPE;
 BEGIN
+  -- A crash before a worker can classify its send is retained as ambiguity, never blindly retried.
+  UPDATE public.lm_managed_allowance_notice
+     SET delivery_state = 'delivery_unknown'
+   WHERE uid = p_uid AND period_start = period AND delivery_state = 'claimed'
+     AND delivered_at IS NULL AND claimed_at < clock_timestamp() - INTERVAL '15 minutes';
   SELECT * INTO picked FROM public.lm_managed_allowance_notice
    WHERE uid = p_uid AND period_start = period AND delivered_at IS NULL AND claim_token IS NULL
      AND delivery_state = 'pending'

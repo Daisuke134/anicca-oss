@@ -155,19 +155,21 @@ test("[INTEGRATION][FIND-001] two same-startMs events with DIFFERENT ids BOTH ge
 test("[ALLOWANCE] exhausted tenant keeps Calendar read but performs zero route or Calendar write", async () => {
   const start = "2026-06-20T14:00:00+09:00", end = "2026-06-20T15:00:00+09:00";
   const cal = makeFakeCalendar([rawEvId("allowance-event", "Dentist", "Shibuya, Tokyo", start, end)]);
-  let routes = 0, reserves = 0, completes = 0;
+  let routes = 0, reserves = 0, completes = 0, geminiCalls = 0;
   const result = await fillTravel("allowance-user", {
-    apiKey: "x", mapsKey: "x", home: "Setagaya, Tokyo",
+    apiKey: "x", mapsKey: "x", geminiKey: "gemini", home: "Setagaya, Tokyo",
     nowMs: Date.parse("2026-06-20T08:00:00+09:00"), calendar: cal,
     supaUrl: "http://s", supaKey: "k",
     _reserveManagedAction: async () => { reserves += 1; return { allowed: false }; },
     _completeManagedAction: async () => { completes += 1; return { allowed: true }; },
     _directionsMinutes: async () => { routes += 1; return 30; },
+    _agentResolveLocation: async () => { geminiCalls += 1; return { kind: "filled", location: "x" }; },
   });
   assert.equal(result.checked, 1, "Calendar event was still read");
   assert.equal(reserves, 1);
   assert.equal(routes, 0);
   assert.equal(completes, 0);
+  assert.equal(geminiCalls, 0, "no Gemini/Search grounding after allowance exhaustion");
   assert.equal(cal._created.length, 0);
 });
 

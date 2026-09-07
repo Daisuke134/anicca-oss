@@ -457,20 +457,25 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       const allowanceRelease = deps.releaseManagedAction || (deps.placeCall ? undefined : releaseManagedAction);
       let allowanceReserved = false;
       let allowanceReservation = null;
-      const hasTravelBlock = departureMs(ev, futureEvents) !== ev.startMs;
-      if (!hasTravelBlock && typeof allowanceReserve === "function") {
-        const { url: allowanceUrl, key: allowanceKey } = SUPA();
+      const allowanceState = {};
+      const { url: allowanceUrl, key: allowanceKey } = SUPA();
+      if ((deps.directionsRoute || deps.directionsMinutes) && typeof allowanceReserve === "function") {
         const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
         if (!allowance || allowance.allowed !== true) continue;
-        allowanceReservation = allowance.reservationToken ? allowance : null;
-        allowanceReserved = Boolean(allowanceReservation);
+        allowanceState.receipt = allowance.reservationToken ? allowance : null;
       }
       const depMs = await resolveDeparture(ev, futureEvents, {
         home: u.home_address, mapsKey, nowMs: now, bufferMin: 5,
         directionsFn: deps.directionsMinutes || directionsMinutes,
         routeFn: deps.directionsRoute || (deps.directionsMinutes ? undefined : directionsRoute), uid: u.uid,
         timezone: u.call_time_zone || u.time_zone,
+        routeOptions: {
+          supaUrl: allowanceUrl, supaKey: allowanceKey, _allowanceState: allowanceState,
+          _reserveManagedAction: allowanceReserve, _releaseManagedAction: allowanceRelease,
+        },
       });
+      allowanceReservation = allowanceState.receipt || null;
+      allowanceReserved = Boolean(allowanceReservation);
       const mins = (depMs - now) / 60000;
       // A level is DUE once its threshold has passed, not only while the tick sits inside a ~2-min
       // window: this tick is not periodic (the organs above share the per-user timeout, and a redeploy
@@ -481,14 +486,12 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
         .filter((lvl) => mins <= lvl.min + 0.5 && mins > LATE_CUTOFF_MIN)
         .sort((a, b) => a.min - b.min);
       if (!due.length && allowanceReserved && typeof allowanceRelease === "function") {
-        const { url: allowanceUrl, key: allowanceKey } = SUPA();
         await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
           { reservation: allowanceReservation });
         allowanceReserved = false;
         allowanceReservation = null;
       }
       if (due.length && !allowanceReserved && typeof allowanceReserve === "function") {
-        const { url: allowanceUrl, key: allowanceKey } = SUPA();
         const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
         if (!allowance || allowance.allowed !== true) continue;
         allowanceReservation = allowance.reservationToken ? allowance : null;
@@ -534,7 +537,8 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
             to: u.phone,
             streamUrl,
             clientState: encodeWakeClientState({
-              wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh, managedActionKey,
+              wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh,
+              managedActionKey: allowanceReservation ? managedActionKey : undefined,
               managedPeriodStart: allowanceReservation && allowanceReservation.periodStart,
               managedReservationToken: allowanceReservation && allowanceReservation.reservationToken,
             }),

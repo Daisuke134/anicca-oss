@@ -625,7 +625,7 @@ async function recordTravelTelegramReceipt(uid, eventKey, leg, messageId, supaUr
   return { ok: true, matched };
 }
 
-async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, _reserveManagedAction, _completeManagedAction, _releaseManagedAction, gmailAccountId } = {}) {
+async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, _reserveManagedAction, _completeManagedAction, _releaseManagedAction, _agentResolveLocation, gmailAccountId } = {}) {
   const directionsFn = _directionsMinutes || directionsMinutes;
   const routeFn = _directionsRoute || (!_directionsMinutes ? directionsRoute : null);
   const cal = calendar || getCalendar({ apiKey, gmailAccountId });
@@ -689,12 +689,12 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
         }
         let mins = routeFn || allowanceState.blocked ? null
           : await directionsFn(origin, dest, mapsKey, ev.startMs, nowMs, false, routeOpts);
-        if (route == null && mins == null && geminiKey) {
+        if (route == null && mins == null && geminiKey && !allowanceState.blocked) {
           // The location is a room name / unroutable string (e.g. "情報科学大講義室[L1]（IS）"). Let the
           // agent web-search the REAL venue address so a must-travel event still gets a block instead of a
           // silent skip — never-late beats clean code. (Lazy require avoids any load-order coupling.)
           try {
-            const { agentResolveLocation } = require("./ask.js");
+            const agentResolveLocation = _agentResolveLocation || require("./ask.js").agentResolveLocation;
             const res = await agentResolveLocation(ev, { home, mapsKey, geminiKey });
             if (res && res.kind === "online") {
               skipped++;
@@ -724,8 +724,13 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
             await releaseAllowance(evKey, allowanceState);
           } else {
             // C-H1: atomically CLAIM the GO leg before creating — two concurrent runs can't double-insert.
-            if (await claimTravel(uid, evKey, "go", supaUrl, supaKey)) {
-              if (await createTravelBlock(uid, apiKey, leaveMs, arriveMs, origin, dest, dest, cal, gmailAccountId)) {
+            let goClaimed = false;
+            try { goClaimed = await claimTravel(uid, evKey, "go", supaUrl, supaKey); } catch { goClaimed = false; }
+            if (goClaimed) {
+              let created = false;
+              try { created = await createTravelBlock(uid, apiKey, leaveMs, arriveMs, origin, dest, dest, cal, gmailAccountId); }
+              catch { created = false; }
+              if (created) {
                 inserted++;
                 outboundInserted = true;
                 if (typeof _completeManagedAction === "function") {
@@ -800,12 +805,21 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
       uid, timezone: routeTimezone, supaUrl, supaKey, eventId: evKey, purpose: "return",
       _allowanceState: returnAllowanceState, _reserveManagedAction, _releaseManagedAction,
     });
-    if (retMins == null) { skipped++; continue; }
+    if (retMins == null) {
+      skipped++;
+      await releaseAllowance(evKey, returnAllowanceState);
+      continue;
+    }
     const retLeaveMs = ev.endMs;                           // depart immediately after event ends
     const retArriveMs = retLeaveMs + retMins * 60000;
     // C-H1: atomically CLAIM the RETURN leg before creating.
-    if (await claimTravel(uid, evKey, "return", supaUrl, supaKey)) {
-      if (await createTravelBlock(uid, apiKey, retLeaveMs, retArriveMs, venue, home, home, cal, gmailAccountId)) {
+    let returnClaimed = false;
+    try { returnClaimed = await claimTravel(uid, evKey, "return", supaUrl, supaKey); } catch { returnClaimed = false; }
+    if (returnClaimed) {
+      let created = false;
+      try { created = await createTravelBlock(uid, apiKey, retLeaveMs, retArriveMs, venue, home, home, cal, gmailAccountId); }
+      catch { created = false; }
+      if (created) {
         inserted++;
         if (typeof _completeManagedAction === "function") {
           await _completeManagedAction(uid, evKey, supaUrl, supaKey,
