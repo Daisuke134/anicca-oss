@@ -11,6 +11,7 @@ from job_search_loop.agent_runner import AgentRunner, PassAlreadyRunning, TASK_C
 from job_search_loop.mercor_pass import (
     build_context,
     main,
+    record_inspections,
     record_verified_submissions,
     validate_evidence_paths,
 )
@@ -20,6 +21,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MercorPassContractTests(unittest.TestCase):
+    def test_inspections_become_a_durable_next_wake_cursor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            record_inspections(state, {
+                "inspected_listings": [{"listing_id": "list-seen", "decision": "not_fit"}]
+            }, run_id="run-1")
+            context = build_context(
+                state_root=state,
+                profile_path=state / "profile.json",
+                resume_path=state / "resume.pdf",
+                cdp_url="http://127.0.0.1:9222",
+            )
+            self.assertEqual(context["recently_inspected_listing_ids"], ["list-seen"])
+
     def test_mercor_is_retired_locally_but_keeps_portable_thirty_minute_cadence(self):
         registry = json.loads((ROOT.parents[1] / "config" / "loop-registry.json").read_text())
         self.assertNotIn("job-search-mercor", registry["loops"])

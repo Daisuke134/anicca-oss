@@ -435,6 +435,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `browser-lane-agent` now requires an explicit escalation reason while the legacy Mercor caller and
    test deliberately omitted one. The caller now supplies a bounded Mercor application/readback reason,
    matching the current runner contract and the working Job Search browser-lane pattern.
+   Main release `eb4ba3b0d4b100f8e7633b89250569a72868f316` then completed a natural `pass` at
+   `2026-09-07T04:18:35Z`: it inspected 13 official entries, submitted zero, created four durable
+   human gates, sent Telegram receipt `64921`, and released its browser lease. The first twelve new
+   cards were not truthful fits; the bounded scan had no durable inspection cursor and would revisit
+   the same prefix forever. The pass now persists recent listing IDs and directs the model to inspect
+   strongest-fit unseen candidates first, so later wakes advance without hardcoded category keywords.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
