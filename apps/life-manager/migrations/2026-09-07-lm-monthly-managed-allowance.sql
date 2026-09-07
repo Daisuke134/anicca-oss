@@ -53,6 +53,16 @@ DROP FUNCTION IF EXISTS public.lm_managed_allowance_result(text, date, text, boo
 DROP FUNCTION IF EXISTS public.record_lm_managed_allowance_notice(text, text, uuid, bigint);
 DROP FUNCTION IF EXISTS public.release_lm_managed_allowance_notice(text, text, uuid);
 
+CREATE OR REPLACE FUNCTION public.lm_managed_period(p_uid text)
+RETURNS date LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+  SELECT date_trunc('month', clock_timestamp() AT TIME ZONE COALESCE(
+    (SELECT z.name FROM public.lm_panel_preferences p
+      JOIN pg_catalog.pg_timezone_names z ON z.name = p.call_time_zone
+     WHERE p.uid = p_uid),
+    'UTC'
+  ))::date;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.lm_managed_allowance_result(
   p_uid text,
   p_period_start date,
@@ -92,7 +102,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 DECLARE
-  period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
+  period date;
   cap integer;
   active_count integer;
   existing_status text;
@@ -103,6 +113,7 @@ BEGIN
      OR p_action_key IS NULL OR btrim(p_action_key) = '' OR char_length(p_action_key) > 512 THEN
     RAISE EXCEPTION 'invalid managed action identity';
   END IF;
+  period := public.lm_managed_period(p_uid);
   PERFORM pg_advisory_xact_lock(hashtextextended(p_uid || ':' || period::text, 0));
   SELECT CASE WHEN paid THEN 500 ELSE 30 END INTO cap FROM public.lm_users WHERE uid = p_uid;
   IF cap IS NULL THEN RAISE EXCEPTION 'unknown tenant'; END IF;
@@ -188,9 +199,10 @@ $function$;
 CREATE OR REPLACE FUNCTION public.claim_lm_managed_allowance_notice(p_uid text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
 DECLARE
-  period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
+  period date;
   picked public.lm_managed_allowance_notice%ROWTYPE;
 BEGIN
+  period := public.lm_managed_period(p_uid);
   -- A crash before a worker can classify its send is retained as ambiguity, never blindly retried.
   UPDATE public.lm_managed_allowance_notice
      SET delivery_state = 'delivery_unknown'
@@ -263,6 +275,7 @@ $function$;
 REVOKE ALL ON TABLE public.lm_managed_action_ledger FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.lm_managed_allowance_notice FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.lm_managed_allowance_result(text,date,text,boolean,uuid,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.lm_managed_period(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.reserve_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.complete_lm_managed_action(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.release_lm_managed_action(text,text,date,uuid) FROM PUBLIC, anon, authenticated;

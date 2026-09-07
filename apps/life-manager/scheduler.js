@@ -450,7 +450,7 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
   // dialled all three. A malformed/missing phone is an independent hard gate. This is also the LAST
   // gate on the Inngest per-user path, which reaches wakeCallOnce through wakeUserOnce and never passes
   // wakeTick's filter.
-  if (u.call_enabled === true && isCallablePhone(u.phone)) {
+  if (u.paid === true && u.call_enabled === true && isCallablePhone(u.phone)) {
     for (const ev of futureEvents.filter((e) => shouldWake(e, u.home_address, u.wake_policy))) {
       const managedActionKey = String(ev.id || `${ev.startMs || ev.startIso}:${ev.summary || ""}`);
       const allowanceReserve = deps.reserveManagedAction || (deps.placeCall ? undefined : reserveManagedAction);
@@ -942,7 +942,8 @@ async function wakeTick(deps = {}) {
     // not the default. Missing/malformed values must never enter the dial path.
     // `daily_automation_enabled !== false` keeps its opt-OUT sense — that switch means "run nothing
     // for me", and it is not the thing §5.2.1 flipped.
-    users.filter(u => u.daily_automation_enabled !== false && u.call_enabled === true && isCallablePhone(u.phone)),
+    users.filter(u => u.daily_automation_enabled !== false && u.paid === true
+      && u.call_enabled === true && isCallablePhone(u.phone)),
     "wake", (u) => wake(u, now), WAKE_USER_TIMEOUT_MS,
   );
 }

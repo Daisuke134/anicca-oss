@@ -110,6 +110,7 @@ const DEPARTURE_MS = EVENT_START_MS - 40 * MINUTE; // 35 min travel + resolveDep
 const TEST_PHONE = "+99900000000";
 
 const USER = {
+  paid: true,
   uid: "token-user",
   name: "Token User",
   phone: TEST_PHONE,
