@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Marketplace work-fit judgement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["judgements"],
+  "properties": {
+    "judgements": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["posting_id", "workable", "reason_code", "quote"],
+        "properties": {
+          "posting_id": {"type": "string", "minLength": 1},
+          "workable": {"type": "boolean"},
+          "reason_code": {"type": ["string", "null"]},
+          "quote": {"type": ["string", "null"], "maxLength": 200}
+        }
+      }
+    }
+  }
+}
