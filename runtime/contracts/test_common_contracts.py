@@ -1,4 +1,5 @@
 import json
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,24 @@ def validate(value):
 
 
 class CommonContractTests(unittest.TestCase):
+    def test_jsonl_job_adapter_output_matches_the_common_schema(self):
+        legacy_job = {
+            "job_id": "job-1", "tenant_id": "user-1", "loop_id": "marketing.video",
+            "capability": "marketing.video.publish", "effect_class": "publish",
+            "effect_key": "📣" * 300, "input_refs": {"content_ref": "🎬" * 600},
+            "max_attempts": 3,
+        }
+        script = (
+            "const {projectJob}=require('./runtime/contracts/common-record.cjs');"
+            "let s='';process.stdin.on('data',c=>s+=c);"
+            "process.stdin.on('end',()=>process.stdout.write(JSON.stringify(projectJob(JSON.parse(s)))));"
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, input=json.dumps(legacy_job),
+            text=True, capture_output=True, check=True,
+        )
+        validate(json.loads(result.stdout))
+
     def test_runtime_event_schema_matches_runtime_vocabulary(self):
         definition = SCHEMA["$defs"]["RuntimeEvent"]["properties"]
         self.assertEqual(set(definition["domain"]["enum"]), runtime_event.DOMAINS)

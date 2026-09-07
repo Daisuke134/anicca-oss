@@ -10,6 +10,7 @@ const {
   findMarketingDestinationTarget,
   loadMarketingDestinationContract,
 } = require("./marketing-destination-contract.js");
+const { projectJob } = require("../../../runtime/contracts/common-record.cjs");
 
 const SHADOW_HOLD_AVAILABLE_AT = "9999-12-31T23:59:59.000Z";
 const EFFECT_CLASSES = new Set(["none", "publish", "message", "money"]);
@@ -1052,6 +1053,11 @@ function createMarketingLocalLedger(options = {}) {
     return clone(receiptFor(snapshot(), tenantId, jobId));
   }
 
+  function readCommonJob(input = {}) {
+    const job = readJob(input);
+    return job == null ? null : projectJob(job);
+  }
+
   return Object.freeze({
     dataDir: root,
     enqueueJob: async (input) => enqueueJob(input),
@@ -1065,6 +1071,7 @@ function createMarketingLocalLedger(options = {}) {
     correctReceiptDirectUrl: async (input) => correctReceiptDirectUrl(input),
     quarantineCompletedEffectConflict: async (input) => quarantineCompletedEffectConflict(input),
     readJob: async (input) => readJob(input),
+    readCommonJob: async (input) => readCommonJob(input),
     readReceipt: async (input) => readReceipt(input),
   });
 }
