@@ -403,6 +403,10 @@ own worktrees and resource scopes; “top to bottom” orders only this owner's 
 8. [ ] `PANIC-3` In an explicitly approved maintenance window with Dais physically available,
    install macOS 15.7.9 rather than Tahoe and read back the exact build after restart. This is an
    availability proof, not a fix for Paid authentication or delivery.
+   Read-only preflight confirms the host remains on macOS `15.6` build `24G84`, while Apple's
+   updater offers `macOS Sequoia 15.7.9` build `24G830` as a restart-required update alongside
+   Tahoe. Dais explicitly says not to restart now, so no download, install or restart occurs and this
+   atom remains unchecked for the later approved maintenance window.
 9. [ ] `PANIC-4` From that controlled restart, prove automatic Aqua login, immutable-release owner
    recovery, green doctor and representative natural replay-zero terminals. PID existence is not PASS.
 10. [ ] `PANIC-5` Detect a pre-login boot gap through a credential-safe external path and send one
