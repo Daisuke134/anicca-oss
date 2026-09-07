@@ -49,13 +49,13 @@
       "state_root": "~/.local/state/anicca/crowdworks"
     },
     "crowdworks-revenue-report": {
-      "adapter": "python",
+      "adapter": "exec",
       "cadence": {"start_interval_seconds": 300},
       "cleanup": {"max_age_days": 14, "max_runs": 100},
-      "command": ["--json"],
+      "command": [],
       "domain": "earn",
       "effect_class": "message",
-      "entrypoint": "skills/earn/crowdworks/scripts/telegram_report.py",
+      "entrypoint": "skills/earn/crowdworks/scripts/report-owner",
       "label": "ai.anicca.crowdworks-revenue-report",
       "log_root": "~/.local/state/anicca/crowdworks/logs",
       "provider_route": "deterministic",
@@ -869,6 +869,7 @@
       "state_root": "~/.local/state/life-manager/fundraiser"
     },
     "gig-outcome-watch": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 3600
       },
@@ -876,6 +877,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "earn",
       "effect_class": "none",
       "entrypoint": "tools/gig-outcome-watch/notify.sh",
@@ -1178,6 +1180,7 @@
       "state_root": "~/.local/state/anicca/lancers"
     },
     "lancers-revenue-browser": {
+      "adapter": "exec",
       "browser_owner": {
         "cdp_port": 9227,
         "profile": "~/.local/state/anicca/lancers/browser-profile"
@@ -1189,9 +1192,10 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "earn",
       "effect_class": "none",
-      "entrypoint": "runtime/legacy/lancers-revenue-browser/run.sh",
+      "entrypoint": "skills/earn/lancers/scripts/browser-owner",
       "label": "ai.anicca.lancers-revenue-browser",
       "log_root": "~/.local/state/life-manager/lancers-revenue-browser/logs",
       "provider_route": "deterministic",
@@ -2005,6 +2009,7 @@
       "state_root": "~/.openclaw"
     },
     "life-manager-taskmarket-ledger": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 300
       },
@@ -2012,6 +2017,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "financial",
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh",
@@ -2037,6 +2043,7 @@
       "state_root": "~/.local/state/life-manager"
     },
     "life-manager-ugig-invoice-observer": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 300
       },
@@ -2044,6 +2051,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "earn",
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/ugig-invoice-observer-boot.sh",

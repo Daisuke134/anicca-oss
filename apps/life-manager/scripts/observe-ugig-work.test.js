@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { readFileSync } = require("node:fs");
+const { existsSync, readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 const { main } = require("./observe-ugig-work.js");
@@ -52,22 +52,21 @@ test("live-shaped pending application produces a truthful zero-mutation result",
   assert.doesNotMatch(output, /ugig_live_test/);
 });
 
-test("launchd wiring is a separate five-minute loop and never stops existing loops", () => {
+test("the registry alone owns the separate five-minute UGig loop", () => {
   const root = join(__dirname, "..");
   const boot = readFileSync(join(__dirname, "ugig-invoice-observer-boot.sh"), "utf8");
-  const installer = readFileSync(join(__dirname, "install-ugig-invoice-observer-launchd.sh"), "utf8");
-  const plist = readFileSync(
-    join(root, "launchd", "ai.anicca.life-manager-ugig-invoice-observer.plist.template"),
-    "utf8",
-  );
+  const registry = JSON.parse(readFileSync(join(root, "..", "..", "config", "loop-registry.json"), "utf8"));
+  const loop = registry.loops["life-manager-ugig-invoice-observer"];
 
   assert.match(boot, /observe-ugig-work\.js/);
   assert.match(boot, /UGIG_API_KEY_FILE/);
   assert.match(boot, /timeout 180/);
-  assert.match(installer, /ai\.anicca\.life-manager-ugig-invoice-observer/);
-  assert.doesNotMatch(installer, /bootout|unload|kickstart\s+-k/);
-  assert.match(plist, /<integer>300<\/integer>/);
-  assert.match(plist, /ugig-invoice-observer-boot\.sh/);
+  assert.equal(loop.adapter, "exec");
+  assert.deepEqual(loop.command, []);
+  assert.equal(loop.entrypoint, "apps/life-manager/scripts/ugig-invoice-observer-boot.sh");
+  assert.deepEqual(loop.cadence, { start_interval_seconds: 300 });
+  assert.equal(existsSync(join(__dirname, "install-ugig-invoice-observer-launchd.sh")), false);
+  assert.equal(existsSync(join(root, "launchd", "ai.anicca.life-manager-ugig-invoice-observer.plist.template")), false);
 });
 
 test("a completed paid application is finalized through Solana RPC before one ledger write", async () => {
