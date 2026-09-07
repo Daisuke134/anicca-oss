@@ -546,6 +546,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    transition candidate-local: retry the exact observed card once, then record and continue. Remaining
    acceptance is merge/install, one natural authenticated bounded wake, at least one official application
    receipt when a ready candidate exists, immediate per-application Telegram, and following replay-zero.
+   Main release `b6a529b72ccd739c67236afa43c5364dc8a0099d` then completed natural wake
+   `mercor-20260907-154254-68108`, exit `0`, and returned `loaded-idle`; terminal Telegram ACK is
+   `65537`. It observed sixteen official cards including `Bilingual Writer - Japanese (Japan)` but
+   submitted zero. Opening a card redirected the leased page to Mercor login, and the executor attempted
+   no login or Google-session recovery, so every observed card became
+   `not_opened_authentication_redirect`. This is not acceptance and does not advance the TODO. Shared
+   Apply policy is installed, but provider auth recovery remains the first failing boundary; repair that
+   boundary without restarting Mac/Aqua/browser, then repeat the natural official application proof.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
