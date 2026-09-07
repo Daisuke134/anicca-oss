@@ -338,15 +338,52 @@ class ApplicationLoopHolTests(unittest.TestCase):
         ]
         def discover(**kwargs):
             calls.append(kwargs["query"])
-            return responses.pop(0)
+            # Every query is read now, so the ones past the fixtures simply hold nothing.
+            return responses.pop(0) if responses else {"ok": True, "error": None, "opportunities": []}
         with patch.object(application_loop.status, "run_discovery", side_effect=discover), patch.object(application_loop.application_tick, "state_has_claim", side_effect=lambda _path, project_id: project_id == "5583089"):
             result = application_loop._run_default_discovery(datetime(2026, 8, 13, 3, 0, tzinfo=timezone.utc), 20.0, Path("/tmp/application.json"))
-        # Two consecutive queries from wherever the slot lands: the first is skipped because every
-        # project in it is already claimed, the second supplies the fresh one.
+        # Every query is now read and the undecided projects pooled, rather than returning at the
+        # first query that had one. A wake that stopped early was measured on 2026-09-07 seeing 18
+        # postings, all of them unworkable, while eleven queries went unread.
         total = len(application_loop.DISCOVERY_QUERIES)
         start = application_loop.DISCOVERY_QUERIES.index(calls[0])
-        self.assertEqual(calls, [application_loop.DISCOVERY_QUERIES[(start + i) % total] for i in range(2)])
-        self.assertEqual(result["opportunities"][0]["external_id"], "5587000")
+        self.assertEqual(calls, [application_loop.DISCOVERY_QUERIES[(start + i) % total] for i in range(total)])
+        # The claimed one is not offered to the planner; the fresh one is.
+        self.assertEqual([row["external_id"] for row in result["opportunities"]], ["5587000"])
+
+    def test_default_discovery_pools_every_query_rather_than_taking_the_first(self):
+        """The whole point of twelve queries is twelve queries' worth of candidates."""
+        application_loop = _load_deployed_loop(); calls = []
+        fresh = {0: "6100001", 1: "6100002", 3: "6100003"}
+        def discover(**kwargs):
+            index = len(calls); calls.append(kwargs["query"])
+            row = fresh.get(index)
+            return {"ok": True, "error": None, "opportunities": [_opportunity(row)] if row else []}
+        with patch.object(application_loop.status, "run_discovery", side_effect=discover), \
+             patch.object(application_loop.application_tick, "state_has_claim", side_effect=lambda _p, _i: False):
+            result = application_loop._run_default_discovery(
+                datetime(2026, 8, 13, 3, 0, tzinfo=timezone.utc), 20.0, Path("/tmp/application.json"))
+        self.assertEqual(len(calls), len(application_loop.DISCOVERY_QUERIES))
+        self.assertEqual(sorted(row["external_id"] for row in result["opportunities"]),
+                         ["6100001", "6100002", "6100003"])
+
+    def test_pooling_stops_once_the_planner_has_enough_to_choose_from(self):
+        """A busy board must not cost twelve searches every wake."""
+        application_loop = _load_deployed_loop(); calls = []
+        def discover(**kwargs):
+            index = len(calls); calls.append(kwargs["query"])
+            return {"ok": True, "error": None,
+                    "opportunities": [_opportunity(str(6200000 + index * 100 + n)) for n in range(20)]}
+        with patch.object(application_loop.status, "run_discovery", side_effect=discover), \
+             patch.object(application_loop.application_tick, "state_has_claim", side_effect=lambda _p, _i: False):
+            application_loop._run_default_discovery(
+                datetime(2026, 8, 13, 3, 0, tzinfo=timezone.utc), 20.0, Path("/tmp/application.json"))
+        self.assertEqual(len(calls), 2)  # 20 + 20 reaches DISCOVERY_POOL_TARGET of 40
+
+    def test_the_fallback_query_is_not_work_the_fleet_refuses(self):
+        """DEFAULT_DISCOVERY_QUERY was SNS運用, which manual_marketplace_operation then declined."""
+        application_loop = _load_deployed_loop()
+        self.assertIn(application_loop.DEFAULT_DISCOVERY_QUERY, application_loop.DISCOVERY_QUERIES)
 
     def test_empty_normalized_discovery_is_noop_but_other_errors_fail(self):
         application_loop = _load_deployed_loop()

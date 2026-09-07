@@ -22,7 +22,10 @@ SCHEMA_PATH = PLANNER_SCHEMA
 PRODUCT_PATH = HERE.parent / "products" / "monthly-sns-content-ops-v1.json"
 PLATFORM = "lancers"
 MAX_OPPORTUNITIES = 20
-DEFAULT_DISCOVERY_QUERY = "SNS運用"
+# Left over from before the catalogue drove discovery. SNS運用 is work the fleet refuses under
+# manual_marketplace_operation, so every wake that fell back to it searched for postings it was
+# then obliged to decline. The fallback is now the first thing the catalogue actually sells.
+DEFAULT_DISCOVERY_QUERY = "業務自動化"
 # Search for what the catalogue actually sells. Measured 2026-09-07: half of the previous list was
 # SNS and content marketing ("SNS運用", "SNS投稿", "コンテンツ制作", "X運用", "B2Bマーケティング"),
 # and one query runs per pass, so the board the lane saw was short-video editing, on-site filming and
@@ -34,6 +37,9 @@ DEFAULT_DISCOVERY_QUERY = "SNS運用"
 # phrase taken from one of their titles. Noun phrases, not titles: the recipe records that
 # "業務自動化システムを開発" finds nothing while "業務自動化" returns a live board.
 # test_lancers_queries_match_the_catalogue keeps them tied to what we sell.
+# Enough undecided postings for the planner to have a real choice, without paying for all
+# twelve searches on a board that is already busy.
+DISCOVERY_POOL_TARGET = 40
 DISCOVERY_QUERIES = (
     "業務自動化", "業務システム", "Webアプリ", "システム開発",
     "LINE Bot", "スクレイピング", "Excel VBA", "ダッシュボード",
@@ -245,6 +251,9 @@ def _run_default_discovery(tick_value: object, timeout: float, state_path: Path,
     last: Mapping[str, object] = {"ok": False, "error": "no_normalized_opportunities", "opportunities": []}
     observed_ids: set[str] = set()
     decided_ids: set[str] = set()
+    pooled: dict[str, Mapping[str, object]] = {}
+    undecided: set[str] = set()
+    last_ok: Optional[Mapping[str, object]] = None
     for offset in range(len(DISCOVERY_QUERIES)):
         query = DISCOVERY_QUERIES[(start + offset) % len(DISCOVERY_QUERIES)]
         last = status.run_discovery(query=query, limit=MAX_OPPORTUNITIES, timeout=timeout)
@@ -257,11 +266,23 @@ def _run_default_discovery(tick_value: object, timeout: float, state_path: Path,
                 remaining_ids = {str(row.get("external_id")) for row in remaining if isinstance(row, Mapping)}
                 decided_ids.update(str(row.get("external_id")) for row in opportunities if isinstance(row, Mapping) and str(row.get("external_id")) not in remaining_ids)
                 remaining = [row for row in remaining if str(row.get("external_id")) not in exclude_ids]
-                if not remaining: continue
-                return dict(last) | {"observed_count": len(observed_ids), "already_decided_count": len(decided_ids)}
+                for row in remaining:
+                    external_id = str(row.get("external_id") or "") if isinstance(row, Mapping) else ""
+                    if external_id: pooled.setdefault(external_id, row)
+                undecided.update(pooled)
+                last_ok = last
+                # Returning at the first query with anything undecided meant one wake saw one
+                # query. Measured 2026-09-07 that was 18 postings, of which every judgeable one
+                # was genuinely unworkable, so the lane reported no_eligible_project every minute
+                # while eleven other queries went unread. The planner ranks what it is given, so
+                # give it the union and let it choose.
+                if len(undecided) >= DISCOVERY_POOL_TARGET: break
+                continue
             return dict(last) | {"observed_count": len(observed_ids), "already_decided_count": len(decided_ids)}
         if last.get("error") != "no_normalized_opportunities":
             return last
+    if pooled and last_ok is not None:
+        return dict(last_ok) | {"opportunities": list(pooled.values()), "observed_count": len(observed_ids), "already_decided_count": len(decided_ids)}
     return {"ok": True, "platform": PLATFORM, "source": "public_html", "opportunities": [], "observed_count": len(observed_ids), "already_decided_count": len(decided_ids)}
 
 def _seller_proof() -> dict[str, object]:
