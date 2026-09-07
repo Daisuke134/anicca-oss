@@ -240,12 +240,12 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
 
 ### Ordered correction TODO
 
-1. **IN PROGRESS — Telegram-native onboarding:** Google consent以外のMini App必須stepを削除する。
+1. **DONE (local/review) — Telegram-native onboarding:** Google consent以外のMini App必須stepを削除する。
    `/start`のprivate-chat actor claim、Telegram言語による日英表示、通常URLのGoogle consent button、
    WebApp非使用、cookie不要のone-time OAuth callback、Calendar ACTIVE同期、Telegram復帰と自宅住所質問を
    branch `feat/lm-telegram-native-start-20260907`で実装。ローカルcontractはPASS済み。
-   この項目ではローカル実装とcontractを完了する。本番反映は項目4でまとめて行う。
-2. 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
+   ローカルcontract 153/153とfresh read-only reviewがPASS。本番反映は項目4でまとめて行う。
+2. **IN PROGRESS — optional phone:** 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
 3. 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
 4. 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
 5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から

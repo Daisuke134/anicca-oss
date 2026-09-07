@@ -1137,7 +1137,7 @@ const server = http.createServer(async (req, res) => {
           const gmailConnectUrl = ""; // Gmail connect is honestly OFF; sendStage auto-skips without rendering OAuth.
           const opts = {
             token: LM_TG_TOKEN, base: PUBLIC_BASE, supaUrl: SUPA_URL, supaKey: SUPA_KEY, gmailConnectUrl,
-            composioKey: COMPOSIO_KEY, geminiKey: GEMINI_KEY,
+            composioKey: COMPOSIO_KEY, geminiKey: GEMINI_KEY, languageCode: u.languageCode,
           };
           if (u.text && (parsedControl.kind === "command" || parsedControl.kind === "unavailable")) {
             if (parsedControl.kind === "command" && !row) {
