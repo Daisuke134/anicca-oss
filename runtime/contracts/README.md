@@ -17,6 +17,10 @@ provider-backed `Receipt`. Outbox delivery uses `message_key` as its retry ident
 records keep non-negative minor-unit amounts; `direction` carries the sign, while `scope` and
 `kind` prevent a personal balance, internal transfer, business revenue, cost, and payout from being
 silently aggregated as the same thing. `verification.status=verified` requires evidence references.
+Every FinancialRecord identity is deterministic:
+`record_id = "financial:" + sha256_utf8(subject_id + "\n" + idempotency_key)`.
+The JSON Schema enforces the resulting shape; `projectFinancialRecord` enforces this cross-field
+hash invariant before either local or cloud persistence.
 
 `BrowserTargetLease` is the portable record shape, not an authorization validator. The runtime
 adapter must also verify that the target ID matches the WebSocket path, timestamps are ordered,

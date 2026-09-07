@@ -1,4 +1,5 @@
 import json
+import hashlib
 import importlib.util
 import subprocess
 import sys
@@ -13,6 +14,11 @@ from runtime.loop import runtime_event
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads((ROOT / "runtime/contracts/common-record.schema.json").read_text())
 VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
+
+
+def financial_id(subject_id, idempotency_key):
+    digest = hashlib.sha256(f"{subject_id}\n{idempotency_key}".encode()).hexdigest()
+    return f"financial:{digest}"
 
 
 def validate(value):
@@ -135,12 +141,13 @@ class CommonContractTests(unittest.TestCase):
         runtime_event.validate_runtime_event(event)
 
     def test_verified_business_revenue_requires_evidence(self):
+        key = "stripe:payment:1"
         record = {
-            "schema_version": 1, "record_type": "financial_record", "record_id": "stripe-1",
+            "schema_version": 1, "record_type": "financial_record", "record_id": financial_id("user-1", key),
             "subject_id": "user-1", "scope": "business", "kind": "business_revenue",
             "direction": "credit", "amount_minor": 12500, "currency": "JPY",
             "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z",
-            "idempotency_key": "stripe:payment:1",
+            "idempotency_key": key,
             "source": {"provider": "stripe", "source_type": "payment_processor", "external_ref": "payment-1"},
             "verification": {"status": "verified", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": ["stripe://payment/payment-1"]}
         }
@@ -150,12 +157,13 @@ class CommonContractTests(unittest.TestCase):
             validate(record)
 
     def test_personal_balance_cannot_be_booked_as_business_revenue(self):
+        key = "moneytree:account:1:2026-09-07"
         record = {
-            "schema_version": 1, "record_type": "financial_record", "record_id": "moneytree-1",
+            "schema_version": 1, "record_type": "financial_record", "record_id": financial_id("user-1", key),
             "subject_id": "user-1", "scope": "business", "kind": "business_revenue",
             "direction": "credit", "amount_minor": 500000, "currency": "JPY",
             "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z",
-            "idempotency_key": "moneytree:account:1:2026-09-07",
+            "idempotency_key": key,
             "source": {"provider": "moneytree", "source_type": "moneytree", "external_ref": "account-1"},
             "verification": {"status": "stale", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": []}
         }
@@ -163,7 +171,8 @@ class CommonContractTests(unittest.TestCase):
             validate(record)
 
     def test_financial_kind_requires_its_direction(self):
-        record = {"schema_version": 1, "record_type": "financial_record", "record_id": "cost-1", "subject_id": "user-1", "scope": "business", "kind": "business_cost", "direction": "credit", "amount_minor": 500, "currency": "JPY", "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z", "idempotency_key": "cost:1", "source": {"provider": "stripe", "source_type": "payment_processor", "external_ref": "fee-1"}, "verification": {"status": "verified", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": ["stripe://fee/fee-1"]}}
+        key = "cost:1"
+        record = {"schema_version": 1, "record_type": "financial_record", "record_id": financial_id("user-1", key), "subject_id": "user-1", "scope": "business", "kind": "business_cost", "direction": "credit", "amount_minor": 500, "currency": "JPY", "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z", "idempotency_key": key, "source": {"provider": "stripe", "source_type": "payment_processor", "external_ref": "fee-1"}, "verification": {"status": "verified", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": ["stripe://fee/fee-1"]}}
         with self.assertRaises(AssertionError):
             validate(record)
 
