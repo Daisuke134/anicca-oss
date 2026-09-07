@@ -573,6 +573,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    those two keys. Focused verification passes 35 tests plus 2 subtests. Merge/install, authenticated
    next-wake readback, official application or correct nonblocking human gate, immediate Telegram receipt,
    and replay-zero remain open; this atom stays active.
+   PR `#4525` merged that shared storage repair at main SHA
+   `5cfd54746015567e4510a0760b9f7f40f4f1e352`. Two installed-release wakes then ended naturally
+   with application effect zero: the first issued an email magic link and stopped at `Check your inbox`;
+   the second received Mercor's official `Something went wrong` response before a new email was issued.
+   Both logged-out readbacks refused vault overwrite. This proves model-driven email login is not
+   end-to-end even though the permitted Gmail API can observe the exact Mercor message. The owner now
+   completes a freshly issued Mercor Firebase email action on its already-leased page, never logs the
+   secret URL, requires official authenticated readback, reruns the bounded Apply pass once in the same
+   wake, then commits provider storage. Google sign-in remains forbidden. Focused verification passes
+   17 tests. Merge/install and a fresh provider email after its transient error clears remain open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
