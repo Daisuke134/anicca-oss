@@ -13,6 +13,7 @@ def test_owner_uses_shared_browser_lease_and_revenue_name():
     assert 'MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT"' in source
     assert 'LEGACY_ROOT="${STATE_ROOT:h}"' in source
     assert 'LEASE_PYTHON="${LIFE_MANAGER_LEASE_PYTHON:-/usr/bin/python3}"' in source
+    assert "MERCOR_RUN_EARNINGS_SYNC=0" in source
     assert "9334" not in source
 
 

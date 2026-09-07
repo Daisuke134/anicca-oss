@@ -10,6 +10,7 @@ EVIDENCE="$JOB_SEARCH_STATE_ROOT/evidence/$RUN_ID"
 CDP_URL="${MERCOR_CDP_BASE_URL:-http://127.0.0.1:9334}"
 CDP_PAGE_WS="${MERCOR_CDP_PAGE_WS:-}"
 MERCOR_PROFILE="${MERCOR_PROFILE:-$JOB_SEARCH_PROFILE}"
+MERCOR_RUN_EARNINGS_SYNC="${MERCOR_RUN_EARNINGS_SYNC:-1}"
 if [[ -z "${MERCOR_RESUME:-}" && -f "$MERCOR_STATE_ROOT/resume-state.json" ]]; then
   MERCOR_RESUME=$(
     "$JOB_SEARCH_JQ" -er '.resume_file | select(type == "string" and length > 0)' \
@@ -107,6 +108,11 @@ set -e
 if [[ "$RESULT_RC" -ne 0 ]]; then
   FINAL_REASON="mercor_result_invalid"
   exit "$RESULT_RC"
+fi
+
+if [[ "$MERCOR_RUN_EARNINGS_SYNC" != "1" ]]; then
+  FINAL_REASON="success"
+  exit 0
 fi
 
 EARNINGS_EVIDENCE="$EVIDENCE/earnings"

@@ -36,6 +36,7 @@ class MercorListing:
     steps_completed: int
     submit_visible: bool
     domain_expert_reused: bool
+    steps_total: int = 3
 
 
 def is_approved_mercor_url(url: str) -> bool:
@@ -68,9 +69,10 @@ def listing_id_from_url(url: str) -> str:
 
 
 def ready_for_submit(listing: MercorListing) -> bool:
-    """Return true only for the live 3/3 reusable-interview submit state."""
+    """Return true only when every live step is complete and submit is visible."""
     return (
-        listing.steps_completed == 3
+        listing.steps_total > 0
+        and listing.steps_completed == listing.steps_total
         and listing.submit_visible
         and listing.domain_expert_reused
         and listing.application_state not in {"submitted", "submitted_pending_review"}

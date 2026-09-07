@@ -12,6 +12,7 @@ from job_search_loop.mercor_pass import (
     main,
     record_inspections,
     record_verified_submissions,
+    validate_bounded_scan,
     validate_evidence_paths,
 )
 
@@ -91,7 +92,7 @@ class MercorPassContractTests(unittest.TestCase):
         prompt = (ROOT / "prompts" / "mercor-pass.md").read_text(encoding="utf-8")
         for required in (
             "model-led",
-            "3 of 3 steps completed",
+            "`N of N` and `100%`",
             "Submit application",
             "continue to the next distinct listing",
             "not a terminal pass result",
@@ -114,6 +115,9 @@ class MercorPassContractTests(unittest.TestCase):
             "python3 -m job_search_loop.mercor_submit_guard",
             '"claimed": true',
             '"claimed": false',
+            "capability_catalog_path",
+            "Japan-eligible Japanese-language",
+            "mercor_human_gate_notify",
         ):
             self.assertIn(required, prompt)
         self.assertNotIn("Choose at most one new listing", prompt)
@@ -123,6 +127,31 @@ class MercorPassContractTests(unittest.TestCase):
             (ROOT / "schemas" / "mercor-pass-result.v1.schema.json").read_text(encoding="utf-8")
         )
         self.assertEqual(schema["properties"]["submitted"]["maxItems"], 12)
+
+    def test_nonblocked_pass_cannot_quit_after_two_of_twelve_visible_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dom = root / "page.html"
+            dom.write_text("\n".join(
+                f'<a href="/explore?listingId=list_{index}">Role</a>'
+                for index in range(12)
+            ), encoding="utf-8")
+            result = {
+                "status": "observed_no_action",
+                "inspected_listings": [
+                    {"listing_id": "list_0"}, {"listing_id": "list_1"}
+                ],
+                "evidence": {"dom_path": str(dom)},
+            }
+            with self.assertRaisesRegex(ValueError, "bounded_scan_incomplete:2_of_12"):
+                validate_bounded_scan(result)
+
+    def test_transient_blocker_may_end_a_partial_scan(self):
+        validate_bounded_scan({
+            "status": "blocked",
+            "inspected_listings": [],
+            "evidence": {"dom_path": "/not/read"},
+        })
 
     def test_current_skill_and_spec_match_continuous_application_policy(self):
         skill = (ROOT.parents[1] / "skills" / "mercor" / "SKILL.md").read_text()
