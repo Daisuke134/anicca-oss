@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from job_search_loop.agent_runner import AgentRunner, PassAlreadyRunning, TASK_CLASSES
 from job_search_loop.mercor_pass import (
+    _host_capabilities,
     build_context,
     main,
     record_inspections,
@@ -44,9 +45,14 @@ class MercorPassContractTests(unittest.TestCase):
             )
             self.assertEqual(context["recently_inspected_listing_ids"], ["list-seen"])
 
+    @patch("job_search_loop.mercor_pass._sysctl")
     @patch("job_search_loop.mercor_pass.platform.mac_ver", return_value=("15.6", ("", "", ""), ""))
     @patch("job_search_loop.mercor_pass.platform.machine", return_value="arm64")
-    def test_context_proves_local_mac_eligibility(self, _machine, _mac_ver):
+    def test_context_proves_local_mac_eligibility(self, _machine, _mac_ver, sysctl):
+        sysctl.side_effect = lambda key: {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,10",
+        }[key]
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             context = build_context(
@@ -58,11 +64,20 @@ class MercorPassContractTests(unittest.TestCase):
             self.assertEqual(context["host_capabilities"], {
                 "architecture": "arm64", "macos_version": "15.6",
                 "apple_silicon": True, "macos_sequoia_or_newer": True,
+                "chip": "Apple M4", "machine_model": "Mac16,10",
             })
             self.assertEqual(context["mercor_auth_context"], {
                 "login_method": "email",
                 "account_email": "operator@example.invalid",
             })
+
+    @patch("job_search_loop.mercor_pass.subprocess.run")
+    def test_host_capabilities_keep_unknown_sysctl_values_explicit(self, run):
+        run.return_value.returncode = 1
+        run.return_value.stdout = ""
+        facts = _host_capabilities()
+        self.assertEqual(facts["chip"], "")
+        self.assertEqual(facts["machine_model"], "")
 
     def test_mercor_is_retired_locally_but_keeps_portable_thirty_minute_cadence(self):
         registry = json.loads((ROOT.parents[1] / "config" / "loop-registry.json").read_text())
@@ -149,6 +164,11 @@ class MercorPassContractTests(unittest.TestCase):
             "Japan-eligible Japanese-language",
             "host_capabilities",
             "job_search_loop.mercor_human_gate_notify",
+            "Never open or enter a person-bound step",
+            "camera, microphone, or screen-sharing permission",
+            "Do not click an interview or assessment step",
+            "Do not call browser media-device or permission APIs",
+            "application summary is sufficient evidence",
             "One broken card must not block the whole pass",
             "invoke `.click()` once on that",
             "signals, not pre-application rejection gates",

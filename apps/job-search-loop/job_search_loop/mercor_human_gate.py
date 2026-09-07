@@ -14,6 +14,7 @@ class HumanGateError(ValueError):
 
 
 _KNOWN_IDENTITIES = (
+    ("bilingual competency", "bilingual_competency"),
     ("project thor assessment", "project_thor_assessment"),
     ("finance interview", "finance_interview"),
     ("pharmacology lab review", "pharmacology_lab_review"),
@@ -100,10 +101,13 @@ class HumanGateStore:
 
     @staticmethod
     def _row_identity(row: dict[str, Any]) -> str:
+        derived = _identity(str(row.get("reason", "")), str(row.get("evidence_ref", "")))
+        if derived == "bilingual_competency":
+            return derived
         value = row.get("identity_key")
         if isinstance(value, str) and value.strip():
             return value.strip()
-        return _identity(str(row.get("reason", "")), str(row.get("evidence_ref", "")))
+        return derived
 
     @classmethod
     def _latest_by_identity(cls, rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:

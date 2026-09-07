@@ -49,13 +49,13 @@
       "state_root": "~/.local/state/anicca/crowdworks"
     },
     "crowdworks-revenue-report": {
-      "adapter": "python",
+      "adapter": "exec",
       "cadence": {"start_interval_seconds": 300},
       "cleanup": {"max_age_days": 14, "max_runs": 100},
-      "command": ["--json"],
+      "command": [],
       "domain": "earn",
       "effect_class": "message",
-      "entrypoint": "skills/earn/crowdworks/scripts/telegram_report.py",
+      "entrypoint": "skills/earn/crowdworks/scripts/report-owner",
       "label": "ai.anicca.crowdworks-revenue-report",
       "log_root": "~/.local/state/anicca/crowdworks/logs",
       "provider_route": "deterministic",
@@ -869,6 +869,7 @@
       "state_root": "~/.local/state/life-manager/fundraiser"
     },
     "gig-outcome-watch": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 3600
       },
@@ -876,6 +877,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "earn",
       "effect_class": "none",
       "entrypoint": "tools/gig-outcome-watch/notify.sh",
@@ -1178,6 +1180,7 @@
       "state_root": "~/.local/state/anicca/lancers"
     },
     "lancers-revenue-browser": {
+      "adapter": "exec",
       "browser_owner": {
         "cdp_port": 9227,
         "profile": "~/.local/state/anicca/lancers/browser-profile"
@@ -1189,9 +1192,10 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "earn",
       "effect_class": "none",
-      "entrypoint": "runtime/legacy/lancers-revenue-browser/run.sh",
+      "entrypoint": "skills/earn/lancers/scripts/browser-owner",
       "label": "ai.anicca.lancers-revenue-browser",
       "log_root": "~/.local/state/life-manager/lancers-revenue-browser/logs",
       "provider_route": "deterministic",
@@ -1326,7 +1330,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-en-affirmation-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-en-affirmation-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-en-affirmation-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1355,7 +1361,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-en-card-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-en-card-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-en-card-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1384,7 +1392,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-en-slideshow-tiktok-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-en-slideshow-tiktok"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-en-slideshow-tiktok",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1413,7 +1423,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-en-widget-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-en-widget-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-en-widget-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1433,7 +1445,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-ai-youtube-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-ai-youtube"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-ai-youtube",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1453,7 +1467,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-affirmation-youtube-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-affirmation-youtube"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-affirmation-youtube",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1482,7 +1498,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-he-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-he"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-he",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1511,7 +1529,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-ja-widget-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-ja-widget-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-ja-widget-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1528,7 +1548,9 @@
       "cleanup": { "max_age_days": 14, "max_runs": 100 },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-en-affirmation-tiktok-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-en-affirmation-tiktok"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-en-affirmation-tiktok",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1548,7 +1570,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-jp1-tiktok-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-jp1-tiktok"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-jp1-tiktok",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1577,7 +1601,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-jp4-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-jp4"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-jp4",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1606,7 +1632,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-larry-ja-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-larry-ja-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-larry-ja-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1635,7 +1663,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-main-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-main-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-main-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1655,7 +1685,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-buddha-tiktok-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-buddha-tiktok"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-buddha-tiktok",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1684,7 +1716,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-main-tiktok-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-main-tiktok"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-main-tiktok",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1713,7 +1747,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/anicca-obou-instagram-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-anicca-obou-instagram"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-anicca-obou-instagram",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1866,7 +1902,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/honne-en-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-honne-en"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-honne-en",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1895,7 +1933,9 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "apps/life-manager/scripts/honne-ja-production-boot.sh",
+      "adapter": "exec",
+      "command": ["life-manager-honne-ja"],
+      "entrypoint": "apps/life-manager/scripts/mobile-app",
       "label": "ai.anicca.life-manager-honne-ja",
       "log_root": "~/.local/state/life-manager/logs",
       "provider_route": "deterministic",
@@ -1969,6 +2009,7 @@
       "state_root": "~/.openclaw"
     },
     "life-manager-taskmarket-ledger": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 300
       },
@@ -1976,6 +2017,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "financial",
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh",
@@ -2001,6 +2043,7 @@
       "state_root": "~/.local/state/life-manager"
     },
     "life-manager-ugig-invoice-observer": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 300
       },
@@ -2008,6 +2051,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "earn",
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/ugig-invoice-observer-boot.sh",
@@ -2151,27 +2195,6 @@
       "provider_route": "shared-agent-runner",
       "state_root": "~/.local/state/life-manager/marketing-mine-daily"
     },
-    "marketing-owner-daily": {
-      "adapter": "exec",
-      "cadence": {
-        "calendar_interval": {
-          "Hour": 22,
-          "Minute": 0
-        }
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "command": [],
-      "domain": "growth",
-      "effect_class": "publish",
-      "entrypoint": "skills/earn/marketing-engine/report/owner-daily",
-      "label": "ai.anicca.marketing-owner-daily",
-      "log_root": "~/.local/state/life-manager/marketing-owner-daily/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/marketing-owner-daily"
-    },
     "marketing-owner-events": {
       "adapter": "exec",
       "cadence": {
@@ -2189,28 +2212,6 @@
       "log_root": "~/.local/state/life-manager/marketing-owner-events/logs",
       "provider_route": "shared-agent-runner",
       "state_root": "~/.local/state/life-manager/marketing-owner-events"
-    },
-    "marketing-owner-weekly": {
-      "adapter": "exec",
-      "cadence": {
-        "calendar_interval": {
-          "Hour": 21,
-          "Minute": 0,
-          "Weekday": 0
-        }
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "growth",
-      "effect_class": "publish",
-      "command": [],
-      "entrypoint": "skills/earn/marketing-engine/report/owner-weekly",
-      "label": "ai.anicca.marketing-owner-weekly",
-      "log_root": "~/.local/state/life-manager/marketing-owner-weekly/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/marketing-owner-weekly"
     },
     "marketing-score-daily": {
       "adapter": "python",
@@ -3333,6 +3334,8 @@
     "ai.anicca.life-manager-money-printer-symphony-bridge",
     "ai.anicca.life-manager-upwork-browser",
     "ai.anicca.life-manager-upwork-free-loop",
+    "ai.anicca.marketing-owner-daily",
+    "ai.anicca.marketing-owner-weekly",
     "ai.anicca.reelclaw-en-card-1",
     "ai.anicca.reelclaw-en-card-2",
     "ai.anicca.reelclaw-en-card-3",

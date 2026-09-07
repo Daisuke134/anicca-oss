@@ -107,7 +107,9 @@ def _labels(rows: Any, *, field: str = "title") -> list[str]:
     return values
 
 
-def build_pass_message(*, run_id: str, result: Mapping[str, Any]) -> str:
+def build_pass_message(
+    *, run_id: str, result: Mapping[str, Any], human_gate_ids: list[str] | None = None
+) -> str:
     status = str(result.get("status") or "unknown")
     inspected = []
     for row in result.get("inspected_listings", []):
@@ -136,7 +138,9 @@ def build_pass_message(*, run_id: str, result: Mapping[str, Any]) -> str:
         fields.append("inspected=" + "; ".join(inspected[:5]))
     if submitted:
         fields.append("submitted=" + ", ".join(submitted[:3]))
-    if needs_human:
+    if human_gate_ids:
+        fields.append("human_gate_ids=" + ", ".join(human_gate_ids[:3]))
+    elif needs_human:
         fields.append("needs_human=" + ", ".join(needs_human[:3]))
     if blocked:
         fields.append("blocked=" + ", ".join(blocked[:3]))
@@ -149,7 +153,6 @@ def report_pass(*, run_id: str, result_path: Path, outbox: Path, gate_store: Pat
     result = json.loads(Path(result_path).read_text(encoding="utf-8"))
     if not isinstance(result, dict):
         raise ValueError("Mercor pass result must be an object")
-    message = build_pass_message(run_id=run_id, result=result)
     gate_ids: list[str] = []
     if gate_store is not None:
         evidence = result.get("evidence") if isinstance(result.get("evidence"), Mapping) else {}
@@ -175,6 +178,11 @@ def report_pass(*, run_id: str, result_path: Path, outbox: Path, gate_store: Pat
                 )["gate_id"]
                 if gate_id not in gate_ids:
                     gate_ids.append(gate_id)
+    message = build_pass_message(
+        run_id=run_id,
+        result=result,
+        human_gate_ids=gate_ids,
+    )
     event_key = f"mercor-pass:{run_id}"
     try:
         delivery = send_once(database=outbox, event_key=event_key, message=message)

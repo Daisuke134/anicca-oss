@@ -261,14 +261,14 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "skills/earn/crowdworks/scripts/application-owner",
         )
 
-    def test_crowdworks_report_uses_direct_python_adapter(self):
+    def test_crowdworks_report_uses_repo_managed_runtime_python(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         row = registry["loops"]["crowdworks-revenue-report"]
-        self.assertEqual(row["adapter"], "python")
-        self.assertEqual(row["command"], ["--json"])
+        self.assertEqual(row["adapter"], "exec")
+        self.assertEqual(row["command"], [])
         self.assertEqual(
             row["entrypoint"],
-            "skills/earn/crowdworks/scripts/telegram_report.py",
+            "skills/earn/crowdworks/scripts/report-owner",
         )
 
     def test_lancers_application_uses_repo_managed_runtime_python(self):
@@ -438,25 +438,12 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "skills/earn/marketing-engine/report/scheduled_runner.py",
         )
 
-    def test_marketing_owner_daily_uses_repo_owned_exec_adapter(self):
+    def test_marketing_owner_reports_are_retired_after_financial_manager_consolidation(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
-        row = registry["loops"]["marketing-owner-daily"]
-        self.assertEqual(row["adapter"], "exec")
-        self.assertEqual(row["command"], [])
-        self.assertEqual(
-            row["entrypoint"],
-            "skills/earn/marketing-engine/report/owner-daily",
-        )
-
-    def test_marketing_owner_weekly_uses_repo_owned_exec_adapter(self):
-        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
-        row = registry["loops"]["marketing-owner-weekly"]
-        self.assertEqual(row["adapter"], "exec")
-        self.assertEqual(row["command"], [])
-        self.assertEqual(
-            row["entrypoint"],
-            "skills/earn/marketing-engine/report/owner-weekly",
-        )
+        self.assertNotIn("marketing-owner-daily", registry["loops"])
+        self.assertNotIn("marketing-owner-weekly", registry["loops"])
+        self.assertIn("ai.anicca.marketing-owner-daily", registry["retired_labels"])
+        self.assertIn("ai.anicca.marketing-owner-weekly", registry["retired_labels"])
 
     def test_self_improve_evolve_uses_direct_python_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
@@ -538,6 +525,30 @@ class MacosLoopRegistryTest(unittest.TestCase):
         self.assertEqual(registry["loops"]["x-tweeter"]["label"], "ai.anicca.x-tweeter-pass")
         self.assertEqual(registry["loops"]["x-tweeter"]["cadence"],
                          {"calendar_interval": {"Minute": 15}})
+
+    def test_non_coconala_marketplace_loops_use_the_exec_adapter_shell(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        loop_ids = {
+            "crowdworks-revenue-application", "crowdworks-revenue-paid",
+            "crowdworks-revenue-report", "gig-outcome-watch",
+            "lancers-revenue-application", "lancers-revenue-browser",
+            "lancers-revenue-negotiate", "lancers-revenue-paid",
+            "lancers-revenue-storefront", "lancers-revenue-telegram-report",
+            "lancers-revenue-work-sync", "mercor-revenue-application",
+            "mercor-revenue-paid", "life-manager-taskmarket-ledger",
+            "life-manager-ugig-invoice-observer",
+        }
+        for loop_id in loop_ids:
+            with self.subTest(loop_id=loop_id):
+                self.assertEqual(registry["loops"][loop_id]["adapter"], "exec")
+                self.assertIsInstance(registry["loops"][loop_id]["command"], list)
+        self.assertEqual(
+            registry["loops"]["lancers-revenue-browser"]["entrypoint"],
+            "skills/earn/lancers/scripts/browser-owner",
+        )
+        self.assertFalse((ROOT / "runtime/legacy/lancers-revenue-browser/run.sh").exists())
+        self.assertFalse((ROOT / "apps/lancers-revenue/scripts/install-local.sh").exists())
+        self.assertFalse((ROOT / "apps/lancers-revenue/launchd/ai.anicca.lancers-revenue-browser.plist").exists())
 
     def test_production_render_matches_byte_stable_fixture(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())

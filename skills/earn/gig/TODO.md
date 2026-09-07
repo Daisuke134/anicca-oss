@@ -686,6 +686,42 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    surface and submitted state. Auth readback now accepts a `/jobs/apply/` page only when it also has
    strong application controls or official submitted text, while `Sign in` and `/login` continue to win
    as logged out. A clean natural replay on that same parked context remains required.
+   That replay also exposed a notification identity bug: the same unfinished shared `Bilingual
+   Competency` ceremony was emitted again as Telegram `66032` because the prior gate key included
+   model wording and evidence path. Human-gate identity now canonicalizes this named reusable ceremony
+   independently of listing, wording, run and evidence path, including legacy pending rows. Future wakes
+   reuse the first pending gate and the shared outbox event key, so the interview request is replay-zero.
+   Final-main replay `mercor-20260907-191801-61537` reused the parked context as generation 4,
+   began officially authenticated without issuing email login, preserved the 22-row application
+   ledger and sent no duplicate Bilingual Competency notification. It remained unaccepted because
+   the model spent its bound progressing the Japanese Writer Mac eligibility form, inspected only
+   four of twelve visible candidates, and the deterministic validator correctly returned
+   `bounded_scan_incomplete:4_of_12`. The same result repeated an ungrounded request for Dais to
+   provide Mac model/chip details even though the host owns those facts. Branch
+   `fix/mercor-host-capabilities-20260907` commit `1cf702b7f` supplies exact host chip/model to the
+   bounded context and makes terminal reporting reference the canonical human-gate ID instead of
+   repeating model-authored instructions; all 92 Mercor tests pass. PR `#4570` is merged at main SHA
+   `c9ac2df3ed272fcc84464d355690403cdbb18528`, and immutable release
+   `20260907T195434-c9ac2df3` is cut from that pushed main. Production apply is not yet performed:
+   this Remote process resolves UID/console owner only as numeric `501`, Directory Services returns
+   `eServerError`, and `launchctl managername/uid/pid` return 153, so `launchctl-safe preflight`
+   correctly records `blocked_control_plane` and forbids GUI-domain mutation. Do not bypass it or
+   restart Mac/Aqua/browser. When an Aqua-owned control context is available, apply only
+   `mercor-revenue-application`, then require the same clean terminal acceptance before advancing.
+   A separate host-safety defect was measured during that final replay. The model entered the
+   Bilingual Competency ceremony far enough to expose camera and full-screen-sharing controls;
+   shortly afterward WindowServer restarted at `2026-09-07 19:37 JST`. The Mac itself did not
+   reboot, but its watchdog report records the WindowServer main thread blocked in TCC for 40
+   seconds, followed by loginwindow replacement. Thermal pressure was nominal, so this is not the
+   previous memory-pressure class. Exact causation cannot be proven from the report alone, but the
+   person-bound media-permission surface is the strongest matching trigger. The Mercor pass contract
+   now forbids opening any interview/assessment/person-bound surface or requesting browser/macOS
+   camera, microphone or screen-sharing permission. It must use the application summary's exact
+   required/`Not done` step as human-gate evidence, notify once, and continue to another listing.
+   Focused contract tests pass 22/22. The repair is merged through PR `#4572` at pushed-main SHA
+   `d0b87ea62d44c8d3c8df3aba9d6ad07e45e8eaae`; immutable loop release
+   `20260907T200648-d0b87ea6` is cut from that main. It still requires a targeted production apply
+   before another Mercor wake; no Mac, Aqua or browser restart is part of the repair.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

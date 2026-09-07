@@ -51,7 +51,7 @@ function validateMarketingDestinationContract(input) {
     text(row.approved_pack_ref, "approved_pack_ref", OBJECT_REF);
     text(row.loop_name, "loop_name");
     text(row.label, "label", /^ai\.anicca\.life-manager-[A-Za-z0-9._-]+$/);
-    text(row.entrypoint, "entrypoint", /^apps\/life-manager\/scripts\/[A-Za-z0-9._-]+\.sh$/);
+    text(row.entrypoint, "entrypoint", /^apps\/life-manager\/scripts\/(?:mobile-app|[A-Za-z0-9._-]+\.sh)$/);
     if (!Array.isArray(row.cadence_jst) || row.cadence_jst.length !== 3
       || row.cadence_jst.some((value) => typeof value !== "string" || !TIME.test(value))
       || new Set(row.cadence_jst).size !== 3) invalid("cadence_jst");

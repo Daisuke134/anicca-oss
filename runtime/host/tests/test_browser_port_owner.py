@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).parents[1] / "browser_port_owner.py"
-LANCERS_LAUNCHER = Path(__file__).parents[3] / "runtime/legacy/lancers-revenue-browser/run.sh"
+LANCERS_LAUNCHER = Path(__file__).parents[3] / "skills/earn/lancers/scripts/browser-owner"
 
 
 class BrowserPortOwnerTests(unittest.TestCase):

@@ -1163,6 +1163,42 @@ class LmLoopApplyTest(unittest.TestCase):
         )
         self.assertNotIn("ai.anicca.retired-example", calls.read_text())
 
+    def test_targeted_retirement_removes_only_the_named_retired_label(self):
+        release = self._release("release-a").resolve()
+        value = json.loads((release / "config/loop-registry.json").read_text())
+        value["retired_labels"] = [
+            "ai.anicca.retired-example", "ai.anicca.retired-other",
+        ]
+        (release / "config/loop-registry.json").write_text(json.dumps(value))
+        agents = self.root / "LaunchAgents"
+        agents.mkdir()
+        selected = agents / "ai.anicca.retired-example.plist"
+        other = agents / "ai.anicca.retired-other.plist"
+        selected.write_text("old")
+        other.write_text("old")
+        service = f"gui/{os.getuid()}/ai.anicca.retired-example"
+
+        def safe(_executable, args):
+            if args == ["preflight"]:
+                return 0, "ok"
+            if args == ["print", service]:
+                return 1, "Could not find service"
+            raise AssertionError(args)
+
+        with patch.object(lm_loop, "_safe_launchctl", side_effect=safe):
+            result = apply_live(
+                release, agents, self.root / "launchctl-safe",
+                target="ai.anicca.retired-example", current=release,
+                lock_path=self.root / "apply.lock", event_writer=lambda *_: None,
+            )
+
+        self.assertEqual(result, [{
+            "ok": True, "label": "ai.anicca.retired-example", "retired": True,
+            "was_loaded": False, "removed_plist": True,
+        }])
+        self.assertFalse(selected.exists())
+        self.assertTrue(other.exists())
+
     def test_reapply_same_release_with_preserved_attributes_is_noop(self):
         release = self._release("release-a").resolve()
         current = self.root / "current"

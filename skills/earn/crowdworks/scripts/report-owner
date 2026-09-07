@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+[[ -x "$PYTHON" ]] || {
+  echo "report-owner: managed Python is unavailable: $PYTHON" >&2
+  exit 69
+}
+exec "$PYTHON" "$ROOT/skills/earn/crowdworks/scripts/telegram_report.py" --json "$@"
