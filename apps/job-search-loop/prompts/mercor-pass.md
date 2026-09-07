@@ -73,7 +73,13 @@ Pass order:
    role's visible `Completed` or `reused` state to decide whether that interview
    satisfies this application.
    If a new interview, assessment, camera/screen-share ceremony or other person-bound
-   step is required, first finish all reversible automated steps. Then immediately run
+   step is required, first finish all reversible automated steps.
+   Never open or enter a person-bound step. The application summary is sufficient evidence when it names the
+   exact remaining step and shows it as required or `Not done`.
+   Do not click an interview or assessment step, `Test screenshare`, camera, microphone, recording, or full-screen
+   sharing controls. Do not call browser media-device or permission APIs. Never request
+   camera, microphone, or screen-sharing permission from macOS.
+   Then immediately run
    `python3 -m job_search_loop.mercor_human_gate_notify` with the exact listing ID,
    title, live URL, exact remaining action and fresh evidence reference. Require its
    delivered or delivery-uncertain receipt, add one concise gate to `needs_human`, and

@@ -708,6 +708,19 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    correctly records `blocked_control_plane` and forbids GUI-domain mutation. Do not bypass it or
    restart Mac/Aqua/browser. When an Aqua-owned control context is available, apply only
    `mercor-revenue-application`, then require the same clean terminal acceptance before advancing.
+   A separate host-safety defect was measured during that final replay. The model entered the
+   Bilingual Competency ceremony far enough to expose camera and full-screen-sharing controls;
+   shortly afterward WindowServer restarted at `2026-09-07 19:37 JST`. The Mac itself did not
+   reboot, but its watchdog report records the WindowServer main thread blocked in TCC for 40
+   seconds, followed by loginwindow replacement. Thermal pressure was nominal, so this is not the
+   previous memory-pressure class. Exact causation cannot be proven from the report alone, but the
+   person-bound media-permission surface is the strongest matching trigger. The Mercor pass contract
+   now forbids opening any interview/assessment/person-bound surface or requesting browser/macOS
+   camera, microphone or screen-sharing permission. It must use the application summary's exact
+   required/`Not done` step as human-gate evidence, notify once, and continue to another listing.
+   Focused contract tests pass 22/22. This safety repair must reach pushed main and the next targeted
+   immutable release before another Mercor production wake; no Mac, Aqua or browser restart is part
+   of the repair.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
