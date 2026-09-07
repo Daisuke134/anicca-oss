@@ -29,13 +29,8 @@ function computeStage(row, opts = {}) {
   if (storedStage === "phone" && !row.phone) return "phone";
   if (storedStage === "call" && row.phone) return "call";
   if (coreReady(row)) return "done";
-  // The panel state machine owns the canonical paid/core-ready terminal state. The legacy loop must
-  // not reopen phone or Gmail for a paid user who intentionally skipped a phone, nor can it rewrite
-  // a server-owned `done` marker after a browser resume.
-  if (row.paid === true && coreReady(row)) return "done";
-  if (!row.phone) return "phone";
-  if (row.paid !== true && !compActive(opts.env || process.env, opts.now)) return "pay";
-  if (!row.gmail_account_id && row.gmail_skipped !== true) return "gmail";
+  // Optional phone/call questions run only while the server-owned stage says so. Legacy rows never
+  // reopen an onboarding paywall or optional integration.
   return "done";
 }
 
@@ -84,8 +79,6 @@ function stageMessage(stage, chatId, base, gmailConnectUrl, profileName, languag
       return { text: ja
         ? "この番号への電話通知をオンにしますか？「はい」または「スキップ」と送ってください。"
         : "Turn on phone alerts for this number? Reply “yes” or “skip”.", extra: undefined };
-    case "pay":
-      return { text: "✅ <b>Phone saved!</b>\n\nSubscribe ($20/mo) and I'll take it from here.", extra: urlButton("⭐ Subscribe") };
     case "gmail": {
       const connectUrl = gmailConnectUrl || `${link}&gmail=connect`;
       return {
@@ -96,7 +89,9 @@ function stageMessage(stage, chatId, base, gmailConnectUrl, profileName, languag
       };
     }
     case "done":
-      return { text: "🎉 <b>You're all set!</b>\n\nI'll now manage your schedule — I call you before you must leave, fill in travel time, and only ask when I genuinely can't find a location. Talk soon.", extra: undefined };
+      return { text: ja
+        ? "準備完了です。予定に合わせて移動時間を確保し、出発前にTelegramで経路を知らせます。"
+        : "You're ready. I'll reserve travel time for your schedule and send the route in Telegram before you need to leave.", extra: undefined };
     default:
       return { text: "Tap below to continue setting up Life Manager.", extra: urlButton("Open Life Manager") };
   }

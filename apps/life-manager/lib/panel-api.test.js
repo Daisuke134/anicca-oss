@@ -1276,7 +1276,7 @@ test("Task 3 ready dashboard previews the first future calendar event and degrad
 });
 
 test("Task 7A onboarding migration is additive, tenant-scoped, and lock-atomic", () => {
-  const sql = fs.readFileSync(path.join(__dirname, "../migrations/2026-08-27-lm-panel-onboarding-core.sql"), "utf8");
+  const sql = fs.readFileSync(path.join(__dirname, "../migrations/2026-08-28-lm-trial-first.sql"), "utf8");
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.lm_panel_onboarding_state/i);
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.lm_panel_onboarding_transition/i);
   assert.match(sql, /SELECT .*FROM public\.lm_users[\s\S]*FOR UPDATE/i);
@@ -1286,6 +1286,9 @@ test("Task 7A onboarding migration is additive, tenant-scoped, and lock-atomic",
   const transition = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.lm_panel_onboarding_transition"));
   assert.doesNotMatch(transition, /SET\s+paid\s*=/i, "client transitions cannot write paid");
   assert.match(transition, /call_enabled\s*=\s*false/i, "phone and notification transitions keep calls off");
+  assert.match(transition, /p_action\s*=\s*'phone\.skip'[\s\S]*call_enabled\) VALUES \(p_uid, false\)/i);
+  assert.match(transition, /p_action\s*=\s*'phone\.save'[\s\S]*call_enabled\) VALUES \(p_uid, false\)/i);
+  assert.match(transition, /p_action\s*=\s*'call\.enable'[\s\S]*call_enabled\) VALUES \(p_uid, true\)/i);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.lm_panel_onboarding_transition/i);
 });
 

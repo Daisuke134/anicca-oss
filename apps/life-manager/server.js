@@ -1031,6 +1031,7 @@ const server = http.createServer(async (req, res) => {
                   return delivered;
                 },
                 profile: { first_name: u.firstName, last_name: u.lastName },
+                languageCode: u.languageCode,
               });
               if (!stage) throw new Error("Telegram onboarding send failed");
             }

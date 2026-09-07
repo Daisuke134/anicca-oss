@@ -19,8 +19,8 @@ const full = {
 
 test("null row → calendar (name is never a blocking typed stage)", () => assert.equal(computeStage(null), "calendar"));
 test("no calendar → calendar even when name is absent", () => assert.equal(computeStage({ ...full, name: null, calendar_provider: null }), "calendar"));
-test("calendar set, no phone → phone", () => assert.equal(computeStage({ ...full, home_address: null, phone: null, paid: false }), "phone"));
-test("phone set, not paid → pay", () => assert.equal(computeStage({ ...full, home_address: null, paid: false }), "pay"));
+test("canonical phone stage asks the optional phone question", () => assert.equal(computeStage({ ...full, phone: null, paid: false, tg_onboard_stage: "phone" }), "phone"));
+test("saved phone advances only to explicit call consent", () => assert.equal(computeStage({ ...full, paid: false, tg_onboard_stage: "call" }), "call"));
 test("paid without Gmail decision → done (Gmail is not a core prerequisite)", () => assert.equal(computeStage({ ...full, gmail_account_id: null, gmail_skipped: false }), "done"));
 test("Gmail connected → done", () => assert.equal(computeStage(full), "done"));
 test("Gmail skipped → done", () => assert.equal(computeStage({ ...full, gmail_account_id: null, gmail_skipped: true }), "done"));
@@ -35,9 +35,10 @@ test("done rows never reopen onboarding when optional fields are absent", () => 
   withCompUntil(future(), () => assert.equal(computeStage(coreReadyUnpaid), "done"));
   assert.equal(computeStage({ ...coreReadyUnpaid, notifications_enabled: false }), "done");
 });
-test("order is strict: phone and pay precede Gmail", () => {
-  assert.equal(computeStage({ ...full, home_address: null, phone: null, paid: false, gmail_account_id: null }), "phone");
-  assert.equal(computeStage({ ...full, home_address: null, paid: false, gmail_account_id: null }), "pay");
+test("order is strict: canonical phone then call consent then done", () => {
+  assert.equal(computeStage({ ...full, phone: null, paid: false, tg_onboard_stage: "phone" }), "phone");
+  assert.equal(computeStage({ ...full, paid: false, tg_onboard_stage: "call" }), "call");
+  assert.equal(computeStage({ ...full, phone: null, paid: false, tg_onboard_stage: "done" }), "done");
 });
 
 // ── Demo comp window (LM_COMP_UNTIL) ──────────────────────────────────────────
@@ -61,31 +62,31 @@ async function withCompUntilAsync(value, fn) {
 const future = () => new Date(Date.now() + 3600000).toISOString();
 const past = () => new Date(Date.now() - 1000).toISOString();
 
-test("comp active: an unpaid row walks past the paywall to the next stage", () => {
+test("legacy comp setting cannot reopen a paywall", () => {
   withCompUntil(future(), () => {
     assert.equal(computeStage({ ...full, paid: false }), "done");
-    assert.equal(computeStage({ ...full, home_address: null, paid: false, gmail_account_id: null, gmail_skipped: false }), "gmail");
+    assert.equal(computeStage({ ...full, paid: false, gmail_account_id: null, gmail_skipped: false }), "done");
   });
 });
 
-test("comp active does NOT skip earlier stages — calendar and phone still gate", () => {
+test("legacy comp setting does not skip Calendar or canonical phone", () => {
   withCompUntil(future(), () => {
     assert.equal(computeStage({ ...full, paid: false, calendar_provider: null }), "calendar");
-    assert.equal(computeStage({ ...full, home_address: null, paid: false, phone: null }), "phone");
+    assert.equal(computeStage({ ...full, paid: false, phone: null, tg_onboard_stage: "phone" }), "phone");
   });
 });
 
-test("comp expired or invalid → the pay gate is exactly as before", () => {
-  withCompUntil(past(), () => assert.equal(computeStage({ ...full, home_address: null, paid: false }), "pay"));
-  withCompUntil("whenever", () => assert.equal(computeStage({ ...full, home_address: null, paid: false }), "pay"));
-  withCompUntil("", () => assert.equal(computeStage({ ...full, home_address: null, paid: false }), "pay"));
+test("expired or invalid comp never creates an onboarding pay gate", () => {
+  withCompUntil(past(), () => assert.equal(computeStage({ ...full, paid: false }), "done"));
+  withCompUntil("whenever", () => assert.equal(computeStage({ ...full, paid: false }), "done"));
+  withCompUntil("", () => assert.equal(computeStage({ ...full, paid: false }), "done"));
 });
 
-test("comp is injectable, so callers can pin the clock without touching process.env", () => {
+test("injected comp time cannot change onboarding into a paywall", () => {
   const until = "2026-07-27T12:00:00.000Z";
   const env = { LM_COMP_UNTIL: until };
   assert.equal(computeStage({ ...full, paid: false }, { env, now: Date.parse(until) - 1 }), "done");
-  assert.equal(computeStage({ ...full, home_address: null, paid: false }, { env, now: Date.parse(until) }), "pay");
+  assert.equal(computeStage({ ...full, paid: false }, { env, now: Date.parse(until) }), "done");
 });
 
 test("comp NEVER writes lm_users.paid — Stripe stays the single writer", async () => {
@@ -429,7 +430,7 @@ test("a stage CHANGE inside the 30-min cooldown still waits, then fires once ela
   assert.deepEqual(stages, ["home"]);
   // cooldown elapsed → the pending change is finally announced
   assert.equal(await run(nudgeRow({ home_address: null, phone: "+81", tg_onboard_stage: "phone" }), t0 + NUDGE_COOLDOWN_MS), 1);
-  assert.deepEqual(stages, ["home", "pay"]);
+  assert.deepEqual(stages, ["home", "done"]);
 });
 
 test("the cooldown is 30 minutes and is per-uid, not global", async () => {
@@ -550,10 +551,8 @@ test("home, phone, and call choice are the NATIVE typed stages", () => {
   for (const stage of ["name", "calendar", "pay", "gmail", "done"]) assert.ok(!isNativeStage(stage));
 });
 
-test("calendar/pay carry web buttons; Gmail carries connect + skip buttons", () => {
-  for (const s of ["calendar", "pay"]) {
-    assert.equal(stageMessage(s, "9", "https://aniccaai.com").extra.reply_markup.inline_keyboard[0][0].url, "https://aniccaai.com/lm?tg=9");
-  }
+test("Calendar carries its web button; Gmail compatibility carries connect + skip buttons", () => {
+  assert.equal(stageMessage("calendar", "9", "https://aniccaai.com").extra.reply_markup.inline_keyboard[0][0].url, "https://aniccaai.com/lm?tg=9");
   const buttons = stageMessage("gmail", "9", "https://aniccaai.com", "https://life.example/gmail-connect").extra.reply_markup.inline_keyboard[0];
   assert.equal(buttons[0].url, "https://life.example/gmail-connect");
   assert.equal(buttons[1].callback_data, "gmail:skip");
@@ -562,7 +561,6 @@ test("calendar/pay carry web buttons; Gmail carries connect + skip buttons", () 
 test("phone is optional, call needs explicit opt-in, and Gmail never claims connection", () => {
   assert.match(stageMessage("phone", "1", "x").text, /optional/i);
   assert.match(stageMessage("call", "1", "x").text, /yes.*skip/i);
-  assert.match(stageMessage("pay", "1", "x").text, /Phone saved/i);
   assert.match(stageMessage("gmail", "1", "x").text, /Gmail/i);
   assert.doesNotMatch(stageMessage("gmail", "1", "x").text, /connected!/i);
 });
@@ -576,12 +574,12 @@ test("Gmail skip persists gmail_skipped=true and advances to done", async () => 
   assert.deepEqual(result, { ok: true, stage: "done" });
   assert.deepEqual(saved, [{ gmail_skipped: true }]);
   assert.deepEqual(stages, ["done"]);
-  assert.match(sent[0], /all set/i);
+  assert.match(sent[0], /ready/i);
 });
 
-test("Gmail OFF: onboarding auto-skips with an honest preparation message and no OAuth button", async () => {
+test("Gmail compatibility stage is not reopened by normal onboarding", async () => {
   await withCompUntilAsync(future(), async () => {
-    const saved = [], stages = [], messages = [];
+    const saved = [], stages = [], announced = [];
     // Keep this row outside the core-ready terminal guard: the optional Gmail fallback is
     // still exercised for legacy/incomplete rows, while a core-ready stored `gmail` stage is done.
     const row = { ...full, paid: false, home_address: null, gmail_account_id: null, gmail_skipped: false, tg_onboard_stage: "gmail" };
@@ -589,13 +587,12 @@ test("Gmail OFF: onboarding auto-skips with an honest preparation message and no
       nudgeStore: new Map(), // isolated per test: the real store is module-level and 30-min sticky
       linkedRows: async () => [row], mailAvailable: async () => false,
       saveField: async (_uid, patch) => saved.push(patch),
-      sendMessage: async (_token, _chat, text, extra) => messages.push({ text, extra }),
+      sendStage: async (_token, _chat, stageRow) => announced.push(computeStage(stageRow)),
       setStage: async (_uid, stage) => stages.push(stage) });
     assert.equal(sent, 1);
-    assert.deepEqual(saved, [{ gmail_skipped: true }]);
+    assert.deepEqual(saved, []);
     assert.deepEqual(stages, ["done"]);
-    assert.match(messages[0].text, /currently being prepared/i);
-    assert.equal(messages[0].extra, undefined);
+    assert.deepEqual(announced, ["done"]);
   });
 });
 
