@@ -374,9 +374,16 @@ def acquire(task, url="about:blank", no_seed=False):
         calls.append(("Target.createTarget", {"url": url, "browserContextId": ctx_id}))
         results = asyncio.run(_calls(calls))
         target_id = results[-1]["targetId"]
-        storage_origins_seeded = _seed_local_storage(
-            _page_ws(target_id), url, overlay_origins
-        )
+        try:
+            storage_origins_seeded = _seed_local_storage(
+                _page_ws(target_id), url, overlay_origins
+            )
+        except Exception:
+            with contextlib.suppress(Exception):
+                asyncio.run(_calls([(
+                    "Target.disposeBrowserContext", {"browserContextId": ctx_id}
+                )]))
+            raise
 
         lease = {
             "context_id": ctx_id,

@@ -18,6 +18,8 @@ import asyncio
 import importlib.util
 import json
 import sys
+
+import pytest
 import time
 from pathlib import Path
 
@@ -348,3 +350,42 @@ def test_seed_local_storage_targets_exact_origin_and_reloads(monkeypatch):
     assert '"https://work.mercor.com"' in expression
     assert "localStorage.setItem" in expression
     assert "setTimeout(()=>location.reload(),50)" in expression
+
+
+def test_acquire_disposes_context_when_local_storage_seed_fails(monkeypatch, tmp_path):
+    module = load_module()
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(tmp_path / "leases.json"))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_FILE", str(tmp_path / "base.json"))
+    overlay = tmp_path / "overlay.json"
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_WRITEBACK_FILE", str(overlay))
+    overlay.write_text(json.dumps({
+        "cookies": [],
+        "origins": [{
+            "origin": "https://work.mercor.com",
+            "localStorage": [{"name": "mercor-auth-store", "value": "private"}],
+        }],
+    }), encoding="utf-8")
+    seen = []
+
+    async def calls(pairs, timeout=None):
+        seen.append(pairs)
+        if pairs == [("Target.createBrowserContext", {})]:
+            return [{"browserContextId": "new-context"}]
+        if pairs[0][0] == "Target.createTarget":
+            return [{"targetId": "new-target"}]
+        assert pairs == [(
+            "Target.disposeBrowserContext", {"browserContextId": "new-context"}
+        )]
+        return [{}]
+
+    monkeypatch.setattr(module, "_calls", calls)
+    monkeypatch.setattr(
+        module, "_seed_local_storage",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("seed failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="seed failed"):
+        module.acquire("mercor-task", url="https://work.mercor.com/explore")
+    assert seen[-1] == [(
+        "Target.disposeBrowserContext", {"browserContextId": "new-context"}
+    )]
