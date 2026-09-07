@@ -79,7 +79,7 @@ test("Moneytree read retries one transient connector startup failure", async (t)
 
   assert.equal(result.sources.moneytree, "observed_unverified");
   assert.equal(accountCalls, 2);
-  assert.equal(transactionCalls, 2);
+  assert.equal(transactionCalls, 1);
 });
 
 test("authenticated Moneytree reads are verified only after immutable evidence is stored", async (t) => {
@@ -136,4 +136,21 @@ test("Moneytree snapshot helper preserves its two-array return contract", async 
   const { readMoneytreeSnapshot } = require("./financial-manager-ingest.js");
   const result = await readMoneytreeSnapshot(async () => ["account"], async () => ["transaction"], {});
   assert.deepEqual(result, [["account"], ["transaction"]]);
+});
+
+test("Moneytree snapshot starts only one app-server read at a time", async () => {
+  const { readMoneytreeSnapshot } = require("./financial-manager-ingest.js");
+  let active = 0;
+  let maximum = 0;
+  const read = (value) => async () => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active -= 1;
+    return [value];
+  };
+  assert.deepEqual(await readMoneytreeSnapshot(read("account"), read("transaction"), {}), [
+    ["account"], ["transaction"],
+  ]);
+  assert.equal(maximum, 1);
 });

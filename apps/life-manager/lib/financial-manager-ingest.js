@@ -34,9 +34,11 @@ async function readMoneytreeSnapshot(readAccounts, readTransactions, range) {
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const [accountResult, transactionResult] = await Promise.all([
-        readAccounts(), readTransactions({ ...range, limit: 1000 }),
-      ]);
+      // Each connector call starts a Codex app-server. Launchd background jobs can starve when
+      // two app-servers initialize together, so keep the authenticated reads strictly serial.
+      // No records are returned or appended until the complete pair succeeds.
+      const accountResult = await readAccounts();
+      const transactionResult = await readTransactions({ ...range, limit: 1000 });
       const pair = [accountResult, transactionResult];
       Object.defineProperties(pair, {
         accountRead: { value: accountResult[moneytree.MONEYTREE_OBSERVATION] || null },
