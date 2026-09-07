@@ -1,6 +1,8 @@
 "use strict";
 
+const crypto = require("node:crypto");
 const { isDeepStrictEqual } = require("node:util");
+const { projectJob, projectReceipt } = require("../../../runtime/contracts/common-record.cjs");
 
 const EFFECT_CLASSES = new Set(["none", "publish", "message", "money"]);
 // After this many consecutive unknown reconcile results a reconciling job dead-letters
@@ -225,6 +227,95 @@ async function enqueueJobAt(input, availableAtValue, opts = {}) {
   return { created, job: row };
 }
 
+async function readCommonJob(input, opts = {}) {
+  const tenantId = nonEmpty(input && input.tenantId, "runtime tenant id");
+  const jobId = nonEmpty(input && input.jobId, "runtime job id");
+  const { query } = database(opts);
+  const rows = (await query(`
+    SELECT job_id, tenant_id, loop_id, capability, effect_class, effect_key,
+           input_refs, max_attempts
+    FROM public.lm_runtime_jobs
+    WHERE job_id = $1 AND tenant_id = $2
+    LIMIT 1
+  `, [jobId, tenantId])).rows;
+  if (rows.length === 0) return null;
+  if (rows.length !== 1) throw new Error("runtime common job read returned multiple rows");
+  return projectJob(rows[0]);
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function digestId(prefix, value) {
+  return `${prefix}-${crypto.createHash("sha256").update(value).digest("hex").slice(0, 24)}`;
+}
+
+function postgresReceiptToCommon(row) {
+  const payload = receiptObject(row && row.receipt);
+  if (!new Set(["publish", "message", "money"]).has(row.effect_class)) {
+    throw new Error("runtime common receipt requires an external effect");
+  }
+  const outcome = row.outcome === "completed" ? "verified"
+    : row.outcome === "failed" ? "failed"
+      : row.outcome === "reconciled_present" ? "reconciled"
+        : null;
+  if (row.outcome === "reconciled_absent") {
+    throw new Error("runtime reconciled_absent receipt is not representable by the common contract");
+  }
+  if (!outcome) throw new Error("runtime receipt outcome is not common");
+  const provider = payload.provider ?? payload.provider_route;
+  const externalValue = payload.external_ref ?? payload.provider_post_id
+    ?? payload.message_id ?? payload.public_url ?? null;
+  if (externalValue !== null && typeof externalValue !== "string"
+    && !(Number.isSafeInteger(externalValue) && externalValue >= 0)) {
+    throw new Error("runtime receipt external reference is invalid");
+  }
+  const externalRef = externalValue == null ? null : String(externalValue);
+  const evidenceRefs = Array.isArray(payload.evidence_refs) ? payload.evidence_refs : [];
+  if (["verified", "reconciled"].includes(outcome)
+    && (!provider || !externalRef || evidenceRefs.length < 1)) {
+    throw new Error("runtime completed receipt lacks provider verification evidence");
+  }
+  const identity = `${row.tenant_id}\n${row.job_id}\n${row.attempt}`;
+  return projectReceipt({
+    receipt_id: digestId("receipt", identity),
+    effect_id: digestId("effect", `${identity}\n${row.effect_key || "none"}`),
+    loop_id: row.loop_id,
+    run_id: payload.run_id || digestId("run", identity),
+    outcome,
+    provider: provider || "runtime-job-store",
+    recorded_at: new Date(row.created_at).toISOString(),
+    external_ref: externalRef,
+    payload_sha256: crypto.createHash("sha256").update(canonicalJson(payload)).digest("hex"),
+    evidence_refs: evidenceRefs,
+  });
+}
+
+async function readCommonReceipt(input, opts = {}) {
+  const tenantId = nonEmpty(input && input.tenantId, "runtime tenant id");
+  const jobId = nonEmpty(input && input.jobId, "runtime job id");
+  const attempt = positiveInteger(input && input.attempt, "runtime attempt", 20);
+  const { query } = database(opts);
+  const rows = (await query(`
+    SELECT receipts.job_id, receipts.tenant_id, receipts.attempt, receipts.outcome,
+           receipts.effect_key, receipts.receipt, receipts.created_at,
+           jobs.loop_id, jobs.effect_class
+    FROM public.lm_runtime_job_receipts AS receipts
+    JOIN public.lm_runtime_jobs AS jobs
+      ON jobs.job_id = receipts.job_id AND jobs.tenant_id = receipts.tenant_id
+    WHERE receipts.job_id = $1 AND receipts.tenant_id = $2 AND receipts.attempt = $3
+    LIMIT 1
+  `, [jobId, tenantId, attempt])).rows;
+  if (rows.length === 0) return null;
+  if (rows.length !== 1) throw new Error("runtime common receipt read returned multiple rows");
+  return postgresReceiptToCommon(rows[0]);
+}
+
 async function claimJobs(input, opts = {}) {
   const workerId = nonEmpty(input && input.workerId, "runtime worker id");
   const capabilities = input && input.capabilities;
@@ -365,6 +456,8 @@ module.exports = {
   buildRuntimeJob,
   enqueueJob,
   enqueueJobAt,
+  readCommonJob,
+  readCommonReceipt,
   claimJobs,
   heartbeatJob,
   completeJob,

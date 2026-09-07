@@ -8,6 +8,8 @@ const {
   buildRuntimeJob,
   enqueueJob,
   enqueueJobAt,
+  readCommonJob,
+  readCommonReceipt,
   claimJobs,
   heartbeatJob,
   completeJob,
@@ -140,6 +142,66 @@ test("scheduled enqueue writes available_at atomically and keeps idempotency exa
   await assert.rejects(enqueueJobAt(canonical, "2026-08-02T01:06:00.000Z", {
     query: async (sql) => ({ rows: /INSERT/i.test(sql) ? [] : [{ ...canonical, available_at: availableAt }] }),
   }), /available time collision/i);
+});
+
+test("Postgres rows project through the common Job contract at a tenant-scoped read boundary", async () => {
+  const row = {
+    job_id: "job-001", tenant_id: "tenant-a", loop_id: "marketing.anicca.slideshow",
+    capability: "content.publish", effect_class: "publish",
+    effect_key: "tiktok:anicca:asset-001", input_refs: sampleJob().inputRefs,
+    max_attempts: 3,
+  };
+  const calls = [];
+  const projected = await readCommonJob({ tenantId: "tenant-a", jobId: "job-001" }, {
+    query: async (sql, params) => { calls.push({ sql, params }); return { rows: [row] }; },
+  });
+  assert.deepEqual(projected, { schema_version: 1, record_type: "job", ...row });
+  assert.match(calls[0].sql, /WHERE job_id = \$1 AND tenant_id = \$2/i);
+  assert.deepEqual(calls[0].params, ["job-001", "tenant-a"]);
+
+  assert.equal(await readCommonJob({ tenantId: "tenant-a", jobId: "missing" }, {
+    query: async () => ({ rows: [] }),
+  }), null);
+  await assert.rejects(readCommonJob({ tenantId: "tenant-a", jobId: "legacy" }, {
+    query: async () => ({ rows: [{ ...row, loop_id: "legacy loop" }] }),
+  }), /common Job loop_id invalid/);
+});
+
+test("immutable Postgres receipts project only with provider verification evidence", async () => {
+  const row = {
+    job_id: "job-001", tenant_id: "tenant-a", attempt: 1, outcome: "completed",
+    effect_key: "tiktok:anicca:asset-001", loop_id: "marketing.anicca.slideshow",
+    effect_class: "publish", created_at: "2026-09-07T00:00:00Z",
+    receipt: {
+      provider: "postiz", provider_post_id: "post-1", run_id: "run-1",
+      evidence_refs: ["postiz://post/post-1"], status: "published",
+    },
+  };
+  const calls = [];
+  const projected = await readCommonReceipt({ tenantId: "tenant-a", jobId: "job-001", attempt: 1 }, {
+    query: async (sql, params) => { calls.push({ sql, params }); return { rows: [row] }; },
+  });
+  assert.equal(projected.record_type, "receipt");
+  assert.equal(projected.outcome, "verified");
+  assert.equal(projected.provider, "postiz");
+  assert.equal(projected.external_ref, "post-1");
+  assert.deepEqual(projected.evidence_refs, ["postiz://post/post-1"]);
+  assert.match(projected.payload_sha256, /^[a-f0-9]{64}$/);
+  assert.match(calls[0].sql, /JOIN public\.lm_runtime_jobs/i);
+  assert.deepEqual(calls[0].params, ["job-001", "tenant-a", 1]);
+
+  await assert.rejects(readCommonReceipt({ tenantId: "tenant-a", jobId: "job-001", attempt: 1 }, {
+    query: async () => ({ rows: [{ ...row, receipt: { status: "published" } }] }),
+  }), /lacks provider verification evidence/);
+  await assert.rejects(readCommonReceipt({ tenantId: "tenant-a", jobId: "job-001", attempt: 1 }, {
+    query: async () => ({ rows: [{ ...row, receipt: { ...row.receipt, provider_post_id: {} } }] }),
+  }), /external reference is invalid/);
+  await assert.rejects(readCommonReceipt({ tenantId: "tenant-a", jobId: "job-001", attempt: 1 }, {
+    query: async () => ({ rows: [{ ...row, effect_class: "none", effect_key: null }] }),
+  }), /requires an external effect/);
+  await assert.rejects(readCommonReceipt({ tenantId: "tenant-a", jobId: "job-001", attempt: 1 }, {
+    query: async () => ({ rows: [{ ...row, outcome: "reconciled_absent" }] }),
+  }), /not representable/);
 });
 
 test("claim filters capabilities, has a bounded lease, and uses one narrow atomic RPC", async () => {

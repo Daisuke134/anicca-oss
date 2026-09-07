@@ -64,6 +64,28 @@ class CommonContractTests(unittest.TestCase):
         )
         validate(json.loads(result.stdout))
 
+    def test_postgres_receipt_adapter_output_matches_the_common_schema(self):
+        row = {
+            "job_id": "job-1", "tenant_id": "user-1", "attempt": 1,
+            "outcome": "completed", "effect_key": "postiz:post-1",
+            "loop_id": "marketing.video", "effect_class": "publish",
+            "created_at": "2026-09-07T00:00:00Z",
+            "receipt": {"provider": "postiz", "provider_post_id": "post-1", "run_id": "run-1",
+                        "evidence_refs": ["postiz://post/post-1"]},
+        }
+        script = (
+            "const store=require('./apps/life-manager/lib/runtime-job-store.js');"
+            "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',async()=>{"
+            "const row=JSON.parse(s);const out=await store.readCommonReceipt("
+            "{tenantId:row.tenant_id,jobId:row.job_id,attempt:row.attempt},"
+            "{query:async()=>({rows:[row]})});process.stdout.write(JSON.stringify(out));});"
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, input=json.dumps(row),
+            text=True, capture_output=True, check=True,
+        )
+        validate(json.loads(result.stdout))
+
     def test_runtime_event_schema_matches_runtime_vocabulary(self):
         definition = SCHEMA["$defs"]["RuntimeEvent"]["properties"]
         self.assertEqual(set(definition["domain"]["enum"]), runtime_event.DOMAINS)
