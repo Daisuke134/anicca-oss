@@ -104,6 +104,35 @@ def _one_text(page: object, selector: str) -> str:
     return value
 
 
+def _confirmed_from_list(page: object, project_id: str) -> str | None:
+    """The proposal list walk shared by every reader of the worker's own CrowdWorks list: navigate
+    to it, collect the proposal links inside the applications table, and return the id of the one
+    that names this project.
+
+    Returns None only when the list was actually read and does not show this project. Raises when
+    the list itself -- the navigation, the table, a paginated result -- could not be read, so a
+    caller never mistakes an unreadable list for evidence that nothing was submitted.
+    """
+    page.goto(_PROPOSAL_LIST_URL)  # type: ignore[attr-defined]
+    if not _exact_url(getattr(page, "url", None), "/e/proposals"): raise RuntimeError("proposal_list_unreadable")
+    for selector in ('a[href*="/e/proposals?page="]', 'a[rel="next"]'):
+        if page.locator(selector).count(): raise RuntimeError("proposal_list_paginated")  # type: ignore[attr-defined]
+    links = _one(page, _TABLE_SELECTOR).locator('a[href^="/proposals/"]')
+    count = links.count()
+    if type(count) is not int: raise RuntimeError("proposal_list_unreadable")
+    identities = set()
+    for index in range(count):
+        parsed = urlsplit(links.nth(index).get_attribute("href") or "")
+        match = re.fullmatch(r"/proposals/([0-9]+)", parsed.path)
+        if match is not None and not (parsed.scheme or parsed.netloc or parsed.query or parsed.fragment): identities.add(match.group(1))
+    matches = []
+    for identity in sorted(identities):
+        try:
+            _read_proposal_detail(page, identity, project_id)
+        except Exception:
+            continue
+        matches.append(identity)
+    return matches[0] if len(matches) == 1 else None
 def find_proposal_id(page: object, project_id: str) -> str | None:
     """The proposal id CrowdWorks holds for this project, read from the worker's own list.
 
@@ -112,21 +141,7 @@ def find_proposal_id(page: object, project_id: str) -> str | None:
     """
     if not isinstance(project_id, str) or _ASCII_DIGITS.fullmatch(project_id) is None: return None
     try:
-        page.goto(_PROPOSAL_LIST_URL)  # type: ignore[attr-defined]
-        if not _exact_url(getattr(page, "url", None), "/e/proposals"): return None
-        links = _one(page, _TABLE_SELECTOR).locator('a[href^="/proposals/"]')
-        identities = set()
-        for index in range(links.count()):
-            parsed = urlsplit(links.nth(index).get_attribute("href") or "")
-            match = re.fullmatch(r"/proposals/([0-9]+)", parsed.path)
-            if match is not None and not (parsed.scheme or parsed.netloc or parsed.query): identities.add(match.group(1))
-        matches = []
-        for identity in sorted(identities):
-            try:
-                _read_proposal_detail(page, identity, project_id); matches.append(identity)
-            except Exception:
-                continue
-        return matches[0] if len(matches) == 1 else None
+        return _confirmed_from_list(page, project_id)
     except (KeyboardInterrupt, SystemExit, MemoryError):
         raise
     except Exception:
@@ -160,6 +175,26 @@ def reconcile_existing_application(*, page: object, proposal_id: str, opportunit
         now=now,
     )
     return replace(result, submitted=False)
+def _confirm_after_uncertain_navigation(page: object, project_id: object) -> Mapping[str, object]:
+    """The post-submit navigation could not be trusted on its own -- it timed out, or it landed
+    somewhere that did not parse as /proposals/<id>. A slow or unrecognised navigation is not
+    evidence that nothing was submitted, so ask CrowdWorks' own proposal list -- the same list-walk
+    find_proposal_id and _readback_application use -- before concluding submission_uncertain.
+
+    A submission confirmed this way carries confirmed_via="list" so a reader can tell it apart from
+    one confirmed by the redirect, but the proposal id is returned exactly as the fast-navigation
+    path would, so the receipt, the transaction and application_verified are unaffected.
+    """
+    if isinstance(project_id, str):
+        try:
+            identity = _confirmed_from_list(page, project_id)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            identity = None
+        if identity is not None:
+            return {"proposal_id": identity, "confirmed_via": "list"}
+    raise RuntimeError("submission_uncertain") from None
 def _submit_application(page: object, opportunity: Mapping[str, object], proposal_text: str, amount_minor: int, delivery_due_on: str, expire_period_days: int | None) -> Mapping[str, object]:
     project_id = opportunity.get("external_id")
     try:
@@ -206,14 +241,16 @@ def _submit_application(page: object, opportunity: Mapping[str, object], proposa
         # CrowdWorks lands the accepted proposal on /proposals/<id>#scroll_to_message. Refusing the
         # fragment reported submission_uncertain for proposal 304582247, which had in fact posted.
         wait_for_url(re.compile(r"^https://crowdworks\.jp/proposals/[0-9]+(?:#[^?]*)?$"), timeout=10_000)
-    except Exception: raise RuntimeError("submission_uncertain") from None
+    except Exception:
+        return _confirm_after_uncertain_navigation(page, project_id)
     try:
         parsed = urlsplit(getattr(page, "url", None))
         landed = parsed.scheme == "https" and parsed.hostname == "crowdworks.jp" and parsed.port in (None, 443) and not parsed.query and parsed.username is None and parsed.password is None
         match = re.fullmatch(r"/proposals/([0-9]+)", parsed.path) if landed else None
     except (TypeError, ValueError):
         match = None
-    if match is None: raise RuntimeError("submission_uncertain")
+    if match is None:
+        return _confirm_after_uncertain_navigation(page, project_id)
     return {"proposal_id": match.group(1)}
 def _readback_application(page: object, proposal_id: str | None, project_id: str) -> Mapping[str, object]:
     try:
@@ -227,25 +264,8 @@ def _readback_application(page: object, proposal_id: str | None, project_id: str
                     if attempt == 2: raise
                     wait = getattr(page, "wait_for_timeout", None)
                     if callable(wait): wait(2_000)
-        page.goto(_PROPOSAL_LIST_URL)  # type: ignore[attr-defined]
-        if not _exact_url(getattr(page, "url", None), "/e/proposals"): return {}
-        for selector in ('a[href*="/e/proposals?page="]', 'a[rel="next"]'):
-            if page.locator(selector).count(): return {}  # type: ignore[attr-defined]
-        links = _one(page, _TABLE_SELECTOR).locator('a[href^="/proposals/"]')
-        if type(count := links.count()) is not int or count < 1: return {}
-        identities = set()
-        for index in range(count):
-            href = links.nth(index).get_attribute("href")
-            parsed = urlsplit(href or "")
-            match = re.fullmatch(r"/proposals/([0-9]+)", parsed.path)
-            if match is not None and not (parsed.scheme or parsed.netloc or parsed.query or parsed.fragment): identities.add(match.group(1))
-        matches = []
-        for identity in sorted(identities):
-            try:
-                matches.append(_read_proposal_detail(page, identity, project_id))
-            except Exception:
-                continue
-        return matches[0] if len(matches) == 1 else {}
+        identity = _confirmed_from_list(page, project_id)
+        return _read_proposal_detail(page, identity, project_id) if identity is not None else {}
     except (KeyboardInterrupt, SystemExit, MemoryError): raise
     except Exception:
         return {}
