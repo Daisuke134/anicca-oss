@@ -65,6 +65,11 @@ trap on_exit EXIT
 python3 "$TERMINAL_TOOL" start --ledger "$TERMINAL_LEDGER" \
   --execution-id "$EXECUTION_ID" >>"$LOG" 2>&1 || exit 1
 
+# Subscriber requests still spend hosted credits while the publish queue is full.
+# Check the canonical host key before every healthy-idle exit, not only while publishing.
+bash "$LIFE_MANAGER_RELEASE_ROOT/skills/capafy-autopublish/scripts/key_health_gate.sh" \
+  >>"$LOG" 2>&1 || exit $?
+
 # Enforce the five simultaneous-submission cap before spending an agent turn.
 # CAP_FULL permits one offline-only candidate build per local calendar day. It never writes to Capafy.
 INVENTORY="$(CAPAFY_CATALOG_DIR="$LIFE_MANAGER_SOURCE_REPO/skills/capafy/catalog" \

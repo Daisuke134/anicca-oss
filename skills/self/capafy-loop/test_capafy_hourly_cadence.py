@@ -44,3 +44,11 @@ def test_browser_lane_calls_include_explicit_escalation_reason() -> None:
     script = DAILY.read_text(encoding="utf-8")
 
     assert script.count('--escalation-reason "authorized Capafy browser publishing workflow"') == 2
+
+
+def test_key_health_runs_before_cap_full_healthy_idle() -> None:
+    script = DAILY.read_text(encoding="utf-8")
+
+    gate = 'skills/capafy-autopublish/scripts/key_health_gate.sh'
+    assert script.count(gate) == 1
+    assert script.index(gate) < script.index('if [ "$VERDICT" = "CAP_FULL" ]')
