@@ -645,7 +645,7 @@ def _filter_claimed_rows(rows: Sequence[Mapping[str, object]], state_path: Path)
     # _production_prepare:479, waiting for a `#FeeApp` widget that a contest page does not have.
     # That was 15 of the 46 eligible projects in 120 wakes, the largest single loss on the lane,
     # and it read as a broken selector rather than as work we should never have selected.
-    UNSUPPORTED_BUDGET_TYPES = {"bounty", "contest"}
+    UNSUPPORTED_BUDGET_TYPES = {"bounty", "contest", "recruit"}
     skipped.extend({
         "project_id": str(row.get("external_id")),
         "reason": "unsupported_application_workflow",

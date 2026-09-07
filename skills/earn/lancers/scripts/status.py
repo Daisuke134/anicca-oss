@@ -220,6 +220,13 @@ def _public_budget_type(value: object) -> str:
         return "fixed"
     if normalized in {"タスク", "bounty"}:
         return "bounty"
+    # Measured 2026-09-07 across three Lancers category pages: 96 recruit badges against 52
+    # projects and 32 competitions. 求人 is the most common listing there and it was falling
+    # through to "unknown", so every one reached the planner and came back
+    # mandatory_human_presence -- a hiring post is an application for employment, with interviews,
+    # not a proposal for a piece of work.
+    if normalized in {"求人", "recruit"}:
+        return "recruit"
     if normalized in {"コンペ", "contest", "competition"}:
         return "contest"
     if normalized in {"時間報酬", "時間単価", "hourly", "time"}:

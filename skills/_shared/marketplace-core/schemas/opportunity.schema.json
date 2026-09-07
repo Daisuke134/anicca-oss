@@ -66,6 +66,7 @@
         "hourly",
         "contest",
         "bounty",
+        "recruit",
         "unknown"
       ]
     },
