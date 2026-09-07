@@ -718,9 +718,10 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    now forbids opening any interview/assessment/person-bound surface or requesting browser/macOS
    camera, microphone or screen-sharing permission. It must use the application summary's exact
    required/`Not done` step as human-gate evidence, notify once, and continue to another listing.
-   Focused contract tests pass 22/22. This safety repair must reach pushed main and the next targeted
-   immutable release before another Mercor production wake; no Mac, Aqua or browser restart is part
-   of the repair.
+   Focused contract tests pass 22/22. The repair is merged through PR `#4572` at pushed-main SHA
+   `d0b87ea62d44c8d3c8df3aba9d6ad07e45e8eaae`; immutable loop release
+   `20260907T200648-d0b87ea6` is cut from that main. It still requires a targeted production apply
+   before another Mercor wake; no Mac, Aqua or browser restart is part of the repair.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
