@@ -412,7 +412,12 @@ def fetch_public_html(*, query: Optional[str], limit: int, timeout: float, _deta
     query = _query(query)
     limit = _limit(limit)
     timeout = _timeout(timeout)
-    params = [("open", "1"), ("sort", "started_at"), ("limit", str(limit))]
+    # type[]=project asks Lancers for proposals only. Measured 2026-09-07 on one keyword page:
+    # without it, 30 recruit badges against 27 projects; with it, 0 recruit and 30 projects. The
+    # 求人 postings were most of every page, they are applications for employment rather than for
+    # a piece of work, and they were being fetched, normalised, filtered and counted before being
+    # thrown away. Same request, thirty usable rows instead of twenty-seven buried in sixty.
+    params = [("open", "1"), ("sort", "started_at"), ("limit", str(limit)), ("type[]", "project")]
     if query is not None:
         params.append(("keyword", query))
     encoded = urllib.parse.urlencode(params, encoding="utf-8", errors="strict")
