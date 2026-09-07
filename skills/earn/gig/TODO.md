@@ -583,6 +583,15 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    secret URL, requires official authenticated readback, reruns the bounded Apply pass once in the same
    wake, then commits provider storage. Google sign-in remains forbidden. Focused verification passes
    17 tests. Merge/install and a fresh provider email after its transient error clears remain open.
+   PR `#4529` merged the same-wake recovery and installed release
+   `962fb4c7a15641801014e0e54d2df070aaa716ca`. Natural wake
+   `mercor-20260907-163029-52207` ended exit `0`/`loaded-idle`, but Mercor's official email endpoint
+   again returned `Something went wrong` after one fresh retry and emitted no new email. The recovery
+   adapter therefore timed out without consuming an old link; official auth readback remained
+   `logged_out`, application effect remained zero, and the prior vault was not overwritten. The code
+   path is production-installed but end-to-end acceptance is still false. The next scheduled wake owns
+   the transient provider retry; do not restart Mac/Aqua/browser or advance to `SHARED-REPLY-1` until
+   a fresh email, authenticated readback, application/human-gate effect and replay-zero are observed.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
