@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import tomllib
+import json
 import unittest
 from pathlib import Path
 
@@ -12,25 +12,27 @@ class XRoleSeparationTests(unittest.TestCase):
     def test_tweeter_is_original_only_with_independent_state_and_queues(self) -> None:
         english_repost = (ROOT / "skills" / "x-repost" / "x-repost-en-cli.sh").read_text()
         tweeter = (ROOT / "skills" / "x-tweeter" / "x-tweeter-cli.sh").read_text()
-        repost = tomllib.loads((ROOT / "loops" / "x-repost" / "loop.toml").read_text())
-        tweeter_loop = tomllib.loads((ROOT / "loops" / "x-tweeter" / "loop.toml").read_text())
+        registry = json.loads((ROOT / "config" / "loop-registry.json").read_text())
+        repost = registry["loops"]["x-repost"]
+        tweeter_loop = registry["loops"]["x-tweeter"]
 
-        self.assertEqual(repost["env"]["X_REPOST_FORCE_KIND"], "quote")
-        self.assertEqual(repost["env"]["X_REPOST_FORCE_LANGUAGE"], "en")
-        self.assertEqual(repost["env"]["X_REPOST_DISABLE_AFFILIATE"], "1")
-        self.assertEqual(repost["state_dir"], "~/loops/x-repost-en")
-        self.assertEqual(repost["jobs"]["pass"]["program"],
-                         "skills/x-repost/x-repost-en-cli.sh")
+        self.assertIn('X_REPOST_FORCE_KIND="quote"', english_repost)
+        self.assertIn('X_REPOST_FORCE_LANGUAGE="en"', english_repost)
+        self.assertIn("X_REPOST_DISABLE_AFFILIATE=1", english_repost)
+        self.assertIn('$HOME/loops/x-repost-en', english_repost)
+        self.assertEqual(repost["entrypoint"], "skills/x-repost/x-repost-en-cli.sh")
         self.assertIn("no-affiliate-proposal.json", english_repost)
         self.assertIn("no-affiliate-jobs.jsonl", english_repost)
-        self.assertEqual(repost["jobs"]["pass"]["calendars"], [
-            {"minute": 0}, {"minute": 30},
+        self.assertEqual(repost["cadence"]["calendar_interval"], [
+            {"Minute": 0}, {"Minute": 30},
         ])
         self.assertIn("X_REPOST_FORCE_KIND=original", tweeter)
         self.assertIn("X_REPOST_DISABLE_AFFILIATE=1", tweeter)
         self.assertIn("no-affiliate-proposal.json", tweeter)
         self.assertIn("no-affiliate-jobs.jsonl", tweeter)
-        self.assertNotEqual(repost["state_dir"], tweeter_loop["state_dir"])
+        self.assertIn('$HOME/loops/x-repost-en', english_repost)
+        self.assertIn('$HOME/loops/x-tweeter', tweeter)
+        self.assertNotEqual(repost["entrypoint"], tweeter_loop["entrypoint"])
 
     def test_repost_enforces_persona_points_and_rolling_70_30_language_mix(self) -> None:
         source = (ROOT / "skills" / "x-repost" / "x-repost-cli.sh").read_text()

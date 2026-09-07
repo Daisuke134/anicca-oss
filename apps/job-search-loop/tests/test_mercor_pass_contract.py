@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
-import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -39,8 +38,6 @@ class MercorPassContractTests(unittest.TestCase):
         registry = json.loads((ROOT.parents[1] / "config" / "loop-registry.json").read_text())
         self.assertNotIn("job-search-mercor", registry["loops"])
         self.assertIn("ai.anicca.job-search-mercor", registry["retired_labels"])
-        loop = tomllib.loads((ROOT.parents[1] / "loops" / "job-hunter" / "loop.toml").read_text())
-        self.assertEqual(loop["jobs"]["mercor"]["interval_seconds"], 1800)
         provider_registry = (ROOT.parents[1] / "loops" / "job-hunter" / "registry.yaml").read_text()
         mercor = provider_registry.split("  - id: mercor\n", 1)[1]
         self.assertIn("interval_seconds: 1800", mercor)

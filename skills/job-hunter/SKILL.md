@@ -28,7 +28,7 @@ create a second executor in this skill.
 ## Life Manager CLI and loop ownership
 
 `skills/job-hunter/job-hunter-cli.sh` is the user-facing dispatcher and
-`loops/job-hunter/registry.yaml` plus `loops/job-hunter/loop.toml` are the scheduler
+`loops/job-hunter/registry.yaml` plus `config/loop-registry.json` are the provider and scheduler
 declarations. Workday-only acquisition runs every 30 minutes and continues through the
 bounded candidate budget until it finds a fit-qualified job or exhausts that wake; the
 recruiter inbox and interview-prep lane runs every 15 minutes. Both
