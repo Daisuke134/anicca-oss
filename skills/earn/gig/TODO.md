@@ -844,7 +844,11 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Coconala Reply lifecycle restart that Dais previously prohibited. The required action does not
    restart the Mac, Aqua/loginwindow, browser or authentication session; it terminates only that
    stale Reply process, applies only `hf-gig-reply-detector`, and then requires a natural finite
-   terminal plus official effect separation.
+   terminal plus official effect separation. A read-only three-second process sample confirms that
+   this owner is not completing marketplace work: its main Python thread remains parked in
+   `select_kqueue_control_impl`, while all five `asyncio_*` workers remain parked on empty queues.
+   There is no active mutation stack and its durable evidence has not advanced since September 4;
+   PID existence therefore cannot satisfy this atom or justify retaining its lock.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
