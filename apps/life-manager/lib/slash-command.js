@@ -20,16 +20,16 @@
 // says so instead of dressing up a no-op as a delete.
 "use strict";
 
-const { sendMessage, onboardLink } = require("./telegram.js");
+const { sendMessage } = require("./telegram.js");
 const { parseUserCommand } = require("./user-command.js");
 const { getLiveLocation, deleteLiveLocation } = require("./late-notice.js");
 const { computeStage, setStage } = require("./telegram-onboard.js");
 const { askPayoutQuestion } = require("./payout-question.js");
-const { compActive, compUntilMs } = require("./comp-window.js");
 const { getLastWakeMiss, wakeMissLine } = require("./wake-miss.js");
 const { TZ_ROW_KEYS } = require("./user-tz.js");
 const { buildInvestmentReply, telegramExtra, validInvestmentSnapshot } = require("./investment-chat.js");
 const { buildGigReply, validGigSnapshot } = require("./gig-chat.js");
+const { paymentLink } = require("./payment-link.js");
 
 // Every /command this bot understands. start/panel are listed for /help but owned elsewhere.
 const KNOWN_COMMANDS = Object.freeze([
@@ -133,14 +133,8 @@ function payoutStatusLine(destination) {
   return "unknown";
 }
 
-// Truthful about the comp window: computeStage lets an unpaid row past the "pay" stage while
-// LM_COMP_UNTIL is in the future (lib/comp-window.js — read-time only, paid is never written), so
-// reporting "not active" for those users contradicted the gate that just let them through. The comp
-// is named with the only real field available: its configured expiry. A real subscription outranks it.
-function subscriptionLine(row, env, nowMs) {
-  if (row.paid === true) return "active";
-  if (!compActive(env, nowMs)) return "not active";
-  return `complimentary until ${new Date(compUntilMs(env)).toISOString()}`;
+function subscriptionLine(row) {
+  return row.paid === true ? "Plus active" : "free monthly allowance";
 }
 
 // The IANA zone this row carries, or null. Deliberately no fallback: lib/user-tz.js' rule is that a
@@ -167,7 +161,7 @@ function statusMessage(row, location, nowMs, env, miss) {
     stage === "done" ? "🚀 Onboarding: done" : `🚀 Onboarding: at the "${stage}" step`,
     `📅 Calendar: ${row.calendar_provider === "composio_gcal" ? "connected" : "not connected"}`,
     `📱 Phone: ${row.phone ? "on file" : "not set"}`,
-    `⭐ Subscription: ${subscriptionLine(row, env, nowMs)}`,
+    `⭐ Monthly allowance: ${subscriptionLine(row)}`,
     `💸 Payout: ${payoutStatusLine(row.payout_destination)}`,
     location
       ? `📍 Location: fresh (observed ${secondsAgo(location.observed_at, nowMs)}s ago)`
@@ -211,15 +205,18 @@ async function handleSlashCommand(parsed, row, deps = {}) {
       await send(deps.token, chatId, "⭐ Your Life Manager subscription is already active.");
       return { handled: true, action: "subscribe", ok: true, alreadyActive: true };
     }
-    // Reuse the existing onboard link builder — the web /lm flow hosts the Stripe checkout. No URL
-    // is invented here; without a chat id there is no link to build, and we say so.
-    if (!chatId) {
-      await send(deps.token, chatId, "The subscription link is unavailable right now. Please try again shortly.");
+    if (!row || !row.uid || !chatId) {
+      await send(deps.token, chatId, "先に /start からライフマネージャーを始めてください。");
+      return { handled: true, action: "subscribe", ok: false, reason: "unlinked" };
+    }
+    const checkout = paymentLink({ stripePaymentLink: deps.stripePaymentLink }, { uid: row.uid });
+    if (!checkout) {
+      await send(deps.token, chatId, "現在、購読リンクを開けません。少し時間をおいてもう一度お試しください。");
       return { handled: true, action: "subscribe", ok: false, reason: "link_unavailable" };
     }
     await send(deps.token, chatId,
-      "⭐ <b>Life Manager</b> — $20/mo, cancel anytime. I call you before you must leave, fill in travel time, and handle late notices.\n\nTap below to subscribe 👇",
-      { reply_markup: { inline_keyboard: [[{ text: "⭐ Subscribe", url: onboardLink(chatId, deps.base) }]] } });
+      "今月の利用を続ける場合は、月額$29でライフマネージャーを続けられます。いつでも解約できます。",
+      { reply_markup: { inline_keyboard: [[{ text: "月額$29で続ける", url: checkout }]] } });
     return { handled: true, action: "subscribe", ok: true };
   }
 
