@@ -332,6 +332,153 @@ def _detect_advance_control(root: _Node) -> dict:
 
 
 # ---------------------------------------------------------------------------------
+# Step requirements: every control the page itself marks required or optional, read generically
+# from the DOM outward -- never from a caller's list of field names it already knows to fill. A
+# native `required`/`aria-required="true"` attribute is one marker a form might use; the other,
+# just as real, is a visible badge sitting next to a field's label -- a form actually observed
+# live reads "タイトル 必須 … サブタイトル 任意 … カテゴリー 必須 …", badge and label side by
+# side. This section reads that second marker: it is what lets a required control neither this
+# module nor its caller was ever told to expect still show up in the report, with its own visible
+# label. Live-only (observe_page, never observe_html): "which control is on the step actually
+# showing" and "does it hold a value" are both facts only a live DOM knows.
+# ---------------------------------------------------------------------------------
+
+_REQUIRED_BADGE_WORDS = {"必須": True, "任意": False}
+
+
+def _requirement_badges(root: _Node) -> list[_Node]:
+    """Every element whose own direct text (not any descendant's) is exactly a badge word.
+    ``_Node.text`` already isolates text nodes that belong to this element itself -- the same
+    property ``_step_name`` above relies on -- so a wrapping container whose *aggregate* text
+    happens to contain "必須" is never mistaken for the badge itself."""
+    return [node for node in root.iter_descendants() if node.text in _REQUIRED_BADGE_WORDS]
+
+
+def _first_native_control(node: _Node) -> _Node | None:
+    for descendant in node.iter_descendants():
+        if descendant.tag in {"input", "textarea", "select"}:
+            return descendant
+    return None
+
+
+def _requirement_row(badge: _Node, root: _Node) -> _Node:
+    """The markup uniquely owning `badge`: climb from the badge upward while the ancestor still
+    contains exactly this one required/optional badge, stopping at the highest ancestor for which
+    that still holds. Bounding the row by badge *count*, rather than by "does this subtree contain
+    a control" (which a whole multi-field step trivially does), is what keeps this from wandering
+    into a sibling field's control once climbing one level further would start covering two badges
+    at once -- the same sibling-counting spirit `_hiding_class_signature` above already uses for a
+    different structural question.
+    """
+    row = badge
+    node = badge
+    while node is not root and node.parent is not None:
+        parent = node.parent
+        if len(_requirement_badges(parent)) > 1:
+            break
+        row = parent
+        if parent is root:
+            break
+        node = parent
+    return row
+
+
+def _requirement_label(row: _Node, control: _Node | None, badge_word: str) -> str:
+    """`row`'s own visible text, minus whatever `control` itself contributes (a <select>'s option
+    labels, if `control` is the row's own select) and minus the badge word -- what remains is the
+    label a user would actually read next to the field."""
+    parts: list[str] = []
+
+    def _walk(node: _Node) -> None:
+        if node is control:
+            return
+        parts.extend(node.text_parts)
+        for child in node.children:
+            _walk(child)
+
+    _walk(row)
+    text = "".join(parts).replace(badge_word, " ")
+    return " ".join(text.split())
+
+
+def _step_requirement_candidates(root: _Node) -> list[dict]:
+    """Structural half of step_requirements -- everything derivable without a live page. Each
+    candidate carries the row/control nodes under private keys (`_row`/`_control`) for the live
+    pass (`_step_requirements` in observe_page) to resolve visibility and value from; those two
+    keys are popped before a candidate ever reaches the public report.
+    """
+    candidates = []
+    for badge in _requirement_badges(root):
+        required = _REQUIRED_BADGE_WORDS[badge.text]
+        row = _requirement_row(badge, root)
+        control = _first_native_control(row)
+        label = _requirement_label(row, control, badge.text)
+        identifier, source = _identity(control) if control is not None else (None, "none")
+        candidates.append({
+            "identifier": identifier,
+            "identifier_source": source,
+            "label": label,
+            "required": required,
+            "tag": control.tag if control is not None else None,
+            # A control this couldn't resolve to any native input/textarea/select is a custom
+            # widget -- present, but this module has no generic way to read its value, so it is
+            # reported unreadable rather than assumed filled (see _requirement_filled below).
+            "readable": control is not None,
+            "_row": row,
+            "_control": control,
+        })
+    return candidates
+
+
+def _requirement_filled(page: Any, control: _Node | None) -> bool | None:
+    """Whether `control` currently holds a value, read generically off the live page -- never
+    from any caller's idea of what the field is named. A <select> counts only a non-placeholder
+    `option:checked` as filled (mirrors `_create_selected_option`'s convention elsewhere in this
+    house: an unset native <select> still reports its first/placeholder option as checked, which
+    must read as empty, not unreadable). A control this cannot resolve at all -- including "no
+    native control found for this badge" (`control is None`) -- reports None: an unmeasured fact
+    must never look like a negative one, exactly as this module's own module docstring says of
+    `observe_html`'s omitted live-only fields.
+    """
+    if control is None:
+        return None
+    try:
+        locator = page.locator(control.css_path())
+        if control.tag == "select":
+            checked = locator.locator("option:checked")
+            if checked.count() != 1:
+                return None
+            value = checked.all()[0].get_attribute("value") or ""
+            return bool(value.strip())
+        value = locator.input_value()
+        return bool(value and str(value).strip())
+    except Exception:
+        return None
+
+
+def _step_requirements(page: Any, root: _Node) -> list[dict]:
+    """Every required/optional control the *visible* step actually carries. "Visible" is decided
+    the same way the rest of observe_page already decides it for ordinary fields -- a live
+    `Locator.is_visible()` check -- so a control belonging to a hidden step (or a candidate this
+    module's own live check could not resolve at all) is silently excluded, never reported with a
+    guessed visibility.
+    """
+    results = []
+    for candidate in _step_requirement_candidates(root):
+        row = candidate.pop("_row")
+        control = candidate.pop("_control")
+        try:
+            visible = page.locator(row.css_path()).is_visible()
+        except Exception:
+            visible = None
+        if visible is not True:
+            continue
+        candidate["filled"] = _requirement_filled(page, control)
+        results.append(candidate)
+    return results
+
+
+# ---------------------------------------------------------------------------------
 # Suspected dependent selects: present, but carrying only a placeholder.
 # ---------------------------------------------------------------------------------
 
@@ -456,6 +603,10 @@ def observe_page(page: Any, *, confirm_dependents: Sequence[Mapping[str, str]] |
         _attach_live_facts(page, field, node)
     if confirm_dependents:
         _confirm_dependents(page, report, confirm_dependents)
+    # Live-only, like visible/bounding_box/hiding_ancestor above -- absent from observe_html's
+    # report rather than guessed, since "which step is visible" and "does a control hold a
+    # value" are both facts only a live DOM knows.
+    report["step_requirements"] = _step_requirements(page, root)
     return report
 
 

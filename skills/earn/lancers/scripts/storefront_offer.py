@@ -693,10 +693,30 @@ def _create_error_class_messages(page: Any) -> list[str]:
     return messages
 
 
+_CREATE_OUTER_HTML_MAX_CHARS = 300
+
+
+def _truncate_hard(value: Any, max_chars: int) -> str | None:
+    """A plain, hard character-count truncation -- not JSON-size-aware like
+    _bounded_create_stall_payload (which bounds the whole serialized payload); this bounds one
+    string field before it ever reaches that pass, so one long outerHTML never crowds out every
+    other field in the report."""
+    if not isinstance(value, str):
+        return None
+    if len(value) <= max_chars:
+        return value
+    return value[:max_chars] + _CREATE_STALL_TRUNCATION_MARKER
+
+
 def _create_advance_control_state(page: Any) -> dict[str, Any]:
     """Whether 次へ was found, exactly as _step()/_click_create_next_button match it (exact
     visible text), and its text and disabled state when found -- so "control missing" and
-    "control present but disabled" read as different observations, not the same failure."""
+    "control present but disabled" read as different observations, not the same failure. Also
+    the control's own outerHTML, hard-truncated: its tag, type and attributes show at a glance
+    whether it is a real submit control, a bare <span>, or something else entirely -- exactly the
+    fact this task's click-target fix (_resolve_create_advance_control) needs a human to be able
+    to confirm from the report alone.
+    """
     try:
         matches = [item for item in page.get_by_text(_CREATE_NEXT_BUTTON_TEXT, exact=True).all() if item.is_visible()]
     except Exception:
@@ -711,7 +731,11 @@ def _create_advance_control_state(page: Any) -> dict[str, Any]:
         disabled = control.get_attribute("disabled") is not None or control.get_attribute("aria-disabled") == "true"
     except Exception:
         disabled = None
-    return {"found": True, "text": text, "disabled": disabled}
+    try:
+        outer_html = control.evaluate("el => el.outerHTML")
+    except Exception:
+        outer_html = None
+    return {"found": True, "text": text, "disabled": disabled, "outer_html": _truncate_hard(outer_html, _CREATE_OUTER_HTML_MAX_CHARS)}
 
 
 def _bounded_create_stall_payload(payload: dict[str, Any]) -> str:
@@ -788,6 +812,7 @@ def _create_observer_step_state(page: Any) -> dict[str, Any]:
             "is_wizard": None,
             "wrapper_class": None,
             "current_step": None,
+            "step_requirements": [],
         }
     steps = report.get("steps") or {}
     is_wizard = bool(steps.get("is_wizard"))
@@ -797,6 +822,12 @@ def _create_observer_step_state(page: Any) -> dict[str, Any]:
         "is_wizard": is_wizard,
         "wrapper_class": steps.get("wrapper_class"),
         "current_step": current_step,
+        # Every control the observer's own read of the live page marks required or optional
+        # (see form_observer.observe_page's step_requirements) -- built from the DOM outward,
+        # never from _CREATE_STEP_FIELDS' six known names, so a seventh required control this
+        # file has never heard of still shows up here with its visible label. See
+        # _create_step_evidence's own docstring for why that gap is the report's whole point.
+        "step_requirements": report.get("step_requirements") or [],
     }
 
 
@@ -838,13 +869,48 @@ def _create_step_evidence(page: Any, step_name: str, arrival: Any = None, arriva
     return _bounded_create_stall_payload(payload)
 
 
+# get_by_text(label, exact=True) resolves to the element whose OWN text equals the label -- on a
+# real button that is commonly a <span> sitting inside the <button> that actually owns the click
+# handler. Clicking that span is a click that resolves without error and does nothing, which is
+# indistinguishable from a stalled wizard step from the caller's side -- exactly the shape of the
+# stall this task was opened to diagnose. This is a correctness fix regardless of whether it turns
+# out to be that stall's actual cause: _step() itself is untouched (both _apply() and the manual-
+# chooser click in create_package() depend on its exact behaviour), this is a second, independent
+# resolution used only for the wizard's own advance control.
+_CREATE_ADVANCE_INTERACTIVE_XPATH = (
+    "xpath=ancestor-or-self::button[1] | "
+    "ancestor-or-self::*[@role='button'][1] | "
+    "ancestor-or-self::input[@type='submit'][1]"
+)
+
+
+def _resolve_create_advance_control(page: Any, label: str) -> Any:
+    """Exactly one visible text match for `label`, resolved to its enclosing interactive element
+    -- a real <button>, [role="button"], or input[type=submit] -- never the bare node the text
+    itself sits on. Mirrors _step()'s own "exactly one visible match or a named failure"
+    discipline as a second, independent check (not a shared refactor -- _step() must stay
+    unmodified), then adds one more: the match must actually resolve to something clickable.
+    Zero matches, more than one, or a match with no interactive ancestor at all -- each raises a
+    named OfferError; nothing here ever clicks a nearest guess.
+    """
+    matches = [item for item in page.get_by_text(label, exact=True).all() if item.is_visible()]
+    if len(matches) != 1:
+        raise OfferError("advance_control_ambiguous" if len(matches) > 1 else "advance_control_missing")
+    control = matches[0].locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)
+    if control.count() != 1:
+        raise OfferError("advance_control_not_interactive")
+    return control
+
+
 def _click_create_next_button(page: Any, step_name: str) -> None:
-    """Click 次へ, reusing _step()'s exact-visible-text-match discipline. A missing/ambiguous
-    button is named against the step that could not advance, not as a bare "form_changed"."""
+    """Click 次へ by resolving it to its enclosing interactive element first (see
+    _resolve_create_advance_control above). A missing/ambiguous/non-interactive match is named
+    against the step that could not advance, not as a bare "form_changed"."""
     try:
-        _step(page, _CREATE_NEXT_BUTTON_TEXT)
+        control = _resolve_create_advance_control(page, _CREATE_NEXT_BUTTON_TEXT)
     except OfferError:
         raise OfferError(f"create_step_stalled: {step_name}: next_button_missing") from None
+    control.click()
 
 
 def _advance_create_step(page: Any, step_name: str, arrival: Any, arrival_field: str) -> None:
