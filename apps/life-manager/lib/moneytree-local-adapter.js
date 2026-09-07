@@ -3,6 +3,7 @@
 const { createHash } = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { validateFinancialRecord } = require("./financial-organ-schema.js");
+const { financialRecordId } = require("../../../runtime/contracts/common-record.cjs");
 
 const COMMON_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
@@ -54,14 +55,15 @@ function accountToFinancialRecord(account, options) {
   const observedAt = instant(account.observed_at, "Moneytree account time");
   const base = commonBase(account, options);
   const snapshotHash = hash(`${base.subject_id}\n${base.source.external_ref}\n${account.kind}\n${account.balance_jpy}\n${observedAt}`);
+  const idempotencyKey = `moneytree-account:${snapshotHash}`;
   return {
     ...base,
-    record_id: `moneytree:${snapshotHash.slice(0, 24)}`,
+    record_id: financialRecordId(base.subject_id, idempotencyKey),
     kind: liability ? "liability_balance" : "asset_balance",
     direction: "snapshot",
     amount_minor: Math.abs(account.balance_jpy),
     occurred_at: observedAt,
-    idempotency_key: `moneytree-account:${snapshotHash}`,
+    idempotency_key: idempotencyKey,
   };
 }
 
@@ -69,12 +71,15 @@ function transactionToFinancialRecord(transaction, options) {
   validateFinancialRecord("transaction", transaction);
   const base = commonBase({ ...transaction, observed_at: options.recordedAt }, options);
   const transfer = Boolean(transaction.transfer_id);
+  const idempotencyKey = base.idempotency_key;
   return {
     ...base,
+    record_id: financialRecordId(base.subject_id, idempotencyKey),
     kind: transfer ? "transfer" : transaction.amount_jpy >= 0 ? "personal_income" : "personal_expense",
     direction: transaction.amount_jpy >= 0 ? "credit" : "debit",
     amount_minor: Math.abs(transaction.amount_jpy),
     occurred_at: instant(transaction.occurred_at, "Moneytree transaction time"),
+    idempotency_key: idempotencyKey,
   };
 }
 

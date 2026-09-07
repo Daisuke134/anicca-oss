@@ -23,6 +23,10 @@ def _hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _record_id(subject_id: str, idempotency_key: str) -> str:
+    return f"financial:{_hash(f'{subject_id}\n{idempotency_key}')}"
+
+
 def _subject(value: str) -> str:
     if not isinstance(value, str) or not _ID.fullmatch(value):
         raise ValueError("FinancialRecord subject_id is invalid")
@@ -63,17 +67,20 @@ def payment_to_financial_records(value: Mapping[str, object], *, subject_id: str
         ("fee", "fee", "debit", receipt.fee_amount_minor),
         ("cost", "business_cost", "debit", receipt.cost_amount_minor),
     )
-    return [
-        {
+    records: list[dict[str, object]] = []
+    for component, kind, direction, amount in components:
+        if amount <= 0:
+            continue
+        idempotency_key = f"marketplace-financial:v1:{_hash(f'{scoped}\n{component}')}"
+        records.append({
             **base,
-            "record_id": f"marketplace:{_hash(f'{scoped}\n{component}')[:24]}",
+            "record_id": _record_id(str(base["subject_id"]), idempotency_key),
             "kind": kind,
             "direction": direction,
             "amount_minor": amount,
-            "idempotency_key": f"marketplace-financial:v1:{_hash(f'{scoped}\n{component}')}",
-        }
-        for component, kind, direction, amount in components if amount > 0
-    ]
+            "idempotency_key": idempotency_key,
+        })
+    return records
 
 
 def payout_to_financial_record(value: Mapping[str, object], *, subject_id: str) -> dict[str, object]:
@@ -85,14 +92,15 @@ def payout_to_financial_record(value: Mapping[str, object], *, subject_id: str) 
         occurred_at=receipt.observed_at, observed_at=receipt.observed_at,
     )
     scoped = base.pop("_scoped")
+    idempotency_key = f"marketplace-payout:v1:{scoped}"
     return {
         **base,
-        "record_id": f"marketplace:{scoped[:24]}",
+        "record_id": _record_id(str(base["subject_id"]), idempotency_key),
         "kind": "payout",
         "direction": "credit",
         "amount_minor": receipt.amount_minor,
         "currency": receipt.currency,
-        "idempotency_key": f"marketplace-payout:v1:{scoped}",
+        "idempotency_key": idempotency_key,
     }
 
 
