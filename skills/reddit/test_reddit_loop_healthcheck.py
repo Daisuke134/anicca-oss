@@ -4,6 +4,20 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).parent / "reddit-loop-healthcheck.sh"
+DAILY = Path(__file__).parent / "reddit-loop-daily.sh"
+REPO = Path(__file__).parents[2]
+
+
+def test_daily_resolves_shared_runner_from_repository(tmp_path):
+    result = subprocess.run(
+        ["/bin/bash", str(DAILY)],
+        env={**os.environ, "HOME": str(tmp_path), "AGENT_WIRING_PROBE_ONLY": "1"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert str(REPO / "skills/earn/marketing-engine/run_agent.sh") in result.stdout
 
 
 def test_stale_heartbeat_is_reported_without_launchd_or_nohup_recovery(tmp_path):
@@ -28,5 +42,5 @@ def test_stale_heartbeat_is_reported_without_launchd_or_nohup_recovery(tmp_path)
     assert result.returncode != 0
     assert not marker.exists()
     assert "stale/missing" in (
-        home / ".openclaw/logs/reddit-loop-healthcheck.log"
+        home / ".local/state/life-manager/reddit/logs/reddit-loop-healthcheck.log"
     ).read_text()

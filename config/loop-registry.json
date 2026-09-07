@@ -1009,9 +1009,9 @@
       "effect_class": "none",
       "entrypoint": "skills/reddit/reddit-loop-daily.sh",
       "label": "ai.anicca.hf-reddit-loop-daily",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/reddit/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/reddit"
     },
     "hf-reddit-loop-healthcheck": {
       "cadence": {
@@ -1025,9 +1025,9 @@
       "effect_class": "none",
       "entrypoint": "skills/reddit/reddit-loop-healthcheck.sh",
       "label": "ai.anicca.hf-reddit-loop-healthcheck",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/reddit/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/reddit"
     },
     "image-claude-p": {
       "cadence": {

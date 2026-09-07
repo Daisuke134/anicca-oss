@@ -4,10 +4,13 @@
 # marker (posts.jsonl / attributed-signups.jsonl) exists; karma comes from the account ledger; nothing is invented.
 # Seams: RD_TEST=1 + RD_ACCOUNTS=<file> + RD_DIR + RD_REQ.
 set -uo pipefail
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; DIR="${RD_DIR:-$HERE}"; STATE_MD="$DIR/state/STATE.md"; mkdir -p "$DIR/state"
-REQ="${RD_REQ:-$HOME/.openclaw/state/reddit-loop-selfheal-request.json}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+if [ -n "${RD_DIR:-}" ]; then STATE="${RD_DIR}/state"; else STATE="${REDDIT_STATE_DIR:-$HOME/.local/state/life-manager/reddit/state}"; fi
+STATE_MD="$STATE/STATE.md"; mkdir -p "$STATE"
+REQ="${RD_REQ:-$STATE/reddit-loop-selfheal-request.json}"
 ACCTS="${RD_ACCOUNTS:-$HOME/.cloak/reddit-accounts.json}"
-POSTS="$DIR/state/posts.jsonl"; SIGN="$DIR/state/attributed-signups.jsonl"
+POSTS="$STATE/posts.jsonl"; SIGN="$STATE/attributed-signups.jsonl"
 now=$(date +%s)
 # FIND-010: safe non-empty-line count (never chain ||echo after grep -c).
 count(){ [ -f "$1" ] || { echo 0; return; }; local n; n="$(grep -c . "$1" 2>/dev/null)"; echo "${n:-0}"; }
@@ -21,7 +24,7 @@ N_ACCT=0
 # account lives ONLY on camofox :9377, see ~/.cloak/reddit-accounts.json; checking :9222 here would
 # heal the wrong browser and misdirect the next pass.)
 if [ "${RD_TEST:-}" != "1" ]; then
-  curl -s --max-time 5 -o /dev/null http://127.0.0.1:9377/health 2>/dev/null || add_heal "CAMOFOX-DOWN(:9377) → bash ~/.openclaw/skills/camofox-browser/scripts/start.sh"
+  curl -s --max-time 5 -o /dev/null http://127.0.0.1:9377/health 2>/dev/null || add_heal "CAMOFOX-DOWN(:9377) → bash $REPO_ROOT/skills/camofox-browser/scripts/start.sh"
 fi
 # READ: karma + posts + signups (all from real markers)
 KARMA="$(python3 -c "import json;d=json.load(open('$ACCTS'));a=(d if isinstance(d,list) else d.get('accounts',[]));print(sum(int(x.get('comment_karma',0)) for x in a))" 2>/dev/null||echo 0)"
@@ -96,4 +99,4 @@ echo "[reddit-loop] accounts=$N_ACCT karma=$KARMA posts=$NPOST($POST_FRESH) sign
 # posts.jsonl freshness, checked separately by the output guard), so liveness must mean "the loop executed
 # its measurable core this pass", NOT "the open-ended posting task completed". Skip under test mode so the
 # real prod heartbeat is never touched by test-loop.sh.
-[ "${RD_TEST:-}" = "1" ] || { mkdir -p "$HOME/.openclaw/state" && touch "$HOME/.openclaw/state/.reddit-loop-last-pass" 2>/dev/null; } || true
+[ "${RD_TEST:-}" = "1" ] || touch "$STATE/.reddit-loop-last-pass" 2>/dev/null || true
