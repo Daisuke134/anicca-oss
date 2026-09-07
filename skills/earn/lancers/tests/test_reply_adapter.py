@@ -17,7 +17,10 @@ def test_no_buyer_event_is_a_noop():
         },
         "state_path": "/tmp/state.json",
     }
-    assert adapter_module.decide(row) == {
+    planner = adapter_module.reply_planner.ReplyPlanner(
+        lambda _context: (_ for _ in ()).throw(AssertionError("model called"))
+    )
+    assert planner(row) == {
         "action": "noop", "classification": "awaiting_buyer"
     }
 
@@ -31,14 +34,16 @@ def test_buyer_event_uses_existing_natural_language_composer(monkeypatch):
             (board, messages, state, grounding)
         ) or "承知しました。",
     )
-    result = adapter_module.decide({
+    planner = adapter_module.reply_planner.ReplyPlanner(
+        lambda context: adapter_module.compose(context, Path("/tmp/reply/state.json"))
+    )
+    result = planner({
         "context": {
             "reply_required": True,
             "board": {"title": "相談", "description": "詳細"},
             "conversation": [{"role": "buyer", "event_id": "9", "body": "対応できますか"}],
             "verified_proposal": {"proposal_id": "7"},
         },
-        "state_path": "/tmp/reply/state.json",
     })
     assert result == {"action": "reply", "payload": {"body": "承知しました。"}}
     assert calls[0][1][0]["is_required_reply"] is True
@@ -53,14 +58,16 @@ def test_semantic_uncertainty_becomes_durable_human_wait(monkeypatch):
         ])
 
     monkeypatch.setattr(adapter_module.work_sync, "_compose_reply", uncertain)
-    result = adapter_module.decide({
+    planner = adapter_module.reply_planner.ReplyPlanner(
+        lambda context: adapter_module.compose(context, Path("/tmp/reply/state.json"))
+    )
+    result = planner({
         "context": {
             "reply_required": True,
             "board": {"title": "選考", "description": "詳細"},
             "conversation": [{"role": "buyer", "event_id": "9", "body": "回答してください"}],
             "verified_proposal": None,
         },
-        "state_path": "/tmp/reply/state.json",
     })
     assert result == {
         "action": "human",

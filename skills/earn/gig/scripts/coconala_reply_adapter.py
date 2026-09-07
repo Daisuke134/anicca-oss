@@ -31,6 +31,20 @@ reply_browser = _load("coconala_reply_browser")
 reply_composer = _load("reply_composer")
 
 
+def _load_shared(name: str):
+    path = REPO_ROOT / "skills/_shared/marketplace-core/scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"coconala_shared_{name}", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"{name}_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+reply_planner = _load_shared("reply_planner")
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -141,7 +155,17 @@ class CoconalaReplyAdapter:
     def context(self, thread_id: str) -> dict[str, Any]:
         if thread_id not in self._contexts:
             self._observation(thread_id)
-        return self._contexts[thread_id]
+        context = dict(self._contexts[thread_id])
+        conversation = context.get("conversation")
+        if not isinstance(conversation, list):
+            raise RuntimeError("coconala_conversation_invalid")
+        normalized = []
+        for row in conversation:
+            if not isinstance(row, Mapping) or row.get("side") not in {"buyer", "seller"}:
+                raise RuntimeError("coconala_conversation_invalid")
+            normalized.append({**dict(row), "role": row["side"]})
+        context["conversation"] = normalized
+        return context
 
     def mutate(self, intent: dict[str, Any]) -> None:
         if intent.get("action") != "reply":
@@ -177,13 +201,6 @@ class CoconalaReplyAdapter:
         return None
 
 
-def decide(row: dict[str, Any], composer: Callable[[dict[str, Any]], str]) -> dict[str, Any]:
-    conversation = row["context"].get("conversation") or []
-    if not conversation or conversation[-1].get("side") != "buyer":
-        return {"action": "noop", "classification": "awaiting_buyer"}
-    return {"action": "reply", "payload": {"body": composer(row["context"])}}
-
-
 def build(argv: list[str]):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--state-root", required=True, type=Path)
@@ -199,4 +216,4 @@ def build(argv: list[str]):
     adapter = CoconalaReplyAdapter(
         state_root=root, cdp_helper=args.cdp_helper.expanduser().resolve(),
     )
-    return adapter, lambda row: decide(row, composer)
+    return adapter, reply_planner.ReplyPlanner(composer)

@@ -856,6 +856,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Move that judgment behind one shared model-facing planner while retaining only normalized context,
    capabilities and official mutation/readback in each adapter; do not check this atom from lifecycle
    tests or the Lancers no-effect terminal alone.
+   The first extraction checkpoint now adds `reply_planner.py`: it alone converts normalized
+   buyer/seller state and the model result into reply, no-effect or durable human-wait decisions.
+   Both adapters return this shared planner and no longer define a provider `decide` function;
+   Coconala now projects its official conversation into the same `role` contract as Lancers.
+   Reply-focused regression is 138 passed with no external effect. Provider prompt/grounding
+   convergence and live Coconala activation/official acceptance remain open.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

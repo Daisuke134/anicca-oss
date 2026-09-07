@@ -33,12 +33,13 @@ def test_provider_rows_are_normalized_without_owning_lifecycle(tmp_path):
 def test_buyer_last_uses_model_composer_and_seller_last_is_noop(tmp_path):
     seen = []
     composer = lambda context: seen.append(context) or "承知しました。"
-    buyer = {"context": {"conversation": [{"side": "buyer", "body": "対応できますか"}]}}
-    seller = {"context": {"conversation": [{"side": "seller", "body": "回答済み"}]}}
-    assert adapter_module.decide(buyer, composer) == {
+    buyer = {"context": {"conversation": [{"role": "buyer", "body": "対応できますか"}]}}
+    seller = {"context": {"conversation": [{"role": "seller", "body": "回答済み"}]}}
+    planner = adapter_module.reply_planner.ReplyPlanner(composer)
+    assert planner(buyer) == {
         "action": "reply", "payload": {"body": "承知しました。"}
     }
-    assert adapter_module.decide(seller, composer) == {
+    assert planner(seller) == {
         "action": "noop", "classification": "awaiting_buyer"
     }
     assert len(seen) == 1
