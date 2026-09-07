@@ -26,7 +26,7 @@ from typing import Any, Iterable
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ENV = Path("/Users/anicca/anicca/.env")
+DEFAULT_ENV = Path.home() / ".local" / "state" / "life-manager" / ".env"
 
 
 def default_storage_paths(environment: dict[str, str] | None = None) -> tuple[Path, Path]:

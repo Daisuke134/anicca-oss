@@ -15,7 +15,7 @@ PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3
 WINDOW="${X_REPOST_DIGEST_WINDOW_HOURS:-24}"
 TELEGRAM_SEND_TIMEOUT="${X_REPOST_TELEGRAM_SEND_TIMEOUT:-30}"
 set -a
-. "$HOME/.openclaw/.env" 2>/dev/null
+. "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}" 2>/dev/null
 set +a
 TARGET="${TELEGRAM_ALERT_CHAT_ID:-}"
 
@@ -115,7 +115,7 @@ print("agents:",len(a))
 print("registered:",dict(collections.Counter(x.get("registered") for x in a)))
 print("state:",dict(collections.Counter(x.get("actual_state") for x in a)))' 2>/dev/null
   echo; echo "## 直近のパスのログ"
-  tail -12 "${X_REPOST_LOG:-$HOME/.openclaw/logs/x-repost-pass.out.log}" 2>/dev/null
+  tail -12 "${X_REPOST_LOG:-$HOME/.local/state/life-manager/x-repost/logs/pass.out.log}" 2>/dev/null
   echo; echo '## 出力（最後に JSON 配列だけを1つ）'
   echo '[{"fact":"...","measured_on":"YYYY-MM-DD","source":"どのセクションから取ったか"}]'
 } >"$STATE/last-harvest-prompt.txt"

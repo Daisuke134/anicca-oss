@@ -1,6 +1,8 @@
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -13,22 +15,25 @@ class ClaudeUserEnvTest(unittest.TestCase):
     without this (measured 2026-09-04)."""
 
     def test_claude_direct_gets_user_when_missing(self):
-        launchd_environ = {"HOME": "/Users/anicca", "PATH": "/usr/bin:/bin"}
-        env = provider_process_env("claude-direct", {}, environ=launchd_environ)
+        launchd_environ = {"HOME": "/srv/operator", "PATH": "/usr/bin:/bin"}
+        with patch("agent_runner.pwd.getpwuid", return_value=SimpleNamespace(pw_name="operator")):
+            env = provider_process_env("claude-direct", {}, environ=launchd_environ)
         self.assertTrue(env.get("USER"))
 
     def test_claude_direct_keeps_existing_user(self):
-        environ = {"HOME": "/Users/anicca", "PATH": "/usr/bin:/bin", "USER": "someone"}
-        env = provider_process_env("claude-direct", {}, environ=environ)
+        environ = {"HOME": "/srv/operator", "PATH": "/usr/bin:/bin", "USER": "someone"}
+        with patch("agent_runner.pwd.getpwuid", return_value=SimpleNamespace(pw_name="operator")):
+            env = provider_process_env("claude-direct", {}, environ=environ)
         self.assertEqual(env.get("USER"), "someone")
 
     def test_claude_direct_does_not_inherit_codex_home_lock_scope(self):
         environ = {
-            "HOME": "/Users/anicca",
+            "HOME": "/srv/operator",
             "PATH": "/usr/bin:/bin",
             "CODEX_HOME": "/fixture/busy-codex-home",
         }
-        env = provider_process_env("claude-direct", {}, environ=environ)
+        with patch("agent_runner.pwd.getpwuid", return_value=SimpleNamespace(pw_name="operator")):
+            env = provider_process_env("claude-direct", {}, environ=environ)
         self.assertNotIn("CODEX_HOME", env)
 
 

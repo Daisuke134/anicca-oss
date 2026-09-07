@@ -69,7 +69,10 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertIn("LIFE_MANAGER_APPLY_TARGET", json.loads(output.getvalue())["error"])
 
     def test_apply_all_is_explicit(self):
-        with patch.dict(os.environ, {}, clear=True), \
+        with patch.dict(os.environ, {
+                "LIFE_MANAGER_RELEASE_ROOT": str(self.root),
+                "LIFE_MANAGER_LAUNCH_AGENTS_DIR": str(self.root / "LaunchAgents"),
+        }, clear=True), \
                 patch.object(lm_loop, "apply_live", return_value=[]) as apply, \
                 redirect_stdout(io.StringIO()):
             self.assertEqual(lm_loop.main(["apply", "--all"]), 0)

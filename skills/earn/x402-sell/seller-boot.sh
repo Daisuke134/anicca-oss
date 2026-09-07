@@ -9,9 +9,9 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 # and node dies on ERR_MODULE_NOT_FOUND '@coinbase/x402' before binding the port — which is why every
 # loop-spawned seller was in a crash loop (measured 2026-07-16: runs=213/168/213, all exit 1). The
 # serve.mjs files are byte-identical, so exec the copy that HAS the dependency tree.
-if [ ! -d "$DIR/node_modules/@coinbase/x402" ]; then
-  REPO="${ANICCA_REPO:-$HOME/anicca}"
-  [ -d "$REPO/skills/earn/x402-sell/node_modules/@coinbase/x402" ] && DIR="$REPO/skills/earn/x402-sell"
-fi
-set -a; . "${OPENCLAW_ENV_FILE:-$HOME/.openclaw/.env}" 2>/dev/null || true; set +a
+[ -d "$DIR/node_modules/@coinbase/x402" ] || {
+  echo "locked x402 dependencies missing from immutable release: $DIR" >&2
+  exit 78
+}
+source "$DIR/runtime-env.sh"
 exec /usr/bin/env node "$DIR/serve.mjs"

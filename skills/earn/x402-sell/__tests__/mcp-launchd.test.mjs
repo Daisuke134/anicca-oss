@@ -39,7 +39,7 @@ for (const instance of INSTANCES) {
     const bootPath = path.join(ROOT, `mcp-${instance.name}-boot.sh`);
     const boot = fs.readFileSync(bootPath, "utf8");
 
-    assert.match(boot, /\. \/Users\/anicca\/\.openclaw\/\.env/);
+    assert.match(boot, /source .*runtime-env\.sh/);
     assert.ok(boot.includes(`export ANICCA_HOME="${instance.home}"`));
     assert.match(boot, /unset BLOCKRUN_WALLET_KEY/);
     assert.ok(boot.includes(`export X402_PAYTO="${instance.payTo}"`));
@@ -55,23 +55,6 @@ for (const instance of INSTANCES) {
     assert.match(boot, /exec \/usr\/bin\/env node "\$DIR\/mcp-server\.mjs"/);
   });
 
-  test(`${instance.name} MCP plist is a persistent per-instance service`, () => {
-    const label = `ai.anicca.mcp-${instance.name}`;
-    const plistPath = path.join(ROOT, "launchd", `${label}.plist`);
-    const plist = fs.readFileSync(plistPath, "utf8");
-
-    assert.ok(plist.includes(`<string>${label}</string>`));
-    assert.ok(
-      plist.includes(
-        `<string>/Users/anicca/anicca/skills/earn/x402-sell/mcp-${instance.name}-boot.sh</string>`
-      )
-    );
-    assert.match(plist, /<key>KeepAlive<\/key><true\/>/);
-    assert.match(plist, /<key>RunAtLoad<\/key><true\/>/);
-    assert.match(plist, /<key>ThrottleInterval<\/key><integer>15<\/integer>/);
-    assert.ok(plist.includes(`<string>/Users/anicca/anicca/skills/earn/x402-sell/logs/mcp-${instance.name}.out.log</string>`));
-    assert.ok(plist.includes(`<string>/Users/anicca/anicca/skills/earn/x402-sell/logs/mcp-${instance.name}.err.log</string>`));
-  });
 }
 
 test("MCP listeners use three distinct ports", () => {

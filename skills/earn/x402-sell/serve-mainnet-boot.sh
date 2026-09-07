@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # serve-mainnet-boot.sh — KeepAlive launchd boot of the founder x402 RESEARCH seller on :8411.
-# Uses the CDP facilitator (CDP_API_KEY_ID/SECRET from ~/.openclaw/.env) → settles on Base mainnet AND
+# Uses the CDP facilitator (CDP_API_KEY_ID/SECRET from the Life Manager private env) → settles on Base mainnet AND
 # lists the endpoint in the x402 Bazaar discovery layer (so buyer agents FIND it). payTo = founder 0x810f
 # (USDC lands in our wallet; CDP only facilitates + catalogs, never custodies — no private key on the server).
 # Product = $0 research-product.mjs (Wikipedia + HN + Jina). Public via Tailscale Funnel.
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 # load CDP facilitator creds (existing account) — never echoed
-set -a; . /Users/anicca/.openclaw/.env 2>/dev/null || true; set +a
 export X402_PAYTO="0x810f6d61f7606deee2657d3083e150a222bc29c5"
 # T2 fix (2026-07-25): aniccanomac-mini-1 (this machine's own tailscale node) has NO public DNS
 # record at all (dig @8.8.8.8/@1.1.1.1 both empty) -- `tailscale funnel --bg 8411` against it now

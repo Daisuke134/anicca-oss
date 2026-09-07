@@ -12,7 +12,7 @@ export LIFE_MANAGER_REPO
 #   NON-COMMERCIAL until the reach-health marker exists. ★
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
 set -uo pipefail
-for ENV_FILE in "$HOME/.local/state/life-manager/.env" "$HOME/.openclaw/.env"; do
+for ENV_FILE in "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"; do
   [ -f "$ENV_FILE" ] || continue
   set -a; . "$ENV_FILE" 2>/dev/null; set +a
 done

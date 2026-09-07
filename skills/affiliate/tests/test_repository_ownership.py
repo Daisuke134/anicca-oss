@@ -62,7 +62,7 @@ class RepositoryOwnershipTests(unittest.TestCase):
                     and "__pycache__" not in path.relative_to(SKILL_ROOT).parts
                     and path.suffix != ".pyc"):
                 body = path.read_text(encoding="utf-8")
-                self.assertNotIn("/Users/anicca", body, path.as_posix())
+                self.assertNotIn("/" + "Users/anicca", body, path.as_posix())
                 self.assertNotIn("profitable-claude", body, path.as_posix())
 
     def test_legacy_manifest_covers_exact_preserved_files(self) -> None:

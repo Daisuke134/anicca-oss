@@ -30,8 +30,8 @@ HEARTBEAT="${X_REPOST_STATE_DIR:-$DEFAULT_STATE}/.last-pass"
 MAX_AGE_SECONDS="${X_REPOST_MAX_PASS_AGE:-$DEFAULT_MAX_AGE_SECONDS}"
 INITIAL_GRACE_SECONDS="${X_LOOP_INITIAL_GRACE_SECONDS:-$DEFAULT_INITIAL_GRACE_SECONDS}"
 
-# shellcheck source=/dev/null
-source "$HOME/.openclaw/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || \
+# shellcheck source=../_shared/scripts/telegram-notify.sh
+source "$SKILL/../_shared/scripts/telegram-notify.sh" 2>/dev/null || \
   telegram_notify() { echo "telegram_notify unavailable: $1" >&2; }
 
 problems=()
