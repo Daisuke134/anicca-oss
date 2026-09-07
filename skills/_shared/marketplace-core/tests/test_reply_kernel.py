@@ -171,3 +171,20 @@ def test_delivery_unknown_never_blindly_replays_same_intent(tmp_path):
     assert second["effect"] == 0
     assert second["items"][0]["reason"] == "reconcile_unknown"
     assert len(adapter.effects) == 1
+
+
+def test_pre_effect_readback_must_prove_authoritative_absence(tmp_path):
+    class UnknownBeforeEffect(Adapter):
+        def readback(self, _intent):
+            return {"authoritative_absent": False}
+
+    adapter = UnknownBeforeEffect()
+    result = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _row: {"action": "reply", "payload": {"body": "one"}},
+        state_root=tmp_path,
+    )
+    assert result["effect"] == 0
+    assert result["pending"] == 1
+    assert result["items"][0]["reason"] == "pre_effect_reconcile_unknown"
+    assert adapter.effects == []

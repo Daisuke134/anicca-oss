@@ -221,6 +221,10 @@ def _run_locked(
                       "receipt": receipt, "status": "verified"})
         return {"thread_id": row["thread_id"], "status": "verified",
                 "reason": "reconciled", "effect": 0, "readback": 1, "failed": 0}
+    if existing.get("authoritative_absent") is not True:
+        _write(path, {"version": 1, "observation": refreshed, "intent": intent,
+                      "status": "intent_persisted"})
+        return _pending(row, "pre_effect_reconcile_unknown")
     adapter.mutate(intent)
     official = adapter.readback(intent)
     if official.get("verified") is not True:

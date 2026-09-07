@@ -896,6 +896,11 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    The exact production Python build smoke passes, focused ceremony/kernel tests pass 24/24, and the
    wider Reply/estimate regression passes 152/152 after one isolated timing test was rerun and then
    passed again in the full suite. Source merge/release and live activation remain open.
+   A final shared-kernel fence audit now requires official `authoritative_absent=true` before the
+   first mutation. An unavailable or ambiguous pre-effect readback remains `intent_persisted` and
+   sends nothing; a post-effect unknown remains permanently readback-only. This closes both sides of
+   the duplicate-effect boundary for messages and estimates. Focused planner/kernel/adapters pass
+   30/30 and the wider Reply/estimate regression passes 153/153.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
