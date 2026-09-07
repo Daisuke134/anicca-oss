@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { readFileSync } = require("node:fs");
+const { existsSync, readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 const {
@@ -98,14 +98,11 @@ test("live-shaped open submission produces a truthful zero-write result", async 
   assert.equal(JSON.parse(output).recorded, 0);
 });
 
-test("launchd wiring adds a separate five-minute loop and never kills existing loops", () => {
+test("the registry alone owns the separate five-minute Taskmarket loop", () => {
   const root = join(__dirname, "..");
   const boot = readFileSync(join(__dirname, "taskmarket-work-ledger-boot.sh"), "utf8");
-  const installer = readFileSync(join(__dirname, "install-taskmarket-work-ledger-launchd.sh"), "utf8");
-  const plist = readFileSync(
-    join(root, "launchd", "ai.anicca.life-manager-taskmarket-ledger.plist.template"),
-    "utf8",
-  );
+  const registry = JSON.parse(readFileSync(join(root, "..", "..", "config", "loop-registry.json"), "utf8"));
+  const loop = registry.loops["life-manager-taskmarket-ledger"];
   assert.match(boot, /record-taskmarket-work\.js/);
   assert.match(boot, /handoff-taskmarket-awards\.js/);
   assert.match(boot, /mktemp/);
@@ -114,8 +111,10 @@ test("launchd wiring adds a separate five-minute loop and never kills existing l
   assert.match(boot, /timeout 55/);
   assert.doesNotMatch(boot, /anicca\/apps\/life-manager/);
   assert.match(boot, /TASKMARKET_SELF_WALLETS_MODULE/);
-  assert.match(installer, /ai\.anicca\.life-manager-taskmarket-ledger/);
-  assert.doesNotMatch(installer, /bootout|unload|kickstart\s+-k/);
-  assert.match(plist, /<integer>300<\/integer>/);
-  assert.match(plist, /taskmarket-work-ledger-boot\.sh/);
+  assert.equal(loop.adapter, "exec");
+  assert.deepEqual(loop.command, []);
+  assert.equal(loop.entrypoint, "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh");
+  assert.deepEqual(loop.cadence, { start_interval_seconds: 300 });
+  assert.equal(existsSync(join(__dirname, "install-taskmarket-work-ledger-launchd.sh")), false);
+  assert.equal(existsSync(join(root, "launchd", "ai.anicca.life-manager-taskmarket-ledger.plist.template")), false);
 });

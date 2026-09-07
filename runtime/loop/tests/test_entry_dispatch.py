@@ -108,7 +108,7 @@ class EntryDispatchTest(unittest.TestCase):
             command_for('lancers-revenue-telegram-report', Path('/release'), Path('/home'))
 
     def test_lancers_browser_has_a_finite_renderer_process_limit(self):
-        script = Path(__file__).parents[3] / 'runtime/legacy/lancers-revenue-browser/run.sh'
+        script = Path(__file__).parents[3] / 'skills/earn/lancers/scripts/browser-owner'
         self.assertIn('--renderer-process-limit="$renderer_limit"', script.read_text())
 
     def _symphony_fixture(self, home: Path, content: bytes = b"symphony fixture") -> Path:
@@ -290,7 +290,7 @@ class EntryDispatchTest(unittest.TestCase):
             command_for('writer-report', Path('/release'), Path('/home'))
 
     def test_lancers_browser_disables_code_sign_clone(self):
-        script = Path(__file__).parents[3] / 'runtime/legacy/lancers-revenue-browser/run.sh'
+        script = Path(__file__).parents[3] / 'skills/earn/lancers/scripts/browser-owner'
         self.assertIn('--disable-features=MacAppCodeSignClone', script.read_text())
 
 
