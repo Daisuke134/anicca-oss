@@ -278,15 +278,17 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    hotfixはfresh review `ship`、関連62/62 PASS後にPR #4539としてmerge。本番`life-call` deployment
    `6b8d1be7-d3db-46c1-b0a0-0b82efd1bab6`はSUCCESS、health HTTP 200 / `ok:true` / build
    `db1493f290b28508b6407c8ad6ec061c82b80d6a`をreadbackした。
-5. **IN PROGRESS — Telegram production E2E:** 既存のMTProto user session
+5. **DONE — Telegram production E2E:** 既存のMTProto user session
    (`skills/tools/telegram-user/tg_user.py`, Telethon 1.44.0)でDaisのTelegram actorを読み書きする。
    2026-09-07にCloud Life Managerを会話一覧から特定し、履歴8件のread、`/start lp`のsend
    (message_id 67421)、4秒後のBot応答readback (message_id 67422)までPASS。Bot tokenの
    webhook/getUpdates ownershipは変更していない。さらに既存データを消さない`/reset` (67432)から
    `/start lp` (67433)、reset確認 (67434)、準備完了 (67436)までTelegram user readbackでPASSし、
-   完了状態へ復帰した。残りは新規開始相当の状態遷移、最初のTravel block・
-   乗換案内・Telegram provider receipt・replay追加送信0を本番でE2Eする。
-6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
+   完了状態へ復帰した。Dais tenantの直近100 Travel行ではTelegram通知44件、provider receipt
+   44/44。成功した乗換案内をMTProtoでreadbackし、その1.27秒後のprovider receipt、同じevent keyの
+   `go` claim、leg重複0を本番DBで突合した。同じ成功時刻を固定して本番Reminder関数を再実行し、
+   Telegram send spyの追加送信0を確認した。新規友人固有のGoogle同意は最終friend UATで行う。
+6. **IN PROGRESS — public handoff:** 公開導線を再確認し、友人DMとX投稿パッケージを確定する。
 
 ## 10. `$29/month` unit-cost envelope
 
