@@ -63,6 +63,10 @@ test("normalizes a versioned external RevenueReceipt with signed net and canonic
   assert.equal(receipt.fee, 0.05);
   assert.equal(receipt.refund, 0);
   assert.equal(receipt.signed_net, 0.95);
+  assert.equal(receipt.gross_decimal, "1");
+  assert.equal(receipt.fee_decimal, "0.05");
+  assert.equal(receipt.refund_decimal, "0");
+  assert.equal(receipt.signed_net_decimal, "0.95");
   assert.equal(receipt.asset, "USDC");
   assert.equal(receipt.terminal_state, "settled");
   assert.equal(receipt.occurred_at, "2026-08-27T00:00:00.000Z");

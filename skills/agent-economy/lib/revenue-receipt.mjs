@@ -86,6 +86,15 @@ function decimalNumber(value, scale) {
   return number;
 }
 
+function decimalTextFromUnits(value, scale) {
+  const negative = value < 0n;
+  const digits = (negative ? -value : value).toString().padStart(scale + 1, "0");
+  if (scale === 0) return `${negative ? "-" : ""}${digits}`;
+  const split = digits.length - scale;
+  const fraction = digits.slice(split).replace(/0+$/, "");
+  return `${negative ? "-" : ""}${digits.slice(0, split)}${fraction ? `.${fraction}` : ""}`;
+}
+
 function normalizeChainId(value) {
   if (typeof value === "number") {
     if (!Number.isInteger(value) || value <= 0) fail("INVALID_PROOF", "chain_id must be a positive integer", "proof.chain_id");
@@ -229,9 +238,9 @@ export function normalizeRevenueReceipt(input, options = {}) {
   if (selfPayerList.some((value) => String(value).trim().toLowerCase() === payer.toLowerCase())) {
     fail("SELF_PAYMENT", "payer is an instance-controlled wallet", "payer");
   }
-  const gross = decimal(valueOf(input, ["gross", "gross_amount", "grossAmount"]), "gross");
-  const fee = decimal(valueOf(input, ["fee", "fees", "fee_amount", "feeAmount"], 0), "fee");
-  const refund = decimal(valueOf(input, ["refund", "refunds", "refund_amount", "refundAmount"], 0), "refund");
+  const gross = decimal(valueOf(input, ["gross_decimal", "gross", "gross_amount", "grossAmount"]), "gross");
+  const fee = decimal(valueOf(input, ["fee_decimal", "fee", "fees", "fee_amount", "feeAmount"], 0), "fee");
+  const refund = decimal(valueOf(input, ["refund_decimal", "refund", "refunds", "refund_amount", "refundAmount"], 0), "refund");
   const grossFee = alignDecimal(gross, fee);
   const grossRefund = alignDecimal({ units: grossFee.a, scale: grossFee.scale }, refund);
   const feeAtScale = grossFee.b * (10n ** BigInt(grossRefund.scale - grossFee.scale));
@@ -240,7 +249,7 @@ export function normalizeRevenueReceipt(input, options = {}) {
     fail("EMPTY_AMOUNT", "at least one amount must be non-zero");
   }
   const signedNet = decimalNumber(signedUnits, grossRefund.scale);
-  const providedNet = valueOf(input, ["signed_net", "signedNet", "net", "net_usdc"]);
+  const providedNet = valueOf(input, ["signed_net_decimal", "signed_net", "signedNet", "net", "net_usdc"]);
   if (providedNet !== undefined && providedNet !== null) {
     const parsedProvided = decimal(providedNet, "signed_net", { allowNegative: true });
     const expected = { units: signedUnits, scale: grossRefund.scale };
@@ -261,6 +270,10 @@ export function normalizeRevenueReceipt(input, options = {}) {
     fee: decimalNumber(fee.units, fee.scale),
     refund: decimalNumber(refund.units, refund.scale),
     signed_net: signedNet,
+    gross_decimal: decimalTextFromUnits(gross.units, gross.scale),
+    fee_decimal: decimalTextFromUnits(fee.units, fee.scale),
+    refund_decimal: decimalTextFromUnits(refund.units, refund.scale),
+    signed_net_decimal: decimalTextFromUnits(signedUnits, grossRefund.scale),
     asset,
     proof,
     terminal_state: terminalState,
