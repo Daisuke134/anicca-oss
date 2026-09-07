@@ -248,7 +248,7 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
 2. **DONE (local/review) — optional phone:** 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
    電話skip、番号保存時call OFF、別質問での明示opt-in、日英copy、onboarding paywall削除を実装し、
    関連test 160/160とfresh read-only reviewがPASS。
-3. **IN PROGRESS — monthly free allowance:** 3日trial表示とonboarding内の料金CTAを削除済み。
+3. **DONE (local/real PostgreSQL/review) — monthly free allowance:** 3日trial表示とonboarding内の料金CTAを削除済み。
    月30回（paidは500回）のtenant/month/event ledger、15分pending reservation、success確定、月1回の枠到達noticeを追加し、
    Travel blockとTelegram reminderの新規route effect前へ接続。関連test 141/141とTravel wiring 113/113がPASS。
    任意電話のprovider effectと成功receiptも同じevent allowanceへ接続済み。ただしfresh reviewで次のcorrectness gateが
@@ -258,8 +258,13 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    cached/read/Calendar/Telegram/settingsを維持する、(e) 80%と枯渇noticeをplan-awareなused/limit/reset copyにし、
    exhausted後の80%逆順送信を禁止する、(f) noticeの曖昧配送を永続reconciliation可能にする。
    実DBで並行reserve、誤token拒否、月跨ぎcomplete/release、pending残留0、limit後cache hitのprovider call 0、
-   exhausted優先、notice replayを証明し、fresh read-only reviewがPASSしてからDONEにする。
-4. 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
+   exhausted優先、notice replayを証明。さらに通常通話をpaid-onlyにし、tenant timezoneでresetする月3,600接続秒の
+   owner-token ledgerを追加した。並行予約込みで上限を超えず、発信前に`accepted`を永続化し、Telnyx
+   `time_limit_secs`へ残秒を渡す。transport/5xx/malformed successはclaimを保持し、署名済み`call.hangup`から
+   公式`call_duration`を取得してのみ精算するため、bridge crash、response loss、`LM_AMD=off`でもreplay-safe。
+   関連test 236/236、migration二重適用、実PostgreSQLの3,480秒時並行reserve 1/2件、誤token拒否、37秒精算後
+   残83秒、stale accepted保持をPASS。fresh read-only reviewはSHA `999755fe0`を`ship`判定。
+4. **IN PROGRESS — merge/production:** 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
 5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
    最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
 6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
