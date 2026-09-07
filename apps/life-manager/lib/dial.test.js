@@ -90,6 +90,17 @@ test("LM_AMD=off disables AMD even with an explicit client_state", () => {
   assert.deepEqual(opts, {});
 });
 
+test("LM_AMD=off keeps the lifecycle webhook for a voice allowance owner", () => {
+  const { encodeWakeClientState } = require("./telnyx-webhook.js");
+  const clientState = encodeWakeClientState({ wakeUid: "lm_abc", wakeEventKey: "call-a",
+    wakeClaimToken: "claim", voicePeriodStart: "2026-09-01",
+    voiceReservationToken: "11111111-1111-4111-8111-111111111111", voiceAllowedSeconds: 120 });
+  const opts = amdDialOptions(WAKE_URL, { LM_AMD: "off" }, { clientState });
+  assert.equal(opts.answering_machine_detection, undefined);
+  assert.equal(opts.client_state, clientState);
+  assert.match(opts.webhook_url, /\/telnyx-events$/);
+});
+
 test("placeCall returns all exact Telnyx call identities from one successful response", async () => {
   const ids = {
     call_control_id: "v2:opaque/control+id",

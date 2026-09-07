@@ -6,7 +6,7 @@
 
 const { telnyxDialBody, telnyxStreamingStartBody } = require("./call-logic.js");
 const { amdEnabled } = require("./answered.js");
-const { encodeWakeClientState } = require("./telnyx-webhook.js");
+const { encodeWakeClientState, decodeCallClientState } = require("./telnyx-webhook.js");
 
 const TELNYX = "https://api.telnyx.com/v2";
 const MAX_PROVIDER_ID_LENGTH = 512;
@@ -56,14 +56,17 @@ async function balanceUsd() {
 // verifies the SAME ordered array, so a new query item changes what the signature means on both ends.
 // An argument costs nothing and cannot desync from a signature.
 function amdDialOptions(streamUrl, env = process.env, opts = {}) {
-  if (!amdEnabled(env)) return {};
   const url = new URL(streamUrl);
   const wakeUid = url.searchParams.get("wakeUid") || "";
   const wakeEventKey = url.searchParams.get("wakeEventKey") || "";
   const webhookProtocol = url.protocol === "ws:" ? "http:" : "https:";
   const clientState = opts.clientState || encodeWakeClientState({ wakeUid, wakeEventKey });
+  const decoded = decodeCallClientState(clientState);
+  const requiresVoiceReconciliation = decoded && decoded.kind === "wake"
+    && decoded.voicePeriodStart && decoded.voiceReservationToken;
+  if (!amdEnabled(env) && !requiresVoiceReconciliation) return {};
   return {
-    answering_machine_detection: "detect",
+    ...(amdEnabled(env) ? { answering_machine_detection: "detect" } : {}),
     webhook_url: `${webhookProtocol}//${url.host}/telnyx-events`,
     webhook_url_method: "POST",
     ...(clientState ? { client_state: clientState } : {}),

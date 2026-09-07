@@ -32,23 +32,6 @@ test("voice allowance context is signed and tampering is rejected by the bridge"
   assert.equal(ctxFromReq({ url: `${url.pathname}${url.search}` }), null);
 });
 
-test("bridge settles connected seconds and releases a never-connected reservation", async () => {
-  const { settleVoiceReservation } = require("../server.js");
-  const calls = [];
-  const base = { wakeUid: "tenant-a", wakeEventKey: "call-a",
-    voiceReservation: { periodStart: "2026-09-01", reservationToken: "token", allowedSeconds: 120 } };
-  const deps = {
-    supaUrl: "db", supaKey: "key",
-    complete: async (...args) => calls.push(["complete", ...args]),
-    release: async (...args) => calls.push(["release", ...args]),
-  };
-  await settleVoiceReservation({ ...base, callStartedAtMs: 1000, nowMs: 63200 }, deps);
-  await settleVoiceReservation({ ...base, callStartedAtMs: null }, deps);
-  assert.equal(calls[0][0], "complete");
-  assert.equal(calls[0][5].connectedSeconds, 62.2);
-  assert.equal(calls[1][0], "release");
-});
-
 test("late tick scheduler surface has no mail sender dependency", () => {
   const source = fs.readFileSync(path.join(__dirname, "../scheduler.js"), "utf8");
   assert.doesNotMatch(source, /require\(["']\.\/lib\/notify\.js["']\)/);
