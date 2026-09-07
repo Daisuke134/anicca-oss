@@ -733,6 +733,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    wake without waiting, and scanning continues. Focused tests pass 23/23, and the running Chromium
    accepted all three permission settings without restart. Merge, cut a new immutable release, then
    re-enable only Mercor and obtain the still-required natural terminal/replay acceptance.
+   The next guarded wake proved a second policy defect without triggering an OS prompt: step 2 still
+   ordered the model to reconcile the oldest in-progress application, so it reopened the application
+   summary even though the permission guard denied all media capabilities. The cursor now requires
+   incomplete application cards to be recorded and skipped without opening them; `Continue
+   application` and incomplete-card clicks are prohibited. The pass goes directly to Explore,
+   prefers visible `1-click apply`, submits only candidates whose live detail exposes no person-bound
+   requirement, and continues after a human-gate report. Keep the currently running guarded wake
+   alive to its natural terminal, then target the next release while idle; do not stop the loop again.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
