@@ -39,6 +39,17 @@ HARD_PROHIBITION_CLASSES = {
     "video_or_animation": "video editing/production, live-action filming, AI video, animation, or MV",
     "physical_or_onsite": "on-site work or physical making/assembly/cleaning/repair/cooking/sewing/woodwork/model making/packing/shipping/delivery/receipt",
     "mandatory_human_presence": "human face appearance/performance/voice recording/phone support/mandatory live call or mandatory video interview",
+    # 2026-09-07: applied to 「YouTube・SNS用オリジナルキャラクター制作（Live2D＋情報発信用素材
+    # 一式）」 at ¥250,000. video_or_animation says "animation" and the model read a Live2D rig as
+    # neither video nor animation, which is arguable. The line that matters is not the medium but
+    # what has to be produced: an original drawing, model or rig is craft made in specialist tools
+    # over many passes with a human eye, and taking one we cannot finish costs a review, not just
+    # a proposal. Dais 2026-09-07: "true they should not any more."
+    #
+    # This does not close design. A page, a layout, a slide deck or a Figma-to-HTML build is a
+    # document or a system and stays workable; 「Webデザイン」 and 「HTML・CSSコーディング」 are
+    # deliberately absent from the terms below.
+    "original_illustration_or_modelling": "producing original illustration, manga, character design, Live2D/VTuber rigging, 3D modelling, avatars or hand-drawn artwork, where the deliverable is the artwork itself rather than a page, a system or a document",
     "illegal_or_unsafe": "illegal or unsafe work",
     # 2026-09-07: applied to 整理収納アドバイザー監修 and 防災士監修. Both name a certification the
     # persona does not hold, and both were read as allowed because the wording said "legally
@@ -65,6 +76,11 @@ PROHIBITED_CATEGORY_TERMS = (
     ("mandatory_human_presence", ("ナレーション", "声優", "吹き替え", "テレアポ", "コールセンター", "電話営業",
                                   "モデル・タレント", "出演")),
     ("manual_marketplace_operation", ("出品代行", "せどり", "転売", "BUYMA", "バイマ", "投稿代行", "SNS運用代行")),
+    # 「デザイン」 and 「画像」 are absent on purpose: 「Webサイトデザイン」, 「サムネイル作成・画像
+    # デザイン」 and 「AI生成画像の加工・レタッチ」 are all workable, and only the crafts are named.
+    ("original_illustration_or_modelling", ("イラスト", "漫画", "マンガ", "Live2D", "VTuber",
+                                            "キャラクターデザイン", "キャラデザ", "3Dモデ",
+                                            "似顔絵", "絵画", "アバター", "立ち絵")),
 )
 
 

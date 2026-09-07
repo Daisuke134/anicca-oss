@@ -115,3 +115,40 @@ def test_the_non_catalogue_work_is_present_and_is_not_prohibited():
         assert expected in terms
     for term in terms:
         assert fit.category_refusal(term) is None
+
+
+# --- the artwork line, 2026-09-07 ------------------------------------------------------------
+
+# Real Coconala category names, taken from its own 293-entry tree.
+CRAFT = ("イラスト作成", "Vtuberイラスト・モデリング", "キャラクター作成・キャラデザ",
+         "漫画制作・マンガ作成", "3Dアバター・衣装作成", "TRPGイラスト・立ち絵作成", "似顔絵作成")
+WORKABLE_DESIGN = ("Webサイトデザイン", "HTML・CSSコーディング", "サムネイル作成・画像デザイン",
+                   "AI生成画像の加工・レタッチ", "ロゴ作成・ロゴデザイン", "その他（デザイン制作）")
+
+
+def test_producing_the_artwork_itself_is_refused():
+    """Applied to 「YouTube・SNS用オリジナルキャラクター制作（Live2D＋情報発信用素材一式）」 at
+    ¥250,000 on 2026-09-07. A rig is craft made in specialist tools over many passes, and taking
+    one the fleet cannot finish costs a review rather than a proposal."""
+    for label in CRAFT:
+        assert fit.category_refusal(label) == ("original_illustration_or_modelling",
+                                               fit.category_refusal(label)[1]), label
+
+
+def test_design_that_produces_a_page_or_a_document_still_passes():
+    """The line is what has to be produced, not the medium. Closing 'design' would have thrown
+    away 「Webデザインのみ】採用サイトのデザイン制作」 at ¥300,000, taken the same day."""
+    for label in WORKABLE_DESIGN:
+        assert fit.category_refusal(label) is None, label
+
+
+def test_the_class_is_in_the_prompt_the_judge_reads():
+    assert "original_illustration_or_modelling" in fit.build_judgement_prompt(
+        [{"posting_id": "1", "title": "t", "body": "b"}])
+    assert "Live2D" in fit.HARD_PROHIBITION_CLASSES["original_illustration_or_modelling"]
+
+
+def test_the_discovery_vocabulary_does_not_fetch_artwork_either():
+    """Searching for work we now decline would only manufacture skips."""
+    for term in fit.discovery_terms(("イラスト作成", "Live2Dモデリング", "業務システム")):
+        assert fit.category_refusal(term) is None
