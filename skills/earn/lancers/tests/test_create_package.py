@@ -485,8 +485,27 @@ class _FakeCreatePage:
     def wait_for_selector(self, *_args, **_kwargs) -> None:
         pass
 
-    def wait_for_function(self, *_args, **_kwargs) -> None:
-        pass
+    def wait_for_function(self, script: str, *, arg: str | None = None, timeout=None) -> None:
+        """Models Playwright's real wait_for_function: production only ever calls this to wait
+        for a dependent select's own option label (subcategory waiting on category; service_type
+        waiting on subcategory, see storefront_offer.py) to actually be among that select's live
+        options. The selector is read straight out of the script string (both production call
+        sites embed it as `[name="..."] option`), so this stays a faithful re-check against
+        whatever `_fields_for()` actually gave that field -- never a second, hardcoded notion of
+        which fields are dependent selects. No match in the script, or a field this page was never
+        told about, is a no-op (mirrors every other selector this fake does not model); a field
+        that *is* known but whose options never carry `arg` raises TimeoutError, exactly as a real
+        page would when the condition never becomes true.
+        """
+        match = re.search(r'name="([^"]+)"', script)
+        if match is None:
+            return
+        field = self._fields.get(f'[name="{match.group(1)}"]')
+        if field is None:
+            return
+        labels = [option.inner_text() for option in field.locator("option").all()]
+        if arg is not None and arg not in labels:
+            raise TimeoutError(f"condition never became true: {arg!r} not in {labels}")
 
     def wait_for_url(self, pattern, timeout=None) -> None:
         if self._after_submit_url is not None:
@@ -499,6 +518,7 @@ def _complete_product(**overrides) -> dict:
         "subtitle": "小規模チーム向けの業務システムを開発します",
         "category": "IT・プログラミング・開発",
         "subcategory": "システム開発（オーダーメイド）",
+        "service_type": "Webアプリケーション構築",
         "industry": "IT・通信・インターネット",
         "tags": ["業務システム"],
         "notice": "ご相談内容を確認してから進めます。",
@@ -527,6 +547,7 @@ def _fields_for(product: dict) -> dict[str, _Field]:
         '[name="ProjectPlanForm.subtitle"]': _Field(step=0, name="subtitle"),
         '[name="___main_category_id"]': _Field(options=_select_options_for(product["category"]), step=0, name="category"),
         '[name="ProjectPlanForm.project_category_id"]': _Field(options=_select_options_for(product["subcategory"]), step=0, name="subcategory"),
+        '[name="ProjectPlanCategoryForm.service_type[0]"]': _Field(options=_select_options_for(product["service_type"]), step=0, name="service_type"),
         '[name="ProjectPlanForm.industry_type_id"]': _Field(options=_select_options_for(product["industry"]), step=0, name="industry"),
         '[name="MultiSelectTagSearch_ProjectPlanTagForm"]': _Field(step=0, name="tags"),
         '[name="ProjectPlanForm.notice_for_sale"]': _Field(step=3, name="notice"),
@@ -554,6 +575,7 @@ def test_complete_product_fills_every_observed_field_exactly_once():
     assert fields['[name="ProjectPlanForm.subtitle"]'].fills == [product["subtitle"]]
     assert fields['[name="___main_category_id"]'].selected == [{"label": product["category"]}]
     assert fields['[name="ProjectPlanForm.project_category_id"]'].selected == [{"label": product["subcategory"]}]
+    assert fields['[name="ProjectPlanCategoryForm.service_type[0]"]'].selected == [{"label": product["service_type"]}]
     assert fields['[name="ProjectPlanForm.industry_type_id"]'].selected == [{"label": product["industry"]}]
     assert fields['[name="MultiSelectTagSearch_ProjectPlanTagForm"]'].fills == product["tags"]
     assert fields['[name="ProjectPlanForm.notice_for_sale"]'].fills == [product["notice"]]
@@ -1457,6 +1479,50 @@ def test_unmatched_delivery_days_raises_and_selects_nothing():
     assert fields['[name="ProjectPlanMenuForm[2].description"]'].fills == []
 
 
+# 2b. service_type (業務, the seventh required control) is selected right after subcategory, by
+#     label; a label absent from the live options raises a named error listing every option seen -
+
+def test_service_type_is_selected_after_subcategory_by_label():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
+
+    module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    subcategory_step = fields['[name="ProjectPlanForm.project_category_id"]'].selected
+    service_type_step = fields['[name="ProjectPlanCategoryForm.service_type[0]"]'].selected
+    assert subcategory_step == [{"label": product["subcategory"]}]
+    assert service_type_step == [{"label": product["service_type"]}]
+    # service_type was chosen after subcategory in the event log (fill order matters: it is a
+    # dependent of subcategory, exactly like subcategory is a dependent of category).
+    subcategory_index = next(i for i, e in enumerate(page.event_log) if e[1] == "subcategory")
+    service_type_index = next(i for i, e in enumerate(page.event_log) if e[1] == "service_type")
+    assert subcategory_index < service_type_index
+
+
+def test_unmatched_service_type_raises_and_lists_every_option_seen():
+    module = _module()
+    # The live field only ever offers the default product's own service_type label; asking for a
+    # different one models a catalogue overlay whose service_type Lancers' subcategory does not
+    # actually offer.
+    fields = _fields_for(_complete_product())
+    product = _complete_product(service_type="バグ修正")
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    message = str(excinfo.value)
+    assert "create_service_type_unmatched" in message
+    assert "バグ修正" in message
+    assert "Webアプリケーション構築" in message  # the one real option actually seen is named
+
+    # industry (the field immediately after service_type) was never reached.
+    assert fields['[name="ProjectPlanForm.industry_type_id"]'].selected == []
+    assert fields['[name="ProjectPlanCategoryForm.service_type[0]"]'].selected == []
+
+
 # 3. A missing required product field raises, naming the field, before any navigation ----------
 
 
@@ -1698,6 +1764,7 @@ def _fixture_family(family: str, *, category: str = "AI・プログラミング�
     override = {
         "category": category,
         "subcategory": "システム開発（オーダーメイド）",  # a future, filled-in overlay -- not the real catalog's shape
+        "service_type": "Webアプリケーション構築",
         "industry": "IT・通信・インターネット",
         "tags": [family],
         "notice": f"{family}のご相談内容を確認してから進めます。",
@@ -1872,6 +1939,36 @@ def test_incomplete_overlay_is_skipped_and_named_without_blocking_a_later_family
     assert selection["action"] == "candidate_selected"
     assert selection["family"] == "fine"
     assert selection["skipped"] == [{"family": "broken", "reason": "create_field_missing: notice"}]
+
+
+# 8b. A family whose overlay lacks service_type specifically -- the seventh required control this
+#     lane only just learned about -- is skipped by name, and selection still advances to the
+#     next complete family. This is the whole point of the module's overlay-skip design: an
+#     unobserved-vocabulary family (most subcategories' service_type option lists have never been
+#     read live) must never stall every family behind it.
+
+
+def test_family_missing_service_type_is_skipped_and_queue_advances_to_the_next_complete_family(tmp_path):
+    module = _module()
+    catalog_path = _write_fixture_catalog(
+        tmp_path,
+        [
+            _fixture_family("no_svc_type", drop_override_fields=("service_type",)),
+            _fixture_family("grounded"),
+        ],
+    )
+    state_path = tmp_path / "application.json"
+
+    selection = module.select_catalog_family_to_create(catalog_path, state_path)
+
+    assert selection["action"] == "candidate_selected"
+    assert selection["family"] == "grounded"
+    assert selection["skipped"] == [
+        {"family": "no_svc_type", "reason": "create_field_missing: service_type"},
+    ]
+    # The selected candidate's own product actually carries service_type -- the queue did not
+    # just skip past the incomplete family, it produced a fillable product for the next one.
+    assert selection["product"]["service_type"] == "Webアプリケーション構築"
 
 
 def test_run_catalog_create_reports_all_pending_incomplete_and_creates_nothing(tmp_path, monkeypatch):

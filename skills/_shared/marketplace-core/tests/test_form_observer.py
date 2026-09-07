@@ -328,6 +328,29 @@ def test_step_requirements_select_with_only_placeholder_reports_empty():
     assert by_label["カテゴリー"]["filled"] is False
 
 
+# --- step_requirements: a select whose checked option is a placeholder by LABEL, not value ---
+# (the false negative this shipped from: value="0" is truthy, but 未選択 means nothing chosen)
+
+def test_step_requirements_select_with_nonempty_value_placeholder_label_reports_empty():
+    by_label = {entry["label"]: entry for entry in _requirements_report()["step_requirements"]}
+    assert by_label["業務"]["tag"] == "select"
+    assert by_label["業務"]["filled"] is False
+
+
+def test_step_requirements_select_with_a_longer_placeholder_phrase_reports_empty():
+    """業務を選択してください contains 選択してください, not an exact match -- containment, not
+    equality, is what this must key off."""
+    by_label = {entry["label"]: entry for entry in _requirements_report()["step_requirements"]}
+    assert by_label["専門知識"]["filled"] is False
+
+
+def test_step_requirements_select_with_a_real_option_checked_still_reports_filled():
+    """A select is not blanket-downgraded to unfilled just because it has a placeholder option
+    somewhere in its list -- only when the *checked* option is the placeholder."""
+    by_label = {entry["label"]: entry for entry in _requirements_report()["step_requirements"]}
+    assert by_label["技術"]["filled"] is True
+
+
 # --- step_requirements: a custom widget reports present-but-unreadable, not filled -----------
 
 def test_step_requirements_custom_widget_reports_unreadable_not_filled():
