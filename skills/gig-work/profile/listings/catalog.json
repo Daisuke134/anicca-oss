@@ -154,6 +154,12 @@
           "price_jpy": 250000,
           "scope": "複数業務連携＋ダッシュボード",
           "delivery_days": 30
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 600000,
+          "scope": "認証・権限管理と外部システム(会計/POS等)API連携、複数拠点対応まで含むフル業務基盤の構築",
+          "delivery_days": 45
         }
       ],
       "deliverables": [
@@ -429,6 +435,12 @@
           "price_jpy": 100000,
           "scope": "予約管理＋Googleカレンダー連携",
           "delivery_days": 14
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 240000,
+          "scope": "LINE Pay決済連携・顧客管理DBの構築・複数店舗対応まで含むフル機能LINE予約システム",
+          "delivery_days": 21
         }
       ],
       "deliverables": [
@@ -584,6 +596,12 @@
           "price_jpy": 180000,
           "scope": "会議録・議事録要約含む複数ツール連携",
           "delivery_days": 21
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 300000,
+          "scope": "複数部門への展開と承認フローの自動化まで含む全社規模のツール連携基盤構築",
+          "delivery_days": 30
         }
       ],
       "deliverables": [
@@ -717,6 +735,12 @@
           "price_jpy": 120000,
           "scope": "複数サイト＋通知/リスト化まで一括対応",
           "delivery_days": 18
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 240000,
+          "scope": "クラウド常時稼働による完全自動収集とAIによるデータ整形・要約まで行うフル機能ツール",
+          "delivery_days": 30
         }
       ],
       "deliverables": [
@@ -869,6 +893,12 @@
           "price_jpy": 100000,
           "scope": "複数工程の自動化＋UI(ボタン操作)整備",
           "delivery_days": 14
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 220000,
+          "scope": "基幹システムや外部APIとの連携まで含めた全社規模の業務自動化とUI設計",
+          "delivery_days": 21
         }
       ],
       "deliverables": [
@@ -1043,6 +1073,12 @@
           "price_jpy": 150000,
           "scope": "複数不具合修正＋動作保証テスト",
           "delivery_days": 14
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 250000,
+          "scope": "ソースコード全体のリファクタリングによる技術的負債解消とドキュメント整備まで行う全面改修",
+          "delivery_days": 21
         }
       ],
       "deliverables": [
@@ -1168,6 +1204,12 @@
           "price_jpy": 350000,
           "scope": "会員機能・データ保存込みの本格アプリ",
           "delivery_days": 45
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 700000,
+          "scope": "決済・プッシュ通知・外部API連携込みのフル機能アプリをストア審査対応まで一貫対応",
+          "delivery_days": 60
         }
       ],
       "deliverables": [
@@ -1293,6 +1335,12 @@
           "price_jpy": 240000,
           "scope": "複数AI機能＋ユーザー管理込み",
           "delivery_days": 30
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 480000,
+          "scope": "独自データを用いたRAG構築と利用量に応じた課金設計まで含むフル機能AI Webアプリ",
+          "delivery_days": 45
         }
       ],
       "deliverables": [
@@ -1413,6 +1461,12 @@
           "price_jpy": 280000,
           "scope": "応募フォーム/管理画面付き求人サイト",
           "delivery_days": 30
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 560000,
+          "scope": "適性診断・スカウト機能・複数拠点求人管理まで備えたフル機能採用プラットフォームの構築",
+          "delivery_days": 45
         }
       ],
       "deliverables": [
@@ -1538,6 +1592,12 @@
           "price_jpy": 250000,
           "scope": "プラットフォーム移行＋カスタム機能追加",
           "delivery_days": 30
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 550000,
+          "scope": "決済・物流システム連携や会員ランク管理まで含むフル機能ECサイトの構築・移行",
+          "delivery_days": 45
         }
       ],
       "deliverables": [
@@ -1663,6 +1723,12 @@
           "price_jpy": 180000,
           "scope": "複数シート連携＋権限管理込み",
           "delivery_days": 25
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 360000,
+          "scope": "複数部門をまたぐ承認ワークフローと外部システム連携まで含むフル機能業務システムへの移行",
+          "delivery_days": 30
         }
       ],
       "deliverables": [
@@ -1782,6 +1848,12 @@
           "price_jpy": 100000,
           "scope": "複数サイト対応＋設定UI付き",
           "delivery_days": 18
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 180000,
+          "scope": "クラウド同期とチームでの設定共有機能まで備えたフル機能Chrome拡張機能の開発",
+          "delivery_days": 21
         }
       ],
       "deliverables": [
@@ -1926,6 +1998,12 @@
           "price_jpy": 150000,
           "scope": "複数サイト対応＋通知連携",
           "delivery_days": 21
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 300000,
+          "scope": "クラウド常時稼働化とAIによる異常検知・自動リトライまで備えたフル機能RPAツール",
+          "delivery_days": 30
         }
       ],
       "deliverables": [
@@ -2093,6 +2171,12 @@
           "price_jpy": 180000,
           "scope": "複数データソース統合＋自動更新",
           "delivery_days": 21
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 300000,
+          "scope": "予測分析としきい値アラート通知まで備えたフル機能BIダッシュボードの構築",
+          "delivery_days": 30
         }
       ],
       "deliverables": [
@@ -2213,6 +2297,12 @@
           "price_jpy": 15000,
           "scope": "ヒアリング＋優先順位・概算費用レポート",
           "delivery_days": 5
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 30000,
+          "scope": "優先順位・概算費用レポートに加え、実行ロードマップと複数案の見積り比較まで作成する伴走型診断",
+          "delivery_days": 7
         }
       ],
       "deliverables": [
@@ -2309,6 +2399,12 @@
           "price_jpy": 30000,
           "scope": "要件定義書＋概算見積り書の作成",
           "delivery_days": 7
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 60000,
+          "scope": "要件定義書・概算見積りに加え、発注仕様書と開発会社選定基準まで整備する伴走型コンサルティング",
+          "delivery_days": 10
         }
       ],
       "deliverables": [
@@ -2399,6 +2495,12 @@
           "price_jpy": 180000,
           "scope": "全画面改修＋ユーザーテスト",
           "delivery_days": 21
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 300000,
+          "scope": "デザインシステムの構築とA/Bテスト運用まで含む、継続改善を前提としたフルUI/UX改修",
+          "delivery_days": 30
         }
       ],
       "deliverables": [
@@ -2519,6 +2621,12 @@
           "price_jpy": 30000,
           "scope": "月次保守＋軽微な機能追加(月内対応)",
           "delivery_days": 5
+        },
+        {
+          "name": "プレミアム",
+          "price_jpy": 60000,
+          "scope": "24時間以内の障害対応と月2回相当の機能改修、四半期ごとの改善提案まで含むプレミアム保守プラン",
+          "delivery_days": 7
         }
       ],
       "deliverables": [
