@@ -547,6 +547,8 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "skills/earn/lancers/scripts/browser-owner",
         )
         self.assertFalse((ROOT / "runtime/legacy/lancers-revenue-browser/run.sh").exists())
+        self.assertFalse((ROOT / "apps/lancers-revenue/scripts/install-local.sh").exists())
+        self.assertFalse((ROOT / "apps/lancers-revenue/launchd/ai.anicca.lancers-revenue-browser.plist").exists())
 
     def test_production_render_matches_byte_stable_fixture(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
