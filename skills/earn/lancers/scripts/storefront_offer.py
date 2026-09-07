@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 import re
 import sys
@@ -18,6 +19,20 @@ from urllib.parse import urlsplit
 HERE = Path(__file__).resolve().parent
 DEFAULT_PRODUCT = HERE.parent / "products" / "monthly-sns-content-ops-v1.json"
 DEFAULT_AVATAR = HERE.parents[2] / "gig-work" / "profile" / "avatar.jpg"
+# The owner's platform-agnostic listing catalog (skills/_shared/marketplace-core owns the
+# loader/projection logic; see _reach_marketplace_core). A product file may opt in to it via
+# a top-level "catalog_family" key -- see _catalog_overlay_product.
+DEFAULT_CATALOG = HERE.parents[2] / "gig-work" / "profile" / "listings" / "catalog.json"
+# Product-shape fields the shared catalog owns once a product file names a catalog_family.
+# Kept in one place because both the merge (_catalog_overlay_product) and the read-only
+# report (catalog_lancers_requirements) need to agree on exactly what "catalog-owned" means.
+_LANCERS_CATALOG_OWNED_FIELDS = ("title_stem", "subtitle", "category", "plans", "description")
+# Identity/operational fields the catalog never carries an opinion on at all -- they are not
+# "missing" from a catalog projection (listing_catalog.project_lancers never claims them), they
+# simply never belong to the catalog's concept of a listing. catalog_lancers_requirements
+# reports them alongside project_lancers' own `missing` list so the report names every field an
+# overlay must supply, not only the ones the catalog projection itself flags.
+_LANCERS_IDENTITY_FIELDS = ("product_id", "product_version", "listing_external_id", "superseded_listing_ids")
 ORIGIN = "https://www.lancers.jp"
 DEMAND_LABELS = {
     "検索結果の表示人数": "search_impressions",
@@ -38,10 +53,105 @@ def _load(name: str, path: Path) -> Any:
     return module
 
 
-def _product(path: Path) -> tuple[dict[str, Any], Path, Path]:
+def _reach_marketplace_core() -> Any:
+    """Reach skills/_shared/marketplace-core/scripts, the same way
+    skills/earn/gig/scripts/storefront_direct.py's _load_catalog_entries does (see that
+    function's docstring), and return the shared listing_catalog module. One mechanism,
+    used by every caller that needs the shared catalog -- nothing here invents a second one.
+    """
+    shared_scripts = HERE.parents[2] / "_shared" / "marketplace-core" / "scripts"
+    if str(shared_scripts) not in sys.path:
+        sys.path.insert(0, str(shared_scripts))
+    import listing_catalog
+    return listing_catalog
+
+
+def _catalog_projection(catalog_module: Any, catalog_path: Path, family: str) -> dict[str, Any]:
+    """Load the shared catalog and project `family` onto the Lancers shape.
+
+    Fails loud and names the catalog: an unreadable/invalid catalog or an unknown family is
+    an OfferError naming the family, never a silently empty/partial projection.
+    """
+    try:
+        catalog = catalog_module.load(catalog_path)
+    except catalog_module.CatalogError as error:
+        raise OfferError(f"catalog_unavailable: family={family}: {error}") from error
+    try:
+        return catalog_module.project_lancers(catalog, family)
+    except catalog_module.UnknownFamily as error:
+        raise OfferError(f"catalog_family_unknown: family={family}: {error}") from error
+
+
+def _catalog_overlay_product(
+    overlay: Mapping[str, Any], family: str, catalog_path: Path = DEFAULT_CATALOG
+) -> dict[str, Any]:
+    """Merge a Lancers-only overlay onto the shared catalog's projection for `family`.
+
+    The catalog owns _LANCERS_CATALOG_OWNED_FIELDS (title_stem, subtitle, category, plans,
+    description) via listing_catalog.project_lancers; the overlay -- the rest of the product
+    file -- supplies everything else (product_id, product_version, listing_external_id,
+    superseded_listing_ids, subcategory, service_type, industry, tags, notice, portfolio,
+    software_portfolio, seller_profile, image/avatar paths+hashes). project_lancers reports
+    those unmapped fields under "missing"; any of them the overlay does not actually supply
+    is an OfferError naming the fields, not a guess or a default. The returned dict is a new
+    object -- the catalog projection itself is never mutated, so a second caller in the same
+    process gets an independent projection.
+    """
+    listing_catalog = _reach_marketplace_core()
+    projection = _catalog_projection(listing_catalog, catalog_path, family)
+    missing = list(projection.get("missing") or [])
+    unresolved = sorted(field for field in missing if field not in overlay)
+    if unresolved:
+        raise OfferError(f"catalog_overlay_incomplete: family={family}: missing={unresolved}")
+    merged = dict(overlay)
+    merged.pop("catalog_family", None)
+    for field in _LANCERS_CATALOG_OWNED_FIELDS:
+        merged[field] = deepcopy(projection[field])
+    return merged
+
+
+def catalog_lancers_requirements(family: str, catalog_path: Path = DEFAULT_CATALOG) -> dict[str, Any]:
+    """Read-only report: which Lancers-required fields would an overlay still have to supply
+    for `family`?
+
+    Turns "wire the other listings" from an unknown into a list. Reports every field the
+    catalog cannot supply: the identity/operational fields the catalog's concept of a listing
+    never covers (_LANCERS_IDENTITY_FIELDS) plus whatever listing_catalog.project_lancers
+    itself names under `missing` -- the same set _catalog_overlay_product enforces -- alongside
+    the fields the catalog does own. Touches no product file; safe to call for every family in
+    the catalog.
+    """
+    listing_catalog = _reach_marketplace_core()
+    projection = _catalog_projection(listing_catalog, catalog_path, family)
+    return {
+        "family": family,
+        "catalog_owned_fields": list(_LANCERS_CATALOG_OWNED_FIELDS),
+        "overlay_required_fields": list(_LANCERS_IDENTITY_FIELDS) + list(projection.get("missing") or []),
+    }
+
+
+def _load_product_file(path: Path) -> dict[str, Any]:
     try: value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError): raise OfferError("product_invalid") from None
     if not isinstance(value, dict): raise OfferError("product_invalid")
+    return value
+
+
+def _product(path: Path) -> tuple[dict[str, Any], Path, Path]:
+    value = _load_product_file(path)
+    family = value.get("catalog_family")
+    if family is None:
+        return _validate_product(value, path)
+    if not isinstance(family, str) or not family.strip():
+        raise OfferError("product_invalid")
+    merged = _catalog_overlay_product(value, family)
+    try:
+        return _validate_product(merged, path)
+    except OfferError as error:
+        raise OfferError(f"catalog_product_invalid: family={family}: {error}") from error
+
+
+def _validate_product(value: dict[str, Any], path: Path) -> tuple[dict[str, Any], Path, Path]:
     strings = ("product_id", "listing_external_id", "title_stem", "subtitle", "category", "subcategory", "service_type", "industry", "description", "notice", "image_path")
     if any(not isinstance(value.get(key), str) or not value[key].strip() for key in strings): raise OfferError("product_invalid")
     if not re.fullmatch(r"[0-9]+", value["listing_external_id"]): raise OfferError("product_invalid")
