@@ -17,7 +17,6 @@ import install_gate15_launchagents as installer
 
 
 LABELS = {
-    "daily": "ai.anicca.marketing-owner-daily",
     "weekly": "ai.anicca.marketing-owner-weekly",
 }
 FORBIDDEN = ("openclaw", "daily_report.py", "weekly_review.py", "notify_posts.py")
@@ -28,40 +27,32 @@ def _plist(payload: bytes) -> dict:
 
 
 class BuildPlistsTests(unittest.TestCase):
-    def test_returns_exactly_two_remaining_owner_report_jobs(self):
+    def test_returns_exactly_one_remaining_owner_report_job(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp) / "repo"
             home = pathlib.Path(tmp) / "home"
             plists = installer.build_plists(root, home)
 
         self.assertEqual(set(plists), set(LABELS.values()))
-        self.assertEqual(len(plists), 2)
+        self.assertEqual(len(plists), 1)
         self.assertEqual(
             {plistlib.loads(payload)["Label"] for payload in plists.values()},
             set(LABELS.values()),
         )
 
-    def test_daily_and_weekly_calendar_intervals_and_arguments(self):
+    def test_weekly_calendar_interval_and_arguments(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp) / "repo"
             home = pathlib.Path(tmp) / "home"
             plists = installer.build_plists(root, home)
-            daily = _plist(plists[LABELS["daily"]])
             weekly = _plist(plists[LABELS["weekly"]])
 
         self.assertEqual(
-            daily["StartCalendarInterval"], {"Hour": 22, "Minute": 0}
-        )
-        self.assertEqual(
             weekly["StartCalendarInterval"], {"Weekday": 0, "Hour": 21, "Minute": 0}
         )
-        self.assertNotIn("StartInterval", daily)
         self.assertNotIn("StartInterval", weekly)
-        daily_args = daily["ProgramArguments"]
         weekly_args = weekly["ProgramArguments"]
-        self.assertEqual(daily_args[2:5], ["sweep", "--kind", "product_daily"])
         self.assertEqual(weekly_args[2:5], ["sweep", "--kind", "portfolio_weekly"])
-        self.assertIn("--state-root", daily_args)
         self.assertIn("--state-root", weekly_args)
 
     def test_commands_use_canonical_paths_and_writable_non_openclaw_logs(self):
@@ -101,11 +92,8 @@ class PlanTests(unittest.TestCase):
             launch_dir.mkdir()
             targets = installer.build_plists(root, home)
 
-            no_change = launch_dir / f"{LABELS['daily']}.plist"
-            no_change.write_bytes(targets[LABELS["daily"]])
-            update = launch_dir / f"{LABELS['weekly']}.plist"
-            old = b"legacy bytes that must remain untouched"
-            update.write_bytes(old)
+            no_change = launch_dir / f"{LABELS['weekly']}.plist"
+            no_change.write_bytes(targets[LABELS["weekly"]])
 
             output = pathlib.Path(tmp) / "not-created" / "plan.json"
             captured = io.StringIO()
@@ -124,17 +112,13 @@ class PlanTests(unittest.TestCase):
                     ]
                 )
             self.assertEqual(rc, 0)
-            self.assertEqual(update.read_bytes(), old)
             self.assertFalse(output.exists())
             self.assertFalse(output.parent.exists())
             self.assertFalse((home / "Library").exists())
             self.assertEqual(
                 sorted(path.name for path in launch_dir.iterdir()),
                 sorted(
-                    [
-                        f"{LABELS['daily']}.plist",
-                        f"{LABELS['weekly']}.plist",
-                    ]
+                    [f"{LABELS['weekly']}.plist"]
                 ),
             )
             plan = json.loads(captured.getvalue())
@@ -145,10 +129,7 @@ class PlanTests(unittest.TestCase):
             self.assertEqual(plan["action"], "plan")
             self.assertEqual(
                 {row["label"]: row["status"] for row in plan["rows"]},
-                {
-                    LABELS["daily"]: "no-change",
-                    LABELS["weekly"]: "update",
-                },
+                {LABELS["weekly"]: "no-change"},
             )
 
 
@@ -211,7 +192,7 @@ class ApplyTests(unittest.TestCase):
                         installer._readback_matches(_matching_readback(root, home, label), payload, label)
                     )
 
-    def test_apply_writes_atomically_and_controls_only_two_owner_labels(self):
+    def test_apply_writes_atomically_and_controls_only_weekly_owner_label(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp) / "repo"
             home = pathlib.Path(tmp) / "home"
@@ -226,7 +207,7 @@ class ApplyTests(unittest.TestCase):
                 rows = installer.apply(root, home, launch_dir)
 
             self.assertEqual([row["label"] for row in rows], list(LABELS.values()))
-            self.assertEqual(atomic_write.call_count, 2)
+            self.assertEqual(atomic_write.call_count, 1)
             self.assertEqual(
                 {
                     path.name.removesuffix(".plist")
@@ -281,43 +262,6 @@ class ApplyTests(unittest.TestCase):
         with mock.patch.object(installer, "_run_launchctl", side_effect=run):
             with self.assertRaisesRegex(RuntimeError, "readback mismatch"):
                 installer.apply(root, home, launch_dir)
-
-    def test_daily_hour_wrong_value_is_rejected_even_if_22_appears_elsewhere(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root, home, launch_dir = (pathlib.Path(tmp) / name for name in ("repo", "home", "LaunchAgents"))
-            label = LABELS["daily"]
-            readback = _matching_readback(root, home, label).replace(
-                '"Hour" => 22', '"Hour" => 23'
-            ) + "\nUnrelated = 22"
-            self._assert_schedule_readback_rejected(root, home, launch_dir, label, readback)
-
-    def test_daily_minute_wrong_value_is_rejected_even_if_zero_appears_elsewhere(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root, home, launch_dir = (pathlib.Path(tmp) / name for name in ("repo", "home", "LaunchAgents"))
-            label = LABELS["daily"]
-            readback = _matching_readback(root, home, label).replace(
-                '"Minute" => 0', '"Minute" => 1'
-            ) + "\nUnrelated = 0"
-            self._assert_schedule_readback_rejected(root, home, launch_dir, label, readback)
-
-    def test_daily_schedule_cannot_borrow_values_from_another_descriptor(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root, home, launch_dir = (pathlib.Path(tmp) / name for name in ("repo", "home", "LaunchAgents"))
-            label = LABELS["daily"]
-            readback = _matching_readback(root, home, label).replace(
-                '"Hour" => 22', '"Hour" => 23'
-            ).replace(
-                "    event triggers = {\n        descriptor = {",
-                """    event triggers = {
-        unrelated = {
-            descriptor = {
-                "Minute" => 0;
-                "Hour" => 22;
-            };
-        };
-        descriptor = {""",
-            )
-            self._assert_schedule_readback_rejected(root, home, launch_dir, label, readback)
 
     def test_weekly_weekday_wrong_value_is_rejected_even_if_zero_appears_elsewhere(self):
         with tempfile.TemporaryDirectory() as tmp:
