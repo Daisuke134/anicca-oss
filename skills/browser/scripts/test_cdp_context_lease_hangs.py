@@ -273,3 +273,78 @@ def test_acquire_seeds_provider_overlay_after_shared_base(monkeypatch, tmp_path)
         ("fresh", ".mercor.com"),
         ("google", ".google.com"),
     }
+
+
+def test_commit_cookies_also_commits_only_declared_local_storage(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    overlay_file = tmp_path / "mercor-overlay.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_WRITEBACK_FILE", str(overlay_file))
+    leases_file.write_text(json.dumps({
+        "mercor-task": {
+            "context_id": "mercor-context", "target_id": "mercor-target",
+            "ws": "ws://127.0.0.1:9222/devtools/page/mercor-target",
+            "ts": 0, "token": "a" * 32, "generation": 1,
+        }
+    }), encoding="utf-8")
+    overlay_file.write_text(json.dumps({
+        "cookies": [],
+        "origins": [{
+            "origin": "https://unrelated.example",
+            "localStorage": [{"name": "keep", "value": "yes"}],
+        }],
+    }), encoding="utf-8")
+
+    async def context_cookies(pairs, timeout=None):
+        return [{"cookies": [
+            {"name": "mercor", "domain": ".mercor.com", "path": "/", "value": "cookie"}
+        ]}]
+
+    async def page_storage(ws_url, pairs, timeout=None):
+        assert ws_url.endswith("/mercor-target")
+        assert "mercor-auth-store" in pairs[0][1]["expression"]
+        return [{"result": {"value": json.dumps({
+            "mercor-auth-store": "private-auth-state",
+        })}}]
+
+    monkeypatch.setattr(module, "_calls", context_cookies)
+    monkeypatch.setattr(module, "_page_calls", page_storage)
+    result = module.commit_cookies(
+        "mercor-task", ["mercor.com"], token="a" * 32, generation=1,
+        origin="https://work.mercor.com", local_storage_keys=["mercor-auth-store"],
+    )
+
+    assert result["local_storage_committed"] == 1
+    saved = json.loads(overlay_file.read_text(encoding="utf-8"))
+    assert [row["origin"] for row in saved["origins"]] == [
+        "https://unrelated.example", "https://work.mercor.com",
+    ]
+    assert saved["origins"][1]["localStorage"] == [{
+        "name": "mercor-auth-store", "value": "private-auth-state",
+    }]
+
+
+def test_seed_local_storage_targets_exact_origin_and_reloads(monkeypatch):
+    module = load_module()
+    calls = []
+
+    async def page_calls(ws_url, pairs, timeout=None):
+        calls.append((ws_url, pairs, timeout))
+        return [{"result": {"value": 1}}]
+
+    monkeypatch.setattr(module, "_page_calls", page_calls)
+    count = module._seed_local_storage(
+        "ws://leased-page",
+        "https://work.mercor.com/explore",
+        [{
+            "origin": "https://work.mercor.com",
+            "localStorage": [{"name": "mercor-auth-store", "value": "private"}],
+        }],
+    )
+
+    assert count == 1
+    expression = calls[0][1][0][1]["expression"]
+    assert '"https://work.mercor.com"' in expression
+    assert "localStorage.setItem" in expression
+    assert "setTimeout(()=>location.reload(),50)" in expression
