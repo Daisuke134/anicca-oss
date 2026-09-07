@@ -266,6 +266,15 @@ def test_migrated_writer_opportunity_response_is_not_owned_by_legacy_manifest():
     assert not installer.exists()
 
 
+def test_migrated_writer_report_is_not_owned_by_legacy_manifest():
+    manifest = json.loads(gig_release.MANIFEST.read_text(encoding="utf-8"))
+    label = "ai.anicca.writer-report"
+    assert all(row["label"] != label for row in manifest["jobs"])
+    assert label not in gig_release.JOB_PROCESS_MARKERS
+    installer = gig_release.REPO_ROOT / "skills/writer-agent/scripts/install-writer-report-worker.sh"
+    assert not installer.exists()
+
+
 def test_explicit_release_scope_is_preserved():
     assert gig_release.activation_labels({"example.job"}) == {"example.job"}
 

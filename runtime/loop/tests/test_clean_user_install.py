@@ -14,6 +14,27 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_writer_report_wrapper_preserves_external_state_argv(self):
+        wrapper = ROOT / "skills/writer-agent/scripts/writer-report-owner"
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        state_root = "/private/life-manager-state/writer"
+        result = subprocess.run(
+            [str(wrapper)],
+            env={
+                **os.environ,
+                "LIFE_MANAGER_PYTHON": "/bin/echo",
+                "WRITER_STATE_DIR": state_root,
+            },
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            result.stdout.strip(),
+            f"{ROOT}/skills/writer-agent/scripts/writer_report_worker.py "
+            f"--state-dir {state_root}",
+        )
+
     def test_writer_opportunity_response_wrapper_restores_account_and_state_argv(self):
         wrapper = ROOT / "skills/writer-agent/scripts/opportunity-response-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))
