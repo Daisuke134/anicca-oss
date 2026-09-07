@@ -603,6 +603,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    verification passes 39 tests plus 2 subtests. Expired Mercor magic-link temp artifacts were moved to
    Trash; application ledger, evidence, provider vault and releases were preserved. Merge, install and
    the next natural official application/Telegram/replay-zero proof remain open.
+   Installed wake `mercor-20260907-164420-76987` exposed a concrete adapter bug before any application:
+   auth readback correctly classified the logged-out `/explore` page, but the new preflight searched that
+   page for the email input without first navigating to `/login`; it failed before requesting mail, and
+   the later model pass received a dead target. The adapter now navigates to the exact official login URL,
+   waits for `input[type=email][name=email]`, fills the profile email, and clicks exact `Login` once.
+   Focused verification passes 40 tests plus 2 subtests. Production login/session persistence/application
+   receipt/Telegram/replay-zero remain the unchanged acceptance.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
