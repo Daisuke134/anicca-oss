@@ -39,6 +39,7 @@ def build_context(
     cdp_url: str,
     evidence_dir: Path | None = None,
     run_id: str = "",
+    cdp_page_ws: str = "",
 ) -> dict[str, Any]:
     ledger = state_root / "applications.jsonl"
     fence_ledger = state_root / "submission-fences.jsonl"
@@ -54,6 +55,7 @@ def build_context(
         "submitted_listing_ids": sorted(submitted_listing_ids),
         "run_id": run_id,
         "cdp_url": cdp_url,
+        "cdp_page_ws": cdp_page_ws,
     }
     if evidence_dir is not None:
         context["evidence_dir"] = str(evidence_dir.expanduser().resolve())
@@ -170,6 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", required=True, type=Path)
     parser.add_argument("--resume", required=True, type=Path)
     parser.add_argument("--cdp-url", required=True)
+    parser.add_argument("--cdp-page-ws", default="")
     parser.add_argument("--prompt", required=True, type=Path)
     parser.add_argument("--schema", required=True, type=Path)
     parser.add_argument("--evidence-dir", required=True, type=Path)
@@ -191,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
                 cdp_url=args.cdp_url,
                 evidence_dir=args.evidence_dir.parent / args.run_id,
                 run_id=args.run_id,
+                cdp_page_ws=args.cdp_page_ws,
             ),
             workdir=args.workdir,
             run_id=args.run_id,

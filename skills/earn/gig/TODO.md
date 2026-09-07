@@ -416,6 +416,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    officially absent. Do not resurrect the duplicate browser. Connect the bounded Mercor owner to the
    existing Job Search browser through an owner-scoped context lease, then prove authentication and a
    natural pass without restarting any browser.
+   Implementation now adds the distinct `mercor-revenue-application` registry owner at a 30-minute
+   cadence and routes the existing model-led Mercor pass through an exact leased page on shared CDP
+   `:9222`. The owner seeds only from the existing Job Search session vault, passes the leased websocket
+   into the bounded model context, and releases its context at terminal; it never starts or restores
+   retired CDP `:9334`. Existing application fences, official readback ledger and Telegram terminal
+   reporting remain reused. Mercor/runner/registry verification passes 76 tests plus 21 subtests.
+   Main merge, targeted production apply, authenticated natural terminal, one new official application
+   receipt, real-time Telegram receipt and following replay-zero remain open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

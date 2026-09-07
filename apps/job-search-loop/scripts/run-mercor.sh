@@ -5,9 +5,10 @@ SCRIPT_DIR="${0:A:h}"
 source "$SCRIPT_DIR/runtime-paths.sh"
 
 RUN_ID="mercor-$(date +%Y%m%d-%H%M%S)-$$"
-MERCOR_STATE_ROOT="${JOB_SEARCH_STATE_ROOT}/mercor"
+MERCOR_STATE_ROOT="${MERCOR_APPLICATION_STATE_ROOT:-${JOB_SEARCH_STATE_ROOT}/mercor}"
 EVIDENCE="$JOB_SEARCH_STATE_ROOT/evidence/$RUN_ID"
 CDP_URL="${MERCOR_CDP_BASE_URL:-http://127.0.0.1:9334}"
+CDP_PAGE_WS="${MERCOR_CDP_PAGE_WS:-}"
 MERCOR_PROFILE="${MERCOR_PROFILE:-$JOB_SEARCH_PROFILE}"
 if [[ -z "${MERCOR_RESUME:-}" && -f "$MERCOR_STATE_ROOT/resume-state.json" ]]; then
   MERCOR_RESUME=$(
@@ -71,17 +72,23 @@ if [[ "$BROWSER_RC" -ne 0 ]]; then
   exit "$BROWSER_RC"
 fi
 
+MERCOR_PASS_ARGS=(
+  --state-root "$MERCOR_STATE_ROOT"
+  --profile "$MERCOR_PROFILE"
+  --resume "$MERCOR_RESUME"
+  --cdp-url "$CDP_URL"
+  --prompt "$PASS_PROMPT"
+  --schema "$PASS_SCHEMA"
+  --evidence-dir "$EVIDENCE/agent"
+  --workdir "$JOB_SEARCH_REPO_ROOT"
+  --run-id "$RUN_ID"
+)
+if [[ -n "$CDP_PAGE_WS" ]]; then
+  MERCOR_PASS_ARGS+=(--cdp-page-ws "$CDP_PAGE_WS")
+fi
 set +e
 "$JOB_SEARCH_PYTHON" -m job_search_loop.mercor_pass \
-  --state-root "$MERCOR_STATE_ROOT" \
-  --profile "$MERCOR_PROFILE" \
-  --resume "$MERCOR_RESUME" \
-  --cdp-url "$CDP_URL" \
-  --prompt "$PASS_PROMPT" \
-  --schema "$PASS_SCHEMA" \
-  --evidence-dir "$EVIDENCE/agent" \
-  --workdir "$JOB_SEARCH_REPO_ROOT" \
-  --run-id "$RUN_ID" 2>"$PASS_STDERR"
+  "${MERCOR_PASS_ARGS[@]}" 2>"$PASS_STDERR"
 PASS_RC=$?
 set -e
 if [[ "$PASS_RC" -eq 75 ]] && grep -Fqx "LIFE_MANAGER_PROVIDER_LEASE_BUSY" "$PASS_STDERR"; then
