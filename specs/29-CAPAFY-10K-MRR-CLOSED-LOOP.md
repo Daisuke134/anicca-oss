@@ -41,7 +41,9 @@ flowchart LR
 
 - **Remember:** 現在の公式seller truthはpaid order `1`、one-time `$9.99`、subscription MRR `$0`、paid payout/banked `$0`。YouTube Script Writer `7686597754`は全3 planがsubscriptionかつ`supportFreeTrial=0`で、official `platform_status=4`、`audit_status=4`、`is_confirmed_skills=true`、`is_confirmed_config_keys=true`、`package_uploaded=true`、run_onlineを同じAgentで返す。これが販売可能状態の公式gateであり、publisher自身のbuyer-side live chatは不要である。MRRへone-time売上、views、clicks、pending balanceを加算しない。Capafyは一取引を一publisher accountへ支払うため、OSS利用者の収益は各利用者自身のpublisher/payoutへ帰属し、自動的な貢献者分配は存在しない。
 - **Remember:** Capafy sourceとruntimeはすでにLife Manager public repoへ移植済み。新しいrepoや重複schedulerを作らない。
-- **Never:** M4前にOSS onboardingへ進まない。free listing/trialを作らない。one-shot jobをsubscriptionへ偽装しない。quota failureを5分ごとに再発火しない。slot fullで第6 Agentを作らない。rejected Agentを捨てて別Agentを作らない。generic landing pageを個別listing attributionの代用にしない。main agentがInstagram/Capafyのpublish、caption edit、profile editを直接実行しない。
+- **Remember:** CapafyはLife Managerの共通control planeを再利用する。`config/loop-registry.json`がownership/cadence、`runtime/loop`と`lm-loop`がlifecycle・immutable release・targeted apply、`runtime/agent-runner`がmodel routing・budget・evidence、shared reportingがreceipt/Telegramを所有する。Capafy固有層はmarketplace inventory、publisher/API/DOM adapter、candidate economics、host-key healthだけを所有し、共有primitiveを複製しない。
+- **Remember:** Hosted LLM fundingは購入済み残高だけに依存させない。OpenRouter残高`< $5`で`$10` auto top-up、host key daily limit `$10`、毎時のworst-case request headroom `$2.25`とlive HTTP probeを正本とする。Capafy Hosted Configはprivate SSOTのcanonical keyと一致させ、値そのものをrepo・log・receiptへ保存しない。
+- **Never:** M4前にOSS onboardingへ進まない。free listing/trialを作らない。one-shot jobをsubscriptionへ偽装しない。quota failureを5分ごとに再発火しない。slot fullで第6 Agentを作らない。rejected Agentを捨てて別Agentを作らない。generic landing pageを個別listing attributionの代用にしない。main agentがInstagram/Capafyのpublish、caption edit、profile editを直接実行しない。healthy loopを毎時blind reapply/restartしない。release applyはmain由来immutable SHAを対象labelへ1回だけ行い、loaded argv・terminal receipt・official effectをreadbackする。
 
 ### Patch-level implementation cursor
 
@@ -562,10 +564,12 @@ Execution contract for every implementation atom: `locked worktree → failing f
 
 Latest submission milestone: natural ownerはsame Agent `7686597754`を審査へ提出し、official status `1`、skills/config/package trueを返した。outer rc `1`はTelegram transportがmessage IDを返さなかったためで、Capafy submission failureを意味しない。Codex direct milestoneはTelegram message ID `46034`で確認済み。公式subscription MRRとbanked revenueは引き続き`$0`。
 
+Latest hosted-credit incident: Hook Lab Agent `8123079349` /旧Version `2063493878213660672`はOpenRouter HTTP `402`（128k max-token requestに対するcredit不足）で削除済みになった。復旧では`$10` credit購入、残高`< $5`時の`$10` auto top-up、host key daily limit `$3→$10`、Hosted Configのcanonical key一致を公式UI/APIで確認した。新Version `2096869519578132480`（v1.0.1）は審査中で、Capafy仕様上Test Runは審査承認後に実行する。再発防止はPR `#4540`、runner復旧は`#4543`、CAP_FULLを含む毎時key gateは`#4545`でmainへ統合し、production release `8bf478733f0869cc48fc875c1cddbb873e1f62ce`で`KEY_HEALTH=OK remaining=$11.5399 live_probe=200`、terminal `rc=0`、blocker `null`を実測した。このmanual recovery passはR0の4/4 natural proofへ算入しない。
+
 ### Current completion and finish forecast
 
 - C0–C23は過去実装のacceptance履歴であり、現在の実行進捗はR0–O2だけで表す。過去の`21/24`を事業目標達成率に使わない。
-- Scheduler定義はinstalledだが、最新daily terminal failureとstale healthy markerがあるため24/7 healthyとは主張しない。最初のmilestoneはR0の自然wake rc 0である。
+- Scheduler定義と毎時host-key gateはproduction release `8bf47873`へinstalledで、manual recovery passはdaily terminal `rc=0`、blocker `null`、live provider probe `200`を返す。24/7 healthyの主張には同一世代のR0 4/4 natural proofがまだ必要である。
 - 現在の公式subscription MRRは`$0`であり、`$10K`のcalendar ETAは算出不能。表示listing数、one-time売上、views、pending payoutは進捗代理にしない。
 - `$10K`達成予測はsubscriber economicsで更新する。last-known fee仮定ではCapafy net MRR目標が約304 active subscribers、hosted cost込みprofit目標が約445 active subscribersだが、公式console feeとactual costで毎時再計算する。
 - OSS完了率はM4達成まで`blocked`である。M4後はO0 operator boundary、O1 clean-clone E2E、O2 public releaseを順に行う。
