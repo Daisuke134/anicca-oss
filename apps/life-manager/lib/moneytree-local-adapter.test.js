@@ -1,11 +1,15 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 const {
   accountToFinancialRecord,
   normalizeAccounts,
   normalizeTransactions,
+  readAccounts,
   transactionToFinancialRecord,
 } = require("./moneytree-local-adapter.js");
 
@@ -90,4 +94,30 @@ test("Moneytree records become verified only with an attached observation receip
   assert.equal(record.verification.status, "verified");
   assert.deepEqual(record.verification.evidence_refs, [evidenceRef]);
   assert.equal(record.verification.observed_at, "2026-09-07T06:01:00.000Z");
+});
+
+test("Moneytree read waits until its app-server process has exited", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "moneytree-app-server-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const log = path.join(root, "lifecycle.log");
+  const fake = path.join(root, "fake-codex");
+  fs.writeFileSync(fake, `#!/usr/bin/env node
+const fs = require("node:fs");
+const readline = require("node:readline");
+const log = ${JSON.stringify(log)};
+process.on("SIGTERM", () => setTimeout(() => {
+  fs.appendFileSync(log, "exited\\n"); process.exit(0);
+}, 50));
+readline.createInterface({ input: process.stdin }).on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.id === 1) process.stdout.write(JSON.stringify({ id: 1, result: {} }) + "\\n");
+  if (message.id === 2) process.stdout.write(JSON.stringify({ id: 2, result: { thread: { id: "thread-1" } } }) + "\\n");
+  if (message.id === 3) process.stdout.write(JSON.stringify({ id: 3, result: {
+    isError: false, structuredContent: { data: { baseCurrency: "JPY", accountGroups: { banks: [], investments: [] } } }
+  } }) + "\\n");
+});
+`, { mode: 0o700 });
+
+  assert.deepEqual(await readAccounts({ codexBin: fake, cwd: root, timeoutMs: 1_000 }), []);
+  assert.equal(fs.readFileSync(log, "utf8"), "exited\n");
 });
