@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.lm_managed_allowance_notice (
   claim_token uuid,
   claimed_at timestamptz,
   telegram_message_id bigint CHECK (telegram_message_id IS NULL OR telegram_message_id > 0),
+  delivery_state text NOT NULL DEFAULT 'pending'
+    CHECK (delivery_state IN ('pending', 'claimed', 'delivery_unknown', 'delivered')),
   delivered_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   PRIMARY KEY (uid, period_start, notice_kind)
@@ -34,6 +36,8 @@ ALTER TABLE public.lm_managed_allowance_notice ENABLE ROW LEVEL SECURITY;
 DROP FUNCTION IF EXISTS public.complete_lm_managed_action(text, text);
 DROP FUNCTION IF EXISTS public.release_lm_managed_action(text, text);
 DROP FUNCTION IF EXISTS public.lm_managed_allowance_result(text, date, text, boolean);
+DROP FUNCTION IF EXISTS public.record_lm_managed_allowance_notice(text, text, uuid, bigint);
+DROP FUNCTION IF EXISTS public.release_lm_managed_allowance_notice(text, text, uuid);
 
 CREATE OR REPLACE FUNCTION public.lm_managed_allowance_result(
   p_uid text,
@@ -107,6 +111,8 @@ BEGIN
       VALUES (p_uid, period, p_action_key, 'pending', reservation);
       allowed := true;
     ELSE
+      DELETE FROM public.lm_managed_allowance_notice
+       WHERE uid = p_uid AND period_start = period AND notice_kind = 'eighty' AND delivered_at IS NULL;
       INSERT INTO public.lm_managed_allowance_notice(uid, period_start, notice_kind, action_key)
       VALUES (p_uid, period, 'exhausted', p_action_key) ON CONFLICT DO NOTHING;
     END IF;
@@ -133,7 +139,7 @@ BEGIN
     SELECT CASE WHEN paid THEN 500 ELSE 30 END INTO cap FROM public.lm_users WHERE uid = p_uid;
     SELECT count(*) INTO succeeded FROM public.lm_managed_action_ledger
       WHERE uid = p_uid AND period_start = p_period_start AND status = 'succeeded';
-    IF succeeded >= CEIL(cap * 0.8)::integer THEN
+    IF succeeded >= CEIL(cap * 0.8)::integer AND succeeded < cap THEN
       INSERT INTO public.lm_managed_allowance_notice(uid, period_start, notice_kind, action_key)
       VALUES (p_uid, p_period_start, 'eighty', p_action_key) ON CONFLICT DO NOTHING;
     END IF;
@@ -172,29 +178,40 @@ DECLARE
 BEGIN
   SELECT * INTO picked FROM public.lm_managed_allowance_notice
    WHERE uid = p_uid AND period_start = period AND delivered_at IS NULL AND claim_token IS NULL
+     AND delivery_state = 'pending'
+     AND (notice_kind = 'exhausted' OR NOT EXISTS (
+       SELECT 1 FROM public.lm_managed_allowance_notice AS exhausted
+        WHERE exhausted.uid = p_uid AND exhausted.period_start = period
+          AND exhausted.notice_kind = 'exhausted'
+     ))
    ORDER BY CASE notice_kind WHEN 'exhausted' THEN 0 ELSE 1 END
    LIMIT 1 FOR UPDATE SKIP LOCKED;
   IF NOT FOUND THEN RETURN NULL; END IF;
   UPDATE public.lm_managed_allowance_notice
-     SET claim_token = gen_random_uuid(), claimed_at = clock_timestamp()
+     SET claim_token = gen_random_uuid(), claimed_at = clock_timestamp(), delivery_state = 'claimed'
    WHERE uid = picked.uid AND period_start = picked.period_start AND notice_kind = picked.notice_kind
    RETURNING * INTO picked;
   RETURN jsonb_build_object('kind', picked.notice_kind, 'claimToken', picked.claim_token::text,
-    'periodStart', picked.period_start::text, 'actionKey', picked.action_key);
+    'periodStart', picked.period_start::text, 'resetAt', (picked.period_start + INTERVAL '1 month')::date::text,
+    'actionKey', picked.action_key,
+    'used', (SELECT count(*) FROM public.lm_managed_action_ledger l WHERE l.uid = p_uid
+      AND l.period_start = period AND l.status = 'succeeded'),
+    'limit', (SELECT CASE WHEN paid THEN 500 ELSE 30 END FROM public.lm_users WHERE uid = p_uid),
+    'paid', (SELECT COALESCE(paid, false) FROM public.lm_users WHERE uid = p_uid));
 END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.record_lm_managed_allowance_notice(
-  p_uid text, p_notice_kind text, p_claim_token uuid, p_telegram_message_id bigint
+  p_uid text, p_notice_kind text, p_period_start date, p_claim_token uuid, p_telegram_message_id bigint
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
-DECLARE period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
 BEGIN
   IF p_notice_kind NOT IN ('eighty', 'exhausted') OR p_telegram_message_id IS NULL OR p_telegram_message_id <= 0 THEN
     RETURN false;
   END IF;
   UPDATE public.lm_managed_allowance_notice
-     SET telegram_message_id = p_telegram_message_id, delivered_at = COALESCE(delivered_at, clock_timestamp())
-   WHERE uid = p_uid AND period_start = period AND notice_kind = p_notice_kind
+     SET telegram_message_id = p_telegram_message_id, delivered_at = COALESCE(delivered_at, clock_timestamp()),
+       delivery_state = 'delivered'
+   WHERE uid = p_uid AND period_start = p_period_start AND notice_kind = p_notice_kind
      AND claim_token = p_claim_token
      AND (telegram_message_id IS NULL OR telegram_message_id = p_telegram_message_id);
   RETURN FOUND;
@@ -202,13 +219,23 @@ END;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.release_lm_managed_allowance_notice(
-  p_uid text, p_notice_kind text, p_claim_token uuid
+  p_uid text, p_notice_kind text, p_period_start date, p_claim_token uuid
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
-DECLARE period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
 BEGIN
-  UPDATE public.lm_managed_allowance_notice SET claim_token = NULL, claimed_at = NULL
-   WHERE uid = p_uid AND period_start = period AND notice_kind = p_notice_kind
+  UPDATE public.lm_managed_allowance_notice SET claim_token = NULL, claimed_at = NULL, delivery_state = 'pending'
+   WHERE uid = p_uid AND period_start = p_period_start AND notice_kind = p_notice_kind
      AND claim_token = p_claim_token AND delivered_at IS NULL;
+  RETURN FOUND;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.mark_lm_managed_allowance_notice_unknown(
+  p_uid text, p_notice_kind text, p_period_start date, p_claim_token uuid
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+BEGIN
+  UPDATE public.lm_managed_allowance_notice SET delivery_state = 'delivery_unknown'
+   WHERE uid = p_uid AND period_start = p_period_start AND notice_kind = p_notice_kind
+     AND claim_token = p_claim_token AND delivery_state = 'claimed' AND delivered_at IS NULL;
   RETURN FOUND;
 END;
 $function$;
@@ -220,11 +247,13 @@ REVOKE ALL ON FUNCTION public.reserve_lm_managed_action(text,text) FROM PUBLIC, 
 REVOKE ALL ON FUNCTION public.complete_lm_managed_action(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.release_lm_managed_action(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.claim_lm_managed_allowance_notice(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.record_lm_managed_allowance_notice(text,text,uuid,bigint) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.release_lm_managed_allowance_notice(text,text,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_lm_managed_allowance_notice(text,text,date,uuid,bigint) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.release_lm_managed_allowance_notice(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.mark_lm_managed_allowance_notice_unknown(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_lm_managed_action(text,text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.complete_lm_managed_action(text,text,date,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.release_lm_managed_action(text,text,date,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.claim_lm_managed_allowance_notice(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_lm_managed_allowance_notice(text,text,uuid,bigint) TO service_role;
-GRANT EXECUTE ON FUNCTION public.release_lm_managed_allowance_notice(text,text,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.record_lm_managed_allowance_notice(text,text,date,uuid,bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION public.release_lm_managed_allowance_notice(text,text,date,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.mark_lm_managed_allowance_notice_unknown(text,text,date,uuid) TO service_role;
