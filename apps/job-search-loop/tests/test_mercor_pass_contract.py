@@ -14,7 +14,6 @@ from job_search_loop.mercor_pass import (
     record_verified_submissions,
     validate_bounded_scan,
     validate_evidence_paths,
-    validate_no_human_apply,
     validate_priority_scan,
 )
 
@@ -23,6 +22,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MercorPassContractTests(unittest.TestCase):
+    @staticmethod
+    def _profile(path: Path) -> Path:
+        path.write_text(json.dumps({
+            "candidate": {"base": "Japan"},
+            "facts": [{"id": "education", "claim": "Bachelor studies", "evidence": "resume"}],
+        }), encoding="utf-8")
+        return path
+
     def test_inspections_become_a_durable_next_wake_cursor(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
@@ -31,7 +38,7 @@ class MercorPassContractTests(unittest.TestCase):
             }, run_id="run-1")
             context = build_context(
                 state_root=state,
-                profile_path=state / "profile.json",
+                profile_path=self._profile(state / "profile.json"),
                 resume_path=state / "resume.pdf",
                 cdp_url="http://127.0.0.1:9222",
             )
@@ -44,7 +51,7 @@ class MercorPassContractTests(unittest.TestCase):
             state = Path(directory)
             context = build_context(
                 state_root=state,
-                profile_path=state / "profile.json",
+                profile_path=self._profile(state / "profile.json"),
                 resume_path=state / "resume.pdf",
                 cdp_url="http://127.0.0.1:9222",
             )
@@ -113,7 +120,7 @@ class MercorPassContractTests(unittest.TestCase):
             "`N of N` and `100%`",
             "Submit application",
             "continue to the next distinct listing",
-            "not a terminal pass result",
+            "Apply maximally and let the provider",
             "never retry",
             "needs_human",
             "browser Google 2FA button named `はい`",
@@ -136,10 +143,10 @@ class MercorPassContractTests(unittest.TestCase):
             "capability_catalog_path",
             "Japan-eligible Japanese-language",
             "host_capabilities",
-            "Never invoke `mercor_human_gate_notify` from Apply",
+            "job_search_loop.mercor_human_gate_notify",
             "One broken card must not block the whole pass",
             "invoke `.click()` once on that",
-            "requires_new_human_application_step",
+            "signals, not pre-application rejection gates",
         ):
             self.assertIn(required, prompt)
         self.assertNotIn("Choose at most one new listing", prompt)
@@ -191,21 +198,10 @@ class MercorPassContractTests(unittest.TestCase):
             ]
             validate_priority_scan(result, root)
 
-    def test_apply_rejects_every_human_gate_result(self):
-        result = {
-            "status": "needs_human",
-            "needs_human": ["Japanese interview"],
-            "inspected_listings": [],
-        }
-        with self.assertRaisesRegex(ValueError, "mercor_apply_must_be_no_human"):
-            validate_no_human_apply(result)
-        result.update(status="observed_no_action", needs_human=[])
-        validate_no_human_apply(result)
-
     def test_current_skill_and_spec_match_continuous_application_policy(self):
         skill = (ROOT.parents[1] / "skills" / "mercor" / "SKILL.md").read_text()
         self.assertIn("30-minute", skill)
-        self.assertIn("every grounded ready listing", skill)
+        self.assertIn("every ready listing", skill)
         self.assertNotIn("existing hourly Job Hunter loop", skill)
         self.assertNotIn("submit exactly one new listing", skill)
         spec = (
@@ -215,7 +211,7 @@ class MercorPassContractTests(unittest.TestCase):
             / "specs"
             / "2026-08-22-mercor-life-manager-consolidation.md"
         ).read_text()
-        self.assertIn("existing 30-minute Job Hunter acquisition loop", spec)
+        self.assertIn("30-minute `mercor-revenue-application` owner", spec)
         self.assertIn("submit every grounded ready listing", spec)
 
     def test_success_result_contract_validates(self):
@@ -270,13 +266,14 @@ class MercorPassContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             evidence = root / "evidence" / "agent"
+            profile = self._profile(root / "profile.json")
             with patch(
                 "job_search_loop.mercor_pass.run_pass",
                 side_effect=PassAlreadyRunning(),
             ):
                 self.assertEqual(main([
                     "--state-root", str(root / "state"),
-                    "--profile", str(root / "profile.json"),
+                    "--profile", str(profile),
                     "--resume", str(root / "resume.pdf"),
                     "--cdp-url", "http://127.0.0.1:9334",
                     "--prompt", str(root / "prompt.md"),
@@ -351,7 +348,7 @@ class MercorPassContractTests(unittest.TestCase):
             state.mkdir()
             context = build_context(
                 state_root=state,
-                profile_path=root / "profile.json",
+                profile_path=self._profile(root / "profile.json"),
                 resume_path=root / "resume.pdf",
                 cdp_url="http://127.0.0.1:9334",
                 evidence_dir=root / "evidence" / "current-pass",
@@ -372,7 +369,7 @@ class MercorPassContractTests(unittest.TestCase):
             )
             context = build_context(
                 state_root=state,
-                profile_path=root / "profile.json",
+                profile_path=self._profile(root / "profile.json"),
                 resume_path=root / "resume.pdf",
                 cdp_url="http://127.0.0.1:9334",
             )

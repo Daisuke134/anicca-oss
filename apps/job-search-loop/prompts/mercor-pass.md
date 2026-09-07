@@ -15,7 +15,7 @@ Pass order:
    `capability_catalog_path`; it is the same capability source used by the other
    marketplace Apply lanes. Prioritize Japan-eligible Japanese-language, bilingual,
    software, AI, automation, system-development and catalog-matching work. This is
-   priority, not an allow-list: continue through other truthful-fit work too. Existing
+   priority, not an allow-list: continue through other truthful-fit work too.
    Inspect every Japanese/Japan card found in the bounded pages before spending the
    twelve-detail budget on lower-priority work. A nonblocked pass is invalid if that
    priority queue was observed but omitted. `submitted_pending_review` entries are
@@ -25,10 +25,14 @@ Pass order:
 3. Maintain a queue of distinct new listings. Before opening detail pages, compare visible
    cards with `recently_inspected_listing_ids` and use model judgment to inspect the strongest
    truthful-fit unseen candidates first. Revisit a recent candidate only after unseen candidates
-   in the bounded pages are exhausted or the live card shows a changed state. A
-   candidate that fails a verified-fact requirement is not a terminal pass result:
-   record its exact missing fact in `inspected_listings` and
-   continue to the next distinct listing. Submit every ready distinct listing
+   in the bounded pages are exhausted or the live card shows a changed state.
+   Treat posting qualifications, years, degrees and preferred experience as ranking
+   signals, not pre-application rejection gates. Apply maximally and let the provider
+   or hiring party decide. Never fabricate a required form answer: answer truthfully
+   from `shared_apply_context.verified_facts`; if the form accepts that truthful answer,
+   continue and submit even when the posting says the candidate does not meet a stated
+   qualification. If a required control cannot be answered truthfully, record the exact
+   control and continue to the next distinct listing. Submit every ready distinct listing
    encountered within the bounded candidate scan. A listing is ready for submission only when the
    live application page shows every required step complete (`N of N` and `100%`),
    every required interview is visibly completed or reused, and a visible
@@ -67,12 +71,14 @@ Pass order:
    The operator has already completed a Mercor interview; trust only the current
    role's visible `Completed` or `reused` state to decide whether that interview
    satisfies this application.
-   Mercor Apply is no-human. If a new interview, assessment, camera/screen-share
-   ceremony, unsupported attestation, or other person-bound step is required, do
-   not ask the operator and do not add `needs_human`. Record the exact requirement
-   as an inspected rejection (`requires_new_human_application_step`) and continue
-   scanning no-human candidates. A step already shown as `Completed` or `reused`
-   is not a human requirement and may be used automatically.
+   If a new interview, assessment, camera/screen-share ceremony or other person-bound
+   step is required, first finish all reversible automated steps. Then immediately run
+   `python3 -m job_search_loop.mercor_human_gate_notify` with the exact listing ID,
+   title, live URL, exact remaining action and fresh evidence reference. Require its
+   delivered or delivery-uncertain receipt, add one concise gate to `needs_human`, and
+   continue scanning other candidates. A step already shown as `Completed` or `reused`
+   is not a human requirement and may be used automatically. The human gate is resumable;
+   a later wake observes official completion and continues the same application.
 4. For a ready listing, save fresh pre-action screenshot and bounded DOM evidence.
    Before clicking, run `python3 -m job_search_loop.mercor_submit_guard` with
    `--fence-ledger`, `--listing-id`, `--title`, `--url`, `--pre-submit-evidence`,
@@ -89,21 +95,21 @@ Pass order:
    `delivered` or `delivery_uncertain`; this is the per-application realtime report
    and receipt. Never call it before official success readback. An exact replay is a
    no-op and must not send a second Telegram message.
-   Then
-   continue to the next distinct listing after each verified submission. If the
+   Then continue to the next distinct listing after each verified submission. If the
    outcome is ambiguous after the click, return `blocked` with `submit_unknown`;
    never retry the click or continue to another listing.
-5. Never invoke `mercor_human_gate_notify` from Apply. New interviews, assessments,
-   and other person-bound application steps are rejected candidates for this lane;
-   continue to another distinct listing. CAPTCHA, authentication recovery/reset,
-   or an ambiguous provider transition is `blocked`, never `needs_human` and never
-   a guessed action. Human-in-loop work begins only after a contract in Work/Paid.
+5. Human-gate notification is only for a verified person-bound application step and
+   must name the job, live link and exact required action. CAPTCHA, authentication
+   recovery/reset, or an ambiguous provider transition is `blocked`, never a human
+   work gate and never a guessed action.
 6. When the bounded scan ends, return `submitted` if at least one submission has a
    verified readback; otherwise return `observed_no_action` with the
    exact inspected evidence. A transient browser/model failure is `blocked`, not success.
    Unless a transient blocker or ambiguous post-click effect stops the pass, inspect
    twelve distinct candidate detail pages when at least twelve distinct cards are
-   visible in the evidence. `needs_human` must always be empty in Mercor Apply.
+   visible in the evidence. Return `needs_human` when at least one person-bound gate
+   was notified and no application was submitted; a gate never prevents scanning the
+   remaining bounded candidates.
 
 Authentication hard stops: never click a browser Google 2FA button named `はい`;
 the user alone approves `はい` in the Gmail iOS app. Never use account recovery,

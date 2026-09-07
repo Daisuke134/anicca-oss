@@ -20,7 +20,15 @@ class MercorMultiOperatorTests(unittest.TestCase):
             ):
                 profile = root / f"{operator_id}-profile.json"
                 resume = root / f"{operator_id}-resume.pdf"
-                profile.write_text(json.dumps({"version": 1, "candidate": operator_id}), encoding="utf-8")
+                profile.write_text(json.dumps({
+                    "version": 1,
+                    "candidate": {"operator_id": operator_id, "base": "Japan"},
+                    "facts": [{
+                        "id": "redacted-profile",
+                        "claim": "Approved operator profile exists",
+                        "evidence": "private profile fixture",
+                    }],
+                }), encoding="utf-8")
                 resume.write_bytes(f"redacted resume {operator_id}".encode())
                 config = create_operator_config(
                     operator_id=operator_id,

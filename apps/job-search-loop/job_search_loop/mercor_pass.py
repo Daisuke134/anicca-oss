@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import importlib.util
 import json
 import os
 import platform
@@ -14,6 +15,19 @@ from typing import Any
 from .agent_runner import AgentRunner, PassAlreadyRunning
 from .mercor_provider import run_pass
 from .mercor_submit_guard import fenced_listing_ids
+
+
+def _shared_apply_context(profile_path: Path) -> dict[str, Any]:
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "skills/_shared/marketplace-core/scripts/apply_policy.py"
+    )
+    spec = importlib.util.spec_from_file_location("marketplace_shared_apply_policy", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("marketplace_apply_policy_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.build_apply_context(profile_path)
 
 
 def _host_capabilities() -> dict[str, Any]:
@@ -95,6 +109,7 @@ def build_context(
         ),
         "submitted_listing_ids": sorted(submitted_listing_ids),
         "recently_inspected_listing_ids": _recent_listing_ids(inspection_ledger),
+        "shared_apply_context": _shared_apply_context(profile_path),
         "host_capabilities": _host_capabilities(),
         "run_id": run_id,
         "cdp_url": cdp_url,
@@ -255,12 +270,6 @@ def validate_priority_scan(result: dict[str, Any], evidence_root: Path) -> None:
         raise ValueError(f"priority_scan_incomplete:{','.join(missing)}")
 
 
-def validate_no_human_apply(result: dict[str, Any]) -> None:
-    """Mercor acquisition never asks the operator to finish an application."""
-    if result.get("status") != "blocked" and result.get("needs_human"):
-        raise ValueError("mercor_apply_must_be_no_human")
-
-
 def _blocked_for_evidence_violation(
     result: dict[str, Any], evidence_dir: Path, error: ValueError
 ) -> dict[str, Any]:
@@ -333,7 +342,6 @@ def main(argv: list[str] | None = None) -> int:
         validate_evidence_paths(result, args.evidence_dir.parent)
         validate_bounded_scan(result)
         validate_priority_scan(result, args.evidence_dir.parent)
-        validate_no_human_apply(result)
     except ValueError as error:
         result = _blocked_for_evidence_violation(result, args.evidence_dir, error)
     record_verified_submissions(args.state_root, result, run_id=args.run_id)
