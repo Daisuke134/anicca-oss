@@ -310,8 +310,10 @@ class CleanUserInstallTest(unittest.TestCase):
         )
         self.assertEqual(
             result.stdout.strip(),
-            f"{ROOT}/skills/earn/lancers/scripts/lane_report.py "
-            f"--lane negotiate --state-path {state_root}/contracts.json",
+            f"{ROOT}/skills/_shared/marketplace-core/scripts/reply_kernel.py "
+            f"--provider-adapter {ROOT}/skills/earn/lancers/scripts/reply_adapter.py "
+            f"--state-root {state_root}/reply --output {state_root}/reply/latest.json "
+            f"--max-workers 1 -- --state-path {state_root}/work-sync.json",
         )
 
     def test_lancers_paid_wrapper_preserves_managed_state_argv(self):
