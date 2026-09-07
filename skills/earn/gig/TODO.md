@@ -879,6 +879,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    wait stays durable, and stop becomes a closed no-effect state. Reply-focused regression is now
    141 passed. The remaining implementation is the Coconala semantic-runner binding and extraction
    of its existing official estimate form ceremony into adapter mutation/readback.
+   Coconala now binds its proven `SemanticJudge` receipt directly to the shared planner. The adapter
+   retains the complete official DOM privately, exposes only normalized cumulative context to the
+   planner, and performs the existing official-application refresh plus second semantic pass when
+   verified application terms are required. `decision_required` preserves seller-last obligations,
+   so an acknowledged but still-unsent estimate is not discarded by a superficial last-role check.
+   The exact production Python import smoke passes and Reply-focused regression is 144 passed.
+   Official estimate form mutation/readback extraction and live activation remain open.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

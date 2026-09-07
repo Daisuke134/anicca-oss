@@ -28,7 +28,7 @@ def _load(name: str):
 
 snapshot = _load("coconala_queue_snapshot")
 reply_browser = _load("coconala_reply_browser")
-reply_composer = _load("reply_composer")
+requested_estimate = _load("requested_estimate")
 
 
 def _load_shared(name: str):
@@ -80,6 +80,7 @@ class CoconalaReplyAdapter:
         self._thread_reader = thread_reader or self._read_thread
         self._sender = sender or self._send
         self._contexts: dict[str, dict[str, Any]] = {}
+        self._raw_threads: dict[str, dict[str, Any]] = {}
         self._receipts: dict[str, dict[str, str]] = {}
 
     def _read_inventory(self) -> list[dict[str, Any]]:
@@ -95,7 +96,11 @@ class CoconalaReplyAdapter:
         with reply_browser.CoconalaCdpReplyBrowser(
             self.cdp_helper, url, hidden=True, background=False,
         ) as browser:
-            return browser.read_before()
+            result = browser.read_before()
+            if not isinstance(browser.raw, dict):
+                raise RuntimeError("coconala_thread_dom_missing")
+            self._raw_threads[thread_id] = browser.raw
+            return result
 
     def _send(self, thread_id: str, body: str, expected_event: str) -> dict[str, str]:
         url = f"https://coconala.com/mypage/direct_message/{thread_id}"
@@ -165,7 +170,28 @@ class CoconalaReplyAdapter:
                 raise RuntimeError("coconala_conversation_invalid")
             normalized.append({**dict(row), "role": row["side"]})
         context["conversation"] = normalized
+        context["thread_id"] = thread_id
+        context["decision_required"] = True
         return context
+
+    def semantic_dom(self, thread_id: str) -> dict[str, Any]:
+        if thread_id not in self._raw_threads:
+            self._observation(thread_id)
+        return self._raw_threads[thread_id]
+
+    def official_application_context(self, thread_id: str) -> dict[str, Any] | None:
+        url = f"https://coconala.com/mypage/direct_message/{thread_id}"
+        with reply_browser.CoconalaCdpReplyBrowser(
+            self.cdp_helper, url, hidden=True, background=False,
+        ) as browser:
+            browser.required_official_context = "application"
+            context, _bounded = browser.read_before()
+            if not isinstance(browser.raw, dict):
+                raise RuntimeError("coconala_thread_dom_missing")
+            self._raw_threads[thread_id] = browser.raw
+            self._contexts[thread_id] = context
+        value = context.get("verified_application")
+        return dict(value) if isinstance(value, Mapping) else None
 
     def mutate(self, intent: dict[str, Any]) -> None:
         if intent.get("action") != "reply":
@@ -201,6 +227,34 @@ class CoconalaReplyAdapter:
         return None
 
 
+class CoconalaSemanticComposer:
+    def __init__(self, adapter: CoconalaReplyAdapter, judge: Any):
+        self.adapter = adapter
+        self.judge = judge
+
+    def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
+        thread_id = str(context.get("thread_id") or "").strip()
+        if not thread_id:
+            raise RuntimeError("coconala_thread_identity_invalid")
+        url = f"https://coconala.com/mypage/direct_message/{thread_id}"
+        receipt = self.judge(self.adapter.semantic_dom(thread_id), url)
+        judgement = receipt.get("judgement") if isinstance(receipt, Mapping) else None
+        if not isinstance(judgement, Mapping):
+            raise RuntimeError("coconala_semantic_receipt_invalid")
+        if judgement.get("required_official_context") == "application":
+            application = self.adapter.official_application_context(thread_id)
+            if application is None:
+                return dict(judgement)
+            receipt = self.judge(
+                self.adapter.semantic_dom(thread_id), url,
+                official_context={"application": application},
+            )
+            judgement = receipt.get("judgement") if isinstance(receipt, Mapping) else None
+            if not isinstance(judgement, Mapping):
+                raise RuntimeError("coconala_semantic_receipt_invalid")
+        return dict(judgement)
+
+
 def build(argv: list[str]):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--state-root", required=True, type=Path)
@@ -209,11 +263,13 @@ def build(argv: list[str]):
     parser.add_argument("--schema", required=True, type=Path)
     args = parser.parse_args(argv)
     root = args.state_root.expanduser().resolve()
-    composer = reply_composer.RunnerComposer(
-        runner=args.runner, schema=args.schema, workdir=REPO_ROOT,
-        temp_root=root / "model-tmp",
-    )
     adapter = CoconalaReplyAdapter(
         state_root=root, cdp_helper=args.cdp_helper.expanduser().resolve(),
     )
-    return adapter, reply_planner.ReplyPlanner(composer)
+    semantic = requested_estimate.SemanticJudge(
+        runner=args.runner, schema=args.schema, workdir=REPO_ROOT,
+        evidence_root=root / "semantic-evidence",
+    )
+    return adapter, reply_planner.ReplyPlanner(
+        CoconalaSemanticComposer(adapter, semantic)
+    )

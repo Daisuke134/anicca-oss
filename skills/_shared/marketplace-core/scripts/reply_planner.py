@@ -83,7 +83,9 @@ class ReplyPlanner:
         latest = conversation[-1]
         if not isinstance(latest, Mapping) or latest.get("role") not in {"buyer", "seller"}:
             raise ValueError("reply_conversation_invalid")
-        if context.get("reply_required") is False or latest["role"] != "buyer":
+        if context.get("decision_required") is not True and (
+            context.get("reply_required") is False or latest["role"] != "buyer"
+        ):
             return {"action": "noop", "classification": "awaiting_buyer"}
         try:
             body = self.compose(dict(context))

@@ -116,3 +116,13 @@ def test_semantic_wait_uses_uncertainty_or_becomes_no_reply():
         "next_action": "wait", "uncertainty": [],
     })
     assert idle(row()) == {"action": "noop", "classification": "no_reply"}
+
+
+def test_provider_can_require_cumulative_model_judgement_for_seller_last_debt():
+    value = row("seller", reply_required=False)
+    value["context"]["decision_required"] = True
+    planner = planner_module.ReplyPlanner(lambda _context: {
+        "next_action": "send_estimate",
+        "estimate_terms": {"title": "開発", "price_jpy": 10000},
+    })
+    assert planner(value)["action"] == "estimate"
