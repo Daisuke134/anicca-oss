@@ -388,6 +388,36 @@ def test_origin_storage_detection_requires_exact_origin_and_items():
     assert not module._has_web_storage_for_origin("https://evil.example", origins)
 
 
+def test_park_keeps_context_and_next_acquire_rotates_fence(monkeypatch, tmp_path):
+    module = load_module()
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(tmp_path / "leases.json"))
+    monkeypatch.setattr(module, "target_responds", lambda _ws: True)
+    monkeypatch.setattr(module, "_holder_pid", lambda: 222)
+    lease = {
+        "context_id": "ctx",
+        "target_id": "target",
+        "ws": "ws://target",
+        "ts": 1,
+        "token": "old-token",
+        "generation": 1,
+        "pid": 111,
+    }
+    module._save({"mercor": lease})
+
+    parked = module.park("mercor", token="old-token", generation=1)
+    assert parked["ok"] is True
+    assert module._leases()["mercor"]["parked"] is True
+    assert module._leases()["mercor"]["pid"] is None
+
+    acquired = module.acquire("mercor", "https://work.mercor.com/explore")
+    assert acquired["reused"] is True
+    assert acquired["context_id"] == "ctx"
+    assert acquired["generation"] == 2
+    assert acquired["token"] != "old-token"
+    assert acquired["pid"] == 222
+    assert "parked" not in module._leases()["mercor"]
+
+
 def test_acquire_disposes_context_when_local_storage_seed_fails(monkeypatch, tmp_path):
     module = load_module()
     monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(tmp_path / "leases.json"))

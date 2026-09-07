@@ -32,15 +32,15 @@ export CLOAK_SESSION_VAULT_FILE="$HOME/.cloak/vault/job-search-daily/auth-state.
 export CLOAK_SESSION_VAULT_WRITEBACK_FILE="$STATE_ROOT/auth-overlay.json"
 export AI_BROWSER_HOLDER_PID=$$
 
-release_lease() {
+park_lease() {
   if [[ -n "$LEASE_TOKEN" && -n "$LEASE_GENERATION" ]]; then
-    "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" \
+    "$LEASE_PYTHON" "$LEASE_SCRIPT" park "$TASK" \
       --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >/dev/null 2>&1 || true
   else
     "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" >/dev/null 2>&1 || true
   fi
 }
-trap release_lease EXIT
+trap park_lease EXIT
 
 "$LEASE_PYTHON" "$LEASE_SCRIPT" acquire "$TASK" "https://work.mercor.com/explore" >"$LEASE_JSON"
 chmod 600 "$LEASE_JSON"
