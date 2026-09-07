@@ -42436,3 +42436,12 @@
 {"ts":1788788814,"wake_id":"00MTRAOAYZ1ED952B9548C4143","kind":"wake_error","sleep_s":60,"model":"auto"}
 {"ts":1788788886,"wake_id":"00MTRAPU4M5AFB2EA3EB72441D","kind":"wake_error","sleep_s":60,"model":"auto"}
 {"ts":1788788960,"wake_id":"00MTRARF92B81288C0CB9E4E20","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788789102,"wake_id":"00MTRAUHAP75FC7D99D2814626","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789178,"wake_id":"00MTRAW3BPC9812A61869C4423","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789248,"wake_id":"00MTRAXLKV46FF596317CE47E6","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789319,"wake_id":"00MTRAZ4P2E921E432639A4E48","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789390,"wake_id":"00MTRB0MXZ809D8D2CA2E646B1","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789462,"wake_id":"00MTRB26MW1C47268E1F0E4827","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: paid API agents can monetize [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model to tr"}
+{"ts":1788789596,"wake_id":"00MTRB51Z29B7FF95EB02649BD","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789671,"wake_id":"00MTRB6ODM012C338DE5BA45EB","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788789745,"wake_id":"00MTRB88SR06FDF00A6ACC4FA9","kind":"wake_error","sleep_s":60,"model":"auto"}
