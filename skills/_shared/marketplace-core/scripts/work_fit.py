@@ -50,6 +50,14 @@ HARD_PROHIBITION_CLASSES = {
     # document or a system and stays workable; 「Webデザイン」 and 「HTML・CSSコーディング」 are
     # deliberately absent from the terms below.
     "original_illustration_or_modelling": "producing original illustration, manga, character design, Live2D/VTuber rigging, 3D modelling, avatars or hand-drawn artwork, where the deliverable is the artwork itself rather than a page, a system or a document",
+    # Promoted from the Coconala planner 2026-09-07, where these three had been written and were
+    # the only place they existed. They are not Coconala-specific: an agent cannot produce a song,
+    # cannot be somebody's outreach team, and cannot sit inside a desktop app all day, on any
+    # marketplace. Coconala meanwhile had no entry for 出品代行 or for original artwork, so it
+    # would still have bid on both. One definition, read by all three, is the point.
+    "music_or_audio_production": "music, song, performance, singing, BGM, composition, arrangement, mixing, mastering, or other produced/edited audio as the required deliverable",
+    "outreach_or_account_operations": "the required outcome is recruiting, lead sourcing, individualized bulk outreach, social DM operations, account warming, posting operations, or ongoing third-party account management rather than an asynchronous buyer-visible artifact",
+    "mandatory_desktop_or_browser_operations": "the required work must be performed through a desktop application or repeated logged-in browser operation, rather than delivering software, a landing page, an article, strategy, code, or another asynchronous file/document artifact",
     "illegal_or_unsafe": "illegal or unsafe work",
     # 2026-09-07: applied to 整理収納アドバイザー監修 and 防災士監修. Both name a certification the
     # persona does not hold, and both were read as allowed because the wording said "legally
