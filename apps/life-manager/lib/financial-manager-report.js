@@ -37,6 +37,32 @@ function sortedAmounts(map) {
     .map(([currency, amountMinor]) => ({ currency, amountMinor }));
 }
 
+function summarizeBusiness(records) {
+  const revenue = new Map();
+  const costs = new Map();
+  const payouts = new Map();
+  for (const record of records) {
+    if (record.kind === "business_revenue") add(revenue, record.currency, record.amount_minor);
+    if (["business_cost", "fee", "tax"].includes(record.kind)) {
+      add(costs, record.currency, record.amount_minor);
+    }
+    if (record.kind === "payout") add(payouts, record.currency, record.amount_minor);
+  }
+  const profit = new Map(revenue);
+  for (const [currency, amount] of costs) add(profit, currency, -amount);
+  return {
+    revenue: sortedAmounts(revenue), costs: sortedAmounts(costs),
+    profit: sortedAmounts(profit), payouts: sortedAmounts(payouts),
+  };
+}
+
+function inRange(records, start, end) {
+  return records.filter((record) => {
+    const occurred = Date.parse(record.occurred_at);
+    return occurred >= start && occurred < end;
+  });
+}
+
 function buildFinancialManagerReport(rawRecords, reportingDate) {
   const records = rawRecords.map(projectFinancialRecord);
   const verified = records.filter((record) => record.verification.status === "verified");
@@ -48,33 +74,31 @@ function buildFinancialManagerReport(rawRecords, reportingDate) {
   const monthEnd = Date.parse(
     `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01T00:00:00+09:00`,
   );
-  const currentBusiness = verified.filter((record) => (
-    record.scope === "business"
-    && Date.parse(record.occurred_at) >= monthStart
-    && Date.parse(record.occurred_at) < monthEnd
-  ));
+  const verifiedBusiness = verified.filter((record) => record.scope === "business");
+  const currentBusiness = inRange(verifiedBusiness, monthStart, monthEnd);
+  const dayStart = Date.parse(`${reportingDate}T00:00:00+09:00`);
+  const dayEnd = dayStart + (24 * 60 * 60 * 1000);
+  const sevenDayStart = dayStart - (6 * 24 * 60 * 60 * 1000);
+  const sevenDayStartLabel = new Date(
+    Date.parse(`${reportingDate}T12:00:00Z`) - (6 * 24 * 60 * 60 * 1000),
+  ).toISOString().slice(0, 10);
   const balances = newestBalances(verified);
   const assets = new Map();
   const liabilities = new Map();
   for (const record of balances) {
     add(record.kind === "asset_balance" ? assets : liabilities, record.currency, record.amount_minor);
   }
-  const revenue = new Map();
-  const costs = new Map();
-  const payouts = new Map();
-  for (const record of currentBusiness) {
-    if (record.kind === "business_revenue") add(revenue, record.currency, record.amount_minor);
-    if (["business_cost", "fee", "tax"].includes(record.kind)) {
-      add(costs, record.currency, record.amount_minor);
-    }
-    if (record.kind === "payout") add(payouts, record.currency, record.amount_minor);
-  }
   const included = [...balances, ...currentBusiness];
   const providers = [...new Set(included.map((record) => record.source.provider))].sort();
   const netWorth = new Map(assets);
   for (const [currency, amount] of liabilities) add(netWorth, currency, -amount);
-  const net = new Map(revenue);
-  for (const [currency, amount] of costs) add(net, currency, -amount);
+  const monthSummary = summarizeBusiness(currentBusiness);
+  const byProvider = [...new Set(currentBusiness.map((record) => record.source.provider))]
+    .sort()
+    .map((provider) => ({
+      provider,
+      ...summarizeBusiness(currentBusiness.filter((record) => record.source.provider === provider)),
+    }));
   const report = {
     schemaVersion: 1,
     reportingDate,
@@ -86,8 +110,13 @@ function buildFinancialManagerReport(rawRecords, reportingDate) {
     },
     business: {
       period: month,
-      revenue: sortedAmounts(revenue), costs: sortedAmounts(costs),
-      profit: sortedAmounts(net), payouts: sortedAmounts(payouts),
+      ...monthSummary,
+      today: { period: reportingDate, ...summarizeBusiness(inRange(verifiedBusiness, dayStart, dayEnd)) },
+      last7Days: {
+        period: { start: sevenDayStartLabel, end: reportingDate },
+        ...summarizeBusiness(inRange(verifiedBusiness, sevenDayStart, dayEnd)),
+      },
+      byProvider,
     },
     providers,
   };
@@ -119,26 +148,48 @@ function rows(label, values) {
   return values.length ? values.map((value) => `${label}：${money(value)}`).join("\n") : `${label}：確認済みデータなし`;
 }
 
-function renderFinancialManagerTelegram(report) {
+function hasAmounts(summary) {
+  return ["revenue", "costs", "profit", "payouts"].some((key) => summary[key].length > 0);
+}
+
+function businessLines(label, summary) {
+  if (!hasAmounts(summary)) return [];
   return [
-    "💰 Financial Manager",
+    label,
+    ...(summary.revenue.length ? [rows("収益", summary.revenue)] : []),
+    ...(summary.costs.length ? [rows("コスト", summary.costs)] : []),
+    ...(summary.profit.length ? [rows("利益", summary.profit)] : []),
+    ...(summary.payouts.length ? [rows("入金移動（収益に重複計上しない）", summary.payouts)] : []),
+  ];
+}
+
+function renderFinancialManagerTelegram(report) {
+  const lines = ["💰 Financial Manager"];
+  if (report.personal.assets.length || report.personal.liabilities.length) {
+    lines.push(
+      "", "個人資産",
+      ...(report.personal.assets.length ? [rows("資産", report.personal.assets)] : []),
+      ...(report.personal.liabilities.length ? [rows("負債", report.personal.liabilities)] : []),
+      ...(report.personal.netWorth.length ? [rows("純資産", report.personal.netWorth)] : []),
+    );
+  }
+  lines.push(...businessLines("\n事業（今日）", report.business.today));
+  lines.push(...businessLines("\n事業（直近7日）", report.business.last7Days));
+  lines.push(...businessLines(`\n事業（${report.business.period}）`, report.business));
+  const revenueProviders = report.business.byProvider.filter((item) => item.revenue.length);
+  if (revenueProviders.length) {
+    lines.push("\n収益内訳（今月・プロバイダー別）");
+    for (const item of revenueProviders) {
+      lines.push(item.provider, rows("収益", item.revenue));
+    }
+  }
+  lines.push(
     "",
-    "個人資産",
-    rows("資産", report.personal.assets),
-    rows("負債", report.personal.liabilities),
-    rows("純資産", report.personal.netWorth),
-    "",
-    "事業",
-    rows("事業収益", report.business.revenue),
-    rows("事業コスト", report.business.costs),
-    rows("事業利益", report.business.profit),
-    rows("入金移動（収益に重複計上しない）", report.business.payouts),
-    "",
-    `集計期間：${report.business.period}`,
     `確認済み記録：${report.verifiedRecordCount}件`,
     `未確認のため合計から除外：${report.excludedRecordCount}件`,
     `根拠プロバイダー：${report.providers.join("、") || "なし"}`,
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 module.exports = { buildFinancialManagerReport, renderFinancialManagerTelegram };

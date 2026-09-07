@@ -52,9 +52,12 @@ test("CFO reports verified records once and stays quiet on exact replay", async 
   assert.equal(first.status, "sent");
   assert.equal(first.recordCount, 1);
   assert.equal(deliveries.length, 1);
-  assert.match(deliveries[0].message, /事業収益：¥12,500/);
+  assert.match(deliveries[0].message, /事業（今日）\n収益：¥12,500/);
+  assert.match(deliveries[0].message, /事業（直近7日）\n収益：¥12,500/);
+  assert.match(deliveries[0].message, /事業（2026-09）\n収益：¥12,500/);
+  assert.match(deliveries[0].message, /収益内訳（今月・プロバイダー別）\nstripe\n収益：¥12,500/);
   assert.match(deliveries[0].message, /根拠プロバイダー：stripe/);
-  assert.match(deliveries[0].message, /事業利益：¥12,500/);
+  assert.doesNotMatch(deliveries[0].message, /個人資産/);
   await store.append(revenue({
     idempotency_key: "stripe:unverified:2",
     record_id: financialRecordId("dais-local", "stripe:unverified:2"),

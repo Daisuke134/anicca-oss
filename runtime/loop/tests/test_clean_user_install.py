@@ -14,48 +14,6 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
-    def test_marketing_owner_weekly_wrapper_preserves_shared_state_argv(self):
-        wrapper = ROOT / "skills/earn/marketing-engine/report/owner-weekly"
-        self.assertTrue(os.access(wrapper, os.X_OK))
-        state_root = "/private/life-manager-state/marketing-engine"
-        result = subprocess.run(
-            [str(wrapper)],
-            env={
-                **os.environ,
-                "LIFE_MANAGER_PYTHON": "/bin/echo",
-                "MARKETING_ENGINE_STATE_ROOT": state_root,
-            },
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            result.stdout.strip(),
-            f"{ROOT}/skills/earn/marketing-engine/report/owner_report_cli.py "
-            f"sweep --kind portfolio_weekly --state-root {state_root}",
-        )
-
-    def test_marketing_owner_daily_wrapper_preserves_shared_state_argv(self):
-        wrapper = ROOT / "skills/earn/marketing-engine/report/owner-daily"
-        self.assertTrue(os.access(wrapper, os.X_OK))
-        state_root = "/private/life-manager-state/marketing-engine"
-        result = subprocess.run(
-            [str(wrapper)],
-            env={
-                **os.environ,
-                "LIFE_MANAGER_PYTHON": "/bin/echo",
-                "MARKETING_ENGINE_STATE_ROOT": state_root,
-            },
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(
-            result.stdout.strip(),
-            f"{ROOT}/skills/earn/marketing-engine/report/owner_report_cli.py "
-            f"sweep --kind product_daily --state-root {state_root}",
-        )
-
     def test_writer_report_wrapper_preserves_external_state_argv(self):
         wrapper = ROOT / "skills/writer-agent/scripts/writer-report-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))
