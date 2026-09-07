@@ -518,6 +518,30 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    shared base vault and every other provider cookie untouched, fail without overwriting prior state
    when no Mercor cookie is observed, and prove a following natural wake starts authenticated without
    any browser or Mac restart.
+   PR `#4496` merged that repair at main SHA
+   `a8d78976e9f289720e05e395fe08c655b6274703`. Targeted production wake
+   `mercor-20260907-145643-76542` ended naturally at `2026-09-07T06:10:58Z` with exit `0` and
+   returned to `loaded-idle`; no Mac, Aqua or browser restart occurred. The exact leased context was
+   authenticated, and release committed five `mercor.com` cookies to the provider-only overlay while
+   leaving the shared base vault untouched. It inspected twelve official candidates and submitted
+   zero. The two Japanese candidates required a new unfinished Bilingual Competency ceremony; the
+   remaining inspected roles required unverified US/Canada residency, degree, certification or
+   five-year specialist history, so a truthful no-human application was unavailable in that bounded
+   scan. The application ledger therefore remains at 19 and no per-application Telegram receipt was
+   emitted. Authentication persistence is fixed, but this atom remains unchecked until a later natural
+   wake finds a truthful no-human candidate, obtains official submission readback, reports it
+   immediately, and the following wake proves application replay-zero.
+   The immediately following targeted wake `mercor-20260907-151305-7211` disproved cookie-only
+   persistence: its initial Explore DOM still showed `Sign in`, although the owner recovered through
+   the existing Google session and reached authenticated Home/Applications again without human input.
+   Mercor keeps its signed-in client state in provider Web Storage as well as cookies. The shared lease
+   overlay must therefore persist and seed only an adapter-declared origin/key; Mercor declares only
+   `https://work.mercor.com` / `mercor-auth-store`, with the private file remaining mode `0600` and no
+   value entering logs or Git. That wake then ended naturally `pass`/`loaded-idle` at
+   `2026-09-07T06:19:01Z`, but its bounded result was blocked after the visible Japanese Writer Apply
+   action failed to render the listing detail. It inspected one, submitted zero and emitted no
+   application receipt. After Web Storage persistence is installed, repair that exact official detail
+   transition and continue this same atom; do not call either wake accepted and do not advance order.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
