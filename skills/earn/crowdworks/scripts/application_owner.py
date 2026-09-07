@@ -125,13 +125,20 @@ def _candidate(page, listings, rotation):
     # Rotation decides where to start, not where to stop: capping at a handful of listings meant a
     # day whose slice happened to be quiet reported no work while other listings had live jobs.
     ordered = listings[rotation:] + listings[:rotation]
-    seen = _applied(); already = len(seen); rejected = {"closed_or_unverified": 0, "off_topic": 0, "wrong_category": 0, "budget": 0, "not_workable": 0, "judge_unavailable": 0}
+    seen = _applied(); already = len(seen); # Every way out of the loop below is counted. Measured 2026-09-07: one wake reported
+    # inspected=63 against counters summing to 26, so 37 postings were looked at and dropped with
+    # nothing said about them -- the same anonymous refusal that cost a day on Lancers, one level
+    # up. `unreadable` is a posting whose page would not load; `out_of_time` is the search budget
+    # running out mid-listing, which silently truncates the board and looks like a quiet day.
+    rejected = {"closed_or_unverified": 0, "off_topic": 0, "wrong_category": 0, "budget": 0, "not_workable": 0, "judge_unavailable": 0, "unreadable": 0, "out_of_time": 0}
     # Postings we looked at seriously and still declined. Reporting every search hit would be noise;
     # a job that matched the listing and was then declined is a decision worth telling Dais about.
     declined = []
     deadline = time.monotonic() + SEARCH_BUDGET_SECONDS
     for listing in ordered:
-        if time.monotonic() > deadline: break
+        if time.monotonic() > deadline:
+            rejected["out_of_time"] += len(ordered) - ordered.index(listing)
+            break
         page.goto("https://crowdworks.jp/public/jobs/search?hide_expired=true&search%5Bkeywords%5D="+quote(listing["terms"][0]));account._wait(page);page.wait_for_timeout(3000)
         # Result titles only. A bare a[href*="/public/jobs/"] also returns the category sidebar and
         # the recommendation rail: 227 links for a 20-result search, nearly all unrelated.
@@ -144,7 +151,10 @@ def _candidate(page, listings, rotation):
             seen.add(job_id)
             # One slow posting must not cost the whole tick its remaining candidates.
             try:page.goto(f"https://crowdworks.jp/public/jobs/{job_id}");account._wait(page);text=re.sub(r"\s+"," ",page.locator("body").inner_text())
-            except Exception:continue
+            except Exception as error:
+                rejected["unreadable"]+=1
+                _decline(declined,job_id,title,f"募集ページを読み込めませんでした（{type(error).__name__}）")
+                continue
             # 本人確認未提出 clients are why the 2026-09-02 scout had 9 applicants and 0 contracts.
             # Half of CrowdWorks clients are 本人確認未提出, including real companies with reviews. What
             # made the 2026-09-02 scout worthless was unverified AND unproven: 0 reviews, 0 contracts.
