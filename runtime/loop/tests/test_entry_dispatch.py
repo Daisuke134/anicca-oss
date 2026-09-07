@@ -11,6 +11,10 @@ from runtime.loop.entry_dispatch import command_for
 
 
 class EntryDispatchTest(unittest.TestCase):
+    def test_marketing_owner_weekly_no_longer_has_a_handwritten_dispatch(self):
+        with self.assertRaisesRegex(ValueError, 'no dispatch command'):
+            command_for('marketing-owner-weekly', Path('/release'), Path('/home'))
+
     def test_marketing_dashboard_no_longer_has_a_handwritten_dispatch(self):
         with self.assertRaisesRegex(ValueError, 'no dispatch command'):
             command_for('marketing-dashboard', Path('/release'), Path('/home'))
@@ -259,11 +263,6 @@ class EntryDispatchTest(unittest.TestCase):
     def test_life_manager_daily_driver_no_longer_has_a_handwritten_dispatch(self):
         with self.assertRaisesRegex(ValueError, 'no dispatch command'):
             command_for('life-manager-daily-driver', Path('/release'), Path('/home'))
-
-    def test_marketing_owner_state_is_outside_release(self):
-        root=Path('/release'); command=command_for('marketing-owner-weekly',root,Path('/home'))
-        self.assertEqual(command[:4],[sys.executable,str(root/'skills/earn/marketing-engine/report/owner_report_cli.py'),'sweep','--kind'])
-        self.assertEqual(command[-1],'/home/.local/state/life-manager/marketing-engine')
 
     def test_marketing_owner_daily_no_longer_has_a_handwritten_dispatch(self):
         with self.assertRaisesRegex(ValueError, 'no dispatch command'):

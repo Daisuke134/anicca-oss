@@ -90,10 +90,6 @@ def command_for(loop_id: str, root: Path, home: Path) -> list[str]:
             "--effect", "--auto-cadence", "--full-interval-seconds", "60",
         ],
     }
-    if loop_id == "marketing-owner-weekly":
-        return [python, str(root / "skills/earn/marketing-engine/report/owner_report_cli.py"),
-                "sweep", "--kind", "portfolio_weekly", "--state-root",
-                str(home / ".local/state/life-manager/marketing-engine")]
     if loop_id not in fixed:
         raise ValueError(f"no dispatch command for loop: {loop_id}")
     return fixed[loop_id]
