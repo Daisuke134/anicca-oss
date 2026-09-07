@@ -211,3 +211,36 @@ MRRはJPY 14,940になる。2人ではJPY 9,960で目標を40円下回る。正�
 粗利はJPY 11,940、粗利率は約79.9%になる。現在のGoogle Cloudアカウント全体のforecastを
 「1人当たり原価」とは扱わない。そこには製品外利用と請求lagが含まれるため、正確なunit economicsは
 手順3のtenant別実測で確定する。
+
+## 9. Superseding monetization decision — monthly allowance, one plan
+
+「beta」「3日trial」「onboarding直後の月額プラン確認」は廃止する。Life Managerは正式製品として、
+card不要の毎月無料利用枠を全員に付与する。無料枠は毎月resetし、内部API tokenや失敗retryではなく、
+ユーザーへ価値が届いた`successful managed action`だけを消費する。Calendar接続、設定変更、cache hit、
+内部poll、重複抑止、4xx/5xx、provider retryは無料枠を消費しない。
+
+無料枠の初期値は月20 successful managed actionsとする。枠を使い切っても、設定、接続解除、既存情報、
+cache済み結果は利用可能に保つ。新しい有料provider effectだけを停止し、Telegramで現在の利用数、次回reset、
+継続方法を説明する。途中でStripe情報を要求せず、本人が継続を選んだ時だけStripe Checkoutを開く。
+
+有料planはLife Manager `$29/month`の1つだけとする。月500 successful managed actionsを含み、電話は
+明示opt-inかつ月間allowance内で提供する。複数tier、provider別課金、ユーザーに見えるtoken換算、前払いcard、
+onboarding paywallは作らない。将来agent economyがtenantのcomputeを実際に賄える場合、検証済み収益を
+creditとして本人の請求へ充当できるが、未実現収益を無料化の根拠にはしない。
+
+無料枠到達時の正本copy:
+
+> 今月の無料利用分を使い切りました。Life Managerの設定とこれまでの情報はそのまま残っています。
+> 引き続きLife Managerに生活を管理させる場合は、月額$29でこのまま続けられます。
+> 次の無料利用分は翌月に戻ります。
+
+`$10K MRR`はUSD 10,000/monthを意味する。$29 planでは345 paying usersでUSD 10,005 MRRになる。
+JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、粗利の主通貨はUSDとする。
+
+### Ordered correction TODO
+
+1. Telegram-native onboardingを実装し、Google consent以外のMini App必須stepを削除する。
+2. 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
+3. 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
+4. DaisのTelegram actorと隔離test actorで、新規開始から最初のTravel block・乗換案内・Telegram receiptまでE2Eする。
+5. E2E receipt後にだけ公開導線を再開する。
