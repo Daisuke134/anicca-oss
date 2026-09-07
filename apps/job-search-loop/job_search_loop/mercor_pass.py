@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,16 @@ def _mercor_auth_context(profile_path: Path) -> dict[str, str]:
     return {"login_method": "email", "account_email": email.strip()}
 
 
+def _sysctl(key: str) -> str:
+    result = subprocess.run(
+        ["/usr/sbin/sysctl", "-n", key],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def _host_capabilities() -> dict[str, Any]:
     architecture = platform.machine()
     macos_version = platform.mac_ver()[0]
@@ -51,6 +62,8 @@ def _host_capabilities() -> dict[str, Any]:
         "macos_version": macos_version,
         "apple_silicon": architecture == "arm64",
         "macos_sequoia_or_newer": macos_major >= 15,
+        "chip": _sysctl("machdep.cpu.brand_string"),
+        "machine_model": _sysctl("hw.model"),
     }
 
 

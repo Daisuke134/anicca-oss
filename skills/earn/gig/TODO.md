@@ -691,6 +691,20 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    model wording and evidence path. Human-gate identity now canonicalizes this named reusable ceremony
    independently of listing, wording, run and evidence path, including legacy pending rows. Future wakes
    reuse the first pending gate and the shared outbox event key, so the interview request is replay-zero.
+   Final-main replay `mercor-20260907-191801-61537` reused the parked context as generation 4,
+   began officially authenticated without issuing email login, preserved the 22-row application
+   ledger and sent no duplicate Bilingual Competency notification. It remained unaccepted because
+   the model spent its bound progressing the Japanese Writer Mac eligibility form, inspected only
+   four of twelve visible candidates, and the deterministic validator correctly returned
+   `bounded_scan_incomplete:4_of_12`. The same result repeated an ungrounded request for Dais to
+   provide Mac model/chip details even though the host owns those facts. Branch
+   `fix/mercor-host-capabilities-20260907` commit `1cf702b7f` supplies exact host chip/model to the
+   bounded context and makes terminal reporting reference the canonical human-gate ID instead of
+   repeating model-authored instructions; all 92 Mercor tests pass. The branch is pushed. GitHub API
+   rejected both initial PR creation and its single retry with `error connecting to api.github.com`,
+   so main integration and the unchanged final natural replay remain open. Do not deploy this branch
+   directly or advance order; create and merge its PR when GitHub API recovers, apply only
+   `mercor-revenue-application`, then require the same clean terminal acceptance.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
