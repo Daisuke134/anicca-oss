@@ -84,6 +84,7 @@ unset GIG_IGNORE_DISK_PRESSURE_BLOCK GIG_IGNORE_DISK_WRITERS_STOP
 unset DISK_CONTROL_STATE_DIR OPENCLAW_STATE_DIR LIFE_MANAGER_HOST_STATE_DIR
 
 TG_TARGET="${LM_SELFBUILD_TELEGRAM_TARGET:?LM_SELFBUILD_TELEGRAM_TARGET is required}"
+TELEGRAM_SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
 
 if ! /usr/bin/python3 "$DISK_GUARD" /usr/bin/true >>"$LOG" 2>&1; then
   printf 'self-build: disk guard blocked before dependency install\n' >>"$LOG"
@@ -177,8 +178,8 @@ REPORT="$REPORT
 $STREAK"
 
 printf '%s\n' "$REPORT" >>"$LOG"
-openclaw message send --channel telegram --target "$TG_TARGET" \
-  --message "$REPORT" --json >>"$LOG" 2>&1 || printf 'Telegram report failed\n' >>"$LOG"
+"$TELEGRAM_SENDER" "$REPORT" "$TG_TARGET" >>"$LOG" 2>&1 \
+  || printf 'Telegram report failed\n' >>"$LOG"
 
 printf '=== life-manager self-build done rc=%s %s ===\n' "$RC" "$(date '+%F %T %Z')" >>"$LOG"
 if [ "$RC" -eq 0 ]; then

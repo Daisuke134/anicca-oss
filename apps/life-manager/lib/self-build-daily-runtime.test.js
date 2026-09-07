@@ -249,7 +249,8 @@ test("the review prompt demands the exact JSON contract and a fresh adversarial 
 // ---------------------------------------------------------------------------------------------
 test("the launchd entrypoint sources the portable state env, logs, and reports to the configured Telegram chat", () => {
   const source = fs.readFileSync(ENTRYPOINT, "utf8");
-  assert.match(source, /openclaw message send/);
+  assert.match(source, /skills\/_shared\/send-telegram\.sh/);
+  assert.doesNotMatch(source, /openclaw message send/);
   assert.match(source, /LM_SELFBUILD_TELEGRAM_TARGET:\?/);
   assert.doesNotMatch(source, /LM_SELFBUILD_TELEGRAM_TARGET:-\d{6,}/);
   assert.match(source, /HOME\/\.local\/state\/life-manager/);
