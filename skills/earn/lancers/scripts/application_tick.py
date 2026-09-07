@@ -947,6 +947,7 @@ def state_has_claim(state_path: Path, project_id: str) -> bool:
 
 def run_live_tick(
     *, project_id: str, proposal_text: str, proposed_amount_minor: int, delivery_due_on: str,
+    title: Optional[str] = None,
     state_path: Path = DEFAULT_STATE_PATH, browser_factory: Optional[Callable[[str], Any]] = None,
     ledger_writer: Optional[Callable[[Mapping[str, object]], object]] = None,
     now: Optional[Callable[[], object]] = None,
@@ -1011,7 +1012,12 @@ def run_live_tick(
                 return _strict_readback({**identity, **terms}, project, proposal) if identity and isinstance(terms, Mapping) and terms.get("project_id") == project else {}
 
             return run_tick(
-                opportunity={"external_id": str(project_id), "platform": PLATFORM}, proposal_text=proposal_text,
+                # The title has to travel with the claim. run_tick stores it on the pending entry
+                # so the reconcile that confirms the application -- which knows only ids -- can
+                # still name the job. Without it every confirmed application reported 「案件<id>」.
+                opportunity={"external_id": str(project_id), "platform": PLATFORM,
+                             **({"title": title.strip()[:300]} if isinstance(title, str) and title.strip() else {})},
+                proposal_text=proposal_text,
                 proposed_amount_minor=proposed_amount_minor, delivery_due_on=delivery_due_on,
                 state_path=state_path, account_ready=lambda: True,
                 submitter=submitter, readback=readback,

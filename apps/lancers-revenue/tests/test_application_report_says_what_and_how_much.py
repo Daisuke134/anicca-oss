@@ -83,3 +83,32 @@ def test_a_refusal_still_reads_the_same_and_carries_no_price():
     assert "🚫 応募しません" in text
     assert "missing_legal_qualification" in text
     assert "提案額" not in text and "Proposal ID" not in text
+
+
+# --- the title has to survive the claim, not just the report, 2026-09-07 --------------------
+
+def _tick():
+    spec = importlib.util.spec_from_file_location(
+        "lancers_tick_title_under_test",
+        ROOT / "skills" / "earn" / "lancers" / "scripts" / "application_tick.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_run_live_tick_accepts_a_title():
+    """Adding the field to the report was not enough: nothing was putting it in the claim, so
+    every confirmed application still reported 「案件<id>」 after the report fix shipped."""
+    import inspect
+    assert "title" in inspect.signature(_tick().run_live_tick).parameters
+
+
+def test_the_title_travels_with_the_claim_so_the_reconcile_can_name_the_job():
+    source = (ROOT / "skills" / "earn" / "lancers" / "scripts" / "application_tick.py").read_text(encoding="utf-8")
+    assert '"title": title.strip()[:300]' in source
+
+
+def test_the_loop_passes_the_row_title_through():
+    source = (ROOT / "skills" / "earn" / "lancers" / "scripts" / "application_loop.py").read_text(encoding="utf-8")
+    assert 'title=str(row.get("title") or "") or None' in source
