@@ -151,12 +151,13 @@ def _atomic_write(path: Path, data: bytes) -> None:
 
 
 def _preserve_operational_attributes(new_bytes: bytes, old_bytes: bytes | None,
-                                     *, retired_environment_keys: tuple[str, ...] = ()) -> bytes:
+                                     *, retired_environment_keys: tuple[str, ...] = (),
+                                     retired_operational_keys: tuple[str, ...] = ()) -> bytes:
     if old_bytes is None:
         return new_bytes
     old, new = plistlib.loads(old_bytes), plistlib.loads(new_bytes)
     for key in ("WorkingDirectory", "ProcessType", "RunAtLoad", "ThrottleInterval", "Umask", "Nice"):
-        if key in old and not (
+        if key in old and key not in retired_operational_keys and not (
             key == "WorkingDirectory"
             and _is_immutable_release_working_directory(old[key])
         ):
@@ -204,7 +205,8 @@ def install_one(item: dict, target: Path,
                 launchctl: Callable[[list[str]], tuple[int, str]], *, attempts: int = 3,
                 sleeper: Callable[[float], None] = time.sleep,
                 preserve_unloaded: bool = False,
-                retired_environment_keys: tuple[str, ...] = ()) -> dict:
+                retired_environment_keys: tuple[str, ...] = (),
+                retired_operational_keys: tuple[str, ...] = ()) -> dict:
     label = item["label"]
     domain = f"gui/{os.getuid()}"
     service = f"{domain}/{label}"
@@ -215,7 +217,8 @@ def install_one(item: dict, target: Path,
     was_loaded = initial_rc == 0
     _atomic_write(target, _preserve_operational_attributes(
         item["plist_bytes"], old_bytes,
-        retired_environment_keys=retired_environment_keys))
+        retired_environment_keys=retired_environment_keys,
+        retired_operational_keys=retired_operational_keys))
     if preserve_unloaded and not was_loaded:
         return {
             "ok": True,
