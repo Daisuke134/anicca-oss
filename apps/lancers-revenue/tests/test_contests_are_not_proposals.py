@@ -114,3 +114,13 @@ def test_recruit_is_a_declared_budget_type_not_a_stray_string():
         (ROOT / "skills" / "_shared" / "marketplace-core" / "schemas" / "opportunity.schema.json")
         .read_text(encoding="utf-8"))
     assert "recruit" in schema["properties"]["budget_type"]["enum"]
+
+
+def test_discovery_asks_lancers_for_proposals_only():
+    """Measured 2026-09-07: one keyword page carried 27 recruit cards against 3 projects, and
+    every recruit row was fetched, parsed, normalised, filtered and counted before being thrown
+    away. type[]=project drops them at the source. It does not raise observed_count -- the board
+    really does hold about three project postings per keyword at a given hour -- but it means the
+    rows that reach the pipeline are rows the lane can act on."""
+    source = (ROOT / "skills" / "earn" / "lancers" / "scripts" / "status.py").read_text(encoding="utf-8")
+    assert '("type[]", "project")' in source
