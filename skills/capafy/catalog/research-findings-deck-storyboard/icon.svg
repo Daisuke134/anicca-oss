@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Research Findings Deck Storyboard icon</title>
+  <desc id="desc">An indigo presentation card with a coral evidence chart and linked story nodes.</desc>
+  <rect width="512" height="512" rx="96" fill="#151A3A"/>
+  <rect x="82" y="98" width="348" height="254" rx="26" fill="#F5F1E8"/>
+  <rect x="110" y="130" width="150" height="20" rx="10" fill="#151A3A"/>
+  <rect x="110" y="168" width="104" height="13" rx="6.5" fill="#7880A8"/>
+  <path d="M120 298V224M188 298V192M256 298V238M324 298V164" stroke="#FF6B5E" stroke-width="26" stroke-linecap="round"/>
+  <path d="M110 309H348" stroke="#151A3A" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="338" cy="133" r="18" fill="#25B8A6"/>
+  <circle cx="382" cy="390" r="40" fill="#FFCA58"/>
+  <path d="M382 414V372M361 393H403" stroke="#151A3A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M258 382C290 382 309 386 340 390" stroke="#25B8A6" stroke-width="13" fill="none" stroke-linecap="round"/>
+  <circle cx="228" cy="382" r="22" fill="#25B8A6"/>
+</svg>
