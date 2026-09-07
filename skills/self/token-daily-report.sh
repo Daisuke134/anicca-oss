@@ -44,10 +44,10 @@ LOOP_SUMMARY=$(echo "$LOOP_JSON" | jq -r '
 TMUX_COUNT=$(ps aux | grep -c '[t]mux -S /tmp/anicca-.*\.sock' || true)
 ZOMBIES=$(ps -axo etime=,command= | grep '[t]mux -S /tmp/anicca-selffix' | awk '$1 ~ /-/ {c++} END {print c+0}')
 
-openclaw message send --channel telegram \
-  --target "${TOKEN_REPORT_TELEGRAM_TARGET:-${TELEGRAM_ALERT_CHAT_ID:?TOKEN_REPORT_TELEGRAM_TARGET or TELEGRAM_ALERT_CHAT_ID is required}}" \
-  -m "📊 token日報 $(TZ=Asia/Tokyo date +%m/%d)
+REPORT="📊 token日報 $(TZ=Asia/Tokyo date +%m/%d)
 $SUMMARY
 $LOOP_SUMMARY
 常駐tmuxセッション: ${TMUX_COUNT:-0}本 / 1日超ゾンビselffix: ${ZOMBIES:-0}本
-(掟: 常駐禁止・自壊タイマー・引退届が先)" --json
+(掟: 常駐禁止・自壊タイマー・引退届が先)"
+"$SCRIPT_DIR/../_shared/send-telegram.sh" "$REPORT" \
+  "${TOKEN_REPORT_TELEGRAM_TARGET:-${TELEGRAM_ALERT_CHAT_ID:?TOKEN_REPORT_TELEGRAM_TARGET or TELEGRAM_ALERT_CHAT_ID is required}}"

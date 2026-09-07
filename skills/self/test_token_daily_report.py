@@ -24,6 +24,11 @@ class TokenDailyReportContractTest(unittest.TestCase):
         self.assertIn('--date "$YESTERDAY_ISO"', text)
         self.assertIn("loop別runner実測", text)
 
+    def test_report_uses_repository_owned_telegram_sender(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('../_shared/send-telegram.sh', text)
+        self.assertNotIn("openclaw message send", text)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
