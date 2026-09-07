@@ -5269,6 +5269,41 @@ def _seller_snapshot(ws_url: str) -> dict:
     return _seller_snapshot_for(ws_url, TARGET_SERVICE_ID)
 
 
+def _relogin_coconala() -> str:
+    """Ask session_vault to log this account back in, and say what it answered.
+
+    The recovery already exists, with its own cooldown and its own vault dump; this only
+    connects the wake that noticed the expiry to it. Never raises: a recovery that fails is
+    reported alongside the expiry, because the wake's job is to report honestly, not to
+    guarantee the session.
+    """
+    try:
+        module = _session_vault()
+        result = module.relogin_coconala()
+    except Exception as error:
+        return f"relogin_unavailable:{type(error).__name__}"
+    if not isinstance(result, dict):
+        return "relogin_answer_invalid"
+    if result.get("ok") is True:
+        return "relogin_ok"
+    if result.get("skipped") is True:
+        return "relogin_cooldown"
+    return "relogin_failed:" + str(result.get("reason") or "unknown")[:80]
+
+
+def _session_vault():
+    """Import session_vault from the running release, the way this file reaches its siblings."""
+    import importlib.util
+
+    path = BROWSER_DIR / "scripts" / "session_vault.py"
+    if str(path.parent) not in sys.path:
+        sys.path.insert(0, str(path.parent))
+    spec = importlib.util.spec_from_file_location("_storefront_session_vault", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _dashboard_says_signed_out(ws_url: str) -> bool:
     """True when the seller dashboard is really the login page.
 
@@ -6240,6 +6275,13 @@ def run_once(args: argparse.Namespace) -> tuple[int, dict]:
                                    if _dashboard_says_signed_out(ws_url)
                                    else "official_inventory_empty_or_invalid")
                         if failure == "storefront_session_expired":
+                            # Detecting the expiry was only half of it. session_vault already
+                            # knows how to log this account back in, banks the result to the
+                            # vault the lanes seed from, and rate-limits itself -- and nothing
+                            # called it, so 241 wakes reported a dead session and waited for a
+                            # human. Ask it once; its own cooldown decides whether to try.
+                            recovered = _relogin_coconala()
+                            failure = f"{failure}:{recovered}"
                             break
                     else:
                         ids = [source.get("service_id") for source in sources] if isinstance(

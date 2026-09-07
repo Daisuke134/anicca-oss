@@ -89,6 +89,9 @@
    - f. **共有カーネル抽出（項目13の前提）DONE（#4394）** — `skills/_shared/marketplace-core/scripts/storefront_kernel.py` に判断の中核を移した: 選定(KEEP/IMPROVE/RETIRE/REPLACE)・契約検証と封印・需要抽出とスコアリング・REPLACE 計画・進行中の下書き・契約回収・拒否台帳とガード同一性。platform も禁止語リストも引数で、カーネルに `coconala` の文字列は無く `skills/earn/gig` を import しないことをテストで固定。Apply と Paid が既に持つ構造に Storefront が並んだ。ランサーズ/クラウドワークスの接続は項目13。
    - g. **1b が止まっていた本当の理由（2026-09-07 実測）** — CREATE ゲート5条件はすべて開いていた（`blocked_by: []`）。止めていたのは私が #4222 で入れた3ストライク規則で、`create:line_bot_dev` の3件はいずれもプロンプト修正(#4278/#4376)より前の古い証拠だった。打ち切りに解除が無く、下書き `4387924` は永久に埋まらない状態だった。#4409 で wake が5条件を自己申告するようにし、本 PR でストライクを「稼働 release より新しい拒否だけ」で数えるようにした（修正の出荷が解除になる自己修復規則）。
 
+   - h. **セッション切れの自己復帰（2026-09-07）** — 検知は #4366 で入ったが、そこで止まっていた。`session_vault.py:586` の `relogin_coconala()` は**既に完成していた**（ログイン実行・vault への保存・cooldown 付き）のに、storefront からの呼び出しが **0箇所**。だから 00:51〜08:09 の 241 wake がセッション切れを報告しながら人手を待った。検知した wake が1回だけ呼び、返答をそのまま記録するよう接続した（成功 / cooldown / 失敗＋理由 / 利用不可 を区別、例外は wake に伝播させない、復帰しても失効の事実は隠さない）。
+     **教訓**: 復帰機能は既にあったのに、私は「作る」と提案した。Dais の指摘の通り、**確認せずに提案し TODO を更新していなかった**のが原因。実装済みのものを探してから提案すること。
+
 1'. **Coconala paid lane: 全 client に返信・提出** — 実測未（Dais 報告: 一部 client に返信/提出していない、取りこぼしあり）。paid lane の state で「未返信 client 数」「未提出 見積り数」を実測し、取りこぼし 0 にする。
    DONE: paid lane の wake summary に unanswered_clients=0、未提出 0、かつ実際の返信 receipt ≥1。
 2. **Lancers 応募復旧 + 完全プロフィール応募** — `application_loop.py:320-350` `_validate()` が 1 行不正で batch 全滅（`planner_contract_invalid`、9/4 も継続、今日 fresh 判断 0）。不正 row は skip、健全 row だけで判断へ。profile は 9/4 に avatar 登録で 90%（残り電話認証のみ、blocker にしない）。
