@@ -318,10 +318,12 @@ def _skip_if_not_loaded_idle(item: dict, release_sha: str,
 
 
 def _retire_labels(registry: dict, agents_dir: Path, launchctl_safe: Path,
-                   current: Path, lock_path: Path | None) -> list[dict]:
+                   current: Path, lock_path: Path | None,
+                   labels: list[str] | None = None) -> list[dict]:
     results = []
     domain = f"gui/{os.getuid()}"
-    for label in sorted(registry.get("retired_labels", [])):
+    selected = labels if labels is not None else registry.get("retired_labels", [])
+    for label in sorted(selected):
         with _apply_lock(current, _label_apply_lock_path(current, label, lock_path)):
             service = f"{domain}/{label}"
             present_rc, present_detail = _safe_launchctl(launchctl_safe, ["print", service])
@@ -388,12 +390,20 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
     registry = json.loads((release_root / "config/loop-registry.json").read_text())
     manifest = json.loads((release_root / "RELEASE.json").read_text())
     release_sha = manifest.get("sha")
-    plan = apply_registry(registry, release_root, release_sha, lambda item: item, target=target)
+    retired_target = target if target in set(registry.get("retired_labels", [])) else None
+    plan = ([] if retired_target else
+            apply_registry(registry, release_root, release_sha, lambda item: item, target=target))
     preflight_rc, detail = _safe_launchctl(launchctl_safe, ["preflight"])
     if preflight_rc:
         raise RuntimeError(f"launchctl-safe preflight failed: {detail.strip()}")
-    results = (_retire_labels(registry, agents_dir, launchctl_safe, current, lock_path)
-               if target is None else [])
+    results = (
+        _retire_labels(registry, agents_dir, launchctl_safe, current, lock_path)
+        if target is None else
+        _retire_labels(
+            registry, agents_dir, launchctl_safe, current, lock_path,
+            labels=[retired_target],
+        ) if retired_target else []
+    )
     for item in plan:
         item_lock = (None if reload_running else
                      _label_apply_lock_path(current, item["label"], lock_path))

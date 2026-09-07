@@ -438,25 +438,12 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "skills/earn/marketing-engine/report/scheduled_runner.py",
         )
 
-    def test_marketing_owner_daily_uses_repo_owned_exec_adapter(self):
+    def test_marketing_owner_reports_are_retired_after_financial_manager_consolidation(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
-        row = registry["loops"]["marketing-owner-daily"]
-        self.assertEqual(row["adapter"], "exec")
-        self.assertEqual(row["command"], [])
-        self.assertEqual(
-            row["entrypoint"],
-            "skills/earn/marketing-engine/report/owner-daily",
-        )
-
-    def test_marketing_owner_weekly_uses_repo_owned_exec_adapter(self):
-        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
-        row = registry["loops"]["marketing-owner-weekly"]
-        self.assertEqual(row["adapter"], "exec")
-        self.assertEqual(row["command"], [])
-        self.assertEqual(
-            row["entrypoint"],
-            "skills/earn/marketing-engine/report/owner-weekly",
-        )
+        self.assertNotIn("marketing-owner-daily", registry["loops"])
+        self.assertNotIn("marketing-owner-weekly", registry["loops"])
+        self.assertIn("ai.anicca.marketing-owner-daily", registry["retired_labels"])
+        self.assertIn("ai.anicca.marketing-owner-weekly", registry["retired_labels"])
 
     def test_self_improve_evolve_uses_direct_python_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())

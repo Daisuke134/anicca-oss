@@ -2151,27 +2151,6 @@
       "provider_route": "shared-agent-runner",
       "state_root": "~/.local/state/life-manager/marketing-mine-daily"
     },
-    "marketing-owner-daily": {
-      "adapter": "exec",
-      "cadence": {
-        "calendar_interval": {
-          "Hour": 22,
-          "Minute": 0
-        }
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "command": [],
-      "domain": "growth",
-      "effect_class": "publish",
-      "entrypoint": "skills/earn/marketing-engine/report/owner-daily",
-      "label": "ai.anicca.marketing-owner-daily",
-      "log_root": "~/.local/state/life-manager/marketing-owner-daily/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/marketing-owner-daily"
-    },
     "marketing-owner-events": {
       "adapter": "exec",
       "cadence": {
@@ -2189,28 +2168,6 @@
       "log_root": "~/.local/state/life-manager/marketing-owner-events/logs",
       "provider_route": "shared-agent-runner",
       "state_root": "~/.local/state/life-manager/marketing-owner-events"
-    },
-    "marketing-owner-weekly": {
-      "adapter": "exec",
-      "cadence": {
-        "calendar_interval": {
-          "Hour": 21,
-          "Minute": 0,
-          "Weekday": 0
-        }
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "growth",
-      "effect_class": "publish",
-      "command": [],
-      "entrypoint": "skills/earn/marketing-engine/report/owner-weekly",
-      "label": "ai.anicca.marketing-owner-weekly",
-      "log_root": "~/.local/state/life-manager/marketing-owner-weekly/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/marketing-owner-weekly"
     },
     "marketing-score-daily": {
       "adapter": "python",
@@ -3333,6 +3290,8 @@
     "ai.anicca.life-manager-money-printer-symphony-bridge",
     "ai.anicca.life-manager-upwork-browser",
     "ai.anicca.life-manager-upwork-free-loop",
+    "ai.anicca.marketing-owner-daily",
+    "ai.anicca.marketing-owner-weekly",
     "ai.anicca.reelclaw-en-card-1",
     "ai.anicca.reelclaw-en-card-2",
     "ai.anicca.reelclaw-en-card-3",
