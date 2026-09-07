@@ -38,3 +38,9 @@ def test_selfheal_request_preempts_cap_full_offline_build() -> None:
 
     assert 'SELFHEAL_REQUEST="$HOME/.local/state/life-manager/state/capafy-loop-selfheal-request.json"' in script
     assert 'if [ "$VERDICT" = "CAP_FULL" ] && [ ! -f "$SELFHEAL_REQUEST" ]; then' in script
+
+
+def test_browser_lane_calls_include_explicit_escalation_reason() -> None:
+    script = DAILY.read_text(encoding="utf-8")
+
+    assert script.count('--escalation-reason "authorized Capafy browser publishing workflow"') == 2
