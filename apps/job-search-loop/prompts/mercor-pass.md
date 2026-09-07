@@ -16,7 +16,11 @@ Pass order:
    marketplace Apply lanes. Prioritize Japan-eligible Japanese-language, bilingual,
    software, AI, automation, system-development and catalog-matching work. This is
    priority, not an allow-list: continue through other truthful-fit work too. Existing
-   `submitted_pending_review` entries are
+   `pending_human_gate_listing_ids` is a mandatory resume queue: inspect those
+   listings before any new non-priority candidate and refresh their official step
+   state. Then inspect every Japanese/Japan card found in the bounded pages before
+   spending the twelve-detail budget on lower-priority work. A nonblocked pass is
+   invalid if either queue was observed but omitted. `submitted_pending_review` entries are
    observe-only and must never be resubmitted.
 2. Reconcile the oldest in-progress application first. Record every inspected
    listing in `inspected_listings` with its live URL, application state, and decision.

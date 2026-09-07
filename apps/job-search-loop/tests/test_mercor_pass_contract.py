@@ -14,6 +14,7 @@ from job_search_loop.mercor_pass import (
     record_verified_submissions,
     validate_bounded_scan,
     validate_evidence_paths,
+    validate_priority_scan,
 )
 
 
@@ -34,6 +35,21 @@ class MercorPassContractTests(unittest.TestCase):
                 cdp_url="http://127.0.0.1:9222",
             )
             self.assertEqual(context["recently_inspected_listing_ids"], ["list-seen"])
+
+    def test_pending_human_gates_become_a_mandatory_resume_queue(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            (state / "human-gates.jsonl").write_text(
+                json.dumps({"reason": "list_gate: interview", "status": "pending"}) + "\n",
+                encoding="utf-8",
+            )
+            context = build_context(
+                state_root=state,
+                profile_path=state / "profile.json",
+                resume_path=state / "resume.pdf",
+                cdp_url="http://127.0.0.1:9222",
+            )
+            self.assertEqual(context["pending_human_gate_listing_ids"], ["list_gate"])
 
     def test_mercor_is_retired_locally_but_keeps_portable_thirty_minute_cadence(self):
         registry = json.loads((ROOT.parents[1] / "config" / "loop-registry.json").read_text())
@@ -117,6 +133,7 @@ class MercorPassContractTests(unittest.TestCase):
             '"claimed": false',
             "capability_catalog_path",
             "Japan-eligible Japanese-language",
+            "pending_human_gate_listing_ids",
             "mercor_human_gate_notify",
         ):
             self.assertIn(required, prompt)
@@ -152,6 +169,22 @@ class MercorPassContractTests(unittest.TestCase):
             "inspected_listings": [],
             "evidence": {"dom_path": "/not/read"},
         })
+
+    def test_nonblocked_pass_must_inspect_observed_japanese_and_pending_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "page.json").write_text(
+                '<a href="/explore?listingId=list_jp"><h2 data-test="listing-title">'
+                'Bilingual Writer - Japanese (Japan)</h2></a>',
+                encoding="utf-8",
+            )
+            result = {"status": "observed_no_action", "inspected_listings": []}
+            with self.assertRaisesRegex(ValueError, "priority_scan_incomplete"):
+                validate_priority_scan(result, root, ["list_gate"])
+            result["inspected_listings"] = [
+                {"listing_id": "list_jp"}, {"listing_id": "list_gate"}
+            ]
+            validate_priority_scan(result, root, ["list_gate"])
 
     def test_current_skill_and_spec_match_continuous_application_policy(self):
         skill = (ROOT.parents[1] / "skills" / "mercor" / "SKILL.md").read_text()
