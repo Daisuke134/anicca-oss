@@ -99,7 +99,11 @@
    **出品できない理由の切り分け（2026-09-07、自分の公開プロフィールを一次情報として観測）**:
    `https://crowdworks.jp/public/employees/7145638` の実測 — `Kaito｜AI自動化`（ココナラの `Kosuke` とは別ペルソナ）、**本人確認 未提出**、NDA未締結、インボイス発行事業者未確認、完了数 0 / 契約数 0、時間単価 3,000〜5,000円、登録 2026-08-11。公開プロフィールのタブは サマリー / 評価実績 / 職種・スキル / ポートフォリオ・経歴 / 回答・相談履歴 / ランキング のみで、**出品（パッケージ）タブが無い**。
    旧レーンの `fixed_service_listing_not_supported` は `https://crowdworks.jp/user_skills`（**スキルタグのページ**）に価格入力欄が無いことを根拠にしている（`provider_sources.py:9` の `_ROUTES["storefront"]`）。スキルページに価格欄が無いのは当然で、**この判定は見ているページが違う**。ココナラで「ログイン画面を空の棚」と誤命名したのと同じクラス。
-   **未確定（推測で作らないこと）**: CrowdWorks が受注者に固定価格出品（パッケージ）を提供しているか、提供しているならそれが本人確認に紐づくか。help centre と公開ページからは確定できなかった。**認証済みセッションで受注者側の出品導線を実際に観測してから作る**こと。
+   **確定（2026-09-07、認証済みセッションで観測）: CrowdWorks に受注者向けの固定価格出品は存在しない。**
+   認証済みの `https://crowdworks.jp/profile?role=employee` にある導線は スキル登録・スキル検定（`/user_skills`）／支援サービス／AIクラウドワークス新規登録 のみ。サイトの受注者向けリンクは `/e/proposals`（提案）と `/e/contracts`（契約）だけ。`/package_offers` と help centre の該当ページは 404。
+   受注者モデルは「仕事を探す → 提案する → 契約する」であり、ココナラのように棚へ並べる出品が無い。**旧レーンの `fixed_service_listing_not_supported` という結論は正しかった**（根拠にしていたページが誤っていただけ）。
+   **したがって CrowdWorks に storefront は作らない。** 収益経路は Apply で、それは既に動いている: `application-receipts.jsonl` が 19 行、直近2件とも `status: verified`、最終 2026-09-07 14:12。本人確認も 2026-09-07 に承認済みになった。
+   **残る作業は Apply 側**: 最新の `application-owner.json` が `submission_uncertain`（`project_id: 13423472`）で1件不確定。応募したか否かを確定できないまま終わる経路を閉じること。
    **Dais 側の項目**: 本人確認が未提出。KYC は Dais が行う唯一の人手工程として明示されている。CrowdWorks の出品が本人確認に紐づく場合、ここが開くまでこのレーンは収益化できない。
 
    旧記載: — 実測: `account.json` が 8/11 から `status: input_required`（credential 待ち）で application lane exit 1。9/3 に書いた `hours_limit` 文字列説は repo/state に該当ファイル無し（**誤りとして取り消し**）。credentials.json SSOT から再ログイン → 4 lane を launchd に bootstrap。
