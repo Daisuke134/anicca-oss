@@ -418,6 +418,30 @@ def test_park_keeps_context_and_next_acquire_rotates_fence(monkeypatch, tmp_path
     assert "parked" not in module._leases()["mercor"]
 
 
+def test_gc_does_not_reap_a_parked_context_for_age_or_missing_pid(monkeypatch, tmp_path):
+    module = load_module()
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(tmp_path / "leases.json"))
+    module._save({"mercor": {
+        "context_id": "ctx",
+        "target_id": "target",
+        "ws": "ws://target",
+        "ts": 1,
+        "token": "token",
+        "generation": 1,
+        "pid": None,
+        "parked": True,
+    }})
+    monkeypatch.setattr(module.time, "time", lambda: 100_000)
+    monkeypatch.setattr(
+        module, "_calls",
+        lambda _pairs: (_ for _ in ()).throw(AssertionError("parked context disposed")),
+    )
+
+    result = module.gc(idle_min=1)
+    assert result["reaped"] == []
+    assert result["still_held"] == ["mercor"]
+
+
 def test_acquire_disposes_context_when_local_storage_seed_fails(monkeypatch, tmp_path):
     module = load_module()
     monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(tmp_path / "leases.json"))
