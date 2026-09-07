@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS public.lm_managed_action_ledger (
 );
 
 ALTER TABLE public.lm_managed_action_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lm_managed_action_ledger
+  ADD COLUMN IF NOT EXISTS reservation_token uuid;
+UPDATE public.lm_managed_action_ledger SET reservation_token = gen_random_uuid()
+ WHERE reservation_token IS NULL;
+ALTER TABLE public.lm_managed_action_ledger
+  ALTER COLUMN reservation_token SET DEFAULT gen_random_uuid(),
+  ALTER COLUMN reservation_token SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.lm_managed_allowance_notice (
   uid text NOT NULL,
@@ -30,6 +37,13 @@ CREATE TABLE IF NOT EXISTS public.lm_managed_allowance_notice (
 );
 
 ALTER TABLE public.lm_managed_allowance_notice ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lm_managed_allowance_notice
+  ADD COLUMN IF NOT EXISTS delivery_state text NOT NULL DEFAULT 'pending';
+ALTER TABLE public.lm_managed_allowance_notice
+  DROP CONSTRAINT IF EXISTS lm_managed_allowance_notice_delivery_state_check;
+ALTER TABLE public.lm_managed_allowance_notice
+  ADD CONSTRAINT lm_managed_allowance_notice_delivery_state_check
+  CHECK (delivery_state IN ('pending', 'claimed', 'delivery_unknown', 'delivered'));
 
 -- This migration replaced the initial two-argument draft before production rollout. Drop those
 -- overloads explicitly so a partially applied preview database cannot retain an ownerless path.
