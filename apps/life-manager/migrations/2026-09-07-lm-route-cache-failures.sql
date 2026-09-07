@@ -3,7 +3,9 @@
 ALTER TABLE public.lm_route_cache
   ADD COLUMN IF NOT EXISTS cache_key text,
   ADD COLUMN IF NOT EXISTS cache_state text NOT NULL DEFAULT 'success',
-  ADD COLUMN IF NOT EXISTS failure_class text;
+  ADD COLUMN IF NOT EXISTS failure_class text,
+  ADD COLUMN IF NOT EXISTS event_version text,
+  ADD COLUMN IF NOT EXISTS purpose text;
 
 ALTER TABLE public.lm_route_cache
   DROP CONSTRAINT IF EXISTS lm_route_cache_uid_from_geo_to_geo_time_bucket_key;
@@ -19,3 +21,6 @@ ALTER TABLE public.lm_route_cache
 
 CREATE INDEX IF NOT EXISTS lm_route_cache_expiry_idx
   ON public.lm_route_cache (computed_at, ttl_secs);
+
+CREATE INDEX IF NOT EXISTS lm_route_cache_event_version_idx
+  ON public.lm_route_cache (uid, event_version, purpose, computed_at DESC);

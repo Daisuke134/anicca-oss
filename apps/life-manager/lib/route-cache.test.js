@@ -39,6 +39,22 @@ test("getOrCompute: provider called at most ONCE per key within TTL", async () =
   assert.equal(calls, 1); // second hit is cached
 });
 
+test("getByEvent reads a persisted route before any provider/geocode work", async () => {
+  let providerCalls = 0;
+  const route = { provider: "google", durationSeconds: 600 };
+  const cache = makeRouteCache({
+    store: { getByEvent: async (uid, version, purpose) => {
+      assert.deepEqual([uid, version, purpose], ["tenant-a", "event-version-a", "go"]);
+      return { value: route, computedAt: 1000, ttlMs: 600000, negative: false };
+    } },
+    now: () => 1001,
+  });
+  const hit = await cache.getByEvent("tenant-a", "event-version-a", "go");
+  if (!hit.hit) providerCalls++;
+  assert.deepEqual(hit, { hit: true, value: route, failureClass: null });
+  assert.equal(providerCalls, 0);
+});
+
 test("getOrCompute: moved event (new bucket) recomputes", async () => {
   let calls = 0;
   const provider = async () => { calls++; return { durationSecs: 1029 }; };

@@ -439,12 +439,24 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
   const googleMinutesFn = options._directionsMinutesGoogle || directionsMinutesGoogle;
   const cache = routeCacheFor(options); // tests inject a fresh cache to avoid cross-test leakage
   const uid = options.uid ?? options.tenantId ?? options.userId ?? "anonymous";
+  const purpose = options.purpose || (call.departureMode ? "return" : "go");
+  const eventVersion = routeEventVersion({ eventId: options.eventId, anchorAtMs: call.anchorAtMs, src, dst, purpose });
   const usage = { tenantId: uid, options };
   const routeUsage = { tenantId: uid, options, failureClasses: [] };
   const timeoutOption = options._transitTimeoutMs ?? options.transitTimeoutMs;
   const transitTimeoutMs = Number.isFinite(Number(timeoutOption)) && Number(timeoutOption) >= 0
     ? Number(timeoutOption) : DEFAULT_TRANSIT_TIMEOUT_MS;
   if (!mapsKey || !src || !dst) return null;
+  // The durable event index is intentionally checked before geocoding. A coordinate-key-only lookup
+  // would itself require two paid geocodes and could not serve an exhausted tenant's cached result.
+  if (cache && typeof cache.getByEvent === "function" && options.eventId) {
+    const cached = await cache.getByEvent(uid, eventVersion, purpose, (_value, entry) => emitUsage(options, {
+      tenantId: uid, provider: "route_cache", feature: "travel_route", outcome: "cache_hit",
+      failureClass: entry.failureClass, cacheHit: true, providerUnits: 0,
+      providerUnit: "request", estimatedCostUsd: 0,
+    }));
+    if (cached && cached.hit === true) return cached.value;
+  }
   const srcLiteral = parseGeoLiteral(src);
   const dstLiteral = parseGeoLiteral(dst);
   const googleSrc = srcLiteral ? `${srcLiteral.lat},${srcLiteral.lon}` : src;
@@ -498,14 +510,8 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
     anchorType: query.type,
     fromKey: srcGeo ? "" : opaqueEndpointKey(src),
     toKey: dstGeo ? "" : opaqueEndpointKey(dst),
-    eventVersion: routeEventVersion({
-      eventId: options.eventId,
-      anchorAtMs: query.anchorAtMs,
-      src,
-      dst,
-      purpose: options.purpose || (call.departureMode ? "return" : "go"),
-    }),
-    purpose: options.purpose || (call.departureMode ? "return" : "go"),
+    eventVersion,
+    purpose,
   };
   return cache.getOrCompute(uid, srcGeo || {}, dstGeo || {}, timeBucket(query.anchorAtMs), compute, context,
     (value, cacheEntry) => emitUsage(options, {

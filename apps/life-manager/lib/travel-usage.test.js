@@ -118,6 +118,28 @@ test("Calendar, Telegram, and call consumers share one event-version route fact"
   assert.equal(calls, 1);
 });
 
+test("persisted event cache hit runs before geocoding or route provider work", async () => {
+  let geocodes = 0, providerCalls = 0, lookup;
+  const cachedRoute = { provider: "google", durationSeconds: 720 };
+  const route = await directionsRoute("raw home", "raw venue", "key", 2_000_000, 1000, false, {
+    uid: "tenant-cached", eventId: "event-cached", purpose: "go",
+    _routeCache: {
+      getByEvent: async (uid, eventVersion, purpose) => {
+        lookup = { uid, eventVersion, purpose };
+        return { hit: true, value: cachedRoute };
+      },
+    },
+    _geocode: async () => { geocodes += 1; return null; },
+    _directionsMinutesGoogle: async () => { providerCalls += 1; return 12; },
+  });
+  assert.deepEqual(route, cachedRoute);
+  assert.equal(lookup.uid, "tenant-cached");
+  assert.equal(lookup.purpose, "go");
+  assert.ok(lookup.eventVersion);
+  assert.equal(geocodes, 0);
+  assert.equal(providerCalls, 0);
+});
+
 test("exact schedule, location, event, and purpose changes invalidate the shared route fact", async () => {
   let calls = 0;
   const cache = makeRouteCache({ store: new Map(), now: () => 1000 });
