@@ -2,7 +2,7 @@
 """Plan every visible Lancers opportunity and submit every eligible one."""
 from __future__ import annotations
 
-import argparse, inspect, json, os, re, shutil, subprocess, sys, tempfile, time, uuid
+import argparse, hashlib, inspect, json, os, re, shutil, subprocess, sys, tempfile, time, uuid
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 import importlib.util
@@ -147,6 +147,12 @@ FORBIDDEN_TERMS = ("receipt", "gate", "agent", "model", "browser", "token", "pro
 FORBIDDEN_RE = re.compile("|".join(re.escape(term).replace(r"\ ", r"[ _]") for term in FORBIDDEN_TERMS), re.IGNORECASE)
 RETAIN_EVIDENCE_ERRORS = frozenset({"planner_runner_failed", "planner_contract_invalid"})
 SKIP_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
+# A row the planner declined to judge is not a row it refused. Measured 2026-09-07: 15 of the
+# reports in eight consecutive wakes were `invalid` and they were the same postings each time --
+# unjudged rows are cached nowhere, so they came back every minute and spent the twenty-row
+# planner budget on work no decision was ever reached about. An hour is long enough to stop that
+# and short enough that a transient miss is retried the same afternoon.
+UNJUDGED_CACHE_TTL_SECONDS = 60 * 60
 SKIP_CACHE_VERSION = 2
 
 def _load(name: str, path: Path) -> Any:
@@ -658,11 +664,17 @@ def _filter_claimed_rows(rows: Sequence[Mapping[str, object]], state_path: Path)
             first_claimed = project_id
     return remaining, first_claimed, skipped
 
-def _cache_no_effect(decisions: Mapping[str, Mapping[str, object]], rows: Mapping[str, Mapping[str, object]], state_path: Path) -> None:
-    cached = _read_skip_cache(state_path); expires_at = time.time() + SKIP_CACHE_TTL_SECONDS
+def _cache_no_effect(decisions: Mapping[str, Mapping[str, object]], rows: Mapping[str, Mapping[str, object]], state_path: Path, unjudged_ids: Sequence[str] = ()) -> None:
+    cached = _read_skip_cache(state_path); now = time.time()
+    expires_at = now + SKIP_CACHE_TTL_SECONDS
     for project_id, decision in decisions.items():
         if decision.get("business_class") == "hard_prohibited":
             cached[project_id] = {"business_class": "hard_prohibited", "content_sha256": _skip_content_sha256(rows[project_id]), "expires_at": expires_at}
+    for project_id in unjudged_ids:
+        row = rows.get(project_id)
+        if row is None or project_id in cached:
+            continue
+        cached[project_id] = {"business_class": "unjudged", "content_sha256": _skip_content_sha256(row), "expires_at": now + UNJUDGED_CACHE_TTL_SECONDS}
     _write_skip_cache(state_path, cached)
 
 def _capacity_reason(state_path: Path, tick_value: object) -> Optional[str]:
@@ -748,7 +760,7 @@ def _plan_and_submit(rows: Sequence[Mapping[str, object]], today: date, evidence
             except Exception: invalid_ids.append(project_id)
         invalid_ids.extend(project_id for project_id in rows_by_id if project_id not in decisions and project_id not in invalid_ids)
     except Exception: return _batch_summary(ApplicationLoopResult(False, error="planner_contract_invalid", planner_expected_count=len(rows), planner_returned_count=returned, decision_reports=tuple(skip_reports) or None), observed_count, 0, (), ())
-    try: _cache_no_effect(decisions, rows_by_id, state_path)
+    try: _cache_no_effect(decisions, rows_by_id, state_path, invalid_ids)
     except Exception:
         # This cache only avoids re-planning hard-prohibited listings.  Receipt and
         # fingerprint state remain the authority for duplicate external effects, so
