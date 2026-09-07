@@ -465,6 +465,15 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    tracks acceptance/payment. Human-required work is never classified as a rejected or skipped listing.
    Dais has already completed a Mercor interview; each application must reuse it when that role's official
    UI says `Completed` or `reused`, while role-specific unfinished ceremonies remain resumable human gates.
+   Installed release `07c602289f279a8b262e9c42c5f04d4c6fff5262` then ended naturally with
+   `leased_page_blank_no_mercor_explore`: the new isolated context was created successfully, but CDP
+   `Target.createTarget(url)` returned before its asynchronous navigation completed and the model saw
+   `about:blank`. No application or shared effect notification occurred; terminal status was acknowledged
+   as Telegram message `65059`, and the browser lease was released with zero leases remaining. A thin
+   Mercor page-ready adapter now attaches only to that exact leased websocket, rejects any unexpected
+   origin, navigates only `about:blank` to the official Explore URL, and emits a private readiness receipt
+   before the model starts. Targeted verification passes 21 tests plus 2 subtests. Installed-release
+   readiness, twelve-candidate scan, human-gate/application immediate receipt and replay-zero remain open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
