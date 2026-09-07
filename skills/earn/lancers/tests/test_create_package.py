@@ -80,6 +80,9 @@ class _OptionList:
     def all(self) -> list[_Option]:
         return list(self._options)
 
+    def count(self) -> int:
+        return len(self._options)
+
 
 def _delivery_options() -> list[_Option]:
     options = [_Option("選択してください", "")]
@@ -100,6 +103,17 @@ class _LocatorList:
     def all(self) -> list:
         return list(self._items)
 
+    def count(self) -> int:
+        return len(self._items)
+
+    def inner_text(self) -> str:
+        # Mirrors real Playwright strict-mode Locator.inner_text(): only sensible on a locator
+        # resolving to exactly one element -- _create_describing_text's `page.locator(f"#{id}")`
+        # call is exactly that shape.
+        if len(self._items) != 1:
+            raise AssertionError(f"strict mode violation: {len(self._items)} matches")
+        return self._items[0].inner_text()
+
     def wait_for(self, state: str = "visible", timeout=None) -> None:
         if state != "visible":
             raise NotImplementedError(state)
@@ -115,9 +129,17 @@ class _Field:
     and `select_option()` assert `is_visible()` at call time and raise AssertionError otherwise:
     this is what makes every test driving _fill_create_form() double as a check that a field is
     never touched before its step actually arrived.
+
+    `attrs` models arbitrary element attributes (aria-invalid, aria-describedby, aria-label,
+    disabled, ...) read via `get_attribute()` -- the stall-evidence report reads these on real
+    Playwright locators, so the fake needs to be able to carry them too. For a `<select>`
+    (`options` non-empty), `_selected_index` mirrors the one real browsers keep even when nothing
+    has ever been explicitly chosen -- it defaults to 0 (the first/placeholder option) exactly as
+    an unset native `<select>` does, and `select_option()` updates it, so `option:checked` always
+    reflects genuine selection state rather than merely "was select_option ever called".
     """
 
-    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = ""):
+    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = "", attrs: dict[str, str] | None = None):
         self.fills: list[str] = []
         self.selected: list[dict] = []
         self.presses: list[str] = []
@@ -127,6 +149,8 @@ class _Field:
         self._text = text
         self._step = step
         self._name = name
+        self._attrs = attrs or {}
+        self._selected_index: int | None = 0 if self._options else None
         self.page: "_FakeCreatePage | None" = None  # bound by _FakeCreatePage.__init__
 
     def count(self) -> int:
@@ -152,6 +176,19 @@ class _Field:
             raise AssertionError(f"selected option on invisible field {self._name!r} (step={self._step}, current={getattr(self.page, 'current_step', None)})")
         self.selected.append(kwargs)
         self._log("select_option")
+        index = self._matching_option_index(kwargs)
+        if index is not None:
+            self._selected_index = index
+
+    def _matching_option_index(self, kwargs: dict) -> int | None:
+        label = kwargs.get("label")
+        value = kwargs.get("value")
+        for index, option in enumerate(self._options):
+            if label is not None and option._label == label:
+                return index
+            if value is not None and option._value == value:
+                return index
+        return None
 
     def press(self, key: str) -> None:
         if not self.is_visible():
@@ -161,15 +198,25 @@ class _Field:
     def inner_text(self) -> str:
         return self._text
 
-    def get_attribute(self, _name: str) -> str | None:
-        return None
+    def get_attribute(self, name: str) -> str | None:
+        return self._attrs.get(name)
+
+    def input_value(self) -> str:
+        return self.fills[-1] if self.fills else ""
 
     def click(self, **_kwargs) -> None:
         self.clicks += 1
 
     def locator(self, selector: str) -> _OptionList:
-        assert selector == "option"
-        return _OptionList(self._options)
+        if selector == "option":
+            return _OptionList(self._options)
+        if selector == "option:checked":
+            if self._options and self._selected_index is not None:
+                return _OptionList([self._options[self._selected_index]])
+            return _OptionList([])
+        # A non-select field (e.g. a text input) queried for "option" -- 0 results, exactly like
+        # a real Playwright locator finding no descendant <option> elements.
+        return _OptionList([])
 
     def wait_for(self, state: str = "visible", timeout=None) -> None:
         if state != "visible":
@@ -274,8 +321,15 @@ class _FakeCreatePage:
     `stall_at`: a set of step indices at which clicking 次へ does nothing (current_step does not
     advance) -- models a validation failure that leaves the wizard stuck, which is exactly what
     create_step_stalled exists to name. `validation_errors`: text exposed via
-    `page.locator("[class*='error']")`, always "visible", for _create_step_validation_text to
-    scrape when a stall happens.
+    `page.locator("[class*='error']")`, always "visible" -- the *lowest*-priority tier
+    `_create_validation_messages` scrapes, exactly the net the shipped bug's fix narrows.
+
+    `aria_invalid_nodes`: `_Field`s exposed via `page.locator('[aria-invalid="true"]')` -- the
+    *first*-priority tier. `role_alert_texts`: strings exposed via `page.locator('[role="alert"]')`
+    -- the second tier. `committed_tag_count`: how many `[aria-label="削除"]` nodes exist, modelling
+    the tag widget's own committed-chip delete buttons (see _apply's tag-clearing loop in
+    production). `described_nodes`: id -> text, resolved via `page.locator(f"#{id}")`, for an
+    aria-invalid node's `aria-describedby` target.
     """
 
     def __init__(
@@ -291,6 +345,10 @@ class _FakeCreatePage:
         file_input_count: int = 4,
         file_upload_raises: bool = False,
         validation_errors: list[str] | None = None,
+        aria_invalid_nodes: list[_Field] | None = None,
+        role_alert_texts: list[str] | None = None,
+        committed_tag_count: int = 0,
+        described_nodes: dict[str, str] | None = None,
         last_step: int = 5,
     ):
         self.url = "https://www.lancers.jp/myplan"
@@ -306,6 +364,10 @@ class _FakeCreatePage:
         self.last_step = last_step
         self.stall_at = stall_at or set()
         self._validation_errors = validation_errors or []
+        self._aria_invalid_nodes = aria_invalid_nodes or []
+        self._role_alert_texts = role_alert_texts or []
+        self._committed_tag_count = committed_tag_count
+        self._described_nodes = described_nodes or {}
         self._unnamed_textarea = _UnnamedTextarea(self, count=unnamed_textarea_count)
         self._file_inputs = _FileInputs(file_input_count, raises=file_upload_raises)
 
@@ -341,8 +403,16 @@ class _FakeCreatePage:
             return self._unnamed_textarea
         if selector == "[class*='error']":
             return _LocatorList([_Field(text=t) for t in self._validation_errors])
+        if selector == '[aria-invalid="true"]':
+            return _LocatorList(self._aria_invalid_nodes)
+        if selector == '[role="alert"]':
+            return _LocatorList([_Field(text=t) for t in self._role_alert_texts])
+        if selector == '[aria-label="削除"]':
+            return _LocatorList([_Field(text="") for _ in range(self._committed_tag_count)])
         if selector == 'input[type="file"]':
             return self._file_inputs
+        if selector.startswith("#") and selector[1:] in self._described_nodes:
+            return _LocatorList([_Field(text=self._described_nodes[selector[1:]])])
         return self._fields.get(selector, _EmptyField())
 
     def get_by_text(self, label: str, exact: bool = True):
@@ -385,13 +455,21 @@ def _complete_product(**overrides) -> dict:
     return product
 
 
+def _select_options_for(*labels: str) -> list[_Option]:
+    """A placeholder plus one option per label -- enough for a stall-evidence test to read a real
+    `selected_label` back, mirroring a real `<select>`'s placeholder-first shape."""
+    options = [_Option("選択してください", "")]
+    options.extend(_Option(label, str(index + 1)) for index, label in enumerate(labels))
+    return options
+
+
 def _fields_for(product: dict) -> dict[str, _Field]:
     fields = {
         '[name="ProjectPlanForm.title"]': _Field(step=0, name="title"),
         '[name="ProjectPlanForm.subtitle"]': _Field(step=0, name="subtitle"),
-        '[name="___main_category_id"]': _Field(step=0, name="category"),
-        '[name="ProjectPlanForm.project_category_id"]': _Field(step=0, name="subcategory"),
-        '[name="ProjectPlanForm.industry_type_id"]': _Field(step=0, name="industry"),
+        '[name="___main_category_id"]': _Field(options=_select_options_for(product["category"]), step=0, name="category"),
+        '[name="ProjectPlanForm.project_category_id"]': _Field(options=_select_options_for(product["subcategory"]), step=0, name="subcategory"),
+        '[name="ProjectPlanForm.industry_type_id"]': _Field(options=_select_options_for(product["industry"]), step=0, name="industry"),
         '[name="MultiSelectTagSearch_ProjectPlanTagForm"]': _Field(step=0, name="tags"),
         '[name="ProjectPlanForm.notice_for_sale"]': _Field(step=3, name="notice"),
     }
@@ -513,6 +591,203 @@ def test_missing_next_button_raises_create_step_stalled_named_next_button_missin
         module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
     assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
+
+
+# 3b. Stall evidence -- what create_step_stalled now reports beyond the bare validation text ----
+#
+# The live incident this shipped from: `create_step_stalled: 基本情報: 基本情報`. The "validation
+# text" was the step's own stepper heading, scraped by the old broad `[class*='error']` net --
+# useless, because it tells you which step stalled (already known) and nothing about why. These
+# tests exercise `_create_step_evidence` (called by `_advance_create_step` on a stall) directly
+# where that is the clearest way to isolate one behaviour, and once end-to-end through
+# `_fill_create_form` to prove the wiring actually reaches production callers.
+
+
+def test_stall_evidence_reports_every_field_the_current_step_owns_with_filled_state():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
+    fields['[name="ProjectPlanForm.title"]'].fill(product["title_stem"])
+    # subtitle deliberately left empty -- the single most likely stall cause, and fully
+    # observable without inferring anything.
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["step"] == "基本情報"
+    by_name = {item["field"]: item for item in payload["fields"]}
+    assert set(by_name) == {"title", "subtitle", "category", "subcategory", "industry", "tags"}
+    assert by_name["title"] == {"field": "title", "present": True, "type": "text", "filled": True}
+    assert by_name["subtitle"] == {"field": "subtitle", "present": True, "type": "text", "filled": False}
+
+
+def test_stall_evidence_reports_absent_field_when_the_step_no_longer_carries_it():
+    module = _module()
+    # A field the step is supposed to own is simply not in the DOM at all -- itself evidence
+    # the markup changed, distinct from "present but empty".
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+
+    payload = json.loads(module._create_step_evidence(page, "確認事項"))
+
+    by_name = {item["field"]: item for item in payload["fields"]}
+    assert by_name["notice"] == {"field": "notice", "present": False, "count": 0}
+
+
+def test_stall_evidence_select_reports_selected_label_and_placeholder_reads_as_empty():
+    module = _module()
+    category_options = _select_options_for("AI・プログラミング・システム開発")
+    category_field = _Field(options=category_options, step=0, name="category")
+    page = _FakeCreatePage(fields={'[name="___main_category_id"]': category_field}, manual_button_lands_on=None)
+
+    # Nothing was ever selected -- a real unset <select> still reports its first (placeholder)
+    # option as checked, which must read as NOT filled, not as an unreadable field.
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+    by_name = {item["field"]: item for item in payload["fields"]}
+    assert by_name["category"]["type"] == "select"
+    assert by_name["category"]["selected_label"] == "選択してください"
+    assert by_name["category"]["filled"] is False
+
+    category_field.select_option(label="AI・プログラミング・システム開発")
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+    by_name = {item["field"]: item for item in payload["fields"]}
+    assert by_name["category"]["selected_label"] == "AI・プログラミング・システム開発"
+    assert by_name["category"]["filled"] is True
+
+
+def test_stall_evidence_captures_aria_invalid_message_via_its_describedby_target():
+    module = _module()
+    title_field = _Field(attrs={"aria-invalid": "true", "aria-describedby": "title-error"}, step=0, name="title")
+    page = _FakeCreatePage(
+        fields={'[name="ProjectPlanForm.title"]': title_field},
+        manual_button_lands_on=None,
+        aria_invalid_nodes=[title_field],
+        described_nodes={"title-error": "タイトルは50文字以内で入力してください"},
+        # A stepper-chrome error is also present, but aria-invalid outranks it -- tier C is
+        # never even consulted when tier A finds something.
+        validation_errors=["基本情報"],
+    )
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["validation_messages"] == ["タイトルは50文字以内で入力してください"]
+
+
+def test_stall_evidence_captures_role_alert_message_when_no_aria_invalid_present():
+    module = _module()
+    page = _FakeCreatePage(
+        fields={}, manual_button_lands_on=None,
+        role_alert_texts=["料金は必ず3プラン必要です"],
+        validation_errors=["料金表"],  # stepper chrome; must not win over role=alert
+    )
+
+    payload = json.loads(module._create_step_evidence(page, "料金表"))
+
+    assert payload["validation_messages"] == ["料金は必ず3プラン必要です"]
+
+
+def test_stall_evidence_excludes_the_step_heading_and_names_that_nothing_qualified():
+    """The regression this task shipped from: the only `[class*='error']` match was the current
+    step's own heading text, and the old scrape reported it verbatim as if it were a complaint.
+    Asserted directly, per the task: this must yield no_validation_message_found, not "基本情報"."""
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None, validation_errors=["基本情報"])
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["validation_messages"] == ["no_validation_message_found"]
+
+
+def test_stall_evidence_includes_the_page_url():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+    page.url = module.ORIGIN + "/myplan/add?type=manual"
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["url"] == module.ORIGIN + "/myplan/add?type=manual"
+
+
+def test_stall_evidence_reports_the_advance_control_found_and_its_text():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["advance_control"] == {"found": True, "text": "次へ", "disabled": False}
+
+
+def test_stall_evidence_payload_is_bounded_and_says_when_truncated():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None, validation_errors=["エラー" * 2000])
+
+    text = module._create_step_evidence(page, "基本情報")
+
+    assert len(text) <= module._CREATE_STALL_PAYLOAD_MAX_CHARS
+    assert "truncated" in text
+
+
+def test_stall_evidence_short_payload_is_not_marked_truncated():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None, validation_errors=["短いエラー"])
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert "truncated" not in payload
+
+
+def test_stall_is_fail_closed_with_exactly_one_advance_attempt_and_no_partial_progress():
+    """The fence stays fail-closed: no retry (次へ is clicked exactly once), nothing from a later
+    step is ever touched, and the raised error still names the stalled step."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(
+        fields=fields, manual_button_lands_on=None,
+        stall_at={0},
+        validation_errors=["タイトルを入力してください"],
+    )
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert str(excinfo.value).startswith("create_step_stalled: 基本情報: ")
+    assert page._next_button.clicks == 1  # no retry
+    assert page.current_step == 0  # never advanced
+    for index in range(3):
+        prefix = f"ProjectPlanMenuForm[{index}]"
+        assert fields[f'[name="{prefix}.description"]'].fills == []  # 料金表 never reached
+
+
+def test_stalled_advance_error_message_embeds_the_full_evidence_payload():
+    """End-to-end: the JSON _create_step_evidence builds is exactly what lands in the OfferError
+    a real create_package() caller sees and reports to the wake/Telegram line."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(
+        fields=fields, manual_button_lands_on=None,
+        stall_at={0},
+        validation_errors=["タイトルを入力してください"],
+    )
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    prefix = "create_step_stalled: 基本情報: "
+    message = str(excinfo.value)
+    assert message.startswith(prefix)
+    payload = json.loads(message[len(prefix):])
+    assert payload["step"] == "基本情報"
+    assert payload["validation_messages"] == ["タイトルを入力してください"]
+    assert payload["url"] == page.url
+    assert payload["advance_control"] == {"found": True, "text": "次へ", "disabled": False}
+    by_name = {item["field"]: item for item in payload["fields"]}
+    assert set(by_name) == {"title", "subtitle", "category", "subcategory", "industry", "tags"}
+    # Every 基本情報 field was already filled before the stalled advance was even attempted.
+    assert by_name["title"]["filled"] is True
+    assert by_name["category"]["selected_label"] == product["category"]
+    assert "tag_widget" in payload
 
 
 # 4. The unnamed-textarea locator raises a named error for zero or more than one match ---------
