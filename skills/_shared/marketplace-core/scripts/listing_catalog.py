@@ -50,6 +50,17 @@ class UnknownPlatform(CatalogError):
     """``project`` was asked for a platform the listing has no ``platform_overrides`` for."""
 
 
+class LancersTitleStemLengthError(CatalogError):
+    """``project_lancers`` produced a stem outside Lancers' own 25-40 character requirement.
+
+    Measured live 2026-09-07: the Lancers title field's own label reads "25文字以上で入力して
+    ください" and counts ``title_stem`` alone (the page appends 「ます」 itself and refuses to let
+    it be deleted). A stem outside that window cannot be submitted at all -- raising here, naming
+    the family and the actual length, turns a silent per-family stall into a loud, one-time catalog
+    fix instead of a fourth round of live diagnostics.
+    """
+
+
 _REQUIRED_TIER_FIELDS = ("price_jpy", "delivery_days")
 
 # The fields carried through `project` unchanged, before the platform override merges on top.
@@ -170,6 +181,12 @@ def project(catalog: dict, family: str, platform: str) -> dict:
 # (skills/earn/lancers/scripts/storefront_offer.py), which rejects anything else outright.
 LANCERS_DELIVERY_DAYS = (1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 30, 45, 60, 75, 90)
 
+# The title field's own label named this rule: "25文字以上で入力してください", counting the stem
+# alone (the page appends 「ます」 itself, see LancersTitleStemLengthError). 40 is the field's
+# existing upper bound, unchanged, already enforced by storefront_offer.py's _validate_product.
+LANCERS_TITLE_STEM_MIN_LENGTH = 25
+LANCERS_TITLE_STEM_MAX_LENGTH = 40
+
 
 def _lancers_delivery_days(days: object) -> object:
     """Round a catalogue delivery time up to one Lancers will accept.
@@ -203,8 +220,23 @@ def project_lancers(catalog: dict, family: str) -> dict:
     """
     projected = project(catalog, family, "lancers")
 
-    title_ja = str(projected.get("title_ja") or "")
-    title_stem = title_ja[:-2] if title_ja.endswith("ます") else title_ja
+    # A Lancers-only title_stem in platform_overrides.lancers wins over the derived-from-title_ja
+    # default. It exists because the shared title_ja (which Coconala also reads) is sometimes too
+    # short once the stem is isolated -- Coconala's own title has no minimum, so lengthening the
+    # shared title to satisfy Lancers would be the wrong repair (see LancersTitleStemLengthError).
+    override_stem = projected.get("title_stem")
+    if isinstance(override_stem, str) and override_stem.strip():
+        title_stem = override_stem
+    else:
+        title_ja = str(projected.get("title_ja") or "")
+        title_stem = title_ja[:-2] if title_ja.endswith("ます") else title_ja
+
+    stem_length = len(title_stem)
+    if not (LANCERS_TITLE_STEM_MIN_LENGTH <= stem_length <= LANCERS_TITLE_STEM_MAX_LENGTH):
+        raise LancersTitleStemLengthError(
+            f"lancers_title_stem_length: family={family}: length={stem_length} "
+            f"(must be {LANCERS_TITLE_STEM_MIN_LENGTH}-{LANCERS_TITLE_STEM_MAX_LENGTH})"
+        )
 
     plans = [
         {

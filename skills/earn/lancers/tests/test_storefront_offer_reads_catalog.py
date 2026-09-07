@@ -252,3 +252,74 @@ def test_merge_does_not_mutate_the_shared_projection(monkeypatch):
 
     assert projection == snapshot
     assert merged["plans"] is not projection["plans"]
+
+
+# 8. _validate_product's title_stem bound is 25-40, measured on the stem alone --------------
+#
+# Lancers' own title field label reads "25文字以上で入力してください" and counts title_stem
+# alone -- the page appends 「ます」 itself and refuses to let it be deleted. Before this change
+# _validate_product checked `1 <= len(title_stem + "ます") <= 40`, which is wrong twice: the
+# bound belongs on the stem alone, and the real minimum is 25, not 1.
+
+
+def _standalone_product(**overrides) -> dict:
+    """A full, non-catalog product dict derived from the live hand-authored listing, with its
+    image/avatar paths rewritten to absolute so it validates from any tmp_path without a second
+    copy of the image/avatar. Everything except the overridden keys is exactly what the live
+    listing carries, so these tests probe _validate_product's title_stem bound in isolation."""
+    raw = json.loads(LIVE_PRODUCT.read_text(encoding="utf-8"))
+    raw["image_path"] = str(REAL_IMAGE)
+    raw["profile_avatar_path"] = str(REAL_AVATAR)
+    raw.update(overrides)
+    return raw
+
+
+def test_product_rejects_a_title_stem_under_25_characters(tmp_path):
+    module = _module()
+    path = _write(tmp_path, _standalone_product(title_stem="あ" * 24))
+
+    with pytest.raises(module.OfferError):
+        module._product(path)
+
+
+def test_product_accepts_a_title_stem_at_exactly_25_characters(tmp_path):
+    module = _module()
+    path = _write(tmp_path, _standalone_product(title_stem="あ" * 25))
+
+    product, _image, _avatar = module._product(path)
+
+    assert product["title_stem"] == "あ" * 25
+    assert product["public_title"] == "あ" * 25 + "ます"
+
+
+def test_product_rejects_a_title_stem_over_40_characters(tmp_path):
+    module = _module()
+    path = _write(tmp_path, _standalone_product(title_stem="あ" * 41))
+
+    with pytest.raises(module.OfferError):
+        module._product(path)
+
+
+def test_product_accepts_a_title_stem_at_exactly_40_characters(tmp_path):
+    module = _module()
+    path = _write(tmp_path, _standalone_product(title_stem="あ" * 40))
+
+    product, _image, _avatar = module._product(path)
+
+    assert product["title_stem"] == "あ" * 40
+
+
+def test_live_hand_authored_product_still_validates_the_corrected_bound():
+    """The one listing that is actually live must not be silently invalidated by tightening the
+    bound. If this fails, the reading of Lancers' own minimum is wrong and must not ship."""
+    module = _module()
+    raw = json.loads(LIVE_PRODUCT.read_text(encoding="utf-8"))
+
+    product, image, avatar = module._product(LIVE_PRODUCT)
+
+    assert 25 <= len(product["title_stem"]) <= 40, (
+        f"live product title_stem is {len(raw['title_stem'])} chars: {raw['title_stem']!r}"
+    )
+    assert product["title_stem"] == raw["title_stem"]
+    assert image.is_file()
+    assert avatar.is_file()

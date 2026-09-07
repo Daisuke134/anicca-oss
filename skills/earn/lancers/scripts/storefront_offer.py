@@ -168,7 +168,10 @@ def _validate_product(value: dict[str, Any], path: Path) -> tuple[dict[str, Any]
     strings = ("product_id", "listing_external_id", "title_stem", "subtitle", "category", "subcategory", "service_type", "industry", "description", "notice", "image_path")
     if any(not isinstance(value.get(key), str) or not value[key].strip() for key in strings): raise OfferError("product_invalid")
     if not re.fullmatch(r"[0-9]+", value["listing_external_id"]): raise OfferError("product_invalid")
-    if not (1 <= len(value["title_stem"] + "ます") <= 40 and len(value["subtitle"]) <= 60 and len(value["description"]) <= 2000 and len(value["notice"]) <= 2000): raise OfferError("product_invalid")
+    # 25-40: Lancers' own title field label ("25文字以上で入力してください") counts the stem
+    # alone, not the public title with 「ます」 appended -- see
+    # listing_catalog.LancersTitleStemLengthError for how this was measured.
+    if not (25 <= len(value["title_stem"]) <= 40 and len(value["subtitle"]) <= 60 and len(value["description"]) <= 2000 and len(value["notice"]) <= 2000): raise OfferError("product_invalid")
     tags, plans = value.get("tags"), value.get("plans")
     if not isinstance(tags, list) or not 1 <= len(tags) <= 5 or len(set(tags)) != len(tags) or not all(isinstance(tag, str) and tag.strip() for tag in tags): raise OfferError("product_invalid")
     if not isinstance(plans, list) or len(plans) != 3: raise OfferError("product_invalid")

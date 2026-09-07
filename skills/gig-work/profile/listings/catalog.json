@@ -82,6 +82,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "0→1でアイデアを動くWebアプリ・業務システムへ最短開発し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
@@ -224,6 +225,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "予約・在庫・顧客管理の業務システムとダッシュボードを構築し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
@@ -369,6 +371,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "生成AIエージェントを業務フローに組み込み問い合わせ対応や情報収集を自動化し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "生成AI・LLMアプリ開発",
           "industry": "IT・通信・インターネット",
@@ -520,6 +523,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "LINE公式アカウントで予約・問い合わせ自動応答Botを構築し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "AI・チャットボット開発",
           "industry": "IT・通信・インターネット",
@@ -840,6 +844,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "対象サイトから定期的にデータを取得しExcelへ自動出力するツールを開発し",
           "category": "データ分析・作業自動化",
           "subcategory": "情報・データ処理",
           "industry": "IT・通信・インターネット",
@@ -1336,6 +1341,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "アイデア段階から要件定義・UI設計を経てiOS/Androidアプリを開発し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "モバイルアプリ・スマホアプリ",
           "industry": "IT・通信・インターネット",
@@ -1471,6 +1477,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "添削・診断・レコメンドなどのAI機能をWebアプリに実装し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "AIシステム・アプリケーション開発",
           "industry": "IT・通信・インターネット",
@@ -1611,6 +1618,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "採用活動・求人マッチング用サイトを企画から構築まで対応し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "Webサイト・ホームページ制作",
           "industry": "IT・通信・インターネット",
@@ -1885,6 +1893,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "属人化したスプレッドシート業務を複数人利用可能なWebシステムに置き換え",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
@@ -2018,6 +2027,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "ブラウザ上の繰り返し作業をChrome拡張機能で自動化し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "プログラミング・システム開発(その他)",
           "industry": "IT・通信・インターネット",
@@ -2360,6 +2370,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "売上・業績データを自動集計しダッシュボードとして可視化し",
           "category": "データ分析・作業自動化",
           "subcategory": "データ可視化・ビジュアライゼーション",
           "industry": "IT・通信・インターネット",
@@ -2500,6 +2511,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "AI活用・業務DX診断の初回相談で優先順位と概算費用を整理し",
           "category": "ビジネス・コンサルティング",
           "subcategory": "ビジネスコンサルティング",
           "industry": "IT・通信・インターネット",
@@ -2605,6 +2617,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "作りたいシステムのイメージを整理し要件定義書と概算見積りを作成し",
           "category": "ビジネス・コンサルティング",
           "subcategory": "ビジネスコンサルティング",
           "industry": "IT・通信・インターネット",
@@ -2711,6 +2724,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "使いにくい既存システムの画面を分析しUI/UX改善提案から実装まで対応し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
@@ -2845,6 +2859,7 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
+          "title_stem": "納品済みシステムの不具合対応と軽微な改修を月額で継続対応し",
           "category": "AI・プログラミング・システム開発",
           "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
