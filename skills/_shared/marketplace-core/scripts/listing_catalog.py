@@ -166,6 +166,28 @@ def project(catalog: dict, family: str, platform: str) -> dict:
     return projected
 
 
+# The delivery times the Lancers form will accept. Measured from its own product validator
+# (skills/earn/lancers/scripts/storefront_offer.py), which rejects anything else outright.
+LANCERS_DELIVERY_DAYS = (1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 30, 45, 60, 75, 90)
+
+
+def _lancers_delivery_days(days: object) -> object:
+    """Round a catalogue delivery time up to one Lancers will accept.
+
+    Five catalogue tiers are quoted at 18 or 25 days, which Lancers does not offer, so those
+    four families could not become listings there at all. Editing the catalogue to fit one
+    platform would be the wrong repair: the catalogue holds what the work actually takes, and
+    Coconala reads the same rows. The projection adapts instead.
+
+    Rounding is always upward. A buyer told 21 days and delivered in 18 got early; a buyer
+    told 14 was promised something the catalogue never said we could do.
+    """
+    if type(days) is not int or days in LANCERS_DELIVERY_DAYS:
+        return days
+    longer = [value for value in LANCERS_DELIVERY_DAYS if value > days]
+    return longer[0] if longer else LANCERS_DELIVERY_DAYS[-1]
+
+
 def project_lancers(catalog: dict, family: str) -> dict:
     """Map a catalog projection onto (part of) the Lancers product shape.
 
@@ -189,9 +211,15 @@ def project_lancers(catalog: dict, family: str) -> dict:
             "tier": tier.get("name"),
             "description": tier.get("scope"),
             "price_jpy": tier.get("price_jpy"),
-            "delivery_days": tier.get("delivery_days"),
+            "delivery_days": _lancers_delivery_days(tier.get("delivery_days")),
         }
         for tier in projected.get("tiers") or []
+    ]
+    adjusted = [
+        {"tier": tier.get("name"), "catalog_days": tier.get("delivery_days"),
+         "lancers_days": _lancers_delivery_days(tier.get("delivery_days"))}
+        for tier in projected.get("tiers") or []
+        if tier.get("delivery_days") not in LANCERS_DELIVERY_DAYS
     ]
 
     description_lines = [str(projected.get("value_prop") or ""), ""]
@@ -221,6 +249,7 @@ def project_lancers(catalog: dict, family: str) -> dict:
         "plans": plans,
         "description": description,
         "missing": list(_LANCERS_UNMAPPED_FIELDS),
+        "delivery_days_adjusted": adjusted,
     }
 
 
