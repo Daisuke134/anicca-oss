@@ -81,7 +81,12 @@ def load_config(
         selected_file = Path(process_env.get("LIFE_MANAGER_ENV_FILE", DEFAULT_ENV_FILE))
     file_env = _parse_env_file(selected_file)
     token = process_env.get("TELEGRAM_BOT_TOKEN") or file_env.get("TELEGRAM_BOT_TOKEN")
-    chat_id = process_env.get("TELEGRAM_CHAT_ID") or file_env.get("TELEGRAM_CHAT_ID")
+    chat_id = (
+        process_env.get("TELEGRAM_CHAT_ID")
+        or process_env.get("TELEGRAM_ALERT_CHAT_ID")
+        or file_env.get("TELEGRAM_CHAT_ID")
+        or file_env.get("TELEGRAM_ALERT_CHAT_ID")
+    )
     missing = [
         name
         for name, value in (

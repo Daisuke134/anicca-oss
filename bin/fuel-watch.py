@@ -20,11 +20,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from skills._shared.telegram import TelegramClient
 
 # Overridable so the alert path can be exercised against a real slice of history
 # rather than only against a quiet present. A watcher that has never been seen
@@ -33,7 +37,6 @@ LEDGER = Path(os.environ.get("FUEL_WATCH_LEDGER",
                              Path.home() / ".local/state/anicca/telemetry/agent-usage.jsonl"))
 STATE = Path(os.environ.get("FUEL_WATCH_STATE",
                             Path.home() / ".local/state/anicca/fuel-watch-state.json"))
-TARGET = "8547730585"
 JST = timezone(timedelta(hours=9))
 
 # Only classes that mean "this provider cannot answer right now". A task that
@@ -125,15 +128,9 @@ def save_state(state: dict) -> None:
 
 
 def send(message: str) -> str:
-    completed = subprocess.run(
-        ["openclaw", "message", "send", "--channel", "telegram",
-         "--target", TARGET, "--message", message, "--json"],
-        capture_output=True, text=True, timeout=90,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError(f"telegram transport rc={completed.returncode}: {completed.stderr[:200]}")
-    result = json.loads(completed.stdout)
-    message_id = result.get("messageId") or (result.get("payload") or {}).get("messageId")
+    result = TelegramClient.from_env().send_text(message)
+    message_ids = result.get("message_ids") or []
+    message_id = message_ids[-1] if message_ids else None
     if not message_id:
         raise RuntimeError("telegram ACK carried no message id")
     return str(message_id)

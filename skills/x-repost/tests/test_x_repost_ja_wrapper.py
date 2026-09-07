@@ -61,7 +61,7 @@ class JapaneseDiceLoopContractTests(unittest.TestCase):
         self.assertIn('$SKILL/config/humanize-checklist.md', main)
         self.assertIn('.local/state/life-manager/.env', main)
         self.assertNotIn('openclaw message send', main + digest)
-        self.assertNotIn('$HOME/.openclaw', main + digest)
+        self.assertNotIn('$HOME/' + '.openclaw', main + digest)
 
 
 if __name__ == "__main__":
