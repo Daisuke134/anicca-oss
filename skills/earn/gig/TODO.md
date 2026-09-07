@@ -806,6 +806,23 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    the uncertainty instead of converting it to the shared kernel's durable human wait. The adapter
    now preserves those model-selected missing facts as `reply_facts_required`; another natural
    installed-release terminal is required, so this atom remains unchecked.
+   Immutable release `20260907T225030-4a38def0` then ran naturally at
+   `2026-09-07 22:56 JST` and closed the Lancers runtime defect: the installed and event SHAs
+   match, terminal status is `pass`, all five official threads are represented exactly once,
+   four seller-last threads have official no-effect readback, and the one buyer-last thread is a
+   durable `reply_facts_required` pending item. Aggregate is observed five, effect zero, readback
+   four, failed zero and pending one. No customer message was fabricated or duplicated. This is
+   Lancers owner health, not `LANCERS-REPLY-1` effect acceptance; that later atom still requires one
+   real buyer-visible reply, official readback and replay-zero after Dais supplies the personal facts.
+   A fresh Coconala owner audit also disproves the broad claim that its Reply lane currently handles
+   every buyer event. PID `20998` still holds the detector lock from immutable release
+   `20260904T190410-19a1d873`, but its last real probe/effect evidence stopped updating at
+   `2026-09-04 21:37 JST`; newer 30-second events are only `busy` exits behind that lock. The durable
+   connector database currently contains 216 pending and two reconciliation-pending actions.
+   Process existence and busy exits are therefore not Reply acceptance. Replacing that continuous
+   owner requires a scoped lifecycle restart, which Dais explicitly defers; no Mac, Aqua, browser or
+   loop restart is performed here. Shared source extraction and Lancers acceptance continue without
+   changing the cursor order.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
