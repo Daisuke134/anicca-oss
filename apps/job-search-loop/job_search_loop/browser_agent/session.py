@@ -22,6 +22,7 @@ class BrowserSession:
         self._connector = connector
         self._drivers: list[Any] = []
         self._pages: dict[str, Any] = {}
+        self._leases: dict[str, dict[str, Any]] = {}
 
     @staticmethod
     def _lease_script() -> Path:
@@ -34,7 +35,7 @@ class BrowserSession:
                 return candidate
         raise RuntimeError("Daily Driver CDP context lease script is unavailable")
 
-    async def _leased_page(self) -> DirectCDPPage:
+    async def _lease_command(self, *arguments: str) -> dict[str, Any]:
         env = os.environ.copy()
         env["CLOAK_CDP_BASE_URL"] = "http://127.0.0.1:9222"
         env["CLOAK_SESSION_VAULT_FILE"] = str(
@@ -43,8 +44,7 @@ class BrowserSession:
         process = await asyncio.create_subprocess_exec(
             os.environ.get("JOB_SEARCH_PYTHON", "/opt/homebrew/bin/python3"),
             str(self._lease_script()),
-            "acquire",
-            "job-search-daily",
+            *arguments,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
@@ -52,15 +52,56 @@ class BrowserSession:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=45)
         if process.returncode != 0:
             raise RuntimeError(
-                "Daily Driver lease acquisition failed: "
+                "Daily Driver lease command failed: "
                 + stderr.decode("utf-8", errors="replace")[-300:]
             )
-        lease = json.loads(stdout)
-        if not lease.get("ok") or not lease.get("ws") or not lease.get("target_id"):
+        result = json.loads(stdout)
+        if not result.get("ok"):
+            raise RuntimeError("Daily Driver lease command returned failure")
+        return result
+
+    async def _leased_page(self) -> tuple[DirectCDPPage, dict[str, Any]]:
+        lease = await self._lease_command("acquire", "job-search-daily")
+        if (
+            not lease.get("ws")
+            or not lease.get("target_id")
+            or not lease.get("context_id")
+            or not isinstance(lease.get("token"), str)
+            or not isinstance(lease.get("generation"), int)
+        ):
             raise RuntimeError("Daily Driver returned an invalid page lease")
         page = DirectCDPPage(str(lease["ws"]), str(lease["target_id"]))
-        await page.connect()
-        return page
+        try:
+            await page.connect()
+        except Exception:
+            await self._release_lease(lease)
+            raise
+        return page, lease
+
+    async def _release_lease(self, lease: dict[str, Any]) -> None:
+        await self._lease_command(
+            "release",
+            "job-search-daily",
+            "--token",
+            str(lease["token"]),
+            "--generation",
+            str(lease["generation"]),
+        )
+
+    async def _bind_leased_page(
+        self, marker: str
+    ) -> tuple[DirectCDPPage, dict[str, Any], bool]:
+        page, lease = await self._leased_page()
+        try:
+            recovered = await self._marker(page) == marker
+            if not recovered:
+                await page.evaluate("marker => { window.name = marker }", marker)
+        except Exception:
+            await self._release_lease(lease)
+            raise
+        self._pages[marker] = page
+        self._leases[marker] = lease
+        return page, lease, recovered
 
     @staticmethod
     def _validate_endpoint(endpoint: str) -> str:
@@ -124,9 +165,7 @@ class BrowserSession:
             raise ValueError("row_run_id is required")
         marker = f"anicca-job-search:{row_run_id}"
         if self._connector is None:
-            page = await self._leased_page()
-            await page.evaluate("marker => { window.name = marker }", marker)
-            self._pages[marker] = page
+            await self._bind_leased_page(marker)
             return SessionHandleV1(1, endpoint, row_run_id, marker, 1)
         browser = await self._connect(endpoint)
         recovered = await self._recover_or_create(browser, marker)
@@ -140,9 +179,7 @@ class BrowserSession:
         if page is not None and not page.is_closed():
             return handle
         if self._connector is None:
-            page = await self._leased_page()
-            await page.evaluate("marker => { window.name = marker }", handle.page_marker)
-            self._pages[handle.page_marker] = page
+            await self._bind_leased_page(handle.page_marker)
             return SessionHandleV1(
                 1, endpoint, handle.row_run_id, handle.page_marker, handle.generation + 1
             )
@@ -161,11 +198,7 @@ class BrowserSession:
     async def resume(self, handle: SessionHandleV1) -> tuple[SessionHandleV1, bool]:
         endpoint = self._validate_endpoint(handle.endpoint)
         if self._connector is None:
-            page = await self._leased_page()
-            recovered = await self._marker(page) == handle.page_marker
-            if not recovered:
-                await page.evaluate("marker => { window.name = marker }", handle.page_marker)
-            self._pages[handle.page_marker] = page
+            _page, _lease, recovered = await self._bind_leased_page(handle.page_marker)
             return (
                 SessionHandleV1(
                     1,
@@ -187,12 +220,16 @@ class BrowserSession:
         )
 
     async def close_owned(self, handle: SessionHandleV1) -> None:
-        page = self._pages.pop(handle.page_marker, None)
-        if page is None or page.is_closed():
-            return
-        if await self._marker(page) != handle.page_marker:
-            raise RuntimeError("refusing to close a page not owned by this row")
-        await page.close()
+        page = self._pages.get(handle.page_marker)
+        lease = self._leases.get(handle.page_marker)
+        if page is not None and not page.is_closed():
+            if await self._marker(page) != handle.page_marker:
+                raise RuntimeError("refusing to close a page not owned by this row")
+            await page.close()
+        if lease is not None:
+            await self._release_lease(lease)
+        self._pages.pop(handle.page_marker, None)
+        self._leases.pop(handle.page_marker, None)
 
     def page(self, handle: SessionHandleV1) -> Any:
         page = self._pages.get(handle.page_marker)
