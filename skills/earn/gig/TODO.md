@@ -691,6 +691,15 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    model wording and evidence path. Human-gate identity now canonicalizes this named reusable ceremony
    independently of listing, wording, run and evidence path, including legacy pending rows. Future wakes
    reuse the first pending gate and the shared outbox event key, so the interview request is replay-zero.
+   The installed replay wake `mercor-20260907-181329-53298` ends naturally `pass` at
+   `2026-09-07T09:30:05Z`, inspects twelve official listings, and leaves the application ledger at 22:
+   all three newly submitted listing IDs remain provider-submitted and receive no second submit or
+   application Telegram effect. This proves application replay-zero. It does not close the atom because
+   that wake still ran the pre-fix auth classifier and gate identity, producing the unnecessary auth
+   preflight plus duplicate Bilingual Competency notification. Both fixes are merged on main. The final
+   gate is one installed-main natural wake that starts authenticated on the parked context, issues no
+   email login, sends no duplicate Bilingual Competency notification, preserves the three application
+   replay zeros, and exits cleanly. Only then check this atom and advance to `SHARED-REPLY-1`.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
