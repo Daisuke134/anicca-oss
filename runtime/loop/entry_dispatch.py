@@ -91,11 +91,6 @@ def command_for(loop_id: str, root: Path, home: Path) -> list[str]:
             python, str(root / "skills/earn/gig/scripts/storefront_direct.py"),
             "--effect", "--auto-cadence", "--full-interval-seconds", "60",
         ],
-        "writer-opportunity-response": [
-            python, str(writer / "opportunity_response.py"),
-            "--db", str(writer_state / "opportunities.sqlite3"),
-            "--receipt", str(writer_state / "opportunity-response-latest.json"),
-        ],
         "writer-report": [python, str(writer / "writer_report_worker.py"),
                           "--state-dir", str(writer_state)],
     }

@@ -14,6 +14,53 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_writer_opportunity_response_wrapper_restores_account_and_state_argv(self):
+        wrapper = ROOT / "skills/writer-agent/scripts/opportunity-response-owner"
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / ".env"
+            env_file.write_text("LIFE_MANAGER_GMAIL_ACCOUNT=owner@example.test\n")
+            state_root = "/private/life-manager-state/writer"
+            result = subprocess.run(
+                [str(wrapper)],
+                env={
+                    **os.environ,
+                    "LIFE_MANAGER_PYTHON": "/bin/echo",
+                    "WRITER_STATE_DIR": state_root,
+                    "GIG_ENV_FILE": str(env_file),
+                    "WRITER_GMAIL_ACCOUNT": "",
+                    "LIFE_MANAGER_GMAIL_ACCOUNT": "",
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(
+            result.stdout.strip(),
+            f"{ROOT}/skills/writer-agent/scripts/opportunity_response.py "
+            f"--db {state_root}/opportunities.sqlite3 "
+            f"--receipt {state_root}/opportunity-response-latest.json "
+            "--account owner@example.test",
+        )
+
+    def test_writer_opportunity_response_wrapper_fails_without_account(self):
+        wrapper = ROOT / "skills/writer-agent/scripts/opportunity-response-owner"
+        result = subprocess.run(
+            [str(wrapper)],
+            env={
+                **os.environ,
+                "GIG_ENV_FILE": "/nonexistent/life-manager.env",
+                "WRITER_GMAIL_ACCOUNT": "",
+                "LIFE_MANAGER_GMAIL_ACCOUNT": "",
+                "GOG_ACCOUNT": "",
+            },
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+
     def test_writer_opportunity_discovery_wrapper_preserves_external_state_argv(self):
         wrapper = ROOT / "skills/writer-agent/scripts/opportunity-discovery-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))

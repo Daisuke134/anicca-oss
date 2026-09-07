@@ -2813,16 +2813,18 @@
       "state_root": "~/.openclaw"
     },
     "writer-opportunity-response": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 900
       },
+      "command": [],
       "cleanup": {
         "max_age_days": 14,
         "max_runs": 100
       },
       "domain": "earn",
       "effect_class": "application",
-      "entrypoint": "runtime/loop/entry_dispatch.py",
+      "entrypoint": "skills/writer-agent/scripts/opportunity-response-owner",
       "label": "ai.anicca.writer-opportunity-response",
       "log_root": "~/.openclaw/logs",
       "provider_route": "shared-agent-runner",

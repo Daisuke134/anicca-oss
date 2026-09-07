@@ -249,6 +249,11 @@ class EntryDispatchTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no dispatch command'):
             command_for('writer-opportunity-discovery', Path('/release'), Path('/home'))
 
+    def test_writer_opportunity_response_no_longer_has_a_handwritten_dispatch(self):
+        with self.assertRaisesRegex(ValueError, 'no dispatch command'):
+            command_for('writer-opportunity-response', Path('/release'), Path('/home'))
+
+
 
 
     def test_life_manager_daily_driver_no_longer_has_a_handwritten_dispatch(self):
@@ -279,9 +284,7 @@ class EntryDispatchTest(unittest.TestCase):
 
     def test_writer_jobs_keep_mutable_state_outside_release(self):
         root=Path('/release'); home=Path('/home')
-        for loop_id in (
-            'writer-opportunity-response', 'writer-report',
-        ):
+        for loop_id in ('writer-report',):
             command=command_for(loop_id,root,home)
             joined=' '.join(command)
             self.assertIn('/home/.local/state/life-manager/writer',joined)
