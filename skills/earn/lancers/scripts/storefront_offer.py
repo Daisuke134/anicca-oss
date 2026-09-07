@@ -670,8 +670,8 @@ def select_catalog_family_to_create(catalog_path: Path, state_path: Path) -> dic
     Returns one of:
       {"action": "all_published", "skipped": []} -- nothing left to create.
       {"action": "all_pending_incomplete", "skipped": [...]} -- every remaining family named,
-        none creatable yet (today: every family, until a future task observes Lancers'
-        subcategory options -- see _CATALOG_OVERLAY_FIELDS).
+        none creatable yet because its lancers overlay is missing one of
+        _CATALOG_OVERLAY_FIELDS (subcategory/industry/tags/notice).
       {"action": "candidate_selected", "family": ..., "product": ..., "skipped": [...]} -- the
         one family to attempt, plus every incomplete family skipped before reaching it.
       {"action": "catalog_unavailable", "error": ...} -- the catalogue itself failed to load.

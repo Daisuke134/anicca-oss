@@ -488,8 +488,8 @@ def test_create_package_and_apply_are_mutually_exclusive():
 # browser-touching wrapper main() reaches for. These fixtures build a small three-family
 # catalogue rather than depending on the real twenty-family one, so "a family is creatable" and
 # "a family is not" can both be exercised directly -- the real catalogue's own grounding (every
-# family's category/industry/tags/notice, and that none carries a subcategory) is covered
-# separately in skills/_shared/marketplace-core/tests/test_listing_catalog.py.
+# family's category/subcategory/industry/tags/notice) is covered separately in
+# skills/_shared/marketplace-core/tests/test_listing_catalog.py.
 
 
 def _fixture_tier(name: str, price_jpy: int, delivery_days: int) -> dict:
@@ -691,19 +691,19 @@ def test_run_catalog_create_reports_all_pending_incomplete_and_creates_nothing(t
     assert module._read_catalog_listings(state_path) == {}
 
 
-def test_real_catalog_is_currently_all_pending_incomplete_because_subcategory_is_unobserved(tmp_path):
+def test_real_catalog_now_selects_a_real_candidate_family_to_create(tmp_path):
     """Grounds slice 2 against slice 1's actual state: every real family's platform_overrides
-    intentionally omits subcategory (see test_listing_catalog.py's
-    test_no_family_carries_a_subcategory_override), so today's real wake names all twenty
-    families under "skipped" and creates nothing -- it does not silently invent a value."""
+    now carries a grounded subcategory (see test_listing_catalog.py's
+    RealCatalogLancersOverrideGroundingTests), so today's real wake names a real family and a
+    create-shaped product that passes _require_create_fields -- it no longer skips everything."""
     module = _module()
     state_path = tmp_path / "application.json"
 
     selection = module.select_catalog_family_to_create(module.DEFAULT_CATALOG, state_path)
 
-    assert selection["action"] == "all_pending_incomplete"
-    assert len(selection["skipped"]) == 20
-    assert all(item["reason"] == "create_field_missing: subcategory" for item in selection["skipped"])
+    assert selection["action"] == "candidate_selected"
+    assert isinstance(selection["family"], str) and selection["family"]
+    module._require_create_fields(selection["product"])  # must not raise
 
 
 # 9. When every family is published, the wake reports that and creates nothing -----------------

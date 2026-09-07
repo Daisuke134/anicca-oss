@@ -83,6 +83,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "Webアプリ開発",
@@ -224,6 +225,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "業務システム開発",
@@ -368,6 +370,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "生成AI・LLMアプリ開発",
           "industry": "IT・通信・インターネット",
           "tags": [
             "AIエージェント開発",
@@ -518,6 +521,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "AI・チャットボット開発",
           "industry": "IT・通信・インターネット",
           "tags": [
             "LINE Bot開発",
@@ -683,7 +687,8 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
-          "category": "データ分析・作業自動化",
+          "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "Slack自動化",
@@ -836,6 +841,7 @@
         },
         "lancers": {
           "category": "データ分析・作業自動化",
+          "subcategory": "情報・データ処理",
           "industry": "IT・通信・インターネット",
           "tags": [
             "Webスクレイピング",
@@ -1006,6 +1012,7 @@
         },
         "lancers": {
           "category": "データ分析・作業自動化",
+          "subcategory": "Excelマクロ・VBA開発",
           "industry": "IT・通信・インターネット",
           "tags": [
             "Excel VBA",
@@ -1190,6 +1197,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "デバッグ・テスト検証・コードレビュー",
           "industry": "IT・通信・インターネット",
           "tags": [
             "システム改修",
@@ -1329,6 +1337,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "モバイルアプリ・スマホアプリ",
           "industry": "IT・通信・インターネット",
           "tags": [
             "スマホアプリ開発",
@@ -1463,6 +1472,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "AIシステム・アプリケーション開発",
           "industry": "IT・通信・インターネット",
           "tags": [
             "AI機能実装",
@@ -1602,6 +1612,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webサイト・ホームページ制作",
           "industry": "IT・通信・インターネット",
           "tags": [
             "採用サイト制作",
@@ -1741,6 +1752,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "ECサイト・ネットショップ通販",
           "industry": "IT・通信・インターネット",
           "tags": [
             "ECサイト構築",
@@ -1874,6 +1886,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "スプレッドシート脱却",
@@ -2006,6 +2019,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "プログラミング・システム開発(その他)",
           "industry": "IT・通信・インターネット",
           "tags": [
             "Chrome拡張機能開発",
@@ -2167,7 +2181,8 @@
           "category": "IT相談・システム開発"
         },
         "lancers": {
-          "category": "データ分析・作業自動化",
+          "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "RPA開発",
@@ -2346,6 +2361,7 @@
         },
         "lancers": {
           "category": "データ分析・作業自動化",
+          "subcategory": "データ可視化・ビジュアライゼーション",
           "industry": "IT・通信・インターネット",
           "tags": [
             "データ可視化",
@@ -2485,6 +2501,7 @@
         },
         "lancers": {
           "category": "ビジネス・コンサルティング",
+          "subcategory": "ビジネスコンサルティング",
           "industry": "IT・通信・インターネット",
           "tags": [
             "DX診断",
@@ -2589,6 +2606,7 @@
         },
         "lancers": {
           "category": "ビジネス・コンサルティング",
+          "subcategory": "ビジネスコンサルティング",
           "industry": "IT・通信・インターネット",
           "tags": [
             "要件定義相談",
@@ -2694,6 +2712,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "UI改善",
@@ -2827,6 +2846,7 @@
         },
         "lancers": {
           "category": "AI・プログラミング・システム開発",
+          "subcategory": "Webプログラミング・システム開発/運用",
           "industry": "IT・通信・インターネット",
           "tags": [
             "システム保守",

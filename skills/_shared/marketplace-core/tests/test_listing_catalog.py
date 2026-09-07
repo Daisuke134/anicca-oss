@@ -106,8 +106,16 @@ class RealCatalogLancersOverrideGroundingTests(unittest.TestCase):
     live 2026-09-07: nine main-category labels, the fifteen LANCERS_DELIVERY_DAYS values (see
     listing_catalog.LANCERS_DELIVERY_DAYS), and the first twelve of the industry select's fifty
     options. subcategory is a dependent select whose options only appear after the main
-    category is chosen and were never observed, so it must stay absent -- a family that starts
-    carrying one again is exactly what test_no_family_carries_a_subcategory_override guards.
+    category is chosen; its vocabulary was read live 2026-09-07 from Lancers' public
+    package-browse taxonomy (https://www.lancers.jp/menu/search), corroborated by the
+    currently-live hand-authored package (skills/earn/lancers/products/monthly-sns-content-ops-v1.json)
+    whose category="Web集客・マーケティング"/subcategory="SNSマーケティング・運用代行" pair matches
+    that taxonomy exactly. Only the three main categories the catalogue's families actually use
+    are encoded below (LANCERS_SUBCATEGORIES_BY_CATEGORY); a family filed under a fourth main
+    category the test cannot check must fail loudly (see
+    test_every_family_category_has_an_encoded_subcategory_list), not slip through unchecked. A
+    wrong transcription is still caught downstream: the create form fails closed if the label
+    does not match an actual <option> (see storefront_offer._fill_create_form).
     """
 
     LANCERS_MAIN_CATEGORIES = {
@@ -119,6 +127,28 @@ class RealCatalogLancersOverrideGroundingTests(unittest.TestCase):
         "選択してください", "IT・通信・インターネット", "マスコミ・メディア", "新聞・雑誌・出版",
         "広告・イベント・プロモーション", "芸能・エンターテイメント", "ゲーム・アニメ・玩具",
         "恋愛・出会い・占い", "婚活・ブライダル", "動物・ペット", "生花・園芸・造園", "美術・工芸・音楽",
+    }
+    LANCERS_SUBCATEGORIES_BY_CATEGORY = {
+        "AI・プログラミング・システム開発": {
+            "生成AI・LLMアプリ開発", "AI基盤構築・MLOps", "AIシステム・アプリケーション開発",
+            "AIコンサルティング・導入サポート", "AI・チャットボット開発", "ECサイト・ネットショップ通販",
+            "Webプログラミング・システム開発/運用", "WordPressサイト構築・移行・運用",
+            "モバイルアプリ・スマホアプリ", "Shopify構築・移行・運用", "CMS", "Webサイト・ホームページ制作",
+            "HTML/CSSコーディング代行", "デスクトップアプリ", "サーバー・インフラ構築・移行",
+            "デバッグ・テスト検証・コードレビュー", "ITサポート・コンサルティング", "セキュリティ・データ保護",
+            "動画配信システム構築・設定", "ゲーム制作・開発", "ファイル変換", "プログラミング・システム開発(その他)",
+        },
+        "データ分析・作業自動化": {
+            "データ分析・解析", "データサイエンス", "データ可視化・ビジュアライゼーション",
+            "情報・データ処理", "Excelマクロ・VBA開発", "データベース", "データ入力", "データ(その他)",
+        },
+        "ビジネス・コンサルティング": {
+            "生成AI活用・プロンプト作成", "ビジネスコンサルティング", "営業代行・テレアポ代行",
+            "広報・PR代行", "市場調査・マーケットリサーチ", "組織・人事(HR)コンサルティング",
+            "経理代行サービス・財務・税務", "プレゼン資料作成代行", "オンラインアシスタント(秘書)",
+            "プロジェクトマネジメントのコンサルティング", "カスタマーコミュニケーション(CCM)", "インタビュー調査",
+            "事業計画・ビジネスプランの作成", "ゲームアイデア・コンセプト企画", "ビジネス・コンサルティング(その他)",
+        },
     }
 
     def test_every_family_lancers_category_is_a_real_form_option(self):
@@ -159,21 +189,45 @@ class RealCatalogLancersOverrideGroundingTests(unittest.TestCase):
             self.assertIsInstance(notice, str, row["family"])
             self.assertTrue(notice.strip(), row["family"])
 
-    def test_no_family_carries_a_subcategory_override(self):
-        """subcategory's option list has never been observed on the live form. A future edit
-        that starts guessing one must fail here, not silently ship an invented label."""
+    def test_every_family_has_a_nonempty_subcategory(self):
         catalog = load(REAL_CATALOG)
         for row in catalog["listings"]:
-            self.assertNotIn(
-                "subcategory", row["platform_overrides"]["lancers"],
-                f"{row['family']} must not carry an invented lancers.subcategory",
+            subcategory = row["platform_overrides"]["lancers"].get("subcategory")
+            self.assertIsInstance(subcategory, str, row["family"])
+            self.assertTrue(subcategory.strip(), row["family"])
+
+    def test_every_family_category_has_an_encoded_subcategory_list(self):
+        """A family filed under a main category this test cannot check (e.g.
+        デザイン・Webデザイン without its vocabulary being added) must fail loudly rather than
+        have its subcategory go unverified."""
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            category = row["platform_overrides"]["lancers"]["category"]
+            self.assertIn(
+                category, self.LANCERS_SUBCATEGORIES_BY_CATEGORY,
+                f"{row['family']}: {category!r} has no encoded subcategory list to check against",
+            )
+
+    def test_every_family_subcategory_belongs_to_its_own_category(self):
+        """A subcategory borrowed from the wrong parent group (e.g. a データ分析・作業自動化
+        family carrying a AI・プログラミング・システム開発 subcategory) must fail here."""
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            lancers = row["platform_overrides"]["lancers"]
+            category = lancers["category"]
+            subcategory = lancers["subcategory"]
+            allowed = self.LANCERS_SUBCATEGORIES_BY_CATEGORY.get(category, set())
+            self.assertIn(
+                subcategory, allowed,
+                f"{row['family']}: {subcategory!r} is not one of {category!r}'s real subcategory options",
             )
 
     def test_lancers_override_carries_no_other_unexpected_keys(self):
         catalog = load(REAL_CATALOG)
         for row in catalog["listings"]:
             self.assertEqual(
-                set(row["platform_overrides"]["lancers"]), {"category", "industry", "tags", "notice"},
+                set(row["platform_overrides"]["lancers"]),
+                {"category", "subcategory", "industry", "tags", "notice"},
                 row["family"],
             )
 
