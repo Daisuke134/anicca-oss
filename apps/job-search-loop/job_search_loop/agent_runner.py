@@ -78,6 +78,11 @@ class AgentRunner:
             "--task-class",
             task_class,
         ]
+        if task == "mercor_pass":
+            argv.extend([
+                "--escalation-reason",
+                "bounded multi-page Mercor application completion with official browser readback",
+            ])
         prompt_input = None
         if task_class in {"composition-agent", "diagnostic-agent"}:
             argv.append("--prompt-stdin")

@@ -430,6 +430,11 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `websockets`, while the host's canonical `/usr/bin/python3` lease runtime imports version `15.0.1`.
    The owner now uses that established runtime only for lease acquire/release and keeps the managed
    Python for Mercor business code; production re-verification remains open.
+   The next installed run acquired and later released the exact shared-browser lease, seeded 1,333
+   cookies and created no application effect, then failed at the next boundary because
+   `browser-lane-agent` now requires an explicit escalation reason while the legacy Mercor caller and
+   test deliberately omitted one. The caller now supplies a bounded Mercor application/readback reason,
+   matching the current runner contract and the working Job Search browser-lane pattern.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
