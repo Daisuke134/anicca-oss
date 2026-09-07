@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # seller-boot-v2.sh — per-instance x402 seller entrypoint for a loop-owned KeepAlive supervisor
 # (launchd plist written by ../run.sh strategy=x402 action=ensure), v2 protocol variant.
-# Same dependency-resolution recipe as seller-boot.sh (runtime/self-update-skills.sh rsyncs
-# repo/skills -> ANICCA_HOME/skills with --exclude='node_modules', so ANICCA_HOME's copy has the
-# source but not the dependency tree — exec the copy that HAS @coinbase/x402 installed), but execs
+# Same immutable-release dependency contract as seller-boot.sh, but execs
 # serve-v2.mjs (@x402/express@2.17.0) instead of the v1 serve.mjs: SELF-STORE-1 (2026-07-18) points
 # every loop-owned seller at the same v2 protocol the hand-made per-instance boot scripts already
 # use (serve-franklin1-boot.sh / serve-franklin2-boot.sh / serve-claude-p-boot.sh).

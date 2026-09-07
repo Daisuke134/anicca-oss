@@ -8,12 +8,10 @@
 // runtime/loop/__tests__/integration.test.mjs's own header) — every test here spawns it as a REAL
 // child process (mirrors integration.test.mjs's spawnLoop/waitForLines pattern) against:
 //   - a mock HTTP brain server (scripted think() response sequences, request bodies captured)
-//   - a tmp ANICCA_HOME with mock skill scripts (never a real skills/*/run.sh)
+//   - a temporary skills root with mock skill scripts (never a real skills/*/run.sh)
 //   - the REAL, unmodified skills/registry.json (11 documented always-act slots, real risk tags —
 //     verified in specs/verification-architecture.md's iteration-5 ground-truth spot-check) — NOT a
-//     fixture registry, since registry.json's path is resolved relative to index.mjs's own location
-//     and is not currently env-overridable (run-skill.mjs::resolveSkillPath IS ANICCA_HOME-relative
-//     for skill EXECUTION, which is what lets tmp-home mock skills work here regardless).
+//     fixture registry. LIFE_MANAGER_SKILLS_ROOT points skill execution at the temporary fixture tree.
 //   - a tmp .blockrun/.solana-session identity fixture (REQ-501's own sol-trade/run.sh idiom,
 //     mirrored via runtime/loop/__tests__/wallet-address-solana.test.mjs's exact pattern) — always a
 //     FRESH, randomly generated, UNFUNDED keypair, never Franklin's real production secret.

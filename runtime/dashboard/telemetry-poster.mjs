@@ -31,7 +31,9 @@ const FUNDING = process.env.ANICCA_FUNDING || "human";
 const ENV = process.env.ANICCA_ENV || "local";
 const BRAIN = process.env.ANICCA_BRAIN || "claude-p";
 const LEDGER = (process.env.ANICCA_HOME || HOME + "/.anicca") + "/state/ledger.jsonl";
-const EARN_LEDGER = (process.env.ANICCA_HOME || HOME + "/.anicca") + "/skills/earn/state/earn-ledger.jsonl";
+const SKILLS_STATE_ROOT = process.env.LIFE_MANAGER_SKILLS_STATE_ROOT
+  || (process.env.ANICCA_HOME || HOME + "/.anicca") + "/state/skills";
+const EARN_LEDGER = process.env.EARN_LEDGER || SKILLS_STATE_ROOT + "/earn/earn-ledger.jsonl";
 
 // REAL realised earnings (no hardcoded 0): read the earn ledger and sum earn_usdc / cost_usdc, both in
 // total and per-source, so the live page can show WHICH tool earned HOW MUCH. revenue/burn were
@@ -63,7 +65,7 @@ const U = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", A = "0x4e65fE4DbA9279069
       WETH = "0x4200000000000000000000000000000000000006"; // blue-chip ETH investment leg
 // Snapshot store for daily/monthly revenue (P&L change over a period). Date.now/new Date are fine here
 // (this is a long-running daemon, not a replayable Workflow script).
-const PNL_SNAP = (process.env.ANICCA_HOME || HOME + "/.anicca") + "/skills/earn/state/pnl-snapshots.json";
+const PNL_SNAP = process.env.EARN_PNL_SNAPSHOT || SKILLS_STATE_ROOT + "/earn/pnl-snapshots.json";
 const bal = (t, w) => pub.readContract({ address: t, abi: ABI, functionName: "balanceOf", args: [w] }).then(Number);
 async function ethPrice() {
   try { const r = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot"); return Number((await r.json()).data.amount) || 0; } catch { return 0; }

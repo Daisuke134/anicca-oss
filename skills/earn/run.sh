@@ -38,7 +38,9 @@ for piivar in $(env | cut -d= -f1 | grep -iE 'GOOGLE_LOGIN|COMPOSIO|GCAL|GOOGLE_
   unset "$piivar" 2>/dev/null || true
 done
 PKVAR="${PKVAR:-BLOCKRUN_WALLET_KEY}"
-LEDGER="${EARN_LEDGER:-$HERE/state/earn-ledger.jsonl}"
+EARN_STATE_ROOT="${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}"
+LEDGER="${EARN_LEDGER:-$EARN_STATE_ROOT/earn-ledger.jsonl}"
+mkdir -p "$EARN_STATE_ROOT"
 WAKE="${WAKE_ID:-$(date -u +%s)}"
 MODE="${EARN_MODE:-discover}"
 
@@ -399,7 +401,7 @@ SELLERPLIST
   # FIND BUYERS pt.1: no explicit X402_PUBLIC_URL yet (e.g. no tsnet/funnel for this instance) —
   # fall back to a cloudflared tunnel so the store is still discoverable. URL persists in a state
   # file; we only re-tunnel when it's missing.
-  STATEDIR="$HOME/.anicca/skills/earn/state"; mkdir -p "$STATEDIR"; URLFILE="$STATEDIR/x402-public-url.txt"
+  STATEDIR="$EARN_STATE_ROOT"; mkdir -p "$STATEDIR"; URLFILE="$STATEDIR/x402-public-url.txt"
   if [ "$UP" = "up" ] && [ -z "${X402_PUBLIC_URL:-}" ] && command -v cloudflared >/dev/null 2>&1; then
     if ! pgrep -f "cloudflared.*localhost:$XPORT" >/dev/null 2>&1; then
       nohup cloudflared tunnel --no-autoupdate --url "http://localhost:$XPORT" >"$STATEDIR/x402-tunnel.log" 2>&1 &

@@ -302,7 +302,7 @@ export function projectWakeLine(rawLine) {
 }
 
 // FIND-001: the earn-ledger's own real schema (skills/_shared/lib/ledger.mjs::deriveLine,
-// verified live against $ANICCA_HOME/skills/earn/state/earn-ledger.jsonl): ts, wallet, source, task,
+// verified live against $ANICCA_HOME/state/earn/earn-ledger.jsonl): ts, wallet, source, task,
 // earn_usdc, cost_usdc, net_usdc, wake, plus tx/status (EVM) or sig/confirmed/chain (Solana) or
 // fill_tid/confirmed/chain (Hyperliquid) on real on-chain lines. This allowlist publishes the
 // money-evidence fields structurally (public wallet address, public tx/sig/fill_tid on-chain/
@@ -679,7 +679,7 @@ export async function publishLedgerCycle(opts) {
   if (!enabled) return { published: false, pushed: false, reason: 'disabled', publishFailureStreak: 0 };
 
   const resolvedEarnLedgerPath =
-    earnLedgerPath || path.join(path.dirname(path.dirname(markerPath)), 'skills', 'earn', 'state', 'earn-ledger.jsonl');
+    earnLedgerPath || path.join(path.dirname(markerPath), 'skills', 'earn', 'earn-ledger.jsonl');
 
   try {
     const marker = await readMarker(markerPath);

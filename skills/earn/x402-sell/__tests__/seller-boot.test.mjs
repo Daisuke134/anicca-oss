@@ -1,16 +1,10 @@
 // node:test — seller-boot.sh dependency resolution.
 //
-// WHY this exists (2026-07-16, measured): every loop-spawned seller was dead. run.sh writes a launchd
-// plist pointing at $HERE/x402-sell/seller-boot.sh, where $HERE resolves under ANICCA_HOME — but
-// runtime/self-update-skills.sh rsyncs repo/skills → ANICCA_HOME/skills with `--exclude='node_modules'`
-// (correctly: node_modules is 635M, and copying it into every instance home would fill the disk). So
-// ANICCA_HOME/skills/earn/x402-sell has serve.mjs but no dependencies, and node died instantly:
+// WHY this exists: a seller must start from the immutable repository directory that owns its locked
+// dependencies. A copied source-only tree previously died instantly:
 //   Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@coinbase/x402' imported from
-//   <instance-home>/skills/earn/x402-sell/serve.mjs
-// Measured fallout: ai.anicca.x402-seller-8412/8413/8414 all at `last exit code = 1`, runs=213/168/213.
-// No agent has ever booted its own seller; the only live sellers were hand-written boot scripts that
-// exec the repo copy. serve.mjs is byte-identical in both places (diff -q), so the ONLY thing missing
-// under ANICCA_HOME is the dependency tree — hence: exec the copy that has the dependencies.
+//   <source-only-copy>/skills/earn/x402-sell/serve.mjs
+// The canonical repo/release copy has both source and dependencies.
 //
 // The boot script is copied into each fixture rather than run in place, because its resolution starts
 // from $0 — running the real path would resolve against the real repo and assert nothing.

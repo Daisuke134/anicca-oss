@@ -15,8 +15,9 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WAKE="${WAKE_ID:-$(date -u +%s)}"
 REPO="${ANICCA_FORUM_REPO:-Daisuke134/anicca}"
-EARNLED="${EARN_LEDGER:-$HERE/../../earn/state/earn-ledger.jsonl}"
-STATELED="$HOME/.anicca/state/ledger.jsonl"
+SKILLS_STATE_ROOT="${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}"
+EARNLED="${EARN_LEDGER:-$SKILLS_STATE_ROOT/earn/earn-ledger.jsonl}"
+STATELED="${ANICCA_STATE_DIR:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state}/ledger.jsonl"
 # sanitize: the inline ANICCA_ARGS default with a literal {} mis-parses (stray `}` → invalid JSON drops
 # the model's note). Verbatim when set, {} when not. (same bash brace bug fixed in cook/earn 2026-06-22)
 ARGS="${ANICCA_ARGS:-}"; [ -z "$ARGS" ] && ARGS='{}'

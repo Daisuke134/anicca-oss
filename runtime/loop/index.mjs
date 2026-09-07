@@ -32,8 +32,8 @@ import { assembleContext } from './context.mjs';
 import { selfEval } from './self-eval.mjs';
 import { think } from './brain.mjs';
 import { parseToolCall } from './parse-tool-call.mjs';
-import { runSkill } from './run-skill.mjs';
-import { isEarnSlot, earnStrategyFor, earnSkillRelPath } from './earn-slot.mjs';
+import { resolveSkillPath } from './run-skill.mjs';
+import { isEarnSlot, earnStrategyFor } from './earn-slot.mjs';
 import { isLooping } from './loop-detect.mjs';
 import { formatRecord } from './ledger-record.mjs';
 import { appendLedgerLine, readLedgerLines } from './ledger.mjs';
@@ -62,6 +62,8 @@ import { publishLedgerCycle } from './ledger-publish.mjs';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOOP_REPO_ROOT = path.resolve(__dirname, '..', '..');
+const SKILLS_ROOT = process.env.LIFE_MANAGER_SKILLS_ROOT || path.join(LOOP_REPO_ROOT, 'skills');
 
 // Inline ULID generator (no npm dependency — uses crypto.randomUUID as entropy source)
 function ulid() {
@@ -96,7 +98,6 @@ const LEDGER_PUBLISH_MARKER_PATH = path.join(ANICCA_HOME, 'state', '.ledger-publ
 // repo root. ledger-publish.mjs reads ONLY `git remote get-url origin` from it (never writes to
 // it, never checks out/commits/pushes against it — FIND-001/002's fix) to resolve where its own
 // DEDICATED clone should point.
-const LOOP_REPO_ROOT = path.resolve(__dirname, '..', '..');
 
 // Read genesis prompt (missing = warn + empty string)
 let genesisPrompt = '';
@@ -111,21 +112,11 @@ try {
 // repo_root = dirname(dirname(dirname(this file))) since this file is at runtime/loop/index.mjs
 let isProfitable;
 {
-  // S2 FIX (2026-06-22): the earn skill (+ its node_modules) lives in ANICCA_HOME (synced by the daemon),
-  // NOT in the code repo — the old repoRoot path resolved to __REPO_ROOT__/skills/earn/lib/ledger.mjs which
-  // does not exist there → ERR_MODULE_NOT_FOUND → isProfitable=()=>false on EVERY boot, so no wake could
-  // ever be classified profitable. Resolve from ANICCA_HOME first (where the file + viem actually are),
-  // fall back to the code repo for dev.
-  const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
-  // FIND-IMPL-006 FIX: the real export lives in skills/_shared/lib/ledger.mjs (record.mjs imports it from
-  // ../../_shared/lib/ledger.mjs); the old skills/earn/lib/ledger.mjs path does NOT exist → isProfitable
-  // silently fell back to ()=>false on every boot, so NO wake was ever classified profitable. Try the
-  // real _shared path first (ANICCA_HOME then repo), keep the legacy paths as last-resort fallbacks.
+  // The canonical export lives in the immutable repository-owned skill tree. ANICCA_HOME contains
+  // mutable instance data only and is never searched for executable code.
   const candidates = [
-    path.join(ANICCA_HOME, 'skills', '_shared', 'lib', 'ledger.mjs'),
-    path.join(repoRoot, 'skills', '_shared', 'lib', 'ledger.mjs'),
-    path.join(ANICCA_HOME, 'skills', 'earn', 'lib', 'ledger.mjs'),
-    path.join(repoRoot, 'skills', 'earn', 'lib', 'ledger.mjs'),
+    path.join(SKILLS_ROOT, '_shared', 'lib', 'ledger.mjs'),
+    path.join(SKILLS_ROOT, 'earn', 'lib', 'ledger.mjs'),
   ];
   for (const p of candidates) {
     try { const m = await import(p); if (typeof m.isProfitable === 'function') { isProfitable = m.isProfitable; break; } } catch { /* try next */ }
@@ -153,12 +144,11 @@ let alwaysAvailableBySlot = {};
 // activeSkillSlots/riskTagBySlot maps above), needed as-is by assembleAlwaysActMenu each wake.
 let registryForAlwaysAct = null;
 {
-  const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
   // Test-only env var (same idiom as ANICCA_BALANCE_OVERRIDE/CLAUDE_BIN elsewhere in this codebase):
   // lets REQ-502's empty-menu edge case be driven through a REAL spawned wake against a REAL (if
   // fixture) registry.json, rather than only through the pure assembleAlwaysActMenu unit test.
   // Absent in production; defaults to the real repo-relative path.
-  const registryPath = process.env.ALWAYS_ACT_REGISTRY_PATH_OVERRIDE || path.join(repoRoot, 'skills', 'registry.json');
+  const registryPath = process.env.ALWAYS_ACT_REGISTRY_PATH_OVERRIDE || path.join(SKILLS_ROOT, 'registry.json');
   try {
     let registry = JSON.parse(await fs.readFile(registryPath, 'utf8'));
     // ANICCA_SLOT_ALLOWLIST (x402-zero-to-one 2026-07-14): restrict the menu to an explicit slot
@@ -208,7 +198,7 @@ function alwaysAvailableOf(slotName) {
  * the wake loop or silently hiding `hl_trade` from an instance that might need it to close a position.
  */
 async function queryHlTradeOpenPositions() {
-  const hlDir = path.join(ANICCA_HOME, 'skills', 'earn', 'hl-trade');
+  const hlDir = path.join(SKILLS_ROOT, 'earn', 'hl-trade');
   const hlScript = path.join(hlDir, 'hl.py');
   const venvPython = path.join(hlDir, '.venv', 'bin', 'python');
   let pythonBin = 'python3';
@@ -367,21 +357,6 @@ process.on('SIGTERM', async () => {
 
 // ── Wake loop ─────────────────────────────────────────────────────────────────
 
-// Periodic skills sync (child-proof-audit 2026-07-14): the daemon's boot-time repo→body rsync never
-// re-runs inside this long-lived process, so parent skill fixes reached a healthy child only on
-// crash (observed live: a guard fix + a skill shim stayed unapplied for hours). A 10-minute unref'd
-// interval OUTSIDE the wake path caps fix-propagation at ~10min with zero wake latency — two
-// in-wake placements (awaited and fire-and-forget) both measurably flaked the timing-sensitive
-// integration tests, so the sync must never touch runOneWake. unref(): never holds the process open.
-setInterval(() => {
-  try {
-    const repoRoot = process.env.ANICCA_REPO ||
-      path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
-    execFile('/bin/bash', [path.join(repoRoot, 'runtime', 'self-update-skills.sh')],
-      { timeout: 60_000 }, () => { /* best-effort */ });
-  } catch { /* missing script — keep current skills */ }
-}, 10 * 60 * 1000).unref();
-
 process.stderr.write(`[loop] Starting Anicca loop. ANICCA_HOME=${ANICCA_HOME}\n`);
 
 while (!shuttingDown) {
@@ -492,7 +467,7 @@ async function runOneWake() {
   // stop it itself (H3) — no hardcoded "avoid hl_trade" rule; we give it the money signal, it judges.
   let earnSteer = '';
   try {
-    const earnLedgerPath = path.join(ANICCA_HOME, 'skills', 'earn', 'state', 'earn-ledger.jsonl');
+    const earnLedgerPath = config.EARN_LEDGER || path.join(ANICCA_HOME, 'state', 'skills', 'earn', 'earn-ledger.jsonl');
     const raw = await fs.readFile(earnLedgerPath, 'utf8');
     const earnLines = raw.trim().split('\n').filter(Boolean)
       .map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
@@ -1060,19 +1035,8 @@ async function runSkillWithKillRef(slot, args, wakeId, config, killRef) {
   const { access } = await import('node:fs/promises');
   const { scrubPrivateKeys: scrub, scrubUserPIIEnv: scrubPII, redactPrivateKeyPatterns: redact } = await import('./env-filter.mjs');
 
-  // Resolve skill path
-  let skillPath;
-  // PATCH 6: the earn action slots (yield/hl_trade/x402_sell/token_launch) all run the one earn skill;
-  // the slot names the strategy (mapped in buildSkillEnv). `earn` stays as the back-compat fat tool.
-  // Single source of the slot→path rule (earn-slot.earnSkillRelPath): legacy action slots → the fat
-  // skills/earn/run.sh; earn/<sub> + non-earn → skills/<slot>/run.sh. ANICCA_EARN_SKILL still overrides
-  // the fat earn skill (tests). rel.split('/') keeps it cross-platform via path.join.
-  const rel = earnSkillRelPath(slot);
-  if (rel === 'earn/run.sh' && config.ANICCA_EARN_SKILL) {
-    skillPath = config.ANICCA_EARN_SKILL;
-  } else {
-    skillPath = path.join(ANICCA_HOME, 'skills', ...rel.split('/'));
-  }
+  // One registry-aware resolver owns aliases and non-run.sh entrypoints alike.
+  const skillPath = resolveSkillPath(slot, { ...config, LIFE_MANAGER_SKILLS_ROOT: SKILLS_ROOT });
 
   try { await access(skillPath); }
   catch { return { output: `${slot} skill not found`, exitCode: null, timedOut: false, notFound: true }; }
@@ -1124,6 +1088,9 @@ async function runSkillWithKillRef(slot, args, wakeId, config, killRef) {
 
 function buildSkillEnv(slot, wakeId, config, scrub, scrubPII, args) {
   const base = scrubPII(scrub(process.env));
+  const skillsStateRoot = config.LIFE_MANAGER_SKILLS_STATE_ROOT || path.join(ANICCA_HOME, 'state', 'skills');
+  const earnStateRoot = config.EARN_STATE_ROOT || path.join(skillsStateRoot, 'earn');
+  const earnLedger = config.EARN_LEDGER || path.join(earnStateRoot, 'earn-ledger.jsonl');
   // O4: pass the model's decision to EVERY skill as $ANICCA_ARGS (JSON). HARD RULE #0 = the skill is
   // the tool, the MODEL decides the strategy/params; the skill reads its decision here. Optional —
   // skills keep a safe default when args is absent.
@@ -1142,10 +1109,12 @@ function buildSkillEnv(slot, wakeId, config, scrub, scrubPII, args) {
       EARN_MODE:     process.env.EARN_MODE     || 'execute',
       EARN_STRATEGY: process.env.EARN_STRATEGY || earnStrategyFor(slot) || (typeof a.strategy === 'string' && a.strategy.trim() ? a.strategy.trim() : 'yield'),
       WAKE_ID:       wakeId,
-      ...(config.EARN_LEDGER ? { EARN_LEDGER: config.EARN_LEDGER } : {}),
+      LIFE_MANAGER_SKILLS_STATE_ROOT: skillsStateRoot,
+      EARN_STATE_ROOT: earnStateRoot,
+      EARN_LEDGER: earnLedger,
     };
   }
-  return { ...base, ANICCA_ARGS, WAKE_ID: wakeId };
+  return { ...base, ANICCA_ARGS, WAKE_ID: wakeId, LIFE_MANAGER_SKILLS_STATE_ROOT: skillsStateRoot, EARN_STATE_ROOT: earnStateRoot, EARN_LEDGER: earnLedger };
 }
 
 /**

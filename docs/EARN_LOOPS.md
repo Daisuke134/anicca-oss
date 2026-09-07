@@ -54,7 +54,7 @@ plistが無く**、`~/Library/LaunchAgents/`に手動インストールされた
 ## 2. TIER 2: ClawRouter (self-funded) — 単一 genesis daemon
 
 `~/Library/LaunchAgents/com.anicca.daemon.plist`(`KeepAlive=true`)が`~/anicca/anicca-daemon.sh`を
-起動 → ①母リポジトリをgit fetch/ff-only self-update ②skillsを`$ANICCA_HOME`(`~/.anicca`)へrsync
+起動 → ①Life Manager releaseを検証 ②repo内skillsを直接参照
 ③ClawRouter(x402課金router、無料モデル時$0)を:8402で起動 ④`node runtime/loop/index.mjs`をforeground
 でexec(無限loop)。
 
@@ -63,7 +63,7 @@ plistが無く**、`~/Library/LaunchAgents/`に手動インストールされた
 USDC残高取得 → tier決定(brain modelの格)
   → 直近ledger 20行 + genesis.md人格プロンプトでコンテキスト組立
   → LLM(既定 free/glm-4.7、$0)に run_skill({slot,args}) ツールを提示
-  → slot選択をパース → $ANICCA_HOME/skills/<slot>/run.sh を子プロセス実行
+  → slot選択をパース → $LIFE_MANAGER_REPO/skills/<slot>/run.sh を子プロセス実行
   → 結果をon-chain実績から profitable 判定 → ~/.anicca/state/ledger.jsonl に1行追記
   → sleep(既定120秒) → 繰り返し(loop-detect.mjsが同一slot連発を防ぐ)
 ```

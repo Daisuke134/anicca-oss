@@ -6,7 +6,7 @@
 # registration → one real live pass (NO dry-run, HARD 0.24) → structured trace (H1).
 set -u
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
-STATE_DIR="$SKILL_DIR/../state"; mkdir -p "$STATE_DIR"
+STATE_DIR="${POLYMARKET_STATE_ROOT:-${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}}"; mkdir -p "$STATE_DIR"
 TRACE="$STATE_DIR/pm-trade.trace.jsonl"
 AGENT_HOME="${PM_TRADE_AGENT_HOME:-$HOME/.anicca-founder/agents/polymarket-agent}"
 export PM_TRADE_AGENT_HOME="$AGENT_HOME"

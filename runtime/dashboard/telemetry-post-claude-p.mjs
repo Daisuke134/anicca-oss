@@ -30,7 +30,8 @@ const acct = privateKeyToAccount(pk.startsWith("0x") ? pk : "0x" + pk);
 // realized rows (redeems/trades) to the mother earn ledger, keyed by claude-p's funded wallet — read
 // them here so the dashboard shows WHAT it did and WHICH source earned HOW MUCH (no fakes: realized
 // net_usdc only, never unrealized). Path is relative to this script so it works from any launchd cwd.
-const EARN_LEDGER = new URL("../../skills/earn/state/earn-ledger.jsonl", import.meta.url).pathname;
+const EARN_LEDGER = process.env.EARN_LEDGER
+  || `${process.env.LIFE_MANAGER_SKILLS_STATE_ROOT || `${process.env.HOME}/.local/state/life-manager/state/skills`}/earn/earn-ledger.jsonl`;
 function activityAndRevenue() {
   let lines = [];
   try { lines = fs.readFileSync(EARN_LEDGER, "utf8").trim().split("\n"); } catch { return { log: [], revenue_by_source: {}, monthly: 0 }; }

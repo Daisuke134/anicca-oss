@@ -338,8 +338,8 @@ export async function listRunningIndexLoopProcesses() {
 /**
  * The actual, runnable "config-drift detector" every EARS statement in behavioral-spec.md refers to:
  * discovers every live `runtime/loop/index.mjs` instance (REQ-010), compares each one's declared vs
- * observed `ANICCA_BRAIN` (REQ-001) and its runtime registry copy against the canonical registry
- * (REQ-002), and reports everything fail-closed (REQ-004) — facts only, no severity judgment (REQ-007).
+ * observed `ANICCA_BRAIN` (REQ-001) and verifies the one canonical repository registry remains
+ * observable (REQ-002/004) — facts only, no severity judgment (REQ-007).
  *
  * Every I/O boundary is injectable via `deps` (defaulting to the real adapters above) specifically so
  * this function's own test can drive it end-to-end with fixture data and NEVER invoke a real `ps`/
@@ -372,8 +372,6 @@ export async function runConfigDriftDetector(deps = {}) {
   const targets = parseIndexLoopProcesses(psOutputLines);
 
   const brainDrift = [];
-  const registryCopies = [];
-  const seenHomes = new Set();
 
   for (const target of targets) {
     const instance = target.xpcServiceName || `pid:${target.pid}`;
@@ -404,26 +402,15 @@ export async function runConfigDriftDetector(deps = {}) {
     const observedEnv = rawLine ? parseAllowedEnvFromCommandLine(rawLine, [brainKey]) : null;
     brainDrift.push(...detectBrainDrift(instance, declaredEnvOrNull, observedEnv, brainKey, codeDefaultBrain));
 
-    // FIND-002 fix (iteration-2): a target whose ANICCA_HOME could not be observed at all (REQ-010 edge
-    // case) must still surface as an explicit FAIL, never be silently excluded from registryDrift --
-    // previously this branch had no `else`, so such a target contributed NOTHING (not even an
-    // unobservable entry), which is exactly the "observed nothing -> looks like PASS" hole REQ-004
-    // forbids.
-    if (target.aniccaHome) {
-      if (!seenHomes.has(target.aniccaHome)) {
-        seenHomes.add(target.aniccaHome);
-        const copyPath = path.join(target.aniccaHome, 'skills', 'registry.json');
-        registryCopies.push({ copyPath, registryOrNull: await readRegistry(copyPath) });
-      }
-    } else {
-      registryCopies.push({ copyPath: `pid:${target.pid}:ANICCA_HOME_UNOBSERVABLE`, registryOrNull: null });
-    }
   }
 
   const canonicalRegistry = await readRegistry(canonicalRegistryPath);
-  // detectRegistryStatusDrift's own FIND-005 fix now fails closed on an unreadable canonicalRegistry
-  // itself, so no external duplicate guard is needed here.
-  const registryDrift = detectRegistryStatusDrift(canonicalRegistry, registryCopies);
+  // There are intentionally no per-instance registry copies. Comparing the canonical observation
+  // with itself keeps the existing fail-closed report shape while an observable registry is clean.
+  const registryDrift = detectRegistryStatusDrift(canonicalRegistry, [{
+    copyPath: canonicalRegistryPath,
+    registryOrNull: canonicalRegistry,
+  }]);
 
   const hasDrift = brainDrift.length > 0 || registryDrift.length > 0;
   // REQ-010 edge case: zero discovered targets is its OWN explicit status, never silently folded into

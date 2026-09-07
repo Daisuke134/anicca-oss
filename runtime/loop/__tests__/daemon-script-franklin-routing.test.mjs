@@ -113,13 +113,13 @@ test('REQ-004(b)/REQ-005/PROP-016 (static): step-2 franklin branch never spawns 
   assert.ok(/curl/.test(franklinBranch), 'the franklin branch must still be AT MOST a curl readiness probe (REQ-004(b)), not deleted entirely');
 });
 
-test('regression/REQ-005: the non-franklin ensure_brain branch (its own, separately-designed $HOME/.local/state/life-manager/.env use) is untouched and structurally distinct from the franklin branch', () => {
+test('regression/REQ-005: the non-franklin ensure_brain branch remains structurally distinct from the franklin branch', () => {
   const step2 = extractBetween(source, '# 2. brain:', '# 3. telemetry poster');
   // The two branches must remain textually distinct: exactly one `if is_franklin_instance "$INSTANCE"`
   // conditional inside step 2, with its own `else` — never collapsed into one ensure_brain (REQ-005).
   // (franklin2-daemon-identity: condition text rewired from a literal comparison to the shared predicate.)
   const franklinConditionals = (step2.match(/if is_franklin_instance "\$INSTANCE"; then/g) || []).length;
   assert.equal(franklinConditionals, 1, 'step 2 must have exactly one franklin/else conditional (branches not collapsed, REQ-005)');
-  assert.ok(/\$HOME\/\.openclaw\/\.env/.test(step2), 'the non-franklin branch\'s own $HOME/.local/state/life-manager/.env use must remain (unchanged, out of scope)');
+  assert.ok(/\$HOME\/\.local\/state\/life-manager\/\.env/.test(step2), 'the non-franklin branch must use the Life Manager state root, not an OpenClaw checkout');
   assert.ok(/BLOCKRUN_WALLET_KEY/.test(step2), 'the non-franklin branch\'s own BLOCKRUN_WALLET_KEY use must remain (unchanged, out of scope)');
 });

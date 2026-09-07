@@ -141,6 +141,18 @@ export function loadConfig(processEnv, dotenvText) {
     ?? dotenvValues.EARN_LEDGER
     ?? undefined;
 
+  config.LIFE_MANAGER_SKILLS_ROOT = processEnv.LIFE_MANAGER_SKILLS_ROOT
+    ?? dotenvValues.LIFE_MANAGER_SKILLS_ROOT
+    ?? undefined;
+
+  config.EARN_STATE_ROOT = processEnv.EARN_STATE_ROOT
+    ?? dotenvValues.EARN_STATE_ROOT
+    ?? undefined;
+
+  config.LIFE_MANAGER_SKILLS_STATE_ROOT = processEnv.LIFE_MANAGER_SKILLS_STATE_ROOT
+    ?? dotenvValues.LIFE_MANAGER_SKILLS_STATE_ROOT
+    ?? undefined;
+
   config.CLAUDE_BIN = processEnv.CLAUDE_BIN
     ?? dotenvValues.CLAUDE_BIN
     ?? undefined;

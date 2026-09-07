@@ -21,7 +21,8 @@ REPO_ROOT="$(cd "$SKILL/../.." && pwd)"
 # State must outlive the code it was written by. Once this skill runs from a read-only release
 # directory keyed to a commit, a state dir inside the release would be discarded on every deploy --
 # taking the posted ledger, and with it the duplicate protection, along with it.
-STATE="${X_REPOST_STATE_DIR:-$SKILL/state}"
+SKILLS_STATE_ROOT="${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}"
+STATE="${X_REPOST_STATE_DIR:-$SKILLS_STATE_ROOT/x-repost}"
 POSTED="$STATE/posted.jsonl"
 LOOP_NAME="${X_LOOP_NAME:-x-repost}"
 PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3

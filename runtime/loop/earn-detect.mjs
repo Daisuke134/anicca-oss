@@ -2,7 +2,7 @@
  * earn-detect.mjs — Effectful: read earn-ledger.jsonl and classify result.
  *
  * REQ-003: Earn-result determination.
- * - Reads $EARN_LEDGER (or $ANICCA_HOME/skills/earn/state/earn-ledger.jsonl)
+ * - Reads $EARN_LEDGER (or $ANICCA_HOME/state/earn/earn-ledger.jsonl)
  * - Finds the line where line.wake === WAKE_ID (NEVER uses last-line position)
  * - Applies isProfitable() from skills/earn/lib/ledger.mjs
  *
@@ -59,7 +59,7 @@ export function defaultEarnLedgerPath(config) {
   // Explicit override wins (from EARN_LEDGER env or ANICCA_EARN_SKILL dir)
   if (config.EARN_LEDGER) return config.EARN_LEDGER;
   if (config.ANICCA_HOME) {
-    return path.join(config.ANICCA_HOME, 'skills', 'earn', 'state', 'earn-ledger.jsonl');
+    return path.join(config.LIFE_MANAGER_SKILLS_STATE_ROOT || path.join(config.ANICCA_HOME, 'state', 'skills'), 'earn', 'earn-ledger.jsonl');
   }
   return path.join(process.cwd(), 'skills', 'earn', 'state', 'earn-ledger.jsonl');
 }

@@ -14,7 +14,9 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WAKE="${WAKE_ID:-$(date -u +%s)}"
-LEDGER="${EARN_LEDGER:-$HERE/../earn/state/earn-ledger.jsonl}"
+EARN_STATE_ROOT="${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}"
+LEDGER="${EARN_LEDGER:-$EARN_STATE_ROOT/earn-ledger.jsonl}"
+mkdir -p "$(dirname "$LEDGER")"
 
 # the model's search intent this wake (its own words), or a neutral seed that rotates by hour. Resolved
 # by a PURE, tested module — the old `${ANICCA_ARGS:-{}}` bash default appended a stray `}` and corrupted

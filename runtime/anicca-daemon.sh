@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # anicca-daemon.sh — the supervised, self-updating entrypoint for a living Anicca.
 #
-# Run under a KeepAlive supervisor (macOS launchd, Linux systemd, or Docker `restart: always`). The
+# Run under a KeepAlive process supervisor (for example macOS launchd or Linux systemd). The
 # supervisor restarts this script whenever it exits, so Anicca stands on its own — no human runs it
 # by hand. On every (re)start it:
 #   1. SELF-UPDATES: git pull the mother repo so this body always runs the latest motherboard.
@@ -61,17 +61,15 @@ if [ -d "$REPO/.git" ]; then
     && log "self-updated to $(git -C "$REPO" rev-parse --short HEAD)" \
     || log "self-update skipped (offline or diverged)"
 fi
-# 1b. SYNC skills + DEPS into the runtime body so the loop runs the LATEST mother skills WITH their
-#     node deps. The loop spawns skills from $ANICCA_HOME/skills, but git deps (viem etc.) live in
-#     $REPO/node_modules. Without this, execute-yield.mjs etc. crash with ERR_MODULE_NOT_FOUND and
-#     anicca silently never earns. On cloud REPO==ANICCA_HOME so these are no-ops. (motherboard fix 2026-06-21)
-if [ -d "$REPO/skills" ] && [ "$REPO" != "$ANICCA_HOME" ]; then
-  command -v rsync >/dev/null 2>&1 \
-    && rsync -a --exclude='state/' --exclude='__pycache__' --exclude='node_modules' "$REPO/skills/" "$ANICCA_HOME/skills/" 2>/dev/null \
-    && log "synced skills $REPO/skills -> $ANICCA_HOME/skills"
-  [ -d "$REPO/node_modules" ] && ln -sfn "$REPO/node_modules" "$ANICCA_HOME/node_modules" \
-    && log "linked node_modules for skill deps"
-fi
+# Skill code executes directly from this immutable Life Manager release. ANICCA_HOME owns only
+# per-instance identity, state, and logs; it is never a second source-code checkout or copied tree.
+export LIFE_MANAGER_SKILLS_ROOT="${LIFE_MANAGER_SKILLS_ROOT:-$REPO/skills}"
+export LIFE_MANAGER_SKILLS_STATE_ROOT="${LIFE_MANAGER_SKILLS_STATE_ROOT:-$ANICCA_HOME/state/skills}"
+export EARN_STATE_ROOT="${EARN_STATE_ROOT:-$LIFE_MANAGER_SKILLS_STATE_ROOT/earn}"
+export EARN_LEDGER="${EARN_LEDGER:-$EARN_STATE_ROOT/earn-ledger.jsonl}"
+export ANICCA_STATE_DIR="${ANICCA_STATE_DIR:-$ANICCA_HOME/state}"
+export ANICCA_REPO="$REPO"
+mkdir -p "$EARN_STATE_ROOT"
 # 2. brain: start this instance's own OpenAI-compatible proxy on $PORT if not already answering.
 if is_franklin_instance "$INSTANCE"; then
   # franklin-loop-revival REQ-004(b)/REQ-005/PROP-016 (2026-07-08): Franklin's brain is the
