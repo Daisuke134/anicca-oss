@@ -76,3 +76,18 @@ test("Moneytree FinancialRecord projection fails closed without portable identit
     amount_jpy: 1, occurred_at: observedAt,
   }, { subjectId: "user-1", recordedAt: observedAt }), /source_ref is invalid/);
 });
+
+test("Moneytree records become verified only with an attached observation receipt", () => {
+  const [account] = normalizeAccounts({ structuredContent: { data: {
+    baseCurrency: "JPY",
+    accountGroups: { banks: [{ institutionKey: "bank", accounts: [{ id: "a1", current_balance: 5000 }] }] },
+  } } }, observedAt);
+  const evidenceRef = `moneytree-observation://sha256/${"a".repeat(64)}`;
+  const record = accountToFinancialRecord(account, {
+    subjectId: "user-1", recordedAt: observedAt, evidenceRef,
+    evidenceObservedAt: "2026-09-07T06:01:00.000Z",
+  });
+  assert.equal(record.verification.status, "verified");
+  assert.deepEqual(record.verification.evidence_refs, [evidenceRef]);
+  assert.equal(record.verification.observed_at, "2026-09-07T06:01:00.000Z");
+});

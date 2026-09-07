@@ -4,6 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const moneytree = require("./moneytree-local-adapter.js");
+const { buildMoneytreeObservation } = require("./moneytree-observation-store.js");
 
 async function readJsonl(file) {
   if (!file) return [];
@@ -33,9 +34,15 @@ async function readMoneytreeSnapshot(readAccounts, readTransactions, range) {
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      return await Promise.all([
+      const [accountResult, transactionResult] = await Promise.all([
         readAccounts(), readTransactions({ ...range, limit: 1000 }),
       ]);
+      return {
+        accounts: accountResult,
+        transactions: transactionResult,
+        accountRead: accountResult[moneytree.MONEYTREE_OBSERVATION] || null,
+        transactionRead: transactionResult[moneytree.MONEYTREE_OBSERVATION] || null,
+      };
     } catch (error) {
       lastError = error;
     }
@@ -62,18 +69,30 @@ async function ingestFinancialRecords(options) {
     const endDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
     }).format(now);
-    const [accounts, transactions] = await readMoneytreeSnapshot(
+    const snapshot = await readMoneytreeSnapshot(
       readAccounts, readTransactions, { startDate, endDate },
     );
+    const { accounts, transactions } = snapshot;
+    let evidenceRef = null;
+    if (snapshot.accountRead && snapshot.transactionRead && options.moneytreeEvidenceStore) {
+      const observation = buildMoneytreeObservation({
+        accounts, transactions, accountRead: snapshot.accountRead,
+        transactionRead: snapshot.transactionRead,
+        observedAt: [snapshot.accountRead.retrieved_at, snapshot.transactionRead.retrieved_at]
+          .sort().at(-1),
+      });
+      evidenceRef = options.moneytreeEvidenceStore.record(observation);
+      snapshot.evidenceObservedAt = observation.document.observed_at;
+    }
     records.push(
       ...accounts.map((row) => moneytree.accountToFinancialRecord(
-        row, { subjectId, recordedAt },
+        row, { subjectId, recordedAt, evidenceRef, evidenceObservedAt: snapshot.evidenceObservedAt },
       )),
       ...transactions.map((row) => moneytree.transactionToFinancialRecord(
-        row, { subjectId, recordedAt },
+        row, { subjectId, recordedAt, evidenceRef, evidenceObservedAt: snapshot.evidenceObservedAt },
       )),
     );
-    sources.moneytree = "observed_unverified";
+    sources.moneytree = evidenceRef ? "observed_verified" : "observed_unverified";
   } catch {
     sources.moneytree = "unavailable";
   }

@@ -4,8 +4,10 @@ const { createHash } = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { validateFinancialRecord } = require("./financial-organ-schema.js");
 const { financialRecordId } = require("../../../runtime/contracts/common-record.cjs");
+const { canonicalJson, sha256 } = require("./moneytree-observation-store.js");
 
 const COMMON_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const MONEYTREE_OBSERVATION = Symbol.for("life-manager.moneytree.observation");
 
 function commonId(value, label) {
   if (typeof value !== "string" || !COMMON_ID.test(value)) throw new Error(`${label} is not a common ID`);
@@ -30,7 +32,9 @@ function sourceIdentity(value) {
   return value;
 }
 
-function commonBase(record, { subjectId, recordedAt }) {
+function commonBase(record, {
+  subjectId, recordedAt, evidenceRef = null, evidenceObservedAt = null,
+}) {
   const observedAt = instant(record.observed_at || recordedAt, "Moneytree observed time");
   const subject = commonId(subjectId, "Moneytree subject id");
   const sourceRef = sourceIdentity(record.source_ref);
@@ -45,7 +49,13 @@ function commonBase(record, { subjectId, recordedAt }) {
     recorded_at: instant(recordedAt || observedAt, "Moneytree recorded time"),
     idempotency_key: scopedSource,
     source: { provider: "moneytree", source_type: "moneytree", external_ref: scopedSource },
-    verification: { status: "unverified", observed_at: observedAt, evidence_refs: [] },
+    verification: evidenceRef
+      ? {
+        status: "verified",
+        observed_at: instant(evidenceObservedAt, "Moneytree evidence observation time"),
+        evidence_refs: [evidenceRef],
+      }
+      : { status: "unverified", observed_at: observedAt, evidence_refs: [] },
   };
 }
 
@@ -180,18 +190,39 @@ function callTool(tool, args, { codexBin = "codex", cwd = process.cwd(), timeout
 
 function readAccounts(options = {}) {
   return callTool("moneytree.show-accounts", { locale: "ja" }, options)
-    .then((result) => normalizeAccounts(result, new Date().toISOString()));
+    .then((result) => {
+      const retrievedAt = new Date().toISOString();
+      const records = normalizeAccounts(result, retrievedAt);
+      Object.defineProperty(records, MONEYTREE_OBSERVATION, {
+        enumerable: false, value: Object.freeze({
+          provider: "moneytree", mcp_server: "codex_apps", tool: "moneytree.show-accounts",
+          retrieved_at: retrievedAt,
+          payload_sha256: sha256(canonicalJson(result.structuredContent?.data)),
+        }),
+      });
+      return records;
+    });
 }
 
 function readTransactions({ startDate, endDate, limit = 1000, ...options }) {
   return callTool("moneytree.show-transactions", {
     locale: "ja", start_date: startDate, end_date: endDate, limit, sort_key: "date", sort_order: "desc",
-  }, options).then((result) => normalizeTransactions(result));
+  }, options).then((result) => {
+    const records = normalizeTransactions(result);
+    Object.defineProperty(records, MONEYTREE_OBSERVATION, {
+      enumerable: false, value: Object.freeze({
+        provider: "moneytree", mcp_server: "codex_apps", tool: "moneytree.show-transactions",
+        retrieved_at: new Date().toISOString(),
+        payload_sha256: sha256(canonicalJson(result.structuredContent?.data)),
+      }),
+    });
+    return records;
+  });
 }
 
 if (require.main === module) {
-  readAccounts().then((accounts) => {
-    process.stdout.write(`${JSON.stringify({ connected: true, accounts: accounts.length })}\n`);
+  readAccounts().then((records) => {
+    process.stdout.write(`${JSON.stringify({ connected: true, accounts: records.length })}\n`);
   }).catch((error) => {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;
@@ -199,6 +230,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  MONEYTREE_OBSERVATION,
   accountToFinancialRecord,
   normalizeAccounts,
   normalizeTransactions,

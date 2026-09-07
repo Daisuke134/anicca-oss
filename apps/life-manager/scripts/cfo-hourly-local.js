@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { createJsonlFinancialRecordStore } = require("../lib/financial-record-store.js");
+const { createMoneytreeObservationStore } = require("../lib/moneytree-observation-store.js");
 const { ingestFinancialRecords, splitPaths } = require("../lib/financial-manager-ingest.js");
 const {
   buildFinancialManagerReport,
@@ -101,6 +102,9 @@ async function runHourlyCfo(options = {}) {
   const ingest = options.ingest || ingestFinancialRecords;
   const ingestion = await ingest({
     store, subjectId, now,
+    moneytreeEvidenceStore: options.moneytreeEvidenceStore || createMoneytreeObservationStore({
+      directoryPath: path.join(stateDir, "evidence", "moneytree"),
+    }),
     agentReceiptPaths: options.agentReceiptPaths || [],
     marketplaceReceiptPaths: options.marketplaceReceiptPaths || [],
     pythonBin: options.pythonBin || "python3",
