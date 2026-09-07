@@ -798,7 +798,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    now executes inline; only adapters configured above one use the pool. A thread-affinity regression
    raises if any adapter call changes thread, and the focused total is now forty-five checks plus
    eight subtests. No buyer message was sent by the failed wake; a corrected immutable-release
-   natural terminal remains required.
+   natural terminal remains required. The corrected release then ran naturally at
+   `2026-09-07 22:46 JST`: it observed all five official threads, independently classified four
+   seller-last threads as `awaiting_buyer` with readback four, and isolated the one buyer-last
+   thread without sending any customer message. That remaining thread ended `SourceFailure`
+   because the Lancers composer correctly returned missing personal facts but its adapter discarded
+   the uncertainty instead of converting it to the shared kernel's durable human wait. The adapter
+   now preserves those model-selected missing facts as `reply_facts_required`; another natural
+   installed-release terminal is required, so this atom remains unchecked.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
