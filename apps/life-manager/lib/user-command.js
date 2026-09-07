@@ -202,7 +202,19 @@ async function disconnectCalendar(scope, deps = {}) {
 
 async function startCalendarOAuth(scope, stateToken, deps = {}) {
   if (!deps.composioKey || !deps.composioAuthConfig) throw new Error("provider_unavailable");
-  const callback = `${String(deps.panelBaseUrl || "").replace(/\/$/, "")}/panel/oauth/calendar?state=${encodeURIComponent(stateToken)}`;
+  const callbackPath = deps.calendarCallbackPath || "/panel/oauth/calendar";
+  if (!/^\/[A-Za-z0-9/_-]+$/.test(callbackPath)) throw new Error("provider_unavailable");
+  let callbackUrl;
+  try {
+    const panelBase = new URL(String(deps.panelBaseUrl || ""));
+    if (panelBase.protocol !== "https:" || panelBase.username || panelBase.password) throw new Error("invalid_panel_base");
+    callbackUrl = new URL(callbackPath, panelBase.origin);
+  } catch { throw new Error("provider_unavailable"); }
+  callbackUrl.searchParams.set("state", stateToken);
+  for (const [key, value] of Object.entries(deps.calendarCallbackParams || {})) {
+    if (/^[a-z][a-z0-9_-]{0,31}$/i.test(key) && value != null) callbackUrl.searchParams.set(key, String(value).slice(0, 32));
+  }
+  const callback = callbackUrl.toString();
   const response = await (deps.fetchImpl || fetch)("https://backend.composio.dev/api/v3/connected_accounts/link", {
     method: "POST", headers: { "x-api-key": deps.composioKey, "content-type": "application/json" },
     body: JSON.stringify({ auth_config_id: deps.composioAuthConfig, user_id: scope.uid, callback_url: callback }),

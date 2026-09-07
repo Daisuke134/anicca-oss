@@ -25,6 +25,9 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
   process.env.LIFE_RUN_LOOPS = "false";
   process.env.PUBLIC_BASE = "https://lm.test";
   process.env.LM_PANEL_BASE_URL = "https://panel.test/ignored-path";
+  process.env.COMPOSIO_API_KEY = "fixture-composio-key";
+  process.env.COMPOSIO_GCAL_AUTH_CONFIG = "fixture-calendar-auth";
+  process.env.LM_TELEGRAM_BOT_USERNAME = "LifeManagerBotbot";
   // Browser tasks ON: if slash routing ever fell through to this branch for the paid+done fixture
   // user, the classifier would call Gemini and the fake fetch below would throw.
   process.env.LM_BROWSER_TASKS_ENABLED = "1";
@@ -47,6 +50,12 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     email: "fixture@example.com", phone: "+819012345678", home_address: "Tokyo home",
     notifications_enabled: true, paid: true, payout_destination: null,
   };
+  let startedRow = null;
+  const commandReceipts = new Map();
+  const actorClaimHashes = new Set();
+  let actorClaims = 0;
+  let telegramCalendarCallback = null;
+  let calendarActive = false;
   const locationStore = new Map([
     ["u-other", { uid: "u-other", latitude: 1.5, longitude: 2.5, observed_at: "2026-07-30T00:00:00.000Z", expires_at: "2099-01-01T00:00:00.000Z" }],
   ]);
@@ -85,9 +94,13 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     }
     if (url.pathname === "/rest/v1/lm_users" && method === "GET") {
       const uid = String(url.searchParams.get("uid") || "").replace(/^eq\./, "");
-      if (uid) return response(200, uid === "u1" ? [{ uid: "u1", payout_destination: userRow.payout_destination }] : []);
+      if (uid) {
+        if (uid === "u1") return response(200, [{ ...userRow }]);
+        if (startedRow && uid === startedRow.uid) return response(200, [{ ...startedRow }]);
+        return response(200, []);
+      }
       const chat = String(url.searchParams.get("telegram_chat_id") || "").replace(/^eq\./, "");
-      return response(200, chat === "100" ? [{ ...userRow }] : []);
+      return response(200, chat === "100" ? [{ ...userRow }] : startedRow && chat === startedRow.telegram_chat_id ? [{ ...startedRow }] : []);
     }
     if (url.pathname === "/rest/v1/lm_users" && method === "PATCH") {
       const uid = String(url.searchParams.get("uid") || "").replace(/^eq\./, "");
@@ -118,6 +131,49 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     }
     if (url.pathname === "/rest/v1/lm_panel_device_challenges" && method === "POST") {
       return response(201, []);
+    }
+    if (url.pathname === "/rest/v1/rpc/claim_lm_panel_telegram_init_v2" && method === "POST") {
+      actorClaims += 1;
+      const body = JSON.parse(init.body || "{}");
+      if (actorClaimHashes.has(body.p_init_hash)) return response(200, [{ status: "replayed", uid: null, chat_id: null }]);
+      actorClaimHashes.add(body.p_init_hash);
+      startedRow = {
+        uid: "u-started", name: body.p_profile_name, telegram_chat_id: body.p_actor_id,
+        tg_onboard_stage: "calendar", calendar_provider: null, phone: null,
+        notifications_enabled: true, paid: false,
+      };
+      return response(200, [{ status: "claimed", uid: startedRow.uid, chat_id: startedRow.telegram_chat_id }]);
+    }
+    if (url.pathname === "/rest/v1/lm_panel_command_receipts" && method === "GET") {
+      const key = String(url.searchParams.get("idempotency_key") || "").replace(/^eq\./, "");
+      return response(200, commandReceipts.has(key) ? [commandReceipts.get(key)] : []);
+    }
+    if (url.pathname === "/rest/v1/lm_panel_command_receipts" && method === "POST") {
+      const body = JSON.parse(init.body || "{}");
+      commandReceipts.set(body.idempotency_key, body);
+      return response(201, []);
+    }
+    if (url.pathname === "/rest/v1/lm_panel_command_receipts" && method === "PATCH") {
+      const key = String(url.searchParams.get("idempotency_key") || "").replace(/^eq\./, "");
+      commandReceipts.set(key, { ...commandReceipts.get(key), ...JSON.parse(init.body || "{}") });
+      return response(200, []);
+    }
+    if (url.pathname === "/rest/v1/rpc/create_lm_panel_oauth_state" && method === "POST") {
+      return response(200, true);
+    }
+    if (url.pathname === "/rest/v1/rpc/claim_lm_telegram_oauth_state" && method === "POST") {
+      return response(200, startedRow ? [{ uid: startedRow.uid, chat_id: startedRow.telegram_chat_id }] : []);
+    }
+    if (url.pathname === "/rest/v1/rpc/sync_lm_panel_calendar_status" && method === "POST") {
+      if (startedRow) startedRow.calendar_provider = "composio_gcal";
+      return response(200, true);
+    }
+    if (url.hostname === "backend.composio.dev" && url.pathname === "/api/v3/connected_accounts" && method === "GET") {
+      return response(200, { items: calendarActive && startedRow ? [{ id: "ca-started", user_id: startedRow.uid, toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false, enabled: true }] : [] });
+    }
+    if (url.hostname === "backend.composio.dev" && url.pathname === "/api/v3/connected_accounts/link" && method === "POST") {
+      telegramCalendarCallback = JSON.parse(init.body || "{}").callback_url;
+      return response(200, { redirect_url: "https://accounts.google.com/o/oauth2/auth?state=fixture" });
     }
     throw new Error(`unexpected fetch ${method} ${url}`);
   };
@@ -157,8 +213,24 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     });
     const message = (chatId, text) => post({ message: {
       message_id: updateId + 500, date: Math.floor(Date.now() / 1000),
-      from: { id: Number(chatId), first_name: "Fixture" }, chat: { id: Number(chatId) }, text,
+      from: { id: Number(chatId), first_name: "Fixture", language_code: "ja" }, chat: { id: Number(chatId) }, text,
     } });
+    const exactMessage = (exactUpdateId, chatId, text, actorId = chatId) => new Promise((resolve, reject) => {
+      const body = JSON.stringify({ update_id: exactUpdateId, message: {
+        message_id: exactUpdateId + 500, date: Math.floor(Date.now() / 1000),
+        from: { id: Number(actorId), first_name: "Fixture", language_code: "ja" },
+        chat: { id: Number(chatId) }, text,
+      } });
+      const request = http.request(`${origin}/telegram`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json", "content-length": Buffer.byteLength(body),
+          "x-telegram-bot-api-secret-token": "fixture-webhook-secret",
+        },
+      }, (res) => { res.resume(); res.on("end", () => resolve(res.statusCode)); });
+      request.on("error", reject);
+      request.end(body);
+    });
     const lastSent = () => sent[sent.length - 1];
 
     // 1. Unknown /command → honest unknown reply; never feedback, never onboarding, never a browser
@@ -222,33 +294,55 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
       url: "https://panel.test/panel",
     });
 
-    // 6. /start opens the authenticated panel onboarding web app, and so does a deep-link payload:
+    // 6. /start stays in Telegram and exposes only Google's consent URL. A deep-link payload:
     //    core.telegram.org/bots/features → Deep Linking says "https://t.me/your_bot?start=airplane"
     //    delivers "/start airplane" (groups deliver "/start@your_bot spaceship"), i.e. the payload
     //    is always space-separated. The production branch must not fall back to the legacy ?tg= URL.
-    assert.equal(await message("200", "/start"), 200);
-    assert.match(lastSent().text, /Life Manager/);
+    assert.equal(await message("300", "/start"), 200);
+    assert.match(lastSent().text, /ライフマネージャー/);
     const onboardingButton = lastSent().reply_markup.inline_keyboard[0][0];
-    assert.deepEqual(onboardingButton.web_app, { url: "https://panel.test/panel/onboarding" });
-    assert.equal(Object.hasOwn(onboardingButton, "url"), false);
-    assert.doesNotMatch(JSON.stringify(onboardingButton), /\?tg=|200|token/i);
-    assert.equal(await message("200", "/start airplane"), 200);
-    assert.deepEqual(lastSent().reply_markup.inline_keyboard[0][0].web_app, {
-      url: "https://panel.test/panel/onboarding",
+    assert.equal(onboardingButton.url, "https://accounts.google.com/o/oauth2/auth?state=fixture");
+    assert.equal(Object.hasOwn(onboardingButton, "web_app"), false);
+    assert.doesNotMatch(JSON.stringify(onboardingButton), /\?tg=|300|token/i);
+    assert.equal(actorClaims, 1);
+    const sentBeforeReplay = sent.length;
+    assert.equal(await exactMessage(9108, "300", "/start"), 200);
+    assert.equal(sent.length, sentBeforeReplay, "the same Telegram update never sends twice");
+    assert.equal(await message("300", "/start airplane"), 200);
+    assert.equal(lastSent().reply_markup.inline_keyboard[0][0].url, "https://accounts.google.com/o/oauth2/auth?state=fixture");
+    assert.equal(await message("300", "/start@Bot payload"), 200);
+    assert.equal(lastSent().reply_markup.inline_keyboard[0][0].url, "https://accounts.google.com/o/oauth2/auth?state=fixture");
+    assert.equal(actorClaims, 4, "each new update is fenced while the existing tenant is reused");
+    assert.equal(await exactMessage(9199, "300", "/start", "999"), 200);
+    assert.equal(sent.length, sentBeforeReplay + 2, "a different actor in the existing chat cannot start onboarding");
+    assert.equal(actorClaims, 4, "cross-actor input is rejected before the claim RPC");
+    assert.equal(await message("300", "/start panel"), 200);
+    assert.ok(lastSent().reply_markup.inline_keyboard[0][0].web_app, "/start panel remains owned by the panel deep-link route");
+    assert.ok(telegramCalendarCallback, "the provider receives a Telegram callback URL");
+    const callback = new URL(telegramCalendarCallback);
+    assert.equal(callback.pathname, "/telegram/oauth/calendar");
+    assert.equal(callback.searchParams.get("lang"), "ja");
+    assert.equal(callback.searchParams.has("uid"), false);
+    assert.equal(callback.searchParams.has("chat_id"), false);
+    calendarActive = true;
+    const callbackResult = await new Promise((resolve, reject) => {
+      http.get(`${origin}${callback.pathname}${callback.search}`, (res) => {
+        res.resume(); res.on("end", () => resolve({ status: res.statusCode, location: res.headers.location }));
+      }).on("error", reject);
     });
-    assert.equal(await message("200", "/start@Bot payload"), 200);
-    assert.deepEqual(lastSent().reply_markup.inline_keyboard[0][0].web_app, {
-      url: "https://panel.test/panel/onboarding",
-    });
-    assert.equal(await message("200", "/start-foo"), 200);
+    assert.equal(callbackResult.status, 303);
+    assert.equal(callbackResult.location, "https://t.me/LifeManagerBotbot");
+    assert.equal(String(lastSent().chat_id), "300");
+    assert.match(lastSent().text, /自宅の住所/);
+    assert.equal(await message("300", "/start-foo"), 200);
     assert.match(lastSent().text, /Unknown command/);
     assert.ok(!lastSent().reply_markup, "/start-foo must not open onboarding");
-    assert.equal(await message("200", "/start?"), 200);
+    assert.equal(await message("300", "/start?"), 200);
     assert.match(lastSent().text, /Unknown command/);
     assert.ok(!lastSent().reply_markup, "/start? must not open onboarding");
     // 6b. REGRESSION: "/startfoo" is NOT a start. A real deep link can never produce it, so it is
     //     answered as the unknown command it is.
-    assert.equal(await message("200", "/startfoo"), 200);
+    assert.equal(await message("300", "/startfoo"), 200);
     assert.match(lastSent().text, /Unknown command: \/startfoo/);
     assert.ok(!/Welcome to Life Manager/.test(lastSent().text), "/startfoo must not open onboarding");
 
@@ -342,7 +436,7 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
       console.error = originalConsoleError;
     }
     assert.equal(sent.length, sentBeforeFailure + 1, "a failed /start delivery is attempted exactly once");
-    assert.ok(errors.some((line) => line.includes("onboarding web app button send failed")));
+    assert.ok(errors.some((line) => line.includes("Telegram onboarding send failed")));
     assert.doesNotMatch(errors.join("\n"), /fixture-token|chat_id=200|token=|description/i);
   } finally {
     console.log = originalConsoleLog;

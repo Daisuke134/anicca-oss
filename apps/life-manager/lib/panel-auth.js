@@ -336,6 +336,21 @@ async function claimTelegramInit(verified, opts) {
   return row || { status: "unknown_actor" };
 }
 
+async function claimTelegramWebhookActor(input = {}, opts = {}) {
+  const actorId = String(input.actorId || "");
+  const chatId = String(input.chatId || "");
+  const updateId = String(input.updateId || "");
+  if (!/^[1-9][0-9]{0,19}$/.test(actorId) || chatId !== actorId || !/^[1-9][0-9]{0,19}$/.test(updateId)) {
+    throw new Error("telegram actor unavailable");
+  }
+  const profileName = String(input.profileName || "").trim().slice(0, 120);
+  return claimTelegramInit({
+    actorId,
+    profileName,
+    initHash: sha256(`lm-telegram-webhook-start:v1:${actorId}:${updateId}`),
+  }, opts);
+}
+
 function challengeCookie(value, maxAge = PANEL_DEVICE_TTL_MS / 1000) {
   return `${PANEL_CHALLENGE_COOKIE}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Lax`;
 }
@@ -516,6 +531,7 @@ module.exports = {
   sessionUid,
   handleMoneyPrinterGuestRequest,
   verifyTelegramInitData,
+  claimTelegramWebhookActor,
   createPanelDeviceChallenge,
   panelDeviceCodeFromCommand,
   confirmPanelDeviceCode,

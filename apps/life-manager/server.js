@@ -47,8 +47,8 @@ const {
   createSupabaseLateApprovalStore,
   handleLateApprovalCallback,
 } = require("./lib/late-approval.js");
-const { sendPanelLink, handlePanelRequest, handleMoneyPrinterGuestRequest, panelDeviceCodeFromCommand, confirmPanelDeviceCode, cookieValue, sessionScope, panelScopeCookie } = require("./lib/panel-auth.js");
-const { handlePanelApiRequest, handlePanelOAuthCallback, composioCalendarStart, composioCalendarDisconnect } = require("./lib/panel-api.js");
+const { sendPanelLink, handlePanelRequest, handleMoneyPrinterGuestRequest, panelDeviceCodeFromCommand, confirmPanelDeviceCode, cookieValue, sessionScope, panelScopeCookie, claimTelegramWebhookActor } = require("./lib/panel-auth.js");
+const { handlePanelApiRequest, handlePanelOAuthCallback, handleTelegramOAuthCallback, composioCalendarStart, composioCalendarDisconnect } = require("./lib/panel-api.js");
 const { createMoneyPrinterSource } = require("./lib/money-printer-source.js");
 const { createMoneyPrinterRuntimeStore } = require("./lib/money-printer-runtime-store.js");
 const { handleMoneyPrinterSymphonyApiRequest } = require("./lib/money-printer-symphony-api.js");
@@ -574,6 +574,19 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
+  if (path === "/telegram/oauth/calendar") {
+    const botUsername = String(process.env.LM_TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+    handleTelegramOAuthCallback(req, res, {
+      supaUrl: SUPA_URL, supaKey: SUPA_KEY, composioKey: COMPOSIO_KEY,
+      sendMessage: (chatId, text) => sendMessage(LM_TG_TOKEN, chatId, text),
+      telegramReturnUrl: `https://t.me/${botUsername}`,
+    }).catch((error) => {
+      console.error("[telegram-oauth] callback failed", error && error.message);
+      if (!res.headersSent) res.writeHead(503, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      res.end("Return to Telegram and send /start again.");
+    });
+    return;
+  }
   if (path === "/health" || path === "/") {
     res.writeHead(200, { "content-type": "application/json" });
     // `build` lets any deploy be verified from outside (curl /health) — proves new code is live.
@@ -967,7 +980,46 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(200); res.end("ok");
             return;
           }
-          const row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY); // null until they link via /lm
+          let row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+          if (u.kind === "message" && u.isStart && !isPanelDeepLink(u.text)) {
+            const claim = await claimTelegramWebhookActor({
+              actorId: u.userId,
+              chatId: u.chatId,
+              updateId: update.update_id,
+              profileName: [u.firstName, u.lastName].filter(Boolean).join(" "),
+            }, { supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+            if (claim.status === "replayed") {
+              res.writeHead(200); res.end("ok");
+              return;
+            }
+            if (claim.status !== "claimed" || String(claim.chat_id) !== String(u.chatId)) throw new Error("telegram actor claim failed");
+            row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+            if (!row || !row.uid) throw new Error("telegram actor unavailable");
+            const result = await executeUserCommand({ uid: row.uid, chatId: u.chatId }, {
+              type: "connection.start", provider: "calendar",
+            }, {
+              store: createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY }),
+              idempotencyKey: `telegram-start:${u.messageId || update.update_id}`,
+              composioKey: COMPOSIO_KEY,
+              composioAuthConfig: process.env.COMPOSIO_GCAL_AUTH_CONFIG,
+              panelBaseUrl: LM_PANEL_BASE,
+              calendarCallbackPath: "/telegram/oauth/calendar",
+              calendarCallbackParams: { lang: u.languageCode },
+              startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY }),
+            });
+            if (result && result.state && result.state.redirectUrl) {
+              const reply = startReply({ calendarUrl: result.state.redirectUrl, languageCode: u.languageCode });
+              const sent = await sendMessage(LM_TG_TOKEN, u.chatId, reply.text, reply.extra);
+              if (!sent || sent.ok !== true) throw new Error("Telegram onboarding send failed");
+            } else {
+              const sent = await sendMessage(LM_TG_TOKEN, u.chatId, /^ja(?:-|$)/i.test(u.languageCode)
+                ? "Google Calendarは接続済みです。自宅の住所を教えてください。"
+                : "Google Calendar is connected. What is your home address?");
+              if (!sent || sent.ok !== true) throw new Error("Telegram onboarding send failed");
+            }
+            res.writeHead(200); res.end("ok");
+            return;
+          }
           // FIN-d (13d-a): a pending wallet-address intake claims the typed message BEFORE feedback
           // can swallow it — an address must never become a feedback ticket. The module returns
           // handled:false for everything that is not its intake (no marker, bot commands, other
@@ -1120,14 +1172,7 @@ const server = http.createServer(async (req, res) => {
               return;
             }
           }
-          if (u.isStart) {
-            // Telegram WebApp initData is the sole identity input for panel onboarding. The URL
-            // builder validates LM_PANEL_BASE and intentionally excludes chat IDs/tokens, so the
-            // web page can create its server session through the existing panel-auth boundary.
-            const reply = startReply(u.chatId, LM_PANEL_BASE);
-            const sent = await sendMessage(LM_TG_TOKEN, u.chatId, reply.text, reply.extra);
-            if (!sent || sent.ok !== true) throw new Error("onboarding web app button send failed");
-          } else if (u.text) {
+          if (u.text) {
             // Native steps (name/phone) capture the typed value; web steps re-nudge; "done" → reply.
             const result = await handleOnboardingText(u.chatId, u.text, row, opts);
             if (result === "done") {

@@ -466,38 +466,34 @@ test("linkedRows joins notifications_enabled from lm_panel_preferences in ONE ba
   assert.equal(rows.find(r => r.uid === "b").notifications_enabled, false); // no preferences row → not proven enabled
 });
 
-test("Telegram /start identifies the product only as Life Manager", () => {
-  const reply = startReply("1", "https://life.example");
-  assert.match(reply.text, /^👋 <b>Life Manager<\/b>/);
-  assert.doesNotMatch(reply.text, /\bAnicca\b/i);
-});
-
-test("Telegram /start opens only the authenticated panel onboarding web app", () => {
-  const reply = startReply("987654", "https://panel.example/some-ignored-path");
+test("Telegram /start stays in chat and exposes only Google consent", () => {
+  const reply = startReply({ calendarUrl: "https://accounts.google.com/o/oauth2/auth?state=opaque", languageCode: "ja" });
   const buttons = reply.extra.reply_markup.inline_keyboard;
   assert.equal(buttons.length, 1);
   assert.equal(buttons[0].length, 1);
   const button = buttons[0][0];
-  assert.deepEqual(button.web_app, { url: "https://panel.example/panel/onboarding" });
-  assert.equal(Object.hasOwn(button, "url"), false);
-  const url = new URL(button.web_app.url);
+  assert.equal(Object.hasOwn(button, "web_app"), false);
+  const url = new URL(button.url);
   assert.equal(url.protocol, "https:");
-  assert.equal(url.pathname, "/panel/onboarding");
-  assert.equal(url.search, "");
+  assert.equal(url.hostname, "accounts.google.com");
+  assert.equal(url.searchParams.get("state"), "opaque");
   assert.equal(url.hash, "");
-  assert.doesNotMatch(button.web_app.url, /987654|token|tg=/i);
+  assert.match(reply.text, /^👋 <b>ライフマネージャー<\/b>/);
+  assert.match(reply.text, /乗換案内/);
+  assert.doesNotMatch(reply.text, /料金|カード|Stripe|trial|プラン/i);
 });
 
-test("Telegram /start rejects missing, non-HTTPS, malformed, and credentialed panel origins", () => {
-  for (const base of [undefined, "", "http://panel.example", "panel.example", "https:panel.example", "https:/panel.example", " https://panel.example", "https://user:pass@panel.example"]) {
-    assert.throws(() => startReply("987654", base), /panel base URL is unavailable/);
+test("Telegram /start rejects unsafe or non-consent Calendar URLs", () => {
+  for (const calendarUrl of [undefined, "", "http://accounts.google.com/x", "accounts.google.com", " https://accounts.google.com/x", "https://user:pass@accounts.google.com/x", "https://evil.example/x", "https://accounts.google.com.evil.example/x"]) {
+    assert.throws(() => startReply({ calendarUrl }), /calendar URL is unavailable/);
   }
+  assert.doesNotThrow(() => startReply({ calendarUrl: "https://connect.composio.dev/link/opaque" }));
 });
 
-test("Telegram /start describes phone and subscription as optional", () => {
-  const text = startReply("1", "https://life.example").text;
-  assert.doesNotMatch(text, /add your phone|subscribe/i);
-  assert.match(text, /optional/i);
+test("Telegram /start localizes from Telegram language without another question", () => {
+  const text = startReply({ calendarUrl: "https://accounts.google.com/x", languageCode: "en-US" }).text;
+  assert.match(text, /^👋 <b>Life Manager<\/b>/);
+  assert.doesNotMatch(text, /ライフマネージャー/);
 });
 
 test("Telegram transport failure returns a delivery_unknown marker without provider error text", async () => {

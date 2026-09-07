@@ -240,7 +240,11 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
 
 ### Ordered correction TODO
 
-1. Telegram-native onboardingを実装し、Google consent以外のMini App必須stepを削除する。
+1. **IN PROGRESS — Telegram-native onboarding:** Google consent以外のMini App必須stepを削除する。
+   `/start`のprivate-chat actor claim、Telegram言語による日英表示、通常URLのGoogle consent button、
+   WebApp非使用、cookie不要のone-time OAuth callback、Calendar ACTIVE同期、Telegram復帰と自宅住所質問を
+   branch `feat/lm-telegram-native-start-20260907`で実装。ローカルcontractはPASS済み。
+   未完はmigrationの本番適用、production deploy/readback、実actor E2E。
 2. 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
 3. 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
 4. DaisのTelegram actorと隔離test actorで、新規開始から最初のTravel block・乗換案内・Telegram receiptまでE2Eする。
