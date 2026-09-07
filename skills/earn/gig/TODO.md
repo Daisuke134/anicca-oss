@@ -686,6 +686,11 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    surface and submitted state. Auth readback now accepts a `/jobs/apply/` page only when it also has
    strong application controls or official submitted text, while `Sign in` and `/login` continue to win
    as logged out. A clean natural replay on that same parked context remains required.
+   That replay also exposed a notification identity bug: the same unfinished shared `Bilingual
+   Competency` ceremony was emitted again as Telegram `66032` because the prior gate key included
+   model wording and evidence path. Human-gate identity now canonicalizes this named reusable ceremony
+   independently of listing, wording, run and evidence path, including legacy pending rows. Future wakes
+   reuse the first pending gate and the shared outbox event key, so the interview request is replay-zero.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
