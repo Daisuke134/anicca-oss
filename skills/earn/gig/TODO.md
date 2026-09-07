@@ -849,6 +849,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `select_kqueue_control_impl`, while all five `asyncio_*` workers remain parked on empty queues.
    There is no active mutation stack and its durable evidence has not advanced since September 4;
    PID existence therefore cannot satisfy this atom or justify retaining its lock.
+   A source-boundary audit also finds one remaining extraction gap: `reply_kernel.py` still accepts
+   the decision callback returned by each provider `build()`, and both the Coconala and Lancers
+   adapters currently contain their own reply-selection wrapper and model prompt path. The durable
+   lifecycle is shared, but reply/estimate judgment is not yet provider-neutral as this atom requires.
+   Move that judgment behind one shared model-facing planner while retaining only normalized context,
+   capabilities and official mutation/readback in each adapter; do not check this atom from lifecycle
+   tests or the Lancers no-effect terminal alone.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
