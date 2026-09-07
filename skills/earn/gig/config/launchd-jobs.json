@@ -318,29 +318,6 @@
       "log_basename": "article-healthcheck"
     },
     {
-      "label": "ai.anicca.writer-opportunity-response",
-      "lane": "writer-opportunity-response",
-      "summary": "Responds to eligible publisher opportunities using the Writer identity gate.",
-      "env_profile": "writer",
-      "program": [
-        "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
-        "{{PYTHON}}",
-        "{{RELEASE}}/skills/writer-agent/scripts/opportunity_response.py",
-        "--db",
-        "{{WRITER_STATE_DIR}}/opportunities.sqlite3",
-        "--receipt",
-        "{{WRITER_STATE_DIR}}/opportunity-response-latest.json",
-        "--runner",
-        "{{RELEASE}}/skills/writer-agent/runtime/model-runner.sh"
-      ],
-      "env": {"WRITER_GMAIL_ACCOUNT": "{{WRITER_GMAIL_ACCOUNT}}"},
-      "StartInterval": 900,
-      "RunAtLoad": true,
-      "ProcessType": "Background",
-      "log_basename": "writer-opportunity-response"
-    },
-    {
       "label": "ai.anicca.writer-report",
       "lane": "writer-report",
       "summary": "Renders neutral natural-language Writer progress and money reports.",

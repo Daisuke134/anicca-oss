@@ -14,14 +14,14 @@ SPEC.loader.exec_module(gig_release)
 
 def test_writer_notification_identity_has_no_personal_public_default(monkeypatch):
     monkeypatch.setattr(gig_release, "OVERRIDES", Path("/nonexistent/install.json"))
-    manifest, table = gig_release.settings(Path("/release"))
-    job = next(
-        row for row in manifest["jobs"]
-        if row["label"] == "ai.anicca.writer-opportunity-response"
-    )
-    environment = gig_release.plist_for(job, table)["EnvironmentVariables"]
+    _, table = gig_release.settings(Path("/release"))
+    wrapper = (
+        gig_release.REPO_ROOT
+        / "skills/writer-agent/scripts/opportunity-response-owner"
+    ).read_text()
 
-    assert not environment.get("WRITER_GMAIL_ACCOUNT")
+    assert "@gmail.com" not in wrapper
+    assert "LIFE_MANAGER_GMAIL_ACCOUNT" in wrapper
     assert table["WRITER_TELEGRAM_TARGET"] == ""
 
 
@@ -254,6 +254,15 @@ def test_migrated_writer_opportunity_discovery_is_not_owned_by_legacy_manifest()
     assert all(row["label"] != label for row in manifest["jobs"])
     assert label not in gig_release.JOB_PROCESS_MARKERS
     installer = gig_release.REPO_ROOT / "skills/writer-agent/scripts/install-opportunity-discovery-worker.sh"
+    assert not installer.exists()
+
+
+def test_migrated_writer_opportunity_response_is_not_owned_by_legacy_manifest():
+    manifest = json.loads(gig_release.MANIFEST.read_text(encoding="utf-8"))
+    label = "ai.anicca.writer-opportunity-response"
+    assert all(row["label"] != label for row in manifest["jobs"])
+    assert label not in gig_release.JOB_PROCESS_MARKERS
+    installer = gig_release.REPO_ROOT / "skills/writer-agent/scripts/install-opportunity-response-worker.sh"
     assert not installer.exists()
 
 
