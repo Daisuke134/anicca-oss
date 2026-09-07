@@ -441,6 +441,9 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     assert.equal(sent.length, sentBeforeFailure + 1, "a failed /start delivery is attempted exactly once");
     assert.ok(errors.some((line) => line.includes("Telegram onboarding send failed")));
     assert.doesNotMatch(errors.join("\n"), /fixture-token|chat_id=200|token=|description/i);
+    assert.equal(await message("200", "/start"), 200);
+    assert.equal(sent.length, sentBeforeFailure + 2, "a new explicit /start recovers after the failed delivery");
+    assert.match(lastSent().text, /自宅の住所/, "the recovered connected actor receives the next Telegram question");
   } finally {
     console.log = originalConsoleLog;
     global.fetch = originalFetch;
