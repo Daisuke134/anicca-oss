@@ -637,6 +637,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    execution context and Chrome returned `Cannot find default execution context`. No login or application
    mutation occurred. The shared lease now retries only that transient navigation boundary until the exact
    origin has an execution context, then seeds storage. Focused verification passes 43 tests plus 2 subtests.
+   The next installed wake proved that retrying the post-navigation injection was still the wrong boundary:
+   the lease reported all three declared Web Storage entries seeded, yet Mercor's first official readback was
+   logged out because the application had already initialized from empty storage and overwritten the restored
+   client state. The shared lease now creates the isolated tab at `about:blank`, registers an exact-origin
+   `Page.addScriptToEvaluateOnNewDocument` bootstrap for only the declared local/session keys, and navigates
+   only after that bootstrap exists. Thus the Mercor application sees its saved authenticated state on its
+   first script execution; no provider-specific login loop, browser restart or base-vault mutation is added.
+   Focused lease/Mercor verification passes 43 tests plus 2 subtests. Production still owes a following wake
+   that starts authenticated without issuing email, then one new official submit, realtime Telegram receipt
+   and replay-zero; this atom remains unchecked.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
