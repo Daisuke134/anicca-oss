@@ -86,6 +86,19 @@ class CommonContractTests(unittest.TestCase):
         )
         validate(json.loads(result.stdout))
 
+    def test_moneytree_adapter_output_matches_the_financial_record_schema(self):
+        script = (
+            "const m=require('./apps/life-manager/lib/moneytree-local-adapter.js');"
+            "const at='2026-09-07T06:00:00.000Z';"
+            "const [a]=m.normalizeAccounts({structuredContent:{data:{baseCurrency:'JPY',"
+            "accountGroups:{banks:[{institutionKey:'bank',accounts:[{id:'a1',current_balance:5000}]}]}}}},at);"
+            "process.stdout.write(JSON.stringify(m.accountToFinancialRecord(a,{subjectId:'user-1',recordedAt:at})));"
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, text=True, capture_output=True, check=True,
+        )
+        validate(json.loads(result.stdout))
+
     def test_runtime_event_schema_matches_runtime_vocabulary(self):
         definition = SCHEMA["$defs"]["RuntimeEvent"]["properties"]
         self.assertEqual(set(definition["domain"]["enum"]), runtime_event.DOMAINS)

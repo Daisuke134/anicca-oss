@@ -4,9 +4,84 @@ const { createHash } = require("node:crypto");
 const { spawn } = require("node:child_process");
 const { validateFinancialRecord } = require("./financial-organ-schema.js");
 
-function normalizeAccounts(toolResult, observedAt = new Date().toISOString()) {
+const COMMON_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+
+function commonId(value, label) {
+  if (typeof value !== "string" || !COMMON_ID.test(value)) throw new Error(`${label} is not a common ID`);
+  return value;
+}
+
+function instant(value, label) {
+  const text = String(value || "");
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00.000Z`) : new Date(text);
+  if (!Number.isFinite(parsed.getTime())) throw new Error(`${label} is invalid`);
+  return parsed.toISOString();
+}
+
+function hash(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function sourceIdentity(value) {
+  if (typeof value !== "string" || !/^moneytree:[a-f0-9]{64}$/.test(value)) {
+    throw new Error("Moneytree source_ref is invalid");
+  }
+  return value;
+}
+
+function commonBase(record, { subjectId, recordedAt }) {
+  const observedAt = instant(record.observed_at || recordedAt, "Moneytree observed time");
+  const subject = commonId(subjectId, "Moneytree subject id");
+  const sourceRef = sourceIdentity(record.source_ref);
+  const scopedSource = `moneytree:${hash(`${subject}\n${sourceRef}`)}`;
+  return {
+    schema_version: 1,
+    record_type: "financial_record",
+    record_id: `moneytree:${hash(`${subject}\n${commonId(record.id, "Moneytree record id")}`).slice(0, 24)}`,
+    subject_id: subject,
+    scope: "personal",
+    currency: "JPY",
+    recorded_at: instant(recordedAt || observedAt, "Moneytree recorded time"),
+    idempotency_key: scopedSource,
+    source: { provider: "moneytree", source_type: "moneytree", external_ref: scopedSource },
+    verification: { status: "unverified", observed_at: observedAt, evidence_refs: [] },
+  };
+}
+
+function accountToFinancialRecord(account, options) {
+  validateFinancialRecord("account", account);
+  const liability = account.balance_jpy < 0;
+  const observedAt = instant(account.observed_at, "Moneytree account time");
+  const base = commonBase(account, options);
+  const snapshotHash = hash(`${base.subject_id}\n${base.source.external_ref}\n${account.kind}\n${account.balance_jpy}\n${observedAt}`);
+  return {
+    ...base,
+    record_id: `moneytree:${snapshotHash.slice(0, 24)}`,
+    kind: liability ? "liability_balance" : "asset_balance",
+    direction: "snapshot",
+    amount_minor: Math.abs(account.balance_jpy),
+    occurred_at: observedAt,
+    idempotency_key: `moneytree-account:${snapshotHash}`,
+  };
+}
+
+function transactionToFinancialRecord(transaction, options) {
+  validateFinancialRecord("transaction", transaction);
+  const base = commonBase({ ...transaction, observed_at: options.recordedAt }, options);
+  const transfer = Boolean(transaction.transfer_id);
+  return {
+    ...base,
+    kind: transfer ? "transfer" : transaction.amount_jpy >= 0 ? "personal_income" : "personal_expense",
+    direction: transaction.amount_jpy >= 0 ? "credit" : "debit",
+    amount_minor: Math.abs(transaction.amount_jpy),
+    occurred_at: instant(transaction.occurred_at, "Moneytree transaction time"),
+  };
+}
+
+function normalizeAccounts(toolResult, observedAt) {
   const data = toolResult?.structuredContent?.data;
   if (!data || data.baseCurrency !== "JPY") throw new Error("Moneytree JPY account data is unavailable");
+  observedAt = instant(observedAt, "Moneytree account observation");
   const groups = [...(data.accountGroups?.banks || []), ...(data.accountGroups?.investments || [])];
   return groups.flatMap((group) => (group.accounts || []).map((account) => {
     const balance = account.current_balance_in_base ?? account.current_balance;
@@ -95,7 +170,8 @@ function callTool(tool, args, { codexBin = "codex", cwd = process.cwd(), timeout
 }
 
 function readAccounts(options = {}) {
-  return callTool("moneytree.show-accounts", { locale: "ja" }, options).then((result) => normalizeAccounts(result));
+  return callTool("moneytree.show-accounts", { locale: "ja" }, options)
+    .then((result) => normalizeAccounts(result, new Date().toISOString()));
 }
 
 function readTransactions({ startDate, endDate, limit = 1000, ...options }) {
@@ -113,4 +189,11 @@ if (require.main === module) {
   });
 }
 
-module.exports = { normalizeAccounts, normalizeTransactions, readAccounts, readTransactions };
+module.exports = {
+  accountToFinancialRecord,
+  normalizeAccounts,
+  normalizeTransactions,
+  readAccounts,
+  readTransactions,
+  transactionToFinancialRecord,
+};
