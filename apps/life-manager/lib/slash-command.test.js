@@ -10,6 +10,7 @@ const {
   handleSlashCommand,
 } = require("./slash-command.js");
 const { buildInvestmentReply } = require("./investment-chat.js");
+const { buildGigReply, COCONALA_SIGNUP_URL, CROWDWORKS_SIGNUP_URL, CROWDWORKS_VERIFICATION_URL } = require("./gig-chat.js");
 
 const NOW = Date.parse("2026-07-30T12:00:00.000Z");
 
@@ -78,6 +79,119 @@ test("/invest fails closed when Cloud investment state is unavailable", async ()
     assert.equal(outcome.ok, false);
     assert.equal(outcome.reason, "state_unavailable");
     assert.match(sent[0].text, /ライブ注文は出しません/);
+  }
+});
+
+test("gig and crowd are known commands routed here, not passed through like start/panel", () => {
+  const { KNOWN_COMMANDS, parseSlashCommand: parse } = require("./slash-command.js");
+  assert.ok(KNOWN_COMMANDS.includes("gig"));
+  assert.ok(KNOWN_COMMANDS.includes("crowd"));
+  assert.ok(parse("/gig"));
+  assert.ok(parse("/crowd"));
+});
+
+test("/gig and /crowd are not passed through — an empty deps object still gets a real reply, not handled:false", async () => {
+  for (const raw of ["/gig", "/crowd"]) {
+    const { sent, deps } = harness();
+    const outcome = await handleSlashCommand(parseSlashCommand(raw), ROW, deps);
+    assert.notDeepEqual(outcome, { handled: false }, raw);
+    assert.equal(outcome.handled, true, raw);
+    assert.equal(sent.length, 1, raw);
+  }
+});
+
+test("helpMessage lists /gig and /crowd", () => {
+  const text = helpMessage();
+  assert.ok(text.includes("/gig"), "help must list /gig");
+  assert.ok(text.includes("/crowd"), "help must list /crowd");
+});
+
+test("/gig sends the Coconala setup-required reply with its signup button", async () => {
+  const snapshot = { lifecycle: "setup_required" };
+  const expected = buildGigReply("coconala", snapshot);
+  const { sent, deps } = harness({ getGigState: async (platform) => { assert.equal(platform, "coconala"); return snapshot; } });
+  const outcome = await handleSlashCommand(parseSlashCommand("/gig"), ROW, deps);
+  assert.deepEqual(outcome, { handled: true, action: "gig", ok: true, providerMessageId: 1 });
+  assert.equal(sent[0].text, expected.text);
+  assert.equal(sent[0].extra.reply_markup.inline_keyboard[0][0].url, COCONALA_SIGNUP_URL);
+});
+
+test("/crowd on verification_required links to the CrowdWorks verification page, not the signup page", async () => {
+  const snapshot = { lifecycle: "verification_required" };
+  const { sent, deps } = harness({ getGigState: async (platform) => { assert.equal(platform, "crowdworks"); return snapshot; } });
+  const outcome = await handleSlashCommand(parseSlashCommand("/crowd"), ROW, deps);
+  assert.deepEqual(outcome, { handled: true, action: "crowd", ok: true, providerMessageId: 1 });
+  const url = sent[0].extra.reply_markup.inline_keyboard[0][0].url;
+  assert.equal(url, CROWDWORKS_VERIFICATION_URL);
+  assert.notEqual(url, CROWDWORKS_SIGNUP_URL);
+});
+
+test("/gig and /crowd read state through the injected getGigState, scoped to this row's uid", async () => {
+  const reads = [];
+  const { deps } = harness({
+    getGigState: async (platform, uid) => { reads.push({ platform, uid }); return { lifecycle: "active", stats: { listingCount: 2 } }; },
+  });
+  await handleSlashCommand(parseSlashCommand("/gig"), ROW, deps);
+  await handleSlashCommand(parseSlashCommand("/crowd"), ROW, deps);
+  assert.deepEqual(reads, [
+    { platform: "coconala", uid: "u1" },
+    { platform: "crowdworks", uid: "u1" },
+  ]);
+});
+
+test("a throwing getGigState yields the honest unknown reply, not an exception", async () => {
+  for (const raw of ["/gig", "/crowd"]) {
+    const { sent, deps } = harness({ getGigState: async () => { throw new Error("boom"); } });
+    const outcome = await handleSlashCommand(parseSlashCommand(raw), ROW, deps);
+    assert.equal(outcome.ok, false, raw);
+    assert.equal(outcome.reason, "state_unavailable", raw);
+    assert.match(sent[0].text, /確認できません/, raw);
+    assert.equal(/\d/.test(sent[0].text), false, `${raw} unknown reply must not invent a number`);
+  }
+});
+
+test("/gig with no getGigState dep at all also falls back to the honest unknown reply (reader not yet wired)", async () => {
+  const { sent, deps } = harness();
+  delete deps.getGigState;
+  const outcome = await handleSlashCommand(parseSlashCommand("/gig"), ROW, deps);
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.reason, "state_unavailable");
+  assert.match(sent[0].text, /確認できません/);
+});
+
+test("/gig and /crowd do not claim delivery without a Telegram provider message id", async () => {
+  for (const raw of ["/gig", "/crowd"]) {
+    for (const delivery of [undefined, null, { ok: false }, { ok: true, result: {} }, { ok: true, result: { message_id: 0 } }]) {
+      const { deps } = harness({
+        getGigState: async () => ({ lifecycle: "setup_required" }),
+        send: async () => delivery,
+      });
+      const outcome = await handleSlashCommand(parseSlashCommand(raw), ROW, deps);
+      assert.equal(outcome.ok, false, raw);
+      assert.equal(outcome.reason, delivery?.ok === false ? "delivery_failed" : "delivery_unconfirmed", raw);
+      assert.equal(Object.hasOwn(outcome, "providerMessageId"), false, raw);
+    }
+  }
+});
+
+test("/gig active reply contains only numbers present in the snapshot", async () => {
+  const { sent, deps } = harness({ getGigState: async () => ({ lifecycle: "active", stats: { listingCount: 5, lastWakeCompleted: true } }) });
+  await handleSlashCommand(parseSlashCommand("/gig"), ROW, deps);
+  const numbers = sent[0].text.match(/\d+/g) || [];
+  assert.deepEqual(numbers, ["5"], "no fabricated number besides the injected listingCount");
+});
+
+test("account-scoped /gig and /crowd on an unlinked chat get the setup-first reply and touch no store", async () => {
+  for (const raw of ["/gig", "/crowd"]) {
+    let reads = 0;
+    const { sent, deps } = harness({ getGigState: async () => { reads++; return { lifecycle: "active" }; } });
+    const outcome = await handleSlashCommand(parseSlashCommand(raw), null, deps);
+    assert.equal(outcome.handled, true, raw);
+    assert.equal(outcome.ok, false, raw);
+    assert.equal(outcome.reason, "unlinked", raw);
+    assert.equal(reads, 0, `${raw} must not read gig state for an unlinked chat`);
+    assert.equal(sent.length, 1, raw);
+    assert.ok(sent[0].text.includes("/start"), `${raw} setup-first reply names /start`);
   }
 });
 

@@ -29,11 +29,17 @@ const { compActive, compUntilMs } = require("./comp-window.js");
 const { getLastWakeMiss, wakeMissLine } = require("./wake-miss.js");
 const { TZ_ROW_KEYS } = require("./user-tz.js");
 const { buildInvestmentReply, telegramExtra, validInvestmentSnapshot } = require("./investment-chat.js");
+const { buildGigReply, validGigSnapshot } = require("./gig-chat.js");
 
 // Every /command this bot understands. start/panel are listed for /help but owned elsewhere.
 const KNOWN_COMMANDS = Object.freeze([
   "start", "panel", "help", "status", "where", "stop", "subscribe", "connect", "payout", "reset", "invest",
+  "gig", "crowd",
 ]);
+// /gig and /crowd share one handler shape (read state, build a platform reply, send, report the same
+// result contract as /invest) but each is pinned to exactly one marketplace platform — never guessed
+// from user input, so there is no way to ask this handler for the "wrong" platform's state.
+const GIG_PLATFORM_BY_COMMAND = Object.freeze({ gig: "coconala", crowd: "crowdworks" });
 // INTENTIONAL CHANGE: matching is EXACT, so "/startfoo" is its own (unknown) command rather than the
 // start it used to be under telegram.js's startsWith("/start") check — Telegram deep links always
 // deliver the payload space-separated ("/start airplane", "/start@bot spaceship"), never glued on.
@@ -80,6 +86,8 @@ function helpMessage() {
     "  /payout — set or change your payout destination",
     "  /reset — restart the onboarding announcements",
     "  /invest — open Investment Loop",
+    "  /gig — open the Coconala gig lane",
+    "  /crowd — open the CrowdWorks gig lane",
     "",
     "You can also type:",
     ...help.availableActions.map((action) => `  ${action}`),
@@ -243,6 +251,35 @@ async function handleSlashCommand(parsed, row, deps = {}) {
     return {
       handled: true,
       action: "invest",
+      ok,
+      ...(providerMessageId == null ? {} : { providerMessageId }),
+      ...(ok ? {} : { reason: "state_unavailable" }),
+    };
+  }
+
+  if (name === "gig" || name === "crowd") {
+    const platform = GIG_PLATFORM_BY_COMMAND[name];
+    let snapshot;
+    try {
+      snapshot = deps.getGigState ? await deps.getGigState(platform, row.uid) : { lifecycle: "unknown" };
+    } catch {
+      snapshot = { lifecycle: "unknown" };
+    }
+    const ok = validGigSnapshot(snapshot);
+    const reply = buildGigReply(platform, ok ? snapshot : { lifecycle: "unknown" });
+    const delivery = await send(deps.token, chatId, reply.text, telegramExtra(reply));
+    const providerMessageId = delivery && delivery.ok === true &&
+      Number.isSafeInteger(delivery.result?.message_id) && delivery.result.message_id > 0
+      ? delivery.result.message_id : null;
+    if (delivery?.ok === false) {
+      return { handled: true, action: name, ok: false, reason: "delivery_failed" };
+    }
+    if (providerMessageId == null) {
+      return { handled: true, action: name, ok: false, reason: "delivery_unconfirmed" };
+    }
+    return {
+      handled: true,
+      action: name,
       ok,
       ...(providerMessageId == null ? {} : { providerMessageId }),
       ...(ok ? {} : { reason: "state_unavailable" }),
