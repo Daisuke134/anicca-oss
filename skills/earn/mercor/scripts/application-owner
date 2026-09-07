@@ -10,6 +10,7 @@ TASK="mercor-revenue-application"
 CDP="http://127.0.0.1:9222"
 LEASE_JSON="$STATE_ROOT/browser-lease.json"
 WRITEBACK_JSON="$STATE_ROOT/session-writeback.json"
+AUTH_READBACK_JSON="$STATE_ROOT/auth-readback.json"
 LEASE_TOKEN=""
 LEASE_GENERATION=""
 
@@ -56,12 +57,21 @@ MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:
   MERCOR_RUN_EARNINGS_SYNC=0 \
   "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
 rc=$?
-"$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
-  --origin https://work.mercor.com --local-storage-key mercor-auth-store \
-  --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >"$WRITEBACK_JSON"
-writeback_rc=$?
+if PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+  -m job_search_loop.mercor_auth_readback \
+  --ws "$MERCOR_CDP_PAGE_WS" --output "$AUTH_READBACK_JSON"; then
+  "$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
+    --origin https://work.mercor.com --local-storage-key mercor-auth-store \
+    --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >"$WRITEBACK_JSON"
+  writeback_rc=$?
+else
+  [[ -f "$AUTH_READBACK_JSON" ]] || \
+    print -r -- '{"status":"indeterminate"}' >"$AUTH_READBACK_JSON"
+  print -r -- '{"ok":false,"reason":"authenticated_readback_required"}' >"$WRITEBACK_JSON"
+  writeback_rc=0
+fi
 set -e
-chmod 600 "$WRITEBACK_JSON"
+chmod 600 "$AUTH_READBACK_JSON" "$WRITEBACK_JSON"
 if (( writeback_rc != 0 && rc == 0 )); then
   rc=75
 fi

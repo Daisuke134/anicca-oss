@@ -57,8 +57,8 @@ Do not create `profitable-claude`-style second executors, a second Mercor loop, 
 
 ## 4. Mercor authentication boundary
 
-- Use ordinary Google sign-in with the Keychain credential.
-- Never click a browser Google 2FA button whose accessible name is `はい`; only the user taps `はい` inside the Gmail iOS app.
+- Use only Mercor's email login with the account email from private state.
+- Never click `Google`, `Okta`, or `Sign up`.
 - Never click account recovery, reset, registration, recovery-email, or recursive alternate-method paths.
 - If recovery/reset/wait appears, record the visible URL/text and stop.
 - Use a dedicated Mercor browser profile; never navigate the job-search or trusted daily-driver tab.
@@ -156,7 +156,7 @@ The Mercor lane is a reusable open-source macro loop for any operator, not a pro
 ### Operator onboarding (human once per account)
 
 1. Provide a private resume/fact profile and approve the material baseline.
-2. Authenticate the operator's own Google/Mercor account in an isolated browser.
+2. Authenticate the operator's own Mercor email account in an isolated browser.
 3. Complete Mercor's required profile, work authorization, payment setup, interview, and assessment steps personally.
 4. Connect the operator's own Gmail and Google Calendar through the existing Job Hunter integration.
 5. Set the operator's target rate, weekly capacity, locales, role families, and hard exclusions.
@@ -173,7 +173,7 @@ The Mercor lane is a reusable open-source macro loop for any operator, not a pro
 
 ### Public/private boundary
 
-Public repository: adapters, schemas, prompts, tests, launchd templates, provider policy, and redacted fixtures. Private runtime: resume, fact ledger, Google/Mercor session, Calendar IDs, Gmail thread IDs, payment details, application ledger, evidence, and earnings. A new operator gets a fresh private state root and never receives Dais's credentials or profile.
+Public repository: adapters, schemas, prompts, tests, launchd templates, provider policy, and redacted fixtures. Private runtime: resume, fact ledger, Mercor email session, Calendar IDs, Gmail thread IDs, payment details, application ledger, evidence, and earnings. A new operator gets a fresh private state root and never receives Dais's credentials or profile.
 
 ### $10K verification contract
 

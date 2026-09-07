@@ -546,6 +546,21 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    transition candidate-local: retry the exact observed card once, then record and continue. Remaining
    acceptance is merge/install, one natural authenticated bounded wake, at least one official application
    receipt when a ready candidate exists, immediate per-application Telegram, and following replay-zero.
+   Main release `b6a529b72ccd739c67236afa43c5364dc8a0099d` then completed natural wake
+   `mercor-20260907-154254-68108`, exit `0`, and returned `loaded-idle`; terminal Telegram ACK is
+   `65537`. It observed sixteen official cards including `Bilingual Writer - Japanese (Japan)` but
+   submitted zero. Opening a card redirected the leased page to Mercor login, and the executor attempted
+   no login or Google-session recovery, so every observed card became
+   `not_opened_authentication_redirect`. This is not acceptance and does not advance the TODO. Shared
+   Apply policy is installed, but provider auth recovery remains the first failing boundary; repair that
+   boundary without restarting Mac/Aqua/browser, then repeat the natural official application proof.
+   Root cause inside that boundary is conflicting canon: the executor read the legacy
+   `skills/job-hunter/references/mercor.md`, which still called Mercor a Job Hunter provider and left
+   ordinary login versus recovery hard-stop ambiguous. That legacy file is now a one-line pointer to
+   `skills/mercor/SKILL.md`; Dais confirms Mercor uses email login and prohibits Google login, so the
+   Mercor prompt uses only the private account email and forbids Google/Okta/signup. Session writeback must
+   additionally require authenticated official readback so a logged-out wake cannot overwrite a good
+   provider vault; normal wakes reuse the vault and do not log in every time.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

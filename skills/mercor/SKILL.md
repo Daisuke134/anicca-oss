@@ -1,6 +1,6 @@
 ---
 name: mercor
-description: "Mercor provider lane for Life Manager: safe Google/Gmail authentication, resume/profile maintenance, grounded applications, and verified earnings. Use for Mercor jobs, assessments, applications, and the Life Manager job loop."
+description: "Use for Mercor revenue jobs, assessments, applications, replies, work submission, authentication, and verified earnings."
 ---
 
 # Mercor
@@ -18,11 +18,12 @@ Mercor is an independent Life Manager revenue marketplace, not a Job Hunter subf
 
 ## Authentication hard stops
 
-1. Use ordinary Google sign-in and inject the Keychain password only into the isolated UI. Never print or persist the secret.
-2. Never click a browser Google 2FA button with accessible name `はい`; the user alone approves `はい` inside the Gmail iOS app.
-3. Never use account recovery, reset, registration, recovery-email, or recursive alternate-method paths.
+1. A Mercor login screen is not terminal. Use only Mercor's email login with the account email from private profile/credential state and return to Mercor without asking the operator. Never print or place credentials in evidence.
+2. Never click `Google`, `Okta`, or `Sign up`.
+3. Never use account recovery, reset, registration, or recursive alternate-method paths.
 4. On any recovery/reset/wait screen, record the URL and visible text and stop.
 5. Never use another site's tab or the trusted daily-driver browser.
+6. Never click or invoke Sign out/Log out. Persist refreshed provider state only after authenticated official readback; a logged-out or indeterminate context must never replace the last known-good provider vault.
 
 ## Application policy
 
@@ -38,7 +39,7 @@ When a listing shows every required step complete, `100%`, any required intervie
 
 ## Reusable open-source macro loop
 
-Treat this as a provider module for any operator, not as a shared account or a guaranteed-income machine. Each operator must supply their own resume/facts, Google/Mercor session, payment setup, Calendar, interview/assessment completion, capacity, locales, and exclusions. Keep those inputs in the operator's private XDG state root; never commit them or reuse another operator's credentials.
+Treat this as a provider module for any operator, not as a shared account or a guaranteed-income machine. Each operator must supply their own resume/facts, Mercor email session, payment setup, Calendar, interview/assessment completion, capacity, locales, and exclusions. Keep those inputs in the operator's private XDG state root; never commit them or reuse another operator's credentials.
 
 The loop owns recurring discovery, ready-form submission, Gmail/Calendar reconciliation, reminders, evidence, duplicate protection, and settled-earnings accounting. It does not impersonate interviews, assessments, or paid work where Mercor prohibits AI/automation. `$10K verified` means three consecutive cycles of actual settled payouts, not an offer or an estimated capacity.
 
