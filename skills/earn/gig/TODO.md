@@ -758,7 +758,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    shows `3 of 3 steps done`, `100%`, and `Your application has been submitted!`; the ledger advanced
    23→24 and Telegram delivered message `66514`. `needs_human=[]`, `blocked=[]`, no duplicate
    provider or Telegram effect occurred, and no camera, microphone or screen-sharing permission was
-   requested. This closes the independent Mercor Apply owner and advances the active cursor to
+   requested. A third scheduled wake `mercor-20260907-211711-29264` began exactly thirty minutes
+   later and ended naturally at `2026-09-07 21:24 JST`: it skipped the same two incomplete Japanese
+   interview applications without entering either ceremony, submitted the distinct `FP&A / corporate
+   finance Evaluator`, read back `3 of 3 steps done`, `100%` and `Your application has been
+   submitted!`, advanced the ledger 24→25 and delivered Telegram message `66682` with no human gate.
+   This closes the independent Mercor Apply owner and advances the active cursor to
    `SHARED-REPLY-1` without changing the fixed order.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
