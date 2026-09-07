@@ -48,6 +48,33 @@ def _load_reply_detector():
     return module
 
 
+def test_default_headroom_kib_is_524288_when_env_absent(monkeypatch):
+    # skills/earn/gig/TODO.md documents 524,288 KiB (512 MiB) as the house floor. A lane whose
+    # plist never carries GIG_DISK_HEADROOM_KIB -- e.g. one migrated onto lm-loop's registry,
+    # whose rendered plist never sets this key -- must fall back to this default, not to zero.
+    monkeypatch.delenv("GIG_DISK_HEADROOM_KIB", raising=False)
+    guard = _load_guard()
+    assert guard.REQUIRED_KIB == 524288
+    assert guard.REQUIRED_BYTES == 524288 * 1024
+
+
+def test_explicit_headroom_kib_still_overrides_the_default(monkeypatch):
+    monkeypatch.setenv("GIG_DISK_HEADROOM_KIB", "1048576")
+    guard = _load_guard()
+    assert guard.REQUIRED_KIB == 1048576
+    assert guard.REQUIRED_BYTES == 1048576 * 1024
+
+
+def test_explicit_zero_headroom_kib_still_disables_the_byte_floor(monkeypatch):
+    # A caller that genuinely wants no fixed-byte floor (relying only on the stop/pressure
+    # flags) sets GIG_DISK_HEADROOM_KIB=0 deliberately. The default above must not become
+    # unoverridable.
+    monkeypatch.setenv("GIG_DISK_HEADROOM_KIB", "0")
+    guard = _load_guard()
+    assert guard.REQUIRED_KIB == 0
+    assert guard.REQUIRED_BYTES == 0
+
+
 def test_one_byte_under_threshold_writes_receipt_and_never_execs(tmp_path, monkeypatch, capsys):
     guard = _load_guard()
     monkeypatch.setenv("GIG_STATE_DIR", str(tmp_path))
