@@ -68,6 +68,9 @@ DISCOVERY_QUERIES = (
 # expects is how the Coconala session earned a 403 on 2026-09-07. The window rotates, so coverage
 # is the whole vocabulary over time at today's cost per wake.
 DISCOVERY_WINDOW = 12
+# The lane wakes every 60 seconds (config/loop-registry.json), and the window steps by one query
+# per wake, so the whole vocabulary is read inside half an hour instead of over fourteen hours.
+WAKE_INTERVAL_SECONDS = 60
 PUBLIC_SOFTWARE_PROOF = {
     "source_url": "https://github.com/Daisuke134/life-manager", "title": "Life Manager", "license": "MIT",
     "description": "API、scheduler、worker、Postgres、object store、Telegram reporting、公式readback付き外部action loopを同一repositoryで実装したMIT公開のpersonal managerです。",
@@ -223,9 +226,17 @@ def _discovery_window(tick_value: object) -> tuple[str, ...]:
     """DISCOVERY_WINDOW queries starting where the slot lands, so every wake reads a different
     slice of the vocabulary at a constant request rate."""
     total = len(DISCOVERY_QUERIES)
+    # Advance once per wake, not once per half hour. _discovery_query's 1800s slot is right for
+    # the default path, which reads one query; borrowing it here left the window standing still
+    # for thirty consecutive wakes and put a full pass over the vocabulary 14 hours away.
     try:
-        start = DISCOVERY_QUERIES.index(_discovery_query(tick_value))
-    except ValueError:
+        if isinstance(tick_value, datetime):
+            parsed = tick_value
+        else:
+            parsed = datetime.fromisoformat(str(tick_value).strip().replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None: raise ValueError
+        start = int(parsed.astimezone(timezone.utc).timestamp() // WAKE_INTERVAL_SECONDS) % total
+    except (AttributeError, OSError, OverflowError, TypeError, ValueError):
         start = 0
     return tuple(DISCOVERY_QUERIES[(start + offset) % total] for offset in range(min(DISCOVERY_WINDOW, total)))
 

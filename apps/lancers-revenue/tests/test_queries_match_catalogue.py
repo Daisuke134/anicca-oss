@@ -89,12 +89,16 @@ def test_a_wake_reads_a_rotating_slice_rather_than_the_whole_vocabulary():
     spec.loader.exec_module(module)
     assert module.DISCOVERY_WINDOW <= 12
     assert len(module.DISCOVERY_QUERIES) > module.DISCOVERY_WINDOW
-    from datetime import datetime, timezone
-    windows = {module._discovery_window(datetime(2026, 8, 13, hour, minute, tzinfo=timezone.utc))
-               for hour in range(24) for minute in (0, 30)}
+    from datetime import datetime, timedelta, timezone
+    base = datetime(2026, 8, 13, 3, 0, tzinfo=timezone.utc)
+    # One wake per minute, for as many minutes as there are queries.
+    windows = [module._discovery_window(base + timedelta(seconds=60 * n))
+               for n in range(len(module.DISCOVERY_QUERIES))]
     assert all(len(window) == module.DISCOVERY_WINDOW for window in windows)
-    # Every query is reachable, so the vocabulary is covered over time rather than in one wake.
+    # The window steps by one query per wake, so the vocabulary is covered in under half an hour
+    # rather than the fourteen hours a 1800-second slot would have taken.
     assert set().union(*windows) == set(module.DISCOVERY_QUERIES)
+    assert windows[0] != windows[1], "the window must advance every wake, not every slot"
 
 
 @pytest.mark.parametrize("banned", [
