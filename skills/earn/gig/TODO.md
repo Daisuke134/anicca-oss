@@ -837,6 +837,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    open until the stale lock-holding PID is removed in an authorized scoped lifecycle action, the
    main-derived finite owner produces a natural terminal over the complete inbox, and official
    reply/readback plus replay-zero are retained.
+   PR `#4591` merged the finite shared-kernel owner through main SHA
+   `0965ef2bc14b42e3741b47b81fdc775d40145bb3`, and immutable release
+   `20260908T004042-0965ef2b` contains that exact SHA. It is not applied yet: the September 4 orphan
+   PID `20998` still exclusively holds `~/gig/reply-detector.lock`, and replacing it is a scoped
+   Coconala Reply lifecycle restart that Dais previously prohibited. The required action does not
+   restart the Mac, Aqua/loginwindow, browser or authentication session; it terminates only that
+   stale Reply process, applies only `hf-gig-reply-detector`, and then requires a natural finite
+   terminal plus official effect separation.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
