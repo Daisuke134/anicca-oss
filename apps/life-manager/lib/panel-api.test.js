@@ -1055,12 +1055,12 @@ test("Task 7A phone.save converts a Japanese domestic number and preserves expli
   assert.equal(h.wrapperCalls.at(-1).payload.phone, "+442079460958");
 });
 
-test("Task 7A legacy payment stage returns ready dashboard with optional server Stripe link", async () => {
+test("Task 7A legacy payment stage returns ready dashboard without onboarding Stripe link", async () => {
   const h = onboardingHarness({ step: "payment", stage: "payment", paymentLink: null });
   const result = await onboardingRequest(h);
   assert.equal(result.response.status, 200);
   assert.equal(result.body.step, "dashboard");
-  assert.equal(result.body.paymentLink, "https://buy.stripe.com/test_life_manager?client_reference_id=tenant-a");
+  assert.equal(result.body.paymentLink, undefined);
   const missing = onboardingHarness({ step: "payment", stage: "payment" });
   missing.opts.stripePaymentLink = "";
   const unavailable = await onboardingRequest(missing);
@@ -1211,16 +1211,16 @@ test("Task 7A rejects malformed JSON arrays, primitives, and payloads before pro
   }
 });
 
-test("Task 7A unpaid dashboard remains checkout-reachable without granting paid", async () => {
+test("Task 7A unpaid dashboard does not ask for payment during onboarding", async () => {
   const h = onboardingHarness({ step: "dashboard", stage: "done", calendarConnected: true, paid: false });
   const result = await onboardingRequest(h);
   assert.equal(result.response.status, 200);
   assert.equal(result.body.step, "dashboard");
   assert.equal(result.body.paid, false);
-  assert.equal(result.body.paymentLink, "https://buy.stripe.com/test_life_manager?client_reference_id=tenant-a");
+  assert.equal(result.body.paymentLink, undefined);
 });
 
-test("Task 3 ready dashboard returns server trial truth and optional checkout", async () => {
+test("Task 3 ready dashboard omits legacy trial truth and checkout", async () => {
   const h = onboardingHarness({
     step: "dashboard",
     stage: "done",
@@ -1231,9 +1231,9 @@ test("Task 3 ready dashboard returns server trial truth and optional checkout", 
   const result = await onboardingRequest(h);
   assert.equal(result.response.status, 200);
   assert.equal(result.body.step, "dashboard");
-  assert.equal(result.body.trialExpiresAt, "2026-08-31T12:00:00.000Z");
-  assert.equal(result.body.trialActive, true);
-  assert.equal(result.body.paymentLink, "https://buy.stripe.com/test_life_manager?client_reference_id=tenant-a");
+  assert.equal(result.body.trialExpiresAt, undefined);
+  assert.equal(result.body.trialActive, undefined);
+  assert.equal(result.body.paymentLink, undefined);
 
   h.opts.stripePaymentLink = "";
   const withoutCheckout = await onboardingRequest(h);

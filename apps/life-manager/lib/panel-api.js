@@ -582,19 +582,11 @@ function onboardingMutation(body, pathAction) {
 function onboardingResponse(value, opts = {}, scope = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw onboardingError("onboarding_unavailable", 502);
   const body = {};
-  for (const key of ["step", "stage", "name", "calendarConnected", "homeAddress", "notificationsEnabled", "phone", "callEnabled", "paid", "trialExpiresAt", "trialActive"]) {
+  for (const key of ["step", "stage", "name", "calendarConnected", "homeAddress", "notificationsEnabled", "phone", "callEnabled", "paid"]) {
     if (Object.hasOwn(value, key)) body[key] = value[key];
   }
   const aliases = { payment: "dashboard", pay: "dashboard", done: "dashboard", gmail: "dashboard" };
   body.step = aliases[String(body.step || body.stage || "")] || String(body.step || body.stage || "");
-  if (body.step === "payment") {
-    const link = paymentLink(opts, scope);
-    if (!link) throw onboardingError("payment_unavailable", 503);
-    body.paymentLink = link;
-  } else if (body.step === "dashboard" && body.paid !== true) {
-    const link = paymentLink(opts, scope);
-    if (link) body.paymentLink = link;
-  }
   return body;
 }
 
