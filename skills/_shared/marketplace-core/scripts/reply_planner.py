@@ -13,8 +13,37 @@ class ReplyPlanner:
     universal state transition around its result; it never judges buyer text.
     """
 
-    def __init__(self, compose: Callable[[dict[str, Any]], str | None]):
+    def __init__(self, compose: Callable[[dict[str, Any]], str | Mapping[str, Any] | None]):
         self.compose = compose
+
+    @staticmethod
+    def _structured(value: Mapping[str, Any]) -> dict[str, Any]:
+        action = value.get("action")
+        if action in {"reply", "estimate"}:
+            payload = value.get("payload")
+            if not isinstance(payload, Mapping) or not payload:
+                raise ValueError("reply_payload_invalid")
+            return {"action": action, "payload": dict(payload)}
+        if action == "noop":
+            classification = value.get("classification")
+            if classification not in {"awaiting_buyer", "closed", "no_reply", "noop"}:
+                raise ValueError("reply_noop_classification_invalid")
+            return {"action": "noop", "classification": classification}
+        if action in {"wait", "human"}:
+            reason = value.get("reason")
+            remaining = value.get("remaining_work")
+            if not isinstance(reason, str) or not reason.strip():
+                raise ValueError("reply_wait_reason_invalid")
+            if not isinstance(remaining, list) or not remaining or not all(
+                isinstance(item, str) and item.strip() for item in remaining
+            ):
+                raise ValueError("remaining_work_invalid")
+            return {
+                "action": action,
+                "reason": reason.strip(),
+                "remaining_work": [item.strip() for item in remaining],
+            }
+        raise ValueError("reply_action_invalid")
 
     def __call__(self, row: dict[str, Any]) -> dict[str, Any]:
         context = row.get("context")
@@ -43,6 +72,8 @@ class ReplyPlanner:
             }
         if body is None:
             return {"action": "noop", "classification": "no_reply"}
+        if isinstance(body, Mapping):
+            return self._structured(body)
         if not isinstance(body, str) or not body.strip():
             raise ValueError("reply_body_invalid")
         return {"action": "reply", "payload": {"body": body.strip()}}

@@ -867,6 +867,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    form and same-session readback is not yet connected to the shared planner/kernel. Do not activate
    the replacement owner until that capability is preserved; otherwise the migration would silently
    regress Reply's estimate responsibility.
+   The shared planner contract now accepts one normalized structured model decision for `reply`,
+   `estimate`, `wait`, `human` or `noop`; provider code no longer needs a second action-selection
+   state machine merely because its official effect is a form instead of a message. The next source
+   step is to project Coconala's already-proven semantic receipt into this contract and extract its
+   existing category/two-submit/readback ceremony as the adapter mutation, without nesting the old
+   connector-outbox lifecycle inside the shared kernel.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

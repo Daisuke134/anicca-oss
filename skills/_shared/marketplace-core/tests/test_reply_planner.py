@@ -47,3 +47,40 @@ def test_model_wait_and_missing_facts_are_normalized():
         "reason": "reply_facts_required",
         "remaining_work": ["本人の回答"],
     }
+
+
+def test_structured_reply_and_estimate_use_one_decision_contract():
+    reply = planner_module.ReplyPlanner(lambda _context: {
+        "action": "reply", "payload": {"body": "承知しました。"},
+    })
+    assert reply(row()) == {
+        "action": "reply", "payload": {"body": "承知しました。"},
+    }
+    estimate = planner_module.ReplyPlanner(lambda _context: {
+        "action": "estimate",
+        "payload": {"title": "開発", "amount": 10000, "currency": "JPY"},
+    })
+    assert estimate(row()) == {
+        "action": "estimate",
+        "payload": {"title": "開発", "amount": 10000, "currency": "JPY"},
+    }
+
+
+def test_structured_wait_is_normalized_and_invalid_effect_is_rejected():
+    wait = planner_module.ReplyPlanner(lambda _context: {
+        "action": "wait", "reason": "official_context_required",
+        "remaining_work": ["公式応募条件を取得"],
+    })
+    assert wait(row()) == {
+        "action": "wait", "reason": "official_context_required",
+        "remaining_work": ["公式応募条件を取得"],
+    }
+    invalid = planner_module.ReplyPlanner(lambda _context: {
+        "action": "estimate", "payload": {},
+    })
+    try:
+        invalid(row())
+    except ValueError as error:
+        assert str(error) == "reply_payload_invalid"
+    else:
+        raise AssertionError("empty estimate payload was accepted")
