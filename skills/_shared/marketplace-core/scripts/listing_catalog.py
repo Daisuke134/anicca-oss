@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -221,3 +222,48 @@ def project_lancers(catalog: dict, family: str) -> dict:
         "description": description,
         "missing": list(_LANCERS_UNMAPPED_FIELDS),
     }
+
+
+def listing_terms(item: dict) -> tuple[str, ...]:
+    """The searchable noun phrases in one catalogue row.
+
+    Promoted from the CrowdWorks adapter on 2026-09-07, where it was the only correct answer to
+    "what do we search for". Lancers kept a hand-written list in its own source and Coconala
+    searched the single keyword `AI`, so one question had three answers and only this one was
+    derived from what the owner actually sells.
+
+    Keyword search matches nouns, not sentences: 「業務自動化システムを開発します」 finds nothing
+    while 「業務自動化」 returns a live board.
+    """
+    title = re.sub(r"(します|承ります)$", "", str(item.get("title_ja") or ""))
+    long_form: list[str] = []
+    for part in re.split(r"[・/／]", title):
+        part = re.sub(r"^[0-9０-９→\-〜~]+で", "", part).split("を")[0].strip()
+        # 「の」 introduces what is being done to the noun, and the noun is the searchable part:
+        # 「Webサイトの不具合修正」 -> 「Webサイト」, 「システム開発のお見積り」 -> 「システム開発」.
+        head = part.split("の")[0].strip()
+        if len(head) >= 3:
+            part = head
+        # 「で」 names the tool the work is done with, and that is the more searchable noun:
+        # 「Chrome拡張機能で業務作業」 -> 「Chrome拡張機能」, 「GASで業務自動化ツール」 -> 「GAS」.
+        head = part.split("で")[0].strip()
+        if len(head) >= 3:
+            part = head
+        if len(part) >= 3 and part not in long_form:
+            long_form.append(part)
+    # A phrase this long is not a keyword and returns nothing, but dropping every term would take
+    # the listing out of discovery entirely, so the cap only applies when something survives it.
+    short = [term for term in long_form if len(term) <= 12]
+    return tuple(short or long_form)
+
+
+def search_terms(catalog: dict) -> tuple[str, ...]:
+    """Every catalogue row's searchable nouns, deduplicated, for boards that search globally."""
+    terms: list[str] = []
+    for item in catalog.get("listings") or ():
+        for term in listing_terms(item):
+            # listing_terms keeps an over-long term rather than drop a row out of discovery
+            # entirely. Here there is no row to protect, and a phrase is not a keyword.
+            if len(term) <= 12 and term not in terms:
+                terms.append(term)
+    return tuple(terms)

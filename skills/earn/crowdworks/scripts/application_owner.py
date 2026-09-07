@@ -23,15 +23,13 @@ SEARCH_BUDGET_SECONDS = 240
 _BUDGET = re.compile(r"固定報酬制\s*([\d,]+)\s*円(?:\s*〜\s*([\d,]+)\s*円)?")
 
 def _listings():
-    """The shared 3-platform catalog, with CrowdWorks search terms derived from each title."""
+    """The shared 3-platform catalog. The term derivation that used to live here is now
+    listing_catalog.listing_terms(), because it was the only correct implementation of "what do
+    we search for" and the other two platforms each had their own."""
     data = json.loads(CATALOG.read_text(encoding="utf-8"))
     out = []
     for item in data["listings"]:
-        title = re.sub(r"(します|承ります)$", "", item["title_ja"])
-        # Keyword search matches nouns, not whole sentences: 「業務自動化システムを開発」finds nothing
-        # while 「業務自動化」 returns a live board, so cut each part down to its noun phrase.
-        parts = (re.sub(r"^[0-9０-９→\-〜~]+で", "", part).split("を")[0].strip() for part in re.split(r"[・/／]", title))
-        terms = [part for part in parts if len(part) >= 3]
+        terms = list(listing_catalog.listing_terms(item))
         tiers = sorted(item["tiers"], key=lambda tier: tier["price_jpy"])
         if terms and tiers: out.append({**item, "terms": terms, "tiers": tiers})
     return out
@@ -75,6 +73,8 @@ profile = _module("crowdworks_profile", Path(__file__).with_name("profile.py"))
 application = _module("crowdworks_application", Path(__file__).with_name("application_tick.py"))
 work_fit = _module("marketplace_work_fit",
                    Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts" / "work_fit.py")
+listing_catalog = _module("marketplace_listing_catalog",
+                          Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts" / "listing_catalog.py")
 
 def _applied():
     """Projects this account already applied to. Without it the search keeps returning its own

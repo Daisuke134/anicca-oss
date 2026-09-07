@@ -84,3 +84,34 @@ def test_every_category_term_belongs_to_a_declared_prohibition_class():
     for prohibition, terms in fit.PROHIBITED_CATEGORY_TERMS:
         assert prohibition in fit.HARD_PROHIBITION_CLASSES
         assert terms
+
+
+# --- one vocabulary, three platforms -------------------------------------------------------
+
+def test_discovery_terms_keeps_the_terms_measured_to_return_live_boards():
+    """The original twelve earned their place by working, not by matching a catalogue row:
+    「業務自動化システム」 is the catalogue title and 「業務自動化」 is what finds jobs."""
+    terms = fit.discovery_terms()
+    for proven in fit.PROVEN_BOARD_TERMS:
+        assert proven in terms
+
+
+def test_discovery_terms_folds_in_the_catalogue_without_duplicating():
+    terms = fit.discovery_terms(("業務システム", "Shopify", "業務システム"))
+    assert terms.count("業務システム") == 1
+    assert "Shopify" in terms
+
+
+def test_discovery_terms_drops_anything_naming_work_the_fleet_refuses():
+    """Fetching refused work only manufactures skips -- the SNS運用 fallback, one layer up."""
+    terms = fit.discovery_terms(("動画編集", "出品代行", "テレアポ", "業務システム"))
+    assert "動画編集" not in terms and "出品代行" not in terms and "テレアポ" not in terms
+    assert "業務システム" in terms
+
+
+def test_the_non_catalogue_work_is_present_and_is_not_prohibited():
+    terms = fit.discovery_terms()
+    for expected in ("データ入力", "記事作成", "翻訳", "WordPress"):
+        assert expected in terms
+    for term in terms:
+        assert fit.category_refusal(term) is None

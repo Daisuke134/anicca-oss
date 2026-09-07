@@ -51,18 +51,36 @@ DISCOVERY_POOL_TARGET = 40
 # Nothing here searches for video, filming, voice, on-site work, 出品代行 or SNS 投稿代行. Those
 # are refused, so searching for them only manufactures skips, which is what DEFAULT_DISCOVERY_QUERY
 # = "SNS運用" was doing until it was replaced.
-DISCOVERY_QUERIES = (
-    # Build work -- the original twelve, unchanged.
-    "業務自動化", "業務システム", "Webアプリ", "システム開発",
-    "LINE Bot", "スクレイピング", "Excel VBA", "ダッシュボード",
-    "Chrome拡張", "RPA", "ECサイト", "不具合修正",
-    # Build work the original list simply never asked for.
-    "WordPress", "LP制作", "API連携", "GAS", "Shopify", "HTMLコーディング",
-    "ChatGPT", "生成AI", "AIチャットボット", "Notion",
-    # Not development, and squarely within what an agent does well: text, structured data and
-    # research, delivered as a file. None of it is hours of manual operation in a buyer's account.
-    "データ入力", "記事作成", "ブログ記事", "資料作成", "リサーチ", "翻訳", "文字起こし",
-)
+def _discovery_queries() -> tuple[str, ...]:
+    """One vocabulary, shared with CrowdWorks and Coconala.
+
+    Lancers used to keep this list in its own source, CrowdWorks derived its terms from the
+    catalogue, and Coconala searched the single keyword `AI`: three answers to one question.
+    marketplace-core now owns it -- listing_catalog.search_terms() derives the nouns the owner
+    actually sells, work_fit.discovery_terms() adds the rest and drops anything naming work the
+    fleet declines.
+    """
+    shared = Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts"
+
+    def _load(name):
+        spec = importlib.util.spec_from_file_location(f"marketplace_{name}", shared / f"{name}.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    work_fit = _load("work_fit")
+    try:
+        catalog_path = Path(__file__).resolve().parents[3] / "gig-work" / "profile" / "listings" / "catalog.json"
+        catalog_terms = _load("listing_catalog").search_terms(json.loads(catalog_path.read_text(encoding="utf-8")))
+    except Exception:
+        # A missing or malformed catalogue must not take discovery down to nothing; the proven
+        # board terms and the general vocabulary still stand on their own.
+        catalog_terms = ()
+    return work_fit.discovery_terms(catalog_terms)
+
+
+DISCOVERY_QUERIES = _discovery_queries()
 # One wake asks this many of them. The full list would multiply the request rate by the number of
 # queries added, on a board that is polled every 60 seconds; probing a marketplace harder than it
 # expects is how the Coconala session earned a 403 on 2026-09-07. The window rotates, so coverage

@@ -213,3 +213,43 @@ class CoconalaDelegationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- the term derivation promoted out of the CrowdWorks adapter, 2026-09-07 -----------------
+
+def _terms_module():
+    import importlib.util
+    import sys
+    from pathlib import Path
+    path = Path(__file__).resolve().parents[1] / "scripts" / "listing_catalog.py"
+    spec = importlib.util.spec_from_file_location("listing_catalog_terms_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_title_becomes_the_nouns_a_keyword_search_can_match():
+    module = _terms_module()
+    assert module.listing_terms({"title_ja": "0→1でWebアプリ・業務システムを最短開発します"}) == (
+        "Webアプリ", "業務システム")
+
+
+def test_the_possessive_tail_is_cut_because_the_noun_is_what_is_searchable():
+    module = _terms_module()
+    assert module.listing_terms({"title_ja": "Webサイトの不具合修正を承ります"}) == ("Webサイト",)
+    assert module.listing_terms({"title_ja": "システム開発のお見積り・要件定義相談します"}) == (
+        "システム開発", "要件定義相談")
+
+
+def test_a_row_is_never_dropped_out_of_discovery_by_the_length_cap():
+    """Capping is a search-quality rule, not a reason to make a listing unfindable."""
+    module = _terms_module()
+    assert module.listing_terms({"title_ja": "きわめて長い名詞句だけでできている見出しです"})
+
+
+def test_search_terms_is_the_deduplicated_union_of_every_row():
+    module = _terms_module()
+    catalog = {"listings": [{"title_ja": "業務システム・Webアプリを開発します"},
+                            {"title_ja": "業務システム・Shopifyを開発します"}]}
+    assert module.search_terms(catalog) == ("業務システム", "Webアプリ", "Shopify")

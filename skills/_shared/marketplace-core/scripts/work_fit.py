@@ -24,7 +24,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-__all__ = ["HARD_PROHIBITION_CLASSES", "PROHIBITED_CATEGORY_TERMS", "category_refusal"]
+__all__ = ["HARD_PROHIBITION_CLASSES", "PROHIBITED_CATEGORY_TERMS", "category_refusal",
+           "PROVEN_BOARD_TERMS", "GENERAL_WORK_TERMS", "discovery_terms"]
 
 # Kosuke is an autonomous agent. It cannot show a face, speak in real time, hold a body in a
 # room, or lend a credential it does not have. Everything below follows from that, and nothing
@@ -76,3 +77,45 @@ def category_refusal(category: str) -> Optional[tuple[str, str]]:
             if term in label:
                 return prohibition, term
     return None
+
+
+# What to search for, in one place. Measured 2026-09-07: Lancers kept a hand-written list in its
+# own source, CrowdWorks derived terms from the catalogue, and Coconala searched the single
+# keyword `AI`. Three answers to one question, and only CrowdWorks' was derived from what the
+# owner actually sells -- so that derivation moved to listing_catalog.search_terms() and this
+# composes it with the rest.
+
+# Kept because they were measured returning live boards, not because a catalogue row spells them
+# this way: 「業務自動化システム」 is the catalogue title and 「業務自動化」 is what finds jobs.
+PROVEN_BOARD_TERMS = (
+    "業務自動化", "業務システム", "Webアプリ", "システム開発",
+    "LINE Bot", "スクレイピング", "Excel VBA", "ダッシュボード",
+    "Chrome拡張", "RPA", "ECサイト", "不具合修正",
+)
+
+# Work outside the catalogue that an agent delivers well, as a file, without hours of manual
+# operation in a buyer's account. Dais 2026-09-07: development is what they are best at, not the
+# limit of what they can do; BUYMA, SNS posting itself and physical work are the exclusions.
+GENERAL_WORK_TERMS = (
+    "WordPress", "LP制作", "API連携", "GAS", "HTMLコーディング",
+    "ChatGPT", "生成AI", "AIチャットボット", "Notion",
+    "データ入力", "記事作成", "ブログ記事", "資料作成", "リサーチ", "翻訳", "文字起こし",
+)
+
+
+def discovery_terms(catalog_terms: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """Every term worth searching for, deduplicated and with refused work removed.
+
+    Terms naming work the fleet declines are dropped here rather than left for the planner:
+    fetching them only manufactures skips, which is exactly what DEFAULT_DISCOVERY_QUERY =
+    "SNS運用" was doing until 2026-09-07.
+    """
+    out: list[str] = []
+    for term in tuple(PROVEN_BOARD_TERMS) + tuple(catalog_terms) + tuple(GENERAL_WORK_TERMS):
+        term = str(term).strip()
+        if not term or term in out:
+            continue
+        if category_refusal(term) is not None:
+            continue
+        out.append(term)
+    return tuple(out)
