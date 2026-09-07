@@ -1,13 +1,7 @@
-"""A reclaimed message must not be resolvable by the worker that lost it.
+"""An abandoned claim is never blindly retried after a provider call may have started.
 
-reclaim_stale exists because an abandoned 'sending' claim stops the queue entirely and silently —
-measured 2026-09-05, three of them blocked every later CrowdWorks report. But returning the row to
-pending hands it to a second worker while the first may only be slow, not dead. Without a fence the
-slow worker can still resolve the row and overwrite the live worker's record with the result of a
-send nobody is tracking.
-
-The Coconala outbox has fenced this since it was written (state + owner + fencing token + lease).
-The shared outbox did not, which is the reason nothing should have been migrated onto it yet.
+Once status is sending, a dead sender cannot prove whether Telegram received the message. The row
+therefore becomes delivery_uncertain and requires provider reconciliation.
 
 Run: python3 -m pytest skills/_shared/marketplace-core/tests/test_outbox_claim_fence.py
 """
@@ -15,7 +9,6 @@ Run: python3 -m pytest skills/_shared/marketplace-core/tests/test_outbox_claim_f
 import importlib.util
 import sqlite3
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -34,11 +27,10 @@ def _load(name: str, path: Path):
 outbox = _load("fence_test_outbox", SCRIPTS / "telegram_outbox.py")
 
 
-def _reclaimed(database: Path):
-    """Drive the real race: claim, abandon, reclaim, re-claim. Returns (stale, live)."""
+def _abandoned(database: Path):
     outbox.enqueue(database, event_key="k", message="one report",
                    created_at="2026-09-06T11:59:00+00:00")
-    stale = outbox.claim_next(database)
+    claim = outbox.claim_next(database)
     # Backdate the claim so reclaim_stale sees the abandonment it is written for, rather than
     # weakening the window and testing something the production window would never do.
     with sqlite3.connect(database) as connection:
@@ -46,47 +38,34 @@ def _reclaimed(database: Path):
             "UPDATE telegram_outbox SET claimed_at = ? WHERE event_key = 'k'",
             ("2026-09-06T00:00:00+00:00",),
         )
-    stale = replace(stale, claimed_at="2026-09-06T00:00:00+00:00")
     assert outbox.reclaim_stale(database, older_than_seconds=900) == 1
-    live = outbox.claim_next(database)
-    assert live is not None and live.claimed_at != stale.claimed_at
-    return stale, live
+    return claim
 
 
-def test_stale_worker_cannot_mark_delivered(tmp_path):
+def test_abandoned_sender_is_quarantined_without_reclaim_or_resend(tmp_path):
     database = tmp_path / "outbox.sqlite3"
-    stale, live = _reclaimed(database)
-
-    with pytest.raises(outbox.StaleClaim):
-        outbox.mark_delivered(database, "k", "stale-id", "2026-09-06T12:00:00+00:00",
-                              claimed_at=stale.claimed_at)
-
-    # The live worker still owns the row and can resolve it.
-    outbox.mark_delivered(database, "k", "live-id", "2026-09-06T12:00:01+00:00",
-                          claimed_at=live.claimed_at)
+    _abandoned(database)
     item = outbox.list_items(database)[0]
-    assert (item.status, item.provider_message_id) == ("delivered", "live-id")
+    assert (item.status, item.last_error_code) == ("delivery_uncertain", "sender_abandoned")
+    assert item.claimed_at == "2026-09-06T00:00:00+00:00"
+    assert outbox.claim_next(database) is None
 
 
-def test_stale_worker_cannot_return_the_row_to_pending(tmp_path):
-    """The dangerous one: a stale pre-send failure would re-queue a message already in flight."""
+def test_provider_receipt_can_reconcile_an_abandoned_claim(tmp_path):
     database = tmp_path / "outbox.sqlite3"
-    stale, _live = _reclaimed(database)
+    _abandoned(database)
+    outbox.mark_delivered(database, "k", "provider-id", "2026-09-06T12:00:01+00:00",
+                          claimed_at="2026-09-06T00:00:00+00:00")
+    assert outbox.list_items(database)[0].status == "delivered"
 
-    with pytest.raises(outbox.StaleClaim):
+
+def test_abandoned_claim_cannot_be_returned_to_pending(tmp_path):
+    database = tmp_path / "outbox.sqlite3"
+    _abandoned(database)
+    with pytest.raises(outbox.InvalidState):
         outbox.mark_pre_send_failed(database, "k", "process_not_started",
-                                    claimed_at=stale.claimed_at)
-    assert outbox.list_items(database)[0].status == "sending"
-
-
-def test_stale_worker_cannot_quarantine_the_row(tmp_path):
-    database = tmp_path / "outbox.sqlite3"
-    stale, _live = _reclaimed(database)
-
-    with pytest.raises(outbox.StaleClaim):
-        outbox.mark_delivery_uncertain(database, "k", "receipt_missing",
-                                       claimed_at=stale.claimed_at)
-    assert outbox.list_items(database)[0].status == "sending"
+                                    claimed_at="2026-09-06T00:00:00+00:00")
+    assert outbox.list_items(database)[0].status == "delivery_uncertain"
 
 
 def test_callers_that_pass_no_claim_are_unchanged(tmp_path):

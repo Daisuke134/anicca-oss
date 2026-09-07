@@ -1,5 +1,7 @@
 import json
+import importlib.util
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -20,6 +22,30 @@ def validate(value):
 
 
 class CommonContractTests(unittest.TestCase):
+    def test_sqlite_outbox_adapter_output_matches_the_common_schema(self):
+        path = ROOT / "skills/_shared/marketplace-core/scripts/telegram_outbox.py"
+        spec = importlib.util.spec_from_file_location("contract_test_telegram_outbox", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        item = module.OutboxItem(
+            event_key="writer:daily:1", message_sha256="a" * 64, message="report",
+            status="delivery_uncertain", attempt_count=1, provider_message_id=None,
+            created_at="2026-09-07T00:00:00Z", claimed_at="2026-09-07T00:00:01Z",
+            delivered_at=None, last_error_code="sender_abandoned",
+        )
+        validate(module.to_common_outbox(item, loop_id="writer", tenant_id="user-1"))
+        with self.assertRaisesRegex(ValueError, "message_key bounds"):
+            module.to_common_outbox(
+                module.OutboxItem(**{**item.__dict__, "event_key": "x" * 1025}),
+                loop_id="writer", tenant_id="user-1",
+            )
+        with self.assertRaisesRegex(ValueError, "created_at is invalid"):
+            module.to_common_outbox(
+                module.OutboxItem(**{**item.__dict__, "created_at": "not-a-time"}),
+                loop_id="writer", tenant_id="user-1",
+            )
+
     def test_jsonl_job_adapter_output_matches_the_common_schema(self):
         legacy_job = {
             "job_id": "job-1", "tenant_id": "user-1", "loop_id": "marketing.video",
