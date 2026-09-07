@@ -21,28 +21,28 @@ function configuredPath(value) {
 
 /**
  * Resolve CLI paths without manufacturing an undefined path. Explicit positional paths win;
- * ANICCA_HOME supplies the instance-scoped defaults used by the resident economy loop.
+ * AGENT_ECONOMY_STATE_ROOT supplies the portable mutable-data root.
  */
 export function resolveStatusPaths({ args = [], env = process.env } = {}) {
   const values = Array.isArray(args) ? args : [];
   const e = env || {};
-  const home = configuredPath(e.ANICCA_HOME);
+  const ownerHome = configuredPath(e.HOME);
+  const lifeManagerState = configuredPath(e.LIFE_MANAGER_STATE_ROOT)
+    || (ownerHome && path.join(ownerHome, ".local", "state", "life-manager"));
+  const state = configuredPath(e.AGENT_ECONOMY_STATE_ROOT)
+    || (lifeManagerState && path.join(lifeManagerState, "agent-economy"));
   const explicit = values.some((value) => configuredPath(value));
-  if ((!explicit && !home) || (!home && !configuredPath(values[0]))) throw new StatusConfigError();
+  if ((!explicit && !state) || (!state && !configuredPath(values[0]))) throw new StatusConfigError();
 
-  const state = home ? path.join(home, "skills", "earn", "state") : undefined;
   const earnPath = configuredPath(values[0]) || (state && path.join(state, "earn-ledger.jsonl"));
   const correctionPath = configuredPath(values[1]) || (state && path.join(state, "receipt-reconciliations.jsonl"));
   const explicitComputePath = configuredPath(values[2]) || configuredPath(e.COMPUTE_COST_LOG);
   const explicitShelterPath = configuredPath(values[3]) || configuredPath(e.SHELTER_COST_LEDGER);
-  const ownerHome = configuredPath(e.HOME);
-  if (!home && explicit && (!explicitComputePath || !explicitShelterPath)) throw new StatusConfigError();
-  if (home && !ownerHome && (!explicitComputePath || !explicitShelterPath)) throw new StatusConfigError();
+  if (!state && explicit && (!explicitComputePath || !explicitShelterPath)) throw new StatusConfigError();
   const computePath = explicitComputePath
-    || (home && path.join(home, ".blockrun", "compute-receipts.jsonl"))
-    || (ownerHome && path.join(ownerHome, ".blockrun", "cost_log.jsonl"));
+    || (state && path.join(state, "compute-receipts.jsonl"));
   const shelterPath = explicitShelterPath
-    || (ownerHome && path.join(ownerHome, ".hermes", "state", "shelter-cost.jsonl"));
+    || (state && path.join(state, "shelter-cost.jsonl"));
   const journalPath = configuredPath(values[4]) || configuredPath(e.REVENUE_RECEIPT_JOURNAL)
     || (earnPath && path.join(path.dirname(earnPath), "revenue-receipts.jsonl"));
   return { earnPath, correctionPath, computePath, shelterPath, journalPath };

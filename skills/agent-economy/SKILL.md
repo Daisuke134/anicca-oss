@@ -50,3 +50,8 @@ bash "$LIFE_MANAGER_REPO/skills/agent-economy/run.sh"
 
 The output is one JSON summary. `unverified_external_rows` is visible but contributes zero to
 `external_net_usdc`. A missing RPC receipt remains retryable; it is never silently treated as success.
+
+Mutable ledgers and cost journals live under
+`~/.local/state/life-manager/agent-economy/`. Set `AGENT_ECONOMY_STATE_ROOT` to override it.
+Before the first registry-managed release, run `migrate-legacy-state.sh`; it copies the old earn,
+compute, and shelter journals without deleting or overwriting their source.
