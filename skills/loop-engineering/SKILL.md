@@ -44,6 +44,7 @@ migration status live in
 | Build or fix an Apply lane on any marketplace | `references/marketplace-apply-lane.md` |
 | Build or fix a Paid/Fulfillment lane on any marketplace | `references/marketplace-paid-lane.md` |
 | Decide whether a failure may end a wake, or add a retry | `references/transient-vs-fatal.md` |
+| Decide whether a loop may earn on a platform, and what to ask a human for | `references/platform-automation-map.md` |
 | Reuse the shared marketplace runtime | `skills/_shared/marketplace-core/scripts/` |
 | Sell the same catalogue on a new platform | `skills/gig-work/profile/listings/catalog.json` |
 | Lane ownership and parallelism rules | spec §6.2A, `docs/superpowers/specs/2026-08-22-life-manager-gig-economy-loop-design.md` |
