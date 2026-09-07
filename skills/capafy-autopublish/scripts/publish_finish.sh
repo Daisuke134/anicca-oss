@@ -73,7 +73,7 @@ case "$INITIAL_PLATFORM_STATUS" in
   0)
     # 2026-07-18 A1: fail-closed key-health gate. A submit into an under-funded
     # OpenRouter account triggered billing-error review rejections.
-    "$AUTO/scripts/key_health_gate.sh" 2.00 || die "KEY-HEALTH gate FAIL — top up OpenRouter (>= \$2 remaining) before submitting; see state/lessons.md"
+    "$AUTO/scripts/key_health_gate.sh" 5.00 || die "KEY-HEALTH gate FAIL — top up OpenRouter (>= \$5 remaining) before submitting; see state/lessons.md"
     ;;
   1)
     [ "$(rstat is_confirmed_skills)" = "1" ] || die "platform_status=1 but is_confirmed_skills is not confirmed; verify only"

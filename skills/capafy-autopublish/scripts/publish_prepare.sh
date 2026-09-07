@@ -60,7 +60,7 @@ step "[0b] KEY-HEALTH GATE (fail-closed) — never publish into an under-funded 
 # 2026-07-18 A1: 4 agents were rejected with a billing error caused by a THIN OpenRouter
 # balance (NOT a stale key / NOT the provider-name label). Block the publish here so the
 # loop stops cleanly instead of shipping into a $-low account and getting re-rejected.
-"$AUTO/scripts/key_health_gate.sh" 2.00 || die "KEY-HEALTH gate FAIL — top up OpenRouter (>= \$2 remaining) before publishing; see state/lessons.md"
+"$AUTO/scripts/key_health_gate.sh" 5.00 || die "KEY-HEALTH gate FAIL — top up OpenRouter (>= \$5 remaining) before publishing; see state/lessons.md"
 
 step "clean-WS copy"
 mkdir -p "$WS/skills"

@@ -56,6 +56,16 @@ set -a; . "$LIFE_MANAGER_STATE_HOME/.env" 2>/dev/null; set +a
 
 echo "=== $TS daily_loop start ===" >> "$LOG"
 
+# Paid buyers can keep using already-listed Agents even when there is no new
+# inventory. Check host funding before the healthy-idle exit so an exhausted
+# key cannot remain invisible until the next publication attempt.
+if ! KEY_HEALTH="$($AUTO/scripts/key_health_gate.sh 5.00 2>&1)"; then
+  echo "$TS $KEY_HEALTH" >> "$LOG"
+  echo "=== $TS daily_loop done rc=1 (HOST_KEY_UNHEALTHY — paid-user service at risk; marker NOT touched) ===" >> "$LOG"
+  exit 1
+fi
+echo "$TS $KEY_HEALTH" >> "$LOG"
+
 # ── RECONCILE THE LEDGER WITH SERVER TRUTH (self-fix-capafy-loop, 2026-07-07) ──
 # state/published.jsonl mirrors the SERVER: every online agent recorded, REVIEW_REJECTED flagged,
 # and orphan DRAFT stubs surfaced (2026-07-08) so a half-published card can't rot invisibly.
