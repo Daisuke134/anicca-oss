@@ -6,6 +6,18 @@ now all projecting to legal Lancers plans) to a brand-new Lancers package -- one
 listing was all this lane could ever produce. create_package() is that path, reached by
 clicking the manual option at /myplan/add -> /myplan/add?type=manual.
 
+A live DOM read (see the task this file's wizard-walking coverage shipped from) found that
+target is not one flat form: it is a six-step wizard (基本情報 / 料金表 / 業務内容 / 確認事項 /
+画像ほか / 公開). Every step's fields sit in the DOM at once; only the current step's fields have
+a real bounding box. The fakes below model exactly that: each field carries the wizard step
+index it belongs to, and is "visible" only while the fake page's `current_step` matches --
+`_Field.fill()`/`.select_option()` self-check that invariant and raise if violated, so any test
+that drives `_fill_create_form()` is automatically also a regression test against a flat,
+non-wizard-aware fill order (confirmed manually while writing this: reverting
+_fill_create_form to fill every field before any 次へ click makes
+test_fields_are_never_filled_before_their_step_is_current fail with an AssertionError from
+inside _Field.fill, then passes again once the step-walk is restored).
+
 These tests exercise the module against small hand-built fakes (following the convention in
 apps/lancers-revenue/tests/test_application_loop_hol.py and
 skills/earn/crowdworks/tests/test_application_tick_uncertainty.py: plain Python objects that
@@ -37,10 +49,14 @@ def _module():
 
 
 # --- fakes ------------------------------------------------------------------------------------
+#
+# Wizard step indices (mirroring the live stepper's own order): 0=基本情報, 1=料金表,
+# 2=業務内容, 3=確認事項, 4=画像ほか, 5=公開.
 
 # The 16 delivery_time options the live DOM read carried: a blank placeholder plus one label per
 # day count Lancers' project_lancers()/LANCERS_DELIVERY_DAYS actually offers.
 _DELIVERY_DAYS = (1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 30, 45, 60, 75, 90)
+_IMAGE_STEP_MARKER_TEXT = "受注率が約10倍になります"  # mirrors storefront_offer._CREATE_IMAGE_STEP_MARKER_TEXT
 
 
 class _Option:
@@ -56,6 +72,8 @@ class _Option:
 
 
 class _OptionList:
+    """`<select> option` enumeration only -- see _LocatorList for button/text-match lists."""
+
     def __init__(self, options: list[_Option]):
         self._options = options
 
@@ -69,10 +87,37 @@ def _delivery_options() -> list[_Option]:
     return options
 
 
-class _Field:
-    """One form control. Records every fill/select_option/press call it receives."""
+class _LocatorList:
+    """A Playwright Locator that may resolve to zero or more elements -- what
+    `page.locator("button")` / `page.get_by_text(...)` return in production. `.all()` mirrors
+    Playwright's own eager per-element list; `.wait_for()` mirrors waiting for at least one
+    visible match, which is all _advance_create_step ever needs it for.
+    """
 
-    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = ""):
+    def __init__(self, items: list):
+        self._items = list(items)
+
+    def all(self) -> list:
+        return list(self._items)
+
+    def wait_for(self, state: str = "visible", timeout=None) -> None:
+        if state != "visible":
+            raise NotImplementedError(state)
+        if not any(item.is_visible() for item in self._items):
+            raise TimeoutError("no visible match")
+
+
+class _Field:
+    """One form control. Records every fill/select_option/press call it receives.
+
+    `step`, when set, ties visibility to the owning `_FakeCreatePage.current_step` -- the same
+    "hidden until this wizard step is current" behaviour the live DOM read described. `fill()`
+    and `select_option()` assert `is_visible()` at call time and raise AssertionError otherwise:
+    this is what makes every test driving _fill_create_form() double as a check that a field is
+    never touched before its step actually arrived.
+    """
+
+    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = ""):
         self.fills: list[str] = []
         self.selected: list[dict] = []
         self.presses: list[str] = []
@@ -80,21 +125,38 @@ class _Field:
         self._options = options or []
         self._visible = visible
         self._text = text
+        self._step = step
+        self._name = name
+        self.page: "_FakeCreatePage | None" = None  # bound by _FakeCreatePage.__init__
 
     def count(self) -> int:
         return 1
 
+    def is_visible(self) -> bool:
+        if self._step is not None:
+            return self.page is not None and self.page.current_step == self._step
+        return self._visible
+
+    def _log(self, action: str) -> None:
+        if self.page is not None:
+            self.page.event_log.append((action, self._name, self.page.current_step))
+
     def fill(self, value: str) -> None:
+        if not self.is_visible():
+            raise AssertionError(f"filled invisible field {self._name!r} (step={self._step}, current={getattr(self.page, 'current_step', None)})")
         self.fills.append(value)
+        self._log("fill")
 
     def select_option(self, *_args, **kwargs) -> None:
+        if not self.is_visible():
+            raise AssertionError(f"selected option on invisible field {self._name!r} (step={self._step}, current={getattr(self.page, 'current_step', None)})")
         self.selected.append(kwargs)
+        self._log("select_option")
 
     def press(self, key: str) -> None:
+        if not self.is_visible():
+            raise AssertionError(f"pressed key on invisible field {self._name!r} (step={self._step})")
         self.presses.append(key)
-
-    def is_visible(self) -> bool:
-        return self._visible
 
     def inner_text(self) -> str:
         return self._text
@@ -108,6 +170,12 @@ class _Field:
     def locator(self, selector: str) -> _OptionList:
         assert selector == "option"
         return _OptionList(self._options)
+
+    def wait_for(self, state: str = "visible", timeout=None) -> None:
+        if state != "visible":
+            raise NotImplementedError(state)
+        if not self.is_visible():
+            raise TimeoutError(f"field {self._name!r} not visible (step={self._step})")
 
 
 class _EmptyField:
@@ -125,6 +193,69 @@ class _EmptyField:
     def all(self) -> list:
         return []
 
+    def wait_for(self, state: str = "visible", timeout=None) -> None:
+        raise TimeoutError("no such element")
+
+
+class _UnnamedTextarea:
+    """Models `textarea:not([name])` -- 業務内容's field. Present in the DOM at a configurable
+    multiplicity (`count`) regardless of which step is current (the live DOM read carries every
+    step's fields at once, so a structural duplicate/absence is not a visibility question), but
+    only "visible" while step 2 (業務内容) is current, exactly like every other wizard field.
+    """
+
+    def __init__(self, page: "_FakeCreatePage", *, count: int = 1, step: int = 2):
+        self.page = page
+        self._count = count
+        self._step = step
+        self.fills: list[str] = []
+
+    def count(self) -> int:
+        return self._count
+
+    def is_visible(self) -> bool:
+        return self._count == 1 and self.page.current_step == self._step
+
+    def fill(self, value: str) -> None:
+        if not self.is_visible():
+            raise AssertionError(f"filled invisible unnamed textarea (current={self.page.current_step})")
+        self.fills.append(value)
+        self.page.event_log.append(("fill", "業務内容", self.page.current_step))
+
+    def wait_for(self, state: str = "visible", timeout=None) -> None:
+        if state != "visible":
+            raise NotImplementedError(state)
+        if not self.is_visible():
+            raise TimeoutError("unnamed textarea not visible")
+
+
+class _FileInput:
+    def __init__(self, *, raises: bool = False):
+        self.set_files_calls: list[str] = []
+        self._raises = raises
+
+    def set_input_files(self, path: str) -> None:
+        if self._raises:
+            raise RuntimeError("upload failed")
+        self.set_files_calls.append(path)
+
+
+class _FileInputs:
+    """Models `input[type="file"]` -- the four uploads on 画像ほか. Deliberately not
+    step-visibility-gated: upload widgets commonly keep the native input present-but-styled-
+    invisible even on their own step, which is exactly why _fill_create_form treats a file
+    input's *count*, not its visibility, as the signal for whether an attach is attempted.
+    """
+
+    def __init__(self, count: int = 4, *, raises: bool = False):
+        self._items = [_FileInput(raises=raises) for _ in range(count)]
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def nth(self, index: int) -> _FileInput:
+        return self._items[index]
+
 
 class _Response:
     def __init__(self, status: int = 200):
@@ -134,11 +265,17 @@ class _Response:
 class _FakeCreatePage:
     """A minimal stand-in for the Playwright page create_package() drives.
 
-    `fields` maps an exact selector to a `_Field`. `buttons` (for `page.locator("button")`) and
-    `by_text` (for `page.get_by_text(label, exact=True)`, which `_step()` uses to find the
-    manual-creation button) are configured per test. `manual_button_lands_on` controls what
-    clicking the manual button does to `page.url` -- the production equivalent of a real
-    navigation completing.
+    `fields` maps an exact selector to a `_Field` (each already carrying its wizard `step`).
+    `buttons` (for `page.locator("button")`) and the manual-creation button (for
+    `page.get_by_text("手動でパッケージを作成する", exact=True)`, which `_step()` uses) are not
+    step-gated -- only content fields are, since the manual button lives on the chooser page and
+    submit buttons are discovered after the wizard is already fully walked.
+
+    `stall_at`: a set of step indices at which clicking 次へ does nothing (current_step does not
+    advance) -- models a validation failure that leaves the wizard stuck, which is exactly what
+    create_step_stalled exists to name. `validation_errors`: text exposed via
+    `page.locator("[class*='error']")`, always "visible", for _create_step_validation_text to
+    scrape when a stall happens.
     """
 
     def __init__(
@@ -148,20 +285,49 @@ class _FakeCreatePage:
         buttons: list[_Field] | None = None,
         manual_button_lands_on: str | None,
         after_submit_url: str | None = None,
+        stall_at: set[int] | None = None,
+        next_button_visible: bool = True,
+        unnamed_textarea_count: int = 1,
+        file_input_count: int = 4,
+        file_upload_raises: bool = False,
+        validation_errors: list[str] | None = None,
+        last_step: int = 5,
     ):
         self.url = "https://www.lancers.jp/myplan"
         self.goto_log: list[str] = []
+        self.event_log: list[tuple[str, str, int]] = []
         self._fields = fields or {}
+        for field in self._fields.values():
+            field.page = self
         self._buttons = buttons if buttons is not None else []
         self._manual_button_lands_on = manual_button_lands_on
         self._after_submit_url = after_submit_url
+        self.current_step = 0
+        self.last_step = last_step
+        self.stall_at = stall_at or set()
+        self._validation_errors = validation_errors or []
+        self._unnamed_textarea = _UnnamedTextarea(self, count=unnamed_textarea_count)
+        self._file_inputs = _FileInputs(file_input_count, raises=file_upload_raises)
 
         def _click_manual() -> None:
             if self._manual_button_lands_on is not None:
                 self.url = self._manual_button_lands_on
 
-        self._manual_button = _Field(text="手動でパッケージを作成する")
+        self._manual_button = _Field(text="手動でパッケージを作成する", name="手動でパッケージを作成する")
         self._manual_button.click = lambda **_kwargs: (_click_manual(), setattr(self._manual_button, "clicks", self._manual_button.clicks + 1))[-1]
+
+        def _click_next() -> None:
+            self.event_log.append(("advance", "次へ", self.current_step))
+            if self.current_step in self.stall_at:
+                return
+            if self.current_step < self.last_step:
+                self.current_step += 1
+
+        self._next_button = _Field(visible=next_button_visible, text="次へ", name="次へ")
+        self._next_button.click = lambda **_kwargs: (_click_next(), setattr(self._next_button, "clicks", self._next_button.clicks + 1))[-1]
+
+        self._image_marker = _Field(step=4, text=_IMAGE_STEP_MARKER_TEXT, name="画像ほかマーカー")
+        self._image_marker.page = self
 
     def goto(self, url: str, **_kwargs) -> _Response:
         self.goto_log.append(url)
@@ -170,13 +336,23 @@ class _FakeCreatePage:
 
     def locator(self, selector: str):
         if selector == "button":
-            return _OptionList(self._buttons)
+            return _LocatorList(self._buttons)
+        if selector == "textarea:not([name])":
+            return self._unnamed_textarea
+        if selector == "[class*='error']":
+            return _LocatorList([_Field(text=t) for t in self._validation_errors])
+        if selector == 'input[type="file"]':
+            return self._file_inputs
         return self._fields.get(selector, _EmptyField())
 
     def get_by_text(self, label: str, exact: bool = True):
         if label == "手動でパッケージを作成する":
-            return _OptionList([self._manual_button])
-        return _OptionList([])
+            return _LocatorList([self._manual_button])
+        if label == "次へ":
+            return _LocatorList([self._next_button])
+        if label == _IMAGE_STEP_MARKER_TEXT and not exact:
+            return _LocatorList([self._image_marker])
+        return _LocatorList([])
 
     def wait_for_selector(self, *_args, **_kwargs) -> None:
         pass
@@ -198,6 +374,7 @@ def _complete_product(**overrides) -> dict:
         "industry": "IT・通信・インターネット",
         "tags": ["業務システム"],
         "notice": "ご相談内容を確認してから進めます。",
+        "description": "業務システムを要件定義から設計・実装・納品まで一気通貫で対応します。" * 3,
         "plans": [
             {"description": "ライトプラン", "price_jpy": 100000, "delivery_days": 14},
             {"description": "スタンダードプラン", "price_jpy": 200000, "delivery_days": 21},
@@ -210,23 +387,23 @@ def _complete_product(**overrides) -> dict:
 
 def _fields_for(product: dict) -> dict[str, _Field]:
     fields = {
-        '[name="ProjectPlanForm.title"]': _Field(),
-        '[name="ProjectPlanForm.subtitle"]': _Field(),
-        '[name="___main_category_id"]': _Field(),
-        '[name="ProjectPlanForm.project_category_id"]': _Field(),
-        '[name="ProjectPlanForm.industry_type_id"]': _Field(),
-        '[name="MultiSelectTagSearch_ProjectPlanTagForm"]': _Field(),
-        '[name="ProjectPlanForm.notice_for_sale"]': _Field(),
+        '[name="ProjectPlanForm.title"]': _Field(step=0, name="title"),
+        '[name="ProjectPlanForm.subtitle"]': _Field(step=0, name="subtitle"),
+        '[name="___main_category_id"]': _Field(step=0, name="category"),
+        '[name="ProjectPlanForm.project_category_id"]': _Field(step=0, name="subcategory"),
+        '[name="ProjectPlanForm.industry_type_id"]': _Field(step=0, name="industry"),
+        '[name="MultiSelectTagSearch_ProjectPlanTagForm"]': _Field(step=0, name="tags"),
+        '[name="ProjectPlanForm.notice_for_sale"]': _Field(step=3, name="notice"),
     }
     for index, _plan in enumerate(product["plans"]):
         prefix = f"ProjectPlanMenuForm[{index}]"
-        fields[f'[name="{prefix}.description"]'] = _Field()
-        fields[f'[name="{prefix}.delivery_time"]'] = _Field(options=_delivery_options())
-        fields[f'[name="{prefix}.price"]'] = _Field()
+        fields[f'[name="{prefix}.description"]'] = _Field(step=1, name=f"{prefix}.description")
+        fields[f'[name="{prefix}.delivery_time"]'] = _Field(options=_delivery_options(), step=1, name=f"{prefix}.delivery_time")
+        fields[f'[name="{prefix}.price"]'] = _Field(step=1, name=f"{prefix}.price")
     return fields
 
 
-# 1. A complete product produces one fill per observed field name, plans in order 0/1/2 --------
+# 1. A complete product walks every step and fills every observed field exactly once -----------
 
 
 def test_complete_product_fills_every_observed_field_exactly_once():
@@ -235,7 +412,7 @@ def test_complete_product_fills_every_observed_field_exactly_once():
     fields = _fields_for(product)
     page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
 
-    module._fill_create_form(page, product)
+    result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
     assert fields['[name="ProjectPlanForm.title"]'].fills == [product["title_stem"]]
     assert fields['[name="ProjectPlanForm.subtitle"]'].fills == [product["subtitle"]]
@@ -244,6 +421,7 @@ def test_complete_product_fills_every_observed_field_exactly_once():
     assert fields['[name="ProjectPlanForm.industry_type_id"]'].selected == [{"label": product["industry"]}]
     assert fields['[name="MultiSelectTagSearch_ProjectPlanTagForm"]'].fills == product["tags"]
     assert fields['[name="ProjectPlanForm.notice_for_sale"]'].fills == [product["notice"]]
+    assert page._unnamed_textarea.fills == [product["description"]]
 
     for index, plan in enumerate(product["plans"]):
         prefix = f"ProjectPlanMenuForm[{index}]"
@@ -252,8 +430,172 @@ def test_complete_product_fills_every_observed_field_exactly_once():
         selected = fields[f'[name="{prefix}.delivery_time"]'].selected
         assert selected == [{"value": str(plan["delivery_days"])}]
 
+    # The wizard walked all the way to 公開 (step 5) and attached the avatar on 画像ほか.
+    assert page.current_step == 5
+    assert result == {"image_attached": True}
+    assert page._file_inputs.nth(0).set_files_calls == ["/tmp/irrelevant.png"]
 
-# 2. A delivery_days with no matching option raises, naming the value and options; nothing selected
+
+# 1b. A field belonging to a later step is never filled while that step is hidden --------------
+#
+# The guarantee itself lives in _Field.fill()/.select_option() (they self-check is_visible() and
+# raise AssertionError otherwise, see the class docstring) -- every test driving
+# _fill_create_form is therefore already exercising it. This test names the guarantee explicitly.
+# Confirmed manually while writing this: temporarily reverting _fill_create_form to fill every
+# field before any 次へ click makes this test fail with an AssertionError raised from inside
+# _Field.fill (a step-1 field filled while current_step was still 0); restoring the step-walk
+# makes it pass again.
+
+
+def test_fields_are_never_filled_before_their_step_is_current():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
+
+    result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert result["image_attached"] is True
+
+
+# 2. Steps are advanced in order, and each step's fields are filled before its 次へ is clicked --
+
+
+def test_steps_advance_in_order_and_each_steps_fields_precede_its_next_click():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
+
+    module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    advances = [step for action, name, step in page.event_log if name == "次へ"]
+    assert advances == [0, 1, 2, 3, 4]  # one advance per step, strictly in wizard order
+
+    # Every fill/select_option is logged with the step that was current the instant it fired;
+    # that sequence must never decrease (a later-step fill preceding an earlier-step one would
+    # mean a field got touched out of order).
+    all_steps = [step for _action, _name, step in page.event_log]
+    assert all_steps == sorted(all_steps)
+
+
+# 3. An advance that does not arrive raises create_step_stalled naming the step, carrying any
+#    on-page validation text -----------------------------------------------------------------
+
+
+def test_stalled_advance_raises_create_step_stalled_with_validation_text():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(
+        fields=fields, manual_button_lands_on=None,
+        stall_at={0},  # 次へ from 基本情報 never actually advances the wizard
+        validation_errors=["タイトルを入力してください"],
+    )
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    message = str(excinfo.value)
+    assert "create_step_stalled: 基本情報" in message
+    assert "タイトルを入力してください" in message
+    # Nothing belonging to 料金表 (step 1) was ever reached.
+    assert fields['[name="ProjectPlanMenuForm[0].description"]'].fills == []
+
+
+def test_missing_next_button_raises_create_step_stalled_named_next_button_missing():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None, next_button_visible=False)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
+
+
+# 4. The unnamed-textarea locator raises a named error for zero or more than one match ---------
+
+
+def test_unnamed_textarea_locator_raises_when_absent():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None, unnamed_textarea_count=0)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._create_business_textarea(page)
+
+    assert "create_business_textarea_invalid: count=0" in str(excinfo.value)
+
+
+def test_unnamed_textarea_locator_raises_when_duplicated():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None, unnamed_textarea_count=2)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._create_business_textarea(page)
+
+    assert "create_business_textarea_invalid: count=2" in str(excinfo.value)
+
+
+# 5. A description over the 2000-char cap is rejected before the browser is touched ------------
+
+
+def test_description_over_cap_rejected_before_any_navigation():
+    module = _module()
+    product = _complete_product(description="あ" * 2001)
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module.create_package(page, product, Path("/tmp/irrelevant.png"))
+
+    assert "create_field_invalid: description" in str(excinfo.value)
+    assert "2001" in str(excinfo.value)
+    assert page.goto_log == []
+
+
+# 6. A missing description is rejected by _require_create_fields -------------------------------
+
+
+def test_missing_description_rejected_by_require_create_fields():
+    module = _module()
+    product = _complete_product()
+    del product["description"]
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._require_create_fields(product)
+
+    assert "create_field_missing: description" in str(excinfo.value)
+
+
+# 7. Missing/unusable file inputs yield image_attached: false, not a failure --------------------
+
+
+def test_missing_file_inputs_yield_image_attached_false_without_raising():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None, file_input_count=0)
+
+    result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert result == {"image_attached": False}
+    assert page.current_step == 5  # the wizard still reached 公開
+
+
+def test_file_upload_failure_yields_image_attached_false_without_raising():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None, file_input_count=4, file_upload_raises=True)
+
+    result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert result == {"image_attached": False}
+
+
+# 2 (legacy numbering). A delivery_days with no matching option raises, naming the value and
+#    options; nothing selected -------------------------------------------------------------------
 
 
 def test_unmatched_delivery_days_raises_and_selects_nothing():
@@ -264,7 +606,7 @@ def test_unmatched_delivery_days_raises_and_selects_nothing():
     page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
 
     with pytest.raises(module.OfferError) as excinfo:
-        module._fill_create_form(page, product)
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
     message = str(excinfo.value)
     assert "create_delivery_time_unmatched" in message
@@ -376,8 +718,10 @@ def test_successful_submit_with_failed_readback_is_publication_uncertain():
         module.create_package(page, product, Path("/tmp/irrelevant.png"))
 
     assert str(excinfo.value) == "publication_uncertain"
-    # The public page was actually visited (as _public() always does) before giving up.
+    # The public page was actually visited (as _public() always does) before giving up, and the
+    # wizard walked all the way through before the submit control was even looked for.
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
+    assert page.current_step == 5
 
 
 def test_create_listing_id_unresolved_when_the_post_submit_url_carries_no_id():
@@ -478,6 +822,22 @@ def test_create_package_and_apply_are_mutually_exclusive():
     module = _module()
     with pytest.raises(SystemExit):
         module.main(["--apply", "--create-package"])
+
+
+# 9. The real catalogue's mvp_web_app_build projection passes _require_create_fields, including
+#    the new description requirement -------------------------------------------------------------
+
+
+def test_real_catalog_mvp_web_app_build_passes_require_create_fields_with_description():
+    module = _module()
+    listing_catalog = module._reach_marketplace_core()
+    catalog = listing_catalog.load(module.DEFAULT_CATALOG)
+
+    product = module._family_create_product(listing_catalog, catalog, "mvp_web_app_build")
+
+    assert isinstance(product.get("description"), str) and product["description"].strip()
+    assert len(product["description"]) <= module._CREATE_DESCRIPTION_MAX_LENGTH
+    module._require_create_fields(product)  # must not raise
 
 
 # --- Catalogue-driven creation: select_catalog_family_to_create / run_catalog_create ----------
