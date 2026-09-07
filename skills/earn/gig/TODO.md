@@ -1075,6 +1075,68 @@ as `APPLY-REPORT-4`: three adapters, three answers, and the strictest one silent
    as `planner_runner_failed` — a disk fault wearing a planner's name. Not this cursor's to fix,
    but it is this cursor's to have measured, and it belongs to whoever owns release cutting.
 
+### Shared-component reality, measured 2026-09-07
+
+Dais asked whether the three platforms share maximally, with nothing platform-specific written
+twice. They do not. Of twelve modules in `skills/_shared/marketplace-core/scripts/`:
+
+| module | lines | used by |
+|---|---|---|
+| `telegram_delivery.py` | 87 | **all three** |
+| `ledger.py` | 933 | gig, lancers |
+| `application_transaction.py` | 496 | lancers, crowdworks |
+| `telegram_outbox.py` | 365 | lancers, crowdworks |
+| `work_fit.py` | 116 | lancers, crowdworks |
+| `lane_summary.py` | 93 | lancers, crowdworks |
+| `contracts.py` | 725 | lancers only |
+| `storefront_kernel.py` | 675 | gig only |
+| `listing_catalog.py` | 223 | **nobody** (now: lancers, crowdworks) |
+| `dom_contract.py` | 170 | **nobody** |
+| `effect_notification.py` | 81 | **nobody** |
+
+Exactly one module is used by all three. Coconala is 95,036 lines across 191 files and reads
+three shared modules; Lancers is 5,112 across 9; CrowdWorks is 1,555 across 6. The shared core
+is 4,246 lines -- Coconala alone is twenty-two times that.
+
+7. [x] `APPLY-SHARE-1` One discovery vocabulary. PASS = `listing_catalog.listing_terms()` holds
+   the derivation promoted out of CrowdWorks, `work_fit.discovery_terms()` composes it with the
+   proven board terms and the non-development vocabulary, and both Lancers and CrowdWorks read
+   it. Lancers' 29 hand-written queries became 55 derived ones. Measured after shipping: the lane
+   now sees a materially different board (リサーチ, キャリア, eBay, Amazon物販, 覆面調査, 買い付け)
+   and refuses all of it correctly, which is the point -- the vocabulary is no longer deciding
+   what the fleet is allowed to consider.
+
+8. [ ] `APPLY-SHARE-2` Coconala reads `work_fit.py`. Its planner carries its own wording for the
+   same prohibitions, so a rule Dais changes once has to be changed twice. Deliberately after
+   Coconala can apply again (`APPLY-COCONALA-1`): changing the refusal wording of a lane that
+   submits nothing proves nothing.
+
+9. [ ] `APPLY-SHARE-3` Adopt `dom_contract.py` in all three, in the order the evidence arrives:
+   Lancers once `proposal-form-changes.jsonl` names its selectors, then CrowdWorks, then
+   Coconala's 23 in-page `querySelector` calls. Written for this and used by nobody.
+
+10. [ ] `APPLY-SHARE-4` The remaining single-user modules. `contracts.py` (725 lines, Lancers
+    only) and `storefront_kernel.py` (675, Coconala only) are shared in location and private in
+    fact. Either a second platform adopts them or they move back into the adapter that uses them;
+    a module in `_shared` that one lane reads is worse than one that lives where it is used,
+    because it looks like coverage.
+
+11. [ ] `APPLY-COCONALA-1` ★ Coconala's server refuses this account's applications. Measured
+    2026-09-07 over plain HTTP with the vault's own cookies: `/offers/add/<request_id>` returns
+    **302 to `https://coconala.com/`** for six different live requests, while
+    `/mypage/job_matching/applied/offers` and `/mypage/dashboard_provider` both return 200. Not a
+    session failure, not buyer/seller mode (tested both, `BUYER-HEADER` -> `PROVIDER-HEADER`), not
+    a removed route (`/offers/add/` is still in Coconala's own JS bundle), not throttling (every
+    other page is 200). The 「応募する」 button does nothing for the same reason: it routes there.
+    PASS = evidence of what the server wants, which is not something more DOM work can produce.
+    Two things worth keeping from the investigation, both of which cost hours:
+    - `Page.bringToFront` is required or `Input.dispatchMouseEvent` delivers **zero** events. The
+      lane already does this (`78569ba4d activate Apply tab before submit`); every probe that
+      skipped it measured a page that could not be clicked and blamed the page.
+    - The Coconala header is `<buyer-header>`, a **nested shadow root**. Ordinary
+      `document.querySelector` cannot see it or the 受注モード switch inside it.
+
+
 
 ## Historical Coconala atomic cursor — evidence only
 
