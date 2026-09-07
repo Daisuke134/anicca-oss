@@ -29,6 +29,20 @@ function projectMarketplace(receipts, { subjectId, pythonBin, script }) {
   return projected;
 }
 
+async function readMoneytreeSnapshot(readAccounts, readTransactions, range) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await Promise.all([
+        readAccounts(), readTransactions({ ...range, limit: 1000 }),
+      ]);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
 async function ingestFinancialRecords(options) {
   const {
     store, subjectId, now, agentReceiptPaths = [], marketplaceReceiptPaths = [],
@@ -48,9 +62,9 @@ async function ingestFinancialRecords(options) {
     const endDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
     }).format(now);
-    const [accounts, transactions] = await Promise.all([
-      readAccounts(), readTransactions({ startDate, endDate, limit: 1000 }),
-    ]);
+    const [accounts, transactions] = await readMoneytreeSnapshot(
+      readAccounts, readTransactions, { startDate, endDate },
+    );
     records.push(
       ...accounts.map((row) => moneytree.accountToFinancialRecord(
         row, { subjectId, recordedAt },
@@ -111,4 +125,4 @@ async function ingestFinancialRecords(options) {
   return { observed: records.length, created, sources };
 }
 
-module.exports = { ingestFinancialRecords, readJsonl, splitPaths };
+module.exports = { ingestFinancialRecords, readJsonl, readMoneytreeSnapshot, splitPaths };

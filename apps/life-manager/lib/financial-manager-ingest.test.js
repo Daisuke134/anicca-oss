@@ -58,3 +58,24 @@ test("a configured missing journal is unavailable instead of empty revenue", asy
     marketplace: "not_configured",
   });
 });
+
+test("Moneytree read retries one transient connector startup failure", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lm-financial-ingest-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = createJsonlFinancialRecordStore({ directoryPath: path.join(root, "records") });
+  let accountCalls = 0;
+  let transactionCalls = 0;
+  const result = await ingestFinancialRecords({
+    store, subjectId: "tenant-1", now: new Date("2026-09-07T02:00:00Z"),
+    readMoneytreeAccounts: async () => {
+      accountCalls += 1;
+      if (accountCalls === 1) throw new Error("connector startup timeout");
+      return [];
+    },
+    readMoneytreeTransactions: async () => { transactionCalls += 1; return []; },
+  });
+
+  assert.equal(result.sources.moneytree, "observed_unverified");
+  assert.equal(accountCalls, 2);
+  assert.equal(transactionCalls, 2);
+});
