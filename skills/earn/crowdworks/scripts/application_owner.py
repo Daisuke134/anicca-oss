@@ -19,6 +19,22 @@ CATALOG = ROOT / "skills" / "gig-work" / "profile" / "listings" / "catalog.json"
 TRANSACTION = STATE / "application-transaction.json"
 LEDGER = STATE / "application-receipts.jsonl"
 SEARCH_BUDGET_SECONDS = 240
+# The lane wakes every 300s (config/loop-registry.json) and gets through about five listings
+# before the search budget runs out -- measured 2026-09-07 as out_of_time 15 of 20, every wake.
+# The rotation used to be the day of the year, so it advanced once a day: the same five listings
+# were searched all day and the other fifteen were never looked at at all. Stepping by the number
+# actually read, once per wake, covers the whole catalogue in four wakes instead of never.
+WAKE_INTERVAL_SECONDS = 300
+LISTINGS_READ_PER_WAKE = 5
+
+
+def _rotation(now, listings):
+    total = max(1, len(listings))
+    try:
+        wake = int(now.timestamp() // WAKE_INTERVAL_SECONDS)
+    except (AttributeError, OSError, OverflowError, TypeError, ValueError):
+        return 0
+    return (wake * LISTINGS_READ_PER_WAKE) % total
 # 固定報酬制 10,000円 〜 30,000円 / 固定報酬制 50,000円
 _BUDGET = re.compile(r"固定報酬制\s*([\d,]+)\s*円(?:\s*〜\s*([\d,]+)\s*円)?")
 
@@ -243,7 +259,7 @@ def main():
             imported=_reconcile(page) if configured.get("ok") else 0
             if not configured.get("ok"):
                 result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
-            elif (candidate_result:=_candidate(page,_listings(),now.timetuple().tm_yday%max(1,len(_listings()))))[0] is None:
+            elif (candidate_result:=_candidate(page,_listings(),_rotation(now,_listings())))[0] is None:
                 result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
             else:
                 candidate,listing,tier,_inspected=candidate_result
