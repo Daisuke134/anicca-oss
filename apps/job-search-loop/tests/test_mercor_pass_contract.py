@@ -25,7 +25,7 @@ class MercorPassContractTests(unittest.TestCase):
     @staticmethod
     def _profile(path: Path) -> Path:
         path.write_text(json.dumps({
-            "candidate": {"base": "Japan"},
+            "candidate": {"base": "Japan", "application_email": "operator@example.invalid"},
             "facts": [{"id": "education", "claim": "Bachelor studies", "evidence": "resume"}],
         }), encoding="utf-8")
         return path
@@ -58,6 +58,10 @@ class MercorPassContractTests(unittest.TestCase):
             self.assertEqual(context["host_capabilities"], {
                 "architecture": "arm64", "macos_version": "15.6",
                 "apple_silicon": True, "macos_sequoia_or_newer": True,
+            })
+            self.assertEqual(context["mercor_auth_context"], {
+                "login_method": "email",
+                "account_email": "operator@example.invalid",
             })
 
     def test_mercor_is_retired_locally_but_keeps_portable_thirty_minute_cadence(self):
@@ -123,7 +127,7 @@ class MercorPassContractTests(unittest.TestCase):
             "Apply maximally and let the provider",
             "never retry",
             "needs_human",
-            "browser Google 2FA button named `はい`",
+            "Never click `Google`, `Okta`, or",
             "Never write evidence",
             "only the current `evidence_dir`",
             "exact `evidence_dir` supplied",
@@ -147,9 +151,18 @@ class MercorPassContractTests(unittest.TestCase):
             "One broken card must not block the whole pass",
             "invoke `.click()` once on that",
             "signals, not pre-application rejection gates",
+            "An ordinary Mercor login screen is not a terminal blocker",
+            "Use only Mercor's email",
+            "do not use Job Hunter policy",
         ):
             self.assertIn(required, prompt)
         self.assertNotIn("Choose at most one new listing", prompt)
+
+    def test_legacy_job_hunter_reference_only_points_to_mercor_canon(self):
+        reference = (
+            ROOT.parents[1] / "skills" / "job-hunter" / "references" / "mercor.md"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(reference.strip(), "Mercor policy → `skills/mercor/SKILL.md`")
 
     def test_result_contract_allows_every_bounded_candidate_to_be_submitted(self):
         schema = json.loads(

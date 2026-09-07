@@ -17,6 +17,11 @@ def test_owner_uses_shared_browser_lease_and_revenue_name():
     assert "job_search_loop.mercor_page_ready" in source
     assert '--ws "$MERCOR_CDP_PAGE_WS"' in source
     assert 'commit-cookies "$TASK" --domain mercor.com' in source
+    assert "job_search_loop.mercor_auth_readback" in source
+    assert source.index("job_search_loop.mercor_auth_readback") < source.index(
+        'commit-cookies "$TASK" --domain mercor.com'
+    )
+    assert '"reason":"authenticated_readback_required"' in source
     assert '--origin https://work.mercor.com --local-storage-key mercor-auth-store' in source
     assert 'CLOAK_SESSION_VAULT_WRITEBACK_FILE="$STATE_ROOT/auth-overlay.json"' in source
     assert 'session-writeback.json' in source

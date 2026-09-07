@@ -22,7 +22,11 @@ class MercorMultiOperatorTests(unittest.TestCase):
                 resume = root / f"{operator_id}-resume.pdf"
                 profile.write_text(json.dumps({
                     "version": 1,
-                    "candidate": {"operator_id": operator_id, "base": "Japan"},
+                    "candidate": {
+                        "operator_id": operator_id,
+                        "base": "Japan",
+                        "application_email": f"{operator_id}@example.invalid",
+                    },
                     "facts": [{
                         "id": "redacted-profile",
                         "claim": "Approved operator profile exists",

@@ -30,6 +30,15 @@ def _shared_apply_context(profile_path: Path) -> dict[str, Any]:
     return module.build_apply_context(profile_path)
 
 
+def _mercor_auth_context(profile_path: Path) -> dict[str, str]:
+    value = json.loads(profile_path.expanduser().read_text(encoding="utf-8"))
+    candidate = value.get("candidate", {}) if isinstance(value, dict) else {}
+    email = candidate.get("application_email", "") if isinstance(candidate, dict) else ""
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError("mercor_account_email_unavailable")
+    return {"login_method": "email", "account_email": email.strip()}
+
+
 def _host_capabilities() -> dict[str, Any]:
     architecture = platform.machine()
     macos_version = platform.mac_ver()[0]
@@ -110,6 +119,7 @@ def build_context(
         "submitted_listing_ids": sorted(submitted_listing_ids),
         "recently_inspected_listing_ids": _recent_listing_ids(inspection_ledger),
         "shared_apply_context": _shared_apply_context(profile_path),
+        "mercor_auth_context": _mercor_auth_context(profile_path),
         "host_capabilities": _host_capabilities(),
         "run_id": run_id,
         "cdp_url": cdp_url,
