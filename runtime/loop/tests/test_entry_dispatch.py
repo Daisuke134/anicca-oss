@@ -275,15 +275,16 @@ class EntryDispatchTest(unittest.TestCase):
     def test_other_coconala_lanes_keep_production_modes(self):
         root=Path('/release'); home=Path('/home')
         apply=command_for('hf-gig-apply-direct',root,home)
-        reply=command_for('hf-gig-reply-detector',root,home)
         storefront=command_for('hf-gig-storefront-direct',root,home)
         guard = [sys.executable, '/release/runtime/host/memory_admission.py']
         self.assertEqual(apply[:2], guard)
-        self.assertEqual(reply[:5], guard + ['--wait-seconds','30','--'])
         self.assertEqual(storefront[:2], guard)
         self.assertIn('--all-eligible',apply)
-        self.assertEqual(reply[-5:],['--continuous','--poll-seconds','30','--workers','2'])
         self.assertEqual(storefront[-4:],['--effect','--auto-cadence','--full-interval-seconds','60'])
+
+    def test_coconala_reply_no_longer_has_a_handwritten_dispatch(self):
+        with self.assertRaisesRegex(ValueError, 'no dispatch command'):
+            command_for('hf-gig-reply-detector', Path('/release'), Path('/home'))
 
     def test_writer_report_no_longer_has_a_handwritten_dispatch(self):
         with self.assertRaisesRegex(ValueError, 'no dispatch command'):

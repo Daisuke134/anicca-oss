@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+PYTHON="${HF_GIG_PYTHON:-$(command -v python3)}"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
+export CLOAK_BROWSER_OWNER="coconala-shared-reply"
+
+if [[ ! -x "$PYTHON" ]]; then
+  echo "coconala-reply-owner: managed Python is unavailable: $PYTHON" >&2
+  exit 69
+fi
+
+exec "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/reply_kernel.py" \
+  --provider-adapter "$ROOT/skills/earn/gig/scripts/coconala_reply_adapter.py" \
+  --state-root "$STATE_ROOT/kernel" \
+  --output "$STATE_ROOT/latest.json" \
+  --max-workers 1 \
+  -- --state-root "$STATE_ROOT" \
+  --cdp-helper "$ROOT/skills/browser/scripts/cdp_default_tab.py" \
+  --runner "$ROOT/runtime/agent-runner/agent_runner.py" \
+  --schema "$ROOT/skills/earn/gig/schemas/reply_composition.schema.json" \
+  "$@"

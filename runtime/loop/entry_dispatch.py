@@ -73,16 +73,6 @@ def command_for(loop_id: str, root: Path, home: Path) -> list[str]:
             "--all-eligible", "--planner-runner",
             str(root / "runtime/agent-runner/agent_runner.py"),
         ],
-        "hf-gig-reply-detector": [
-            *memory_guard,
-            "--wait-seconds", "30", "--",
-            python, str(root / "skills/earn/gig/scripts/gig_disk_guard.py"),
-            python, str(root / "skills/earn/gig/scripts/reply_detector.py"),
-            "--trigger", "fallback", "--runner",
-            str(root / "runtime/agent-runner/agent_runner.py"),
-            "--runner-config", str(root / "runtime/agent-runner/config.json"),
-            "--continuous", "--poll-seconds", "30", "--workers", "2",
-        ],
         "hf-gig-storefront-direct": [
             *memory_guard,
             python, str(root / "skills/earn/gig/scripts/gig_disk_guard.py"),
