@@ -394,6 +394,167 @@ def _apply(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]
     except OfferError: raise OfferError("publication_uncertain") from None
 
 
+# --- Package creation (/myplan/add?type=manual) --------------------------------------------
+# _apply() can only edit a package that already carries a listing_external_id: it goes straight
+# to /myplan/{listing_id}/edit. There was no path from the shared catalogue (twenty families,
+# skills/_shared/marketplace-core/scripts/listing_catalog.py) to a *new* Lancers package -- one
+# hand-authored listing was all this lane could ever produce. create_package() is that path,
+# reached from the three-way chooser at /myplan/add by clicking the manual option. It reuses
+# _field, _step, _public and OfferError exactly as _apply() does; _apply() itself is untouched.
+_CREATE_ADD_URL = f"{ORIGIN}/myplan/add"
+_CREATE_MANUAL_URL = f"{ORIGIN}/myplan/add?type=manual"
+_CREATE_MANUAL_BUTTON_TEXT = "手動でパッケージを作成する"
+# The live DOM read (see the task this shipped from) did not identify which button actually
+# publishes -- only that "プレビュー" and several "のコツ" toggles are also present. Rather than
+# hardcode a guess, the submit control is discovered by matching visible button text against
+# every label a Lancers form has been observed to use for "move this listing forward" elsewhere
+# in this file (_apply uses "保存"/"保存する"; the create chooser flow is known to use
+# "確認画面へ"/"公開する"/"公開" for its multi-step forms). _create_submit_control fails loudly,
+# naming every button text actually present, if zero or more than one match.
+_CREATE_SUBMIT_LABELS = ("確認画面へ", "公開する", "公開", "保存する", "保存")
+# Wherever Lancers lands after a successful create, its path carries the new listing's numeric
+# id under /myplan/<id>/... or /menu/detail/<id> -- every other Lancers route this file already
+# reads (_apply's edit_url, _public's public_url, _setting_status's setting path) uses one of
+# those two shapes. No third shape has been observed, so none is guessed.
+_CREATE_LISTING_ID_IN_URL = re.compile(r"^https://www\.lancers\.jp/(?:myplan|menu/detail)/([0-9]+)")
+# Exactly the fields _fill_create_form() below actually reads from `product`. Kept separate from
+# _validate_product's full contract (which also demands an existing listing_external_id, an
+# on-disk image, an avatar, portfolio blocks, etc. -- all _apply()/edit concerns a not-yet-created
+# package cannot satisfy) so create_package() can fail closed on exactly what it needs, before
+# ever opening a page.
+_CREATE_REQUIRED_FIELDS = ("title_stem", "subtitle", "category", "subcategory", "industry", "tags", "notice", "plans")
+
+
+def _require_create_fields(product: Mapping[str, Any]) -> None:
+    for field in _CREATE_REQUIRED_FIELDS:
+        value = product.get(field)
+        if field == "plans":
+            if not isinstance(value, list) or len(value) != 3: raise OfferError(f"create_field_missing: {field}")
+            continue
+        empty = value is None or (isinstance(value, str) and not value.strip()) or (isinstance(value, (list, tuple)) and not value)
+        if empty: raise OfferError(f"create_field_missing: {field}")
+
+
+def _select_delivery_time(page: Any, selector: str, delivery_days: int) -> None:
+    """Select the option whose *label* names `delivery_days`, never a neighbouring value.
+
+    The Lancers projection (listing_catalog.project_lancers) already rounds every catalogue
+    tier up to a day count Lancers is known to offer, so a real mismatch here means the form
+    itself changed shape -- that must stop the wake loudly, not silently pick the closest
+    option.
+    """
+    field = _field(page, selector)
+    seen: list[tuple[str, str]] = []
+    for option in field.locator("option").all():
+        label = " ".join(str(option.inner_text() or "").split())
+        value = option.get_attribute("value") or ""
+        seen.append((label, value))
+        match = re.fullmatch(r"([0-9]+)\s*日", label)
+        if match is not None and int(match.group(1)) == delivery_days:
+            field.select_option(value=value)
+            return
+    raise OfferError(f"create_delivery_time_unmatched: delivery_days={delivery_days}: options={seen}")
+
+
+def _fill_create_form(page: Any, product: Mapping[str, Any]) -> None:
+    """Fill every field the live /myplan/add?type=manual DOM read carried, in the order the
+    form presents them. `ProjectPlanForm.project_category_id` (the subcategory) is not in that
+    initial DOM either -- exactly as in _apply(), it appears only once the main category is
+    chosen, so it is waited for by option label the same way _apply() already does.
+    """
+    _field(page, '[name="ProjectPlanForm.title"]').fill(product["title_stem"])
+    _field(page, '[name="ProjectPlanForm.subtitle"]').fill(product["subtitle"])
+    _field(page, '[name="___main_category_id"]').select_option(label=product["category"])
+    page.wait_for_function(
+        "label => [...document.querySelectorAll('[name=\"ProjectPlanForm.project_category_id\"] option')].some(o => o.textContent.trim() === label)",
+        arg=product["subcategory"], timeout=5_000,
+    )
+    _field(page, '[name="ProjectPlanForm.project_category_id"]').select_option(label=product["subcategory"])
+    _field(page, '[name="ProjectPlanForm.industry_type_id"]').select_option(label=product["industry"])
+    tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]')
+    for tag in product["tags"]:
+        tag_field.fill(tag); tag_field.press("Enter")
+    for index, plan in enumerate(product["plans"]):
+        prefix = f"ProjectPlanMenuForm[{index}]"
+        _field(page, f'[name="{prefix}.description"]').fill(plan["description"])
+        _select_delivery_time(page, f'[name="{prefix}.delivery_time"]', plan["delivery_days"])
+        _field(page, f'[name="{prefix}.price"]').fill(str(plan["price_jpy"]))
+    _field(page, '[name="ProjectPlanForm.notice_for_sale"]').fill(product["notice"])
+
+
+def _create_submit_control(page: Any) -> Any:
+    buttons = [button for button in page.locator("button").all() if button.is_visible()]
+    texts = [" ".join(str(button.inner_text() or "").split()) for button in buttons]
+    matches = [button for button, text in zip(buttons, texts) if text in _CREATE_SUBMIT_LABELS]
+    if len(matches) != 1: raise OfferError(f"create_submit_control_missing: buttons={texts}")
+    return matches[0]
+
+
+def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]:
+    """Create a brand-new Lancers package from `product` -- the manual-creation counterpart to
+    _apply(), reachable before any listing_external_id exists. One package per call; the caller
+    decides when to create and persists the returned listing_external_id, this function does not
+    loop over a catalogue and does not decide anything on its own.
+
+    `image` exists for interface parity with _apply(page, product, image); the observed
+    /myplan/add?type=manual DOM carries no upload control at all, so image alignment is left to
+    the very next _apply() run against the id this returns -- that path already owns image
+    upload end to end and this function does not duplicate it.
+
+    Fails closed at every step: a required field missing from `product` raises before any
+    navigation; landing anywhere other than /myplan/add?type=manual after clicking the manual
+    option raises rather than filling a form that cannot be identified; a delivery_time with no
+    matching option raises without selecting anything; no single matching submit button raises,
+    naming the buttons actually present; and a successful submission whose public page cannot be
+    read back is reported as publication_uncertain, never as success.
+    """
+    _require_create_fields(product)
+    page.goto(_CREATE_ADD_URL, wait_until="domcontentloaded", timeout=30_000)
+    _step(page, _CREATE_MANUAL_BUTTON_TEXT)
+    if page.url != _CREATE_MANUAL_URL: raise OfferError(f"create_route_invalid: url={page.url}")
+    page.wait_for_selector('[name="ProjectPlanForm.title"]', state="visible", timeout=5_000)
+    _fill_create_form(page, product)
+    submit = _create_submit_control(page)
+    submit.click(timeout=20_000)
+    page.wait_for_url(_CREATE_LISTING_ID_IN_URL, timeout=30_000)
+    match = _CREATE_LISTING_ID_IN_URL.match(str(page.url))
+    if match is None: raise OfferError(f"create_listing_id_unresolved: url={page.url}")
+    listing_id = match.group(1)
+    published = dict(product) | {"listing_external_id": listing_id, "public_title": product["title_stem"] + "ます"}
+    try: return _public(page, published) | {"action": "created", "listing_external_id": listing_id}
+    except OfferError: raise OfferError("publication_uncertain") from None
+
+
+def run_create(product_path: Path, state_path: Path) -> dict[str, Any]:
+    """CLI/tick entry point for create_package(), parallel to run() -- separate on purpose, per
+    create_package()'s own contract, so nothing about --apply/--inspect changes and nothing
+    starts creating packages by accident. Reuses _product() (the same loader/validator run()
+    uses) so the product file still goes through the full listing contract; create_package()
+    itself never reads listing_external_id, so whatever placeholder value a not-yet-created
+    product file carries there is simply unused.
+    """
+    tick = browser = page = None; logged_in = False; result: dict[str, Any] = {"ok": False, "error": "offer_unavailable"}
+    try:
+        product, image, _avatar = _product(product_path); tick = _load("lancers_storefront_create_tick", HERE / "application_tick.py")
+        with tick.account_lock(state_path.with_name("work-sync.json")):
+            browser = tick._default_browser_factory(tick.CDP_URL); page = tick._new_owned_page(browser)
+            if not tick._production_account_ready(page): raise OfferError("account_unavailable")
+            logged_in = True; result = create_package(page, product, image)
+    except OfferError as error: result = {"ok": False, "logged_in": logged_in, "error": str(error)}
+    except Exception as error:
+        print(f"storefront_offer_create:{type(error).__name__}: {str(error)[:400]}", file=sys.stderr)
+        result = {"ok": False, "logged_in": logged_in,
+                  "error": "account_lock_busy" if "LockBusy" in type(error).__name__ else "offer_unavailable",
+                  "failure": f"{type(error).__name__}: {str(error)[:200]}"}
+    finally:
+        try:
+            closed = page is None or bool(tick._close_owned_page(page))
+            if browser is not None: tick._stop_playwright_runtime(getattr(browser, "_anicca_playwright_runtime", None))
+        except Exception: closed = False
+        if not closed: result = {"ok": False, "logged_in": logged_in, "error": "cleanup_failed"}
+    return result
+
+
 def _portfolio(page: Any, item: Mapping[str, Any]) -> dict[str, Any] | None:
     title = item["title_stem"] + "ました"
     with page.expect_response(lambda response: response.request.method == "GET" and urlsplit(response.url).path == "/api/v1/me/portfolio", timeout=20_000) as loaded:
@@ -519,8 +680,16 @@ def run(apply: bool, product_path: Path, state_path: Path) -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(); mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--inspect", action="store_true"); mode.add_argument("--apply", action="store_true")
+    # Separate top-level mode, not a modifier of --apply: create_package() must never fire as a
+    # side effect of the existing edit-in-place flow (see create_package()'s own docstring).
+    mode.add_argument("--create-package", action="store_true", dest="create_package")
     parser.add_argument("--product", type=Path, default=DEFAULT_PRODUCT); parser.add_argument("--state-path", type=Path, default=Path.home() / ".local/state/anicca/lancers/application.json")
-    args = parser.parse_args(argv); result = run(args.apply, args.product, args.state_path)
+    args = parser.parse_args(argv)
+    if args.create_package:
+        result = run_create(args.product, args.state_path)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")), flush=True)
+        return 0 if result.get("ok") is True else 1
+    result = run(args.apply, args.product, args.state_path)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")), flush=True)
     if args.apply:
         reporter = _load("_anicca_lancers_storefront_reporter", HERE / "telegram_report.py")
