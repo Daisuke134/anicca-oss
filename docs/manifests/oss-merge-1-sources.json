@@ -49,7 +49,7 @@
         {"source": "apps/life-manager/lib/browser-auth-session-store.test.js", "target": "apps/life-manager/lib/browser-auth-session-store.test.js", "sha256": "135ab2dcb487650bd09ff161b3cefe76ec943dc95dbfff9e009d1b4cfc12cbf4"},
         {"source": "apps/life-manager/lib/browser-job-store.js", "target": "apps/life-manager/lib/browser-job-store.js", "sha256": "ec502c503e912f59f29afc083b9d8a59c8d2c9c97a11b727757bf91dbf5a8e7d"},
         {"source": "apps/life-manager/lib/browser-job-store.test.js", "target": "apps/life-manager/lib/browser-job-store.test.js", "sha256": "ba2b9d138d3ee8486d8975eab42862595383a67046300137d2b9d05a8d90e098"},
-        {"source": "apps/life-manager/lib/stagehand-steel-driver.js", "target": "apps/life-manager/lib/stagehand-steel-driver.js", "sha256": "4bf29fa98d30bee538645f77e69d7a486427729b02ed8ddab088420cc83d78e8"},
+        {"source": "apps/life-manager/lib/stagehand-steel-driver.js", "target": "apps/life-manager/lib/stagehand-steel-driver.js", "sha256": "e05fb409666c58959a648999eabc77124b81152a395cd97bb3c352ba943fe3ea"},
         {"source": "apps/life-manager/lib/stagehand-steel-driver.test.js", "target": "apps/life-manager/lib/stagehand-steel-driver.test.js", "sha256": "6a26ccefebf6d397dec11d87bc8f53a2a510f4d463616ab68aad8cc3191a2abb"}
       ]
     },
@@ -72,12 +72,12 @@
         "skills/agent-runner/agent_runner.py": "ea32d3446d0efb9eccb3046e87cf9e99c7190edcf0b659e270a37aae689824ae"
       },
       "absorbed_files": [
-        {"source": "skills/agent-runner/agent_runner.py", "target": "runtime/agent-runner/agent_runner.py", "sha256": "2b52786ce25720fb45601259b5a47915c4e22df8ddb3244c676b1b6b18aa8c15"},
-        {"source": "skills/agent-runner/config.json", "target": "runtime/agent-runner/config.json", "sha256": "089738e6cf9a9fc75a3a0d28f1673d3981765d20b3a3f559861c93ef2f76a33a"},
+        {"source": "skills/agent-runner/agent_runner.py", "target": "runtime/agent-runner/agent_runner.py", "sha256": "e3e70b73cc631abf2adfc830edd88d666c28ede1c2bb7f14f3c296015b65bdd7"},
+        {"source": "skills/agent-runner/config.json", "target": "runtime/agent-runner/config.json", "sha256": "707d06bf31c4ccc6e010648eca2c47e4a019fdabc0a579a4763c593f9221effc"},
         {"source": "skills/agent-runner/context_packet.py", "target": "runtime/agent-runner/context_packet.py", "sha256": "4e2c17ac3b29eb6d7428f1006f30c5e7b6261de347ec913508b8e292cd6a0d0e"},
-        {"source": "skills/agent-runner/usage_report.py", "target": "runtime/agent-runner/usage_report.py", "sha256": "a58e26ef7f8c53bfacac4c276dca5afc7d479fdeb14d10cd03389eb0e77ea0a1"},
+        {"source": "skills/agent-runner/usage_report.py", "target": "runtime/agent-runner/usage_report.py", "sha256": "789c90de99efca6c15ba3714f2888dda777a7701214dd567c7ea38302eb81709"},
         {"source": "skills/agent-runner/tests/test_prompt_fail_closed.py", "target": "runtime/agent-runner/tests/test_prompt_fail_closed.py", "sha256": "175961a8f6dee55de540cbb5691b0da4746f09bebc8226d56acaf788e2811209"},
-        {"source": "skills/agent-runner/tests/test_usage_report.py", "target": "runtime/agent-runner/tests/test_usage_report.py", "sha256": "f10b1ca746093386acd1a45d0b0d0eae3e0603938ac90df8da2d34799fb88295"}
+        {"source": "skills/agent-runner/tests/test_usage_report.py", "target": "runtime/agent-runner/tests/test_usage_report.py", "sha256": "47ae83b8f33cec8c8d6dc14a8daefa3e1ae480b466baf548dcfec179977b8d9c"}
       ]
     },
     {
@@ -89,9 +89,9 @@
       "scope": "Portable booking, Capafy automation, browser fallback, and shared policy source are absorbed. Personal configuration, credentials, account identifiers, memory, generated listing artwork, and live state remain outside the OSS product.",
       "absorbed_roots": [
         {"source": "skills/anicca-booking", "target": "skills/anicca-booking", "files": 5, "inventory_sha256": "ce5c1b46422d1a564896a20069d9bacfed8595f67dc67b270f73d0ff1ceb220d"},
-        {"source": "skills/capafy-autopublish", "target": "skills/capafy-autopublish", "files": 219, "inventory_sha256": "072bf7de6290adb096d3ab5ea1f9d6be9fcaba09d89d1d99dd2bb2dd6fc7fca2"},
-        {"source": "skills/_shared", "target": "skills/_shared", "files": 139, "inventory_sha256": "25af6e9b1ad726df9da5877f8d7ec212a9187651617f79e448f93932c32ad963"},
-        {"source": "skills/anicca-life-manager", "target": "skills/anicca-life-manager", "files": 16, "inventory_sha256": "9c5cf9ec890477d6282bde87389946aad7c0928bffe750eec4a8ccffa8b9cfb5"}
+        {"source": "skills/capafy-autopublish", "target": "skills/capafy-autopublish", "files": 219, "inventory_sha256": "e42f7a0bfd291b8f6fc4de3f96f0e8519d6e35f7df07a6da519adb6915f17f2b"},
+        {"source": "skills/_shared", "target": "skills/_shared", "files": 166, "inventory_sha256": "f3f0e05aab56885a0c162d7bd2835cb9f9defc54287ed54921d90f0f97740ea6"},
+        {"source": "skills/anicca-life-manager", "target": "skills/anicca-life-manager", "files": 19, "inventory_sha256": "a143cdead2df31e4135f1c7d0c82ac1689a4c74a21966bac11d60b785e068ef9"}
       ]
     },
     {
