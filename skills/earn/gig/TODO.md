@@ -621,6 +621,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    so Web Storage was saved but `storage_origins_seeded` stayed zero. The shared CLI now preserves the exact
    requested URL; no Mercor-specific duplicate is added. Focused verification passes 40 tests plus 2
    subtests. Merge/install, new official submission, realtime application Telegram and replay-zero remain.
+   The immediate authenticated follow-up reached a genuinely ready new candidate,
+   `Video Evaluation Generalist`: official state was `4 of 4 / 100%`, the reused Domain Expert
+   Interview was complete, and submit was visible. It then stopped `submit_unknown` with no email,
+   no application-ledger append and fresh DOM still showing `Submit application`. Screenshot evidence
+   proves the adapter mistook Mercor's first page-level button (which only opens a reversible confirmation
+   modal) for the provider mutation; the modal's final submit remained unclicked. The prompt now opens
+   and verifies that modal before claiming the fence, then clicks its exact final submit once. False
+   pre-effect claims can be released append-only only when fresh readback still shows the final submit.
+   Focused verification passes 42 tests plus 2 subtests. The existing false Video Evaluator claim must be
+   released from that exact evidence, then the fixed release must complete official submit/TG/replay-zero.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

@@ -81,11 +81,15 @@ Pass order:
    is not a human requirement and may be used automatically. The human gate is resumable;
    a later wake observes official completion and continues the same application.
 4. For a ready listing, save fresh pre-action screenshot and bounded DOM evidence.
-   Before clicking, run `python3 -m job_search_loop.mercor_submit_guard` with
+   Mercor submission has two distinct controls. The page-level `Submit application`
+   only opens a reversible confirmation modal and is not the provider mutation. Click
+   it first without claiming the effect fence, then require the modal to show the exact
+   listing title and selected candidate profile. Immediately before the modal's own
+   `Submit application` button, run `python3 -m job_search_loop.mercor_submit_guard` with
    `--fence-ledger`, `--listing-id`, `--title`, `--url`, `--pre-submit-evidence`,
    and `--run-id` from the bounded context. Click only when its JSON says
    `"claimed": true`; when it says `"claimed": false`, treat the listing as an
-   existing attempt and do not click. Submit exactly once, then reopen the application result and require the visible
+   existing attempt and do not click. Click the modal's final submit exactly once, then reopen the application result and require the visible
    success/read-back. Add it to `submitted` and the current-pass submitted set, then
    save a JSON readback evidence file containing `page_url`, the bounded
    `visible_text` that includes the success text, and `screenshot_path`. Immediately
