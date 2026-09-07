@@ -14,6 +14,7 @@ STATE="${X_REPOST_STATE_DIR:-$HOME/loops/x-repost-en}"
 PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3
 WINDOW="${X_REPOST_DIGEST_WINDOW_HOURS:-24}"
 TELEGRAM_SEND_TIMEOUT="${X_REPOST_TELEGRAM_SEND_TIMEOUT:-30}"
+TELEGRAM_SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
 set -a
 . "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}" 2>/dev/null
 set +a
@@ -23,25 +24,11 @@ send_digest() {
   [ -n "$TARGET" ] || return 1
   local body="$1" idempotency_key response message_id
   idempotency_key="$(printf '%s' "$body" | shasum -a 256 | awk '{print $1}')"
-  response="$(timeout "$TELEGRAM_SEND_TIMEOUT" openclaw message send \
-    --channel telegram --target "$TARGET" --message "$body" --json \
-    2>>"$STATE/digest.err")" || return 1
+  response="$(timeout "$TELEGRAM_SEND_TIMEOUT" "$TELEGRAM_SENDER" \
+    "$body" "$TARGET" 2>>"$STATE/digest.err")" || return 1
   printf '%s\n' "$response" >>"$STATE/digest.jsonl"
-  message_id="$("$PY" -c 'import json,sys
-def message_id(value):
-    if isinstance(value, dict):
-        for key in ("messageId", "message_id"):
-            if value.get(key) is not None: return str(value[key])
-        for child in value.values():
-            found=message_id(child)
-            if found: return found
-    elif isinstance(value, list):
-        for child in value:
-            found=message_id(child)
-            if found: return found
-    return None
-mid=message_id(json.loads(sys.argv[1])); print(mid or "")
-raise SystemExit(0 if mid else 1)' "$response")" || return 1
+  message_id="$(printf '%s\n' "$response" | sed -n 's/.*MSGID=\([0-9][0-9]*\).*/\1/p' | tail -1)"
+  [ -n "$message_id" ] || return 1
   "$PY" - "$STATE/telegram-sent.jsonl" "$idempotency_key" "$message_id" <<'PYEOF'
 import datetime, json, pathlib, sys
 path, body_sha, message_id = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]

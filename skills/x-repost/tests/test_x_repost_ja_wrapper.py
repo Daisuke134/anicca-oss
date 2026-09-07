@@ -53,6 +53,16 @@ class JapaneseDiceLoopContractTests(unittest.TestCase):
     def test_digest_defaults_to_the_english_repost_state(self):
         self.assertIn('$HOME/loops/x-repost-en', DIGEST.read_text())
 
+    def test_runtime_dependencies_are_repository_owned(self):
+        main = MAIN.read_text()
+        digest = DIGEST.read_text()
+        self.assertIn('skills/_shared/send-telegram.sh', main)
+        self.assertIn('skills/_shared/send-telegram.sh', digest)
+        self.assertIn('$SKILL/config/humanize-checklist.md', main)
+        self.assertIn('.local/state/life-manager/.env', main)
+        self.assertNotIn('openclaw message send', main + digest)
+        self.assertNotIn('$HOME/.openclaw', main + digest)
+
 
 if __name__ == "__main__":
     unittest.main()
