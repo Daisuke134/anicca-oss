@@ -480,28 +480,254 @@ _CREATE_NEXT_BUTTON_TEXT = "次へ"
 _CREATE_IMAGE_STEP_MARKER_TEXT = "受注率が約10倍になります"
 
 
-def _create_step_validation_text(page: Any) -> str:
-    """Best-effort scrape of on-page validation text for a stalled step's error message.
+# --- Stall evidence -------------------------------------------------------------------------
+# The original _create_step_validation_text scraped every visible [class*='error'] element and
+# joined whatever text it found. That net is wide enough to catch the stepper's own step-nav
+# chrome -- observed live as `create_step_stalled: 基本情報: 基本情報`, where the "validation
+# text" was just the 基本情報 tab re-scraped, not a complaint about anything. A strict matcher
+# that discards what it saw is exactly the fault marketplace-apply-lane.md's "refuse loudly"
+# section names; the fix is not a looser matcher, it is a *reported* one: name every field the
+# stalled step owns, prefer real validation markup over incidental "error"-classed chrome, and
+# say plainly when nothing qualifies rather than emit a nearby string. Nothing below infers a
+# cause -- every value is read straight off the page for a human or the next wake to conclude
+# from.
 
-    The live DOM read never named Lancers' validation-message markup, so unlike every other
-    selector in this file this one is not something create_step_stalled can assert an exact
-    match on. It casts a wide net across every visible element whose class mentions "error" and
-    joins whatever text they carry. Finding nothing is not itself a failure -- it just leaves
-    the surrounding create_step_stalled error with no extra detail to report.
-    """
+# One entry per wizard step naming the fields that step owns, as (label, selector) pairs -- the
+# same selectors _fill_create_form() already fills, kept here as the single source of what
+# "belongs to this step" means so a stall report and the fill order can never drift apart. 画像ほか
+# and 公開 own no field whose emptiness is diagnostic (the upload is optional; 公開 has no input),
+# so they carry none.
+_CREATE_STEP_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "基本情報": (
+        ("title", '[name="ProjectPlanForm.title"]'),
+        ("subtitle", '[name="ProjectPlanForm.subtitle"]'),
+        ("category", '[name="___main_category_id"]'),
+        ("subcategory", '[name="ProjectPlanForm.project_category_id"]'),
+        ("industry", '[name="ProjectPlanForm.industry_type_id"]'),
+        ("tags", '[name="MultiSelectTagSearch_ProjectPlanTagForm"]'),
+    ),
+    "料金表": tuple(
+        (f"plan[{index}].{field}", f'[name="ProjectPlanMenuForm[{index}].{field}"]')
+        for index in range(3)
+        for field in ("description", "delivery_time", "price")
+    ),
+    "業務内容": (("description", "textarea:not([name])"),),
+    "確認事項": (("notice", '[name="ProjectPlanForm.notice_for_sale"]'),),
+    "画像ほか": (),
+    "公開": (),
+}
+# The six step names themselves -- excluded from validation-message candidates because the
+# observed bug is precisely a stepper/heading element being mistaken for a complaint.
+_CREATE_STEP_NAMES = ("基本情報", "料金表", "業務内容", "確認事項", "画像ほか", "公開")
+_CREATE_STALL_PAYLOAD_MAX_CHARS = 4000
+_CREATE_STALL_TRUNCATION_MARKER = "...(truncated)"
+
+
+def _is_create_stepper_chrome(text: str) -> bool:
+    return text.strip() in _CREATE_STEP_NAMES
+
+
+def _create_selected_option(field: Any) -> tuple[str | None, str | None]:
+    """Read a <select>'s currently-checked option (label, value). `option:checked` is native
+    CSS -- a browser always has exactly one option selected, the first one by default when
+    nothing has been explicitly chosen, which is what lets an empty-but-present select read as
+    "the placeholder" rather than as absent."""
     try:
-        nodes = page.locator("[class*='error']").all()
+        checked = field.locator("option:checked")
+        if checked.count() != 1: return None, None
+        option = checked.all()[0]
+        label = " ".join(str(option.inner_text() or "").split())
+        value = option.get_attribute("value") or ""
+        return label, value
+    except Exception:
+        return None, None
+
+
+def _create_field_state(page: Any, name: str, selector: str) -> dict[str, Any]:
+    """Observed state of one field the current step owns: identifier, whether it is present at
+    all, and either its selected option's label (selects) or whether it holds a value (text
+    inputs/textareas). Never raises -- a field this can't read is reported absent, not fatal,
+    because the whole point of this function is to keep going and report everything it can."""
+    field = page.locator(selector)
+    try:
+        count = field.count()
+    except Exception:
+        return {"field": name, "present": False}
+    if count != 1:
+        return {"field": name, "present": False, "count": count}
+    try:
+        option_count = field.locator("option").count()
+    except Exception:
+        option_count = 0
+    if option_count:
+        label, value = _create_selected_option(field)
+        return {"field": name, "present": True, "type": "select", "selected_label": label, "filled": bool(value and value.strip())}
+    try:
+        value = field.input_value()
+    except Exception:
+        value = None
+    return {"field": name, "present": True, "type": "text", "filled": bool(value and str(value).strip())}
+
+
+def _create_tag_widget_state(page: Any) -> dict[str, Any]:
+    """The tag autocomplete (MultiSelectTagSearch_ProjectPlanTagForm) is filled with fill()+Enter
+    on an autocomplete widget, which can leave the typed text unregistered as a real tag -- one
+    of the named candidate causes for this stall. `[aria-label="削除"]` is already this file's own
+    observed selector for a committed tag's remove button (see _apply's tag-clearing loop above),
+    reused here rather than guessed, so the report can tell "typed but never committed" apart
+    from "genuinely empty" apart from "committed but the field itself reads empty"."""
+    try:
+        committed = page.locator('[aria-label="削除"]').count()
+    except Exception:
+        committed = None
+    try:
+        typed = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]').input_value()
+    except Exception:
+        typed = None
+    return {"committed_tag_count": committed, "typed_value_present": bool(typed and str(typed).strip())}
+
+
+def _create_validation_messages(page: Any) -> list[str]:
+    """Real validation messages only, in preference order: aria-invalid="true" elements (plus
+    whatever describes them via aria-describedby/aria-label), then [role="alert"], then any
+    element whose own class marks it an error message. Each tier is tried only if the one before
+    it found nothing. Every candidate that equals a step name verbatim is excluded -- that
+    exclusion is the fix for the exact bug this shipped from, where the step heading was scraped
+    as if it were a complaint. Finding nothing at any tier is reported as
+    "no_validation_message_found", never as a nearby string standing in for "found nothing"."""
+    messages = _create_aria_invalid_messages(page)
+    if not messages:
+        messages = _create_role_alert_messages(page)
+    if not messages:
+        messages = _create_error_class_messages(page)
+    return messages or ["no_validation_message_found"]
+
+
+def _create_describing_text(page: Any, node: Any) -> str:
+    try:
+        described_by = node.get_attribute("aria-describedby")
+    except Exception:
+        described_by = None
+    if described_by:
+        for target_id in described_by.split():
+            try:
+                described = page.locator(f"#{target_id}")
+                if described.count() == 1:
+                    text = " ".join(str(described.inner_text() or "").split())
+                    if text: return text
+            except Exception:
+                continue
+    try:
+        label = node.get_attribute("aria-label")
+    except Exception:
+        label = None
+    if label and label.strip(): return label.strip()
+    try:
+        return " ".join(str(node.inner_text() or "").split())
     except Exception:
         return ""
-    texts: list[str] = []
+
+
+def _create_aria_invalid_messages(page: Any) -> list[str]:
+    try:
+        nodes = page.locator('[aria-invalid="true"]').all()
+    except Exception:
+        return []
+    messages: list[str] = []
+    for node in nodes:
+        try:
+            if not node.is_visible(): continue
+        except Exception:
+            continue
+        text = _create_describing_text(page, node)
+        if text and not _is_create_stepper_chrome(text): messages.append(text)
+    return messages
+
+
+def _create_role_alert_messages(page: Any) -> list[str]:
+    try:
+        nodes = page.locator('[role="alert"]').all()
+    except Exception:
+        return []
+    messages: list[str] = []
     for node in nodes:
         try:
             if not node.is_visible(): continue
             text = " ".join(str(node.inner_text() or "").split())
         except Exception:
             continue
-        if text: texts.append(text)
-    return " / ".join(texts)
+        if text and not _is_create_stepper_chrome(text): messages.append(text)
+    return messages
+
+
+def _create_error_class_messages(page: Any) -> list[str]:
+    try:
+        nodes = page.locator("[class*='error']").all()
+    except Exception:
+        return []
+    messages: list[str] = []
+    for node in nodes:
+        try:
+            if not node.is_visible(): continue
+            text = " ".join(str(node.inner_text() or "").split())
+        except Exception:
+            continue
+        if text and not _is_create_stepper_chrome(text): messages.append(text)
+    return messages
+
+
+def _create_advance_control_state(page: Any) -> dict[str, Any]:
+    """Whether 次へ was found, exactly as _step()/_click_create_next_button match it (exact
+    visible text), and its text and disabled state when found -- so "control missing" and
+    "control present but disabled" read as different observations, not the same failure."""
+    try:
+        matches = [item for item in page.get_by_text(_CREATE_NEXT_BUTTON_TEXT, exact=True).all() if item.is_visible()]
+    except Exception:
+        return {"found": False}
+    if len(matches) != 1: return {"found": False, "count": len(matches)}
+    control = matches[0]
+    try:
+        text = " ".join(str(control.inner_text() or "").split())
+    except Exception:
+        text = None
+    try:
+        disabled = control.get_attribute("disabled") is not None or control.get_attribute("aria-disabled") == "true"
+    except Exception:
+        disabled = None
+    return {"found": True, "text": text, "disabled": disabled}
+
+
+def _bounded_create_stall_payload(payload: dict[str, Any]) -> str:
+    """Serialize the stall payload bounded to _CREATE_STALL_PAYLOAD_MAX_CHARS. A wake report and
+    a Telegram line both need this bounded, not an unbounded DOM dump. When even the compact form
+    does not fit, the payload names itself truncated (a "truncated": true key survives if it
+    fits at all) rather than silently dropping content with no notice."""
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if len(text) <= _CREATE_STALL_PAYLOAD_MAX_CHARS: return text
+    marked = dict(payload); marked["truncated"] = True
+    text = json.dumps(marked, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if len(text) <= _CREATE_STALL_PAYLOAD_MAX_CHARS: return text
+    budget = _CREATE_STALL_PAYLOAD_MAX_CHARS - len(_CREATE_STALL_TRUNCATION_MARKER)
+    return text[:max(budget, 0)] + _CREATE_STALL_TRUNCATION_MARKER
+
+
+def _create_step_evidence(page: Any, step_name: str) -> str:
+    """Everything create_step_stalled can report about why `step_name` did not advance: every
+    field that step owns (state 1 above), the best real validation message found (state 2), the
+    page URL (state 3, so a silent navigation reads differently from a refusal to advance), and
+    the advance control's own found/text state (state 4). Nothing here is inferred -- every value
+    is read straight off the page."""
+    fields = [_create_field_state(page, name, selector) for name, selector in _CREATE_STEP_FIELDS.get(step_name, ())]
+    payload: dict[str, Any] = {
+        "step": step_name,
+        "url": str(getattr(page, "url", None)),
+        "fields": fields,
+        "validation_messages": _create_validation_messages(page),
+        "advance_control": _create_advance_control_state(page),
+    }
+    if step_name == "基本情報":
+        payload["tag_widget"] = _create_tag_widget_state(page)
+    return _bounded_create_stall_payload(payload)
 
 
 def _click_create_next_button(page: Any, step_name: str) -> None:
@@ -526,7 +752,7 @@ def _advance_create_step(page: Any, step_name: str, arrival: Any) -> None:
     try:
         arrival().wait_for(state="visible", timeout=10_000)
     except Exception:
-        raise OfferError(f"create_step_stalled: {step_name}: {_create_step_validation_text(page)}") from None
+        raise OfferError(f"create_step_stalled: {step_name}: {_create_step_evidence(page, step_name)}") from None
 
 
 def _create_business_textarea(page: Any) -> Any:
