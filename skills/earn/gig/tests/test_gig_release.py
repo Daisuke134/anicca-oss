@@ -279,29 +279,33 @@ def test_explicit_release_scope_is_preserved():
     assert gig_release.activation_labels({"example.job"}) == {"example.job"}
 
 
-def test_watch_publishes_release_without_reactivating_launchd(monkeypatch, tmp_path):
-    sha = "a" * 40
-    release = tmp_path / sha
-    release.mkdir()
-    published = []
-    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "watch"])
-    monkeypatch.setattr(
-        gig_release, "git",
-        lambda *args, **_kwargs: sha if args[:2] == ("rev-parse", "origin/main") else "",
-    )
-    monkeypatch.setattr(gig_release, "current_sha", lambda: "")
-    monkeypatch.setattr(gig_release, "build", lambda _sha: release)
-    monkeypatch.setattr(gig_release, "publish", published.append)
-    monkeypatch.setattr(gig_release, "collect_old_releases", lambda: [])
-    monkeypatch.setattr(gig_release, "settings", lambda _release: ({}, {}))
-    monkeypatch.setattr(gig_release, "job_needs_activation", lambda _job, _table: True)
-    monkeypatch.setattr(gig_release, "control_plane_available", lambda: True)
-    monkeypatch.setattr(gig_release, "require_control_plane", lambda: True)
-    monkeypatch.setattr(
-        gig_release, "activate",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("watch must not mutate launchd")),
-    )
+def test_release_watch_is_retired_in_favor_of_the_shared_reconciler():
+    # 2026-08-28 "chore(gig): retire release watcher" (93d6720ee) deleted the
+    # `watch` subcommand from gig_release.py itself: publishing without
+    # reactivating launchd is no longer this script's job. The same
+    # publish-without-reactivating behaviour now lives one layer up, in the
+    # shared `life-manager-release-reconciler` loop
+    # (bin/reconcile-agent-runner-release.sh), which cuts/publishes one
+    # pushed-main release for every managed runner -- including all four
+    # Coconala business lanes -- and reconciles each loop without touching
+    # launchd job definitions. Assert the retirement stuck (no `watch` choice
+    # survives here) and that the successor that owns the intent still exists
+    # and still covers this skill's lanes.
+    gig_release_parser_source = SCRIPT.read_text(encoding="utf-8")
+    assert 'choices=("build", "activate", "status")' in gig_release_parser_source
+    assert '"watch"' not in gig_release_parser_source
 
-    assert gig_release.main() == 0
-    assert published == [release]
+    reconciler = gig_release.REPO_ROOT / "bin" / "reconcile-agent-runner-release.sh"
+    assert reconciler.is_file()
+    script = reconciler.read_text(encoding="utf-8")
+    for loop_id in (
+        "hf-gig-apply-direct", "hf-gig-reply-detector",
+        "hf-gig-storefront-direct", "hf-gig-paid-direct",
+    ):
+        assert f"--loop-id {loop_id}" in script
+
+    registry = json.loads(
+        (gig_release.REPO_ROOT / "config" / "loop-registry.json").read_text(encoding="utf-8")
+    )
+    reconciler_loop = registry["loops"]["life-manager-release-reconciler"]
+    assert reconciler_loop["entrypoint"] == "bin/reconcile-agent-runner-release.sh"

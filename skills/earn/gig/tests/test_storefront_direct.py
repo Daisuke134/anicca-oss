@@ -18,6 +18,7 @@ import storefront_direct as direct  # noqa: E402
 import listing_inventory  # noqa: E402
 import coconala_reply_browser as reply_browser  # noqa: E402
 import reply_transcript  # noqa: E402
+from test_storefront_root import _bundle as _storefront_bundle  # noqa: E402
 
 
 def test_storefront_proposal_runner_class_is_accepted_and_toolless(tmp_path):
@@ -317,6 +318,16 @@ def test_incremental_storefront_wake_validates_inventory_releases_lease_and_pers
     The inventory boundary is synthetic, but contract-ledger and receipt persistence are
     production code.  No browser, private bundle, or network transport can run here.
     """
+    # The production storefront lane always launches with GIG_STOREFRONT_ROOT set to a real
+    # bundle path, which routes run_once() around the from-scratch `public_bootstrap` catalog
+    # -import path (see storefront_direct.py's `public_bootstrap = not os.environ.get(
+    # "GIG_STOREFRONT_ROOT", ...)`). Without this, the test's outcome depends on whichever
+    # ambient shell happens to invoke pytest -- unset in a fresh worktree, it silently falls
+    # into the bootstrap-import-agent branch and tries to run a real agent. Pin it explicitly so
+    # this test exercises the same configured-root path the running loop actually takes.
+    storefront_root = tmp_path / "storefront-bundle"
+    _storefront_bundle(storefront_root)
+    monkeypatch.setenv("GIG_STOREFRONT_ROOT", str(storefront_root))
     args = _args(tmp_path)
     args.incremental = True
     args.accounting_cutoff_epoch = 1_700_000_000
@@ -329,6 +340,18 @@ def test_incremental_storefront_wake_validates_inventory_releases_lease_and_pers
     args.negotiate_context_acks = tmp_path / "context-acks.jsonl"
     events: list[str] = []
     service_id = "90000001"
+    # The incremental path now also binds a `_catalog_conversion_baseline` (2026-08-27
+    # cbeb8838e, hardened 2026-08-28 4792e22c0), which requires an `"official": True` analytics
+    # row with fully known views/favorites/purchases for every currently listed service, or the
+    # whole wake fails closed with `storefront_catalog_baseline_incomplete`. Seed one so this
+    # no-op wake reaches the same success path the running loop reaches once analytics is warm.
+    args.state_dir.mkdir(parents=True)
+    (args.state_dir / "analytics.jsonl").write_text(json.dumps({
+        "service_id": service_id, "observed_at_epoch": 1_699_999_000, "official": True,
+        "metrics": {"views": {"status": "known", "value": 1},
+                    "favorites": {"status": "known", "value": 0},
+                    "purchases": {"status": "known", "value": 0}},
+    }) + "\n", encoding="utf-8")
     public_text = "サービス内容\nsynthetic scope\n購入にあたってのお願い"
     source = {
         "service_id": service_id,
@@ -453,8 +476,33 @@ def test_direct_source_has_no_legacy_or_cross_lane_dependency():
     assert "draft_effect_this_wake" in source
     assert "retire_attempted_this_wake" in source
     assert "retire_effect_this_wake" in source
-    assert source.index("before_blank_draft_create") < source.index("create_or_claim_blank_draft")
-    assert source.index("before_new_listing_publish") < source.index("publish_draft")
+    # Assert the *intent* -- the effect fence precedes its guarded create/publish call on the
+    # path that actually runs -- rather than comparing raw string offsets in this ~450k-character
+    # file. A whole-file `source.index(...)` comparison is wrong on two counts: the searched-for
+    # names also appear earlier as plain text inside a leading vocabulary comment (around line
+    # 1418: "...create_or_claim_blank_draft" / "...publish_draft (published)..."), and each call
+    # has a second, real call site that is not behind these fences at all (see below). Scoping the
+    # search to start at the fenced branch's own unique anchor sidesteps both problems: it can only
+    # match the call inside that branch, so the assertion is honest about which call site it covers.
+    create_branch = source[source.index(
+        'if create_proposal.get("decision") == "create" and args.effect:'
+    ):]
+    assert create_branch.index("before_blank_draft_create") < create_branch.index(
+        "create_or_claim_blank_draft"
+    )
+    publish_branch = source[source.index("publication_guard = ("):]
+    assert publish_branch.index("before_new_listing_publish") < publish_branch.index("publish_draft")
+
+    # Both `create_or_claim_blank_draft` and `publish_draft` also have a second call site, on the
+    # empty-shelf bootstrap path (`observed == 0` with a positive, known official demand score, in
+    # the `category_record is None` branch of that bootstrap). That path is real -- it runs the
+    # first time the storefront wakes with zero listings -- but it is not gated by
+    # `before_blank_draft_create` / `before_new_listing_publish`; it is dormant only because the
+    # shelf being non-empty (`observed == 0` is False) short-circuits it once any listing exists.
+    # Pin the call count so a third, silently-unfenced call site cannot be added later without
+    # this test noticing.
+    assert source.count("create_or_claim_blank_draft(") == 2
+    assert source.count("storefront_draft.publish_draft(") == 2
 
 
 def test_launchagent_is_immutable_dedicated_and_storefront_braked(monkeypatch):
