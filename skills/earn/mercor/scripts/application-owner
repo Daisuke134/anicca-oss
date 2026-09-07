@@ -11,6 +11,7 @@ CDP="http://127.0.0.1:9222"
 LEASE_JSON="$STATE_ROOT/browser-lease.json"
 WRITEBACK_JSON="$STATE_ROOT/session-writeback.json"
 AUTH_READBACK_JSON="$STATE_ROOT/auth-readback.json"
+EMAIL_AUTH_JSON="$STATE_ROOT/email-auth.json"
 LEASE_TOKEN=""
 LEASE_GENERATION=""
 
@@ -53,13 +54,33 @@ PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
   --output "$STATE_ROOT/page-ready.json"
 
 set +e
+RUN_STARTED_AT=$(/bin/date +%s)
 MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:h:h}" \
   MERCOR_RUN_EARNINGS_SYNC=0 \
   "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
 rc=$?
+auth_ok=0
 if PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
   -m job_search_loop.mercor_auth_readback \
   --ws "$MERCOR_CDP_PAGE_WS" --output "$AUTH_READBACK_JSON"; then
+  auth_ok=1
+else
+  PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+    -m job_search_loop.mercor_email_auth \
+    --ws "$MERCOR_CDP_PAGE_WS" --after-epoch "$RUN_STARTED_AT" --output "$EMAIL_AUTH_JSON"
+  if (( $? == 0 )); then
+    MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:h:h}" \
+      MERCOR_RUN_EARNINGS_SYNC=0 \
+      "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
+    rc=$?
+    if PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+      -m job_search_loop.mercor_auth_readback \
+      --ws "$MERCOR_CDP_PAGE_WS" --output "$AUTH_READBACK_JSON"; then
+      auth_ok=1
+    fi
+  fi
+fi
+if (( auth_ok == 1 )); then
   "$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
     --origin https://work.mercor.com --local-storage-key mercor-auth-store \
     --session-storage-key mercor-session-id --session-storage-key mercor-user-ip \
@@ -73,6 +94,7 @@ else
 fi
 set -e
 chmod 600 "$AUTH_READBACK_JSON" "$WRITEBACK_JSON"
+[[ ! -f "$EMAIL_AUTH_JSON" ]] || chmod 600 "$EMAIL_AUTH_JSON"
 if (( writeback_rc != 0 && rc == 0 )); then
   rc=75
 fi
