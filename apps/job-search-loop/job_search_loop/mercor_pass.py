@@ -4,6 +4,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +69,15 @@ def build_context(
         "resume_path": str(resume_path.expanduser().resolve()),
         "applications_ledger": str(ledger.resolve()),
         "submission_fence_ledger": str(fence_ledger.resolve()),
+        "application_report_outbox": str((state_root / "telegram.sqlite3").resolve()),
+        "human_gate_store": str((state_root / "human-gates.jsonl").resolve()),
+        "application_report_telegram_env": str(
+            (Path.home() / ".config/anicca/job-search/telegram.env").resolve()
+        ),
+        "capability_catalog_path": str(
+            (Path(__file__).resolve().parents[3]
+             / "skills/gig-work/profile/listings/catalog.json").resolve()
+        ),
         "submitted_listing_ids": sorted(submitted_listing_ids),
         "recently_inspected_listing_ids": _recent_listing_ids(inspection_ledger),
         "run_id": run_id,
@@ -176,6 +186,31 @@ def validate_evidence_paths(result: dict[str, Any], evidence_root: Path) -> None
             raise ValueError(f"{label}_missing")
 
 
+def validate_bounded_scan(result: dict[str, Any]) -> None:
+    """Do not accept a model's early exit while its evidence exposes a full queue."""
+    if result.get("status") == "blocked":
+        return
+    evidence = result.get("evidence")
+    dom_path = evidence.get("dom_path") if isinstance(evidence, dict) else None
+    if not isinstance(dom_path, str) or not dom_path.strip():
+        return
+    try:
+        visible_ids = set(re.findall(
+            r"listingId(?:=|%3D)(list_[A-Za-z0-9_-]+)",
+            Path(dom_path).read_text(encoding="utf-8", errors="replace"),
+        ))
+    except OSError:
+        return
+    inspected = {
+        item.get("listing_id")
+        for item in result.get("inspected_listings", [])
+        if isinstance(item, dict) and isinstance(item.get("listing_id"), str)
+    }
+    required = min(12, len(visible_ids))
+    if required and len(inspected) < required:
+        raise ValueError(f"bounded_scan_incomplete:{len(inspected)}_of_{required}")
+
+
 def _blocked_for_evidence_violation(
     result: dict[str, Any], evidence_dir: Path, error: ValueError
 ) -> dict[str, Any]:
@@ -245,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         return 75
     try:
         validate_evidence_paths(result, args.evidence_dir.parent)
+        validate_bounded_scan(result)
     except ValueError as error:
         result = _blocked_for_evidence_violation(result, args.evidence_dir, error)
     record_verified_submissions(args.state_root, result, run_id=args.run_id)

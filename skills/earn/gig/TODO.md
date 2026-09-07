@@ -441,6 +441,30 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    cards were not truthful fits; the bounded scan had no durable inspection cursor and would revisit
    the same prefix forever. The pass now persists recent listing IDs and directs the model to inspect
    strongest-fit unseen candidates first, so later wakes advance without hardcoded category keywords.
+   The next natural release pass `mercor-20260907-133102-18496` exposed two further root causes. It
+   inspected only two of the many visible candidates and returned `observed_no_action`; then the old
+   combined runner executed Paid earnings extraction inside the Apply owner and changed that valid
+   Apply result into `earnings_sync_failed`. No application was submitted, the application ledger
+   remained at 19, inspection history advanced from 14 to 16, and the terminal report was acknowledged
+   as Telegram message `64996`. Apply now disables the legacy earnings phase; Mercor Paid remains a
+   later independent atom. A nonblocked pass is no longer accepted when its evidence exposes twelve
+   candidates but it inspected fewer than twelve. The recipe now progresses verified reversible steps
+   (resume, availability, location and work authorization), treats `0 of N` as normal work rather than
+   a skip, preserves human interview/assessment steps as resumable gates, and continues its scan.
+   A new provider-neutral effect-notification kernel owns durable outbox claim, shared Telegram sender,
+   provider receipt, retry state and replay-zero. Mercor's thin receipt adapter validates fresh official
+   success evidence, records the application once and immediately calls that shared kernel. Targeted
+   verification passes 54 tests plus 2 subtests; the broader pre-change related suite passed 548 tests
+   plus 54 subtests. Main merge, installed-release natural scan, immediate human-gate notification, one
+   new official application receipt, immediate Telegram receipt and following replay-zero remain open.
+   Mercor and human-work marketplaces such as AudioBabel use the same Apply -> Reply -> Work/Submit ->
+   Acceptance/Payment lifecycle as ordinary gig marketplaces. They are not Job Hunter. The only adapter
+   difference is execution ownership: interviews, voice/video capture and other person-bound artifacts
+   become durable human gates; the loop completes everything before the gate, reports the exact action
+   immediately through the shared notification kernel, detects official completion, resumes, submits and
+   tracks acceptance/payment. Human-required work is never classified as a rejected or skipped listing.
+   Dais has already completed a Mercor interview; each application must reuse it when that role's official
+   UI says `Completed` or `reused`, while role-specific unfinished ceremonies remain resumable human gates.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

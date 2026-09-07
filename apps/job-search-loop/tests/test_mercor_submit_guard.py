@@ -68,6 +68,25 @@ class MercorSubmitGuardTests(unittest.TestCase):
             "submit_unknown",
         )
 
+    def test_ready_state_supports_four_step_roles(self):
+        listing = MercorListing(
+            listing_id="list-four", title="Japanese Systems Expert",
+            url="https://work.mercor.com/explore?listingId=list-four",
+            application_state="ready_to_submit", steps_completed=4,
+            submit_visible=True, domain_expert_reused=True, steps_total=4,
+        )
+        self.assertIsNotNone(claim_ready_submission(
+            listing, submitted_listing_ids=set(),
+            pre_submit_evidence=self._temporary_evidence(),
+        ))
+
+    def _temporary_evidence(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, directory)
+        path = Path(directory) / "pre.json"
+        path.write_text('{"observed":true}\n', encoding="utf-8")
+        return path
+
     def test_persistent_claim_survives_crash_and_duplicate_is_noop(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

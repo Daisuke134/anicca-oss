@@ -38,6 +38,7 @@ export MERCOR_CDP_PAGE_WS MERCOR_CDP_BASE_URL="$CDP"
 
 set +e
 MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:h:h}" \
+  MERCOR_RUN_EARNINGS_SYNC=0 \
   "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
 rc=$?
 set -e
