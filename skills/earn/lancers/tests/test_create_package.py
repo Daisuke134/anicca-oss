@@ -1707,7 +1707,9 @@ def _fixture_family(family: str, *, category: str = "AI・プログラミング�
     return {
         "id": family.replace("_", "-"),
         "family": family,
-        "title_ja": f"{family}を開発します",
+        # Long enough that title_ja minus "ます" clears Lancers' 25-character stem minimum
+        # (listing_catalog.LANCERS_TITLE_STEM_MIN_LENGTH) for every family name this file uses.
+        "title_ja": f"{family}という新しい業務システムの開発を一気通貫で対応します",
         "value_prop": f"{family}の価値提案。",
         "tiers": [
             _fixture_tier("ベーシック", 50000, 14),
