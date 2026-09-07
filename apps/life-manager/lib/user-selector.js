@@ -4,8 +4,6 @@
 // now share this one filter.
 "use strict";
 
-const { compActive } = require("./comp-window.js");
-
 const WAKE_CALENDAR_PROVIDERS = ["composio_gcal", "pipedream_gcal"];
 const CALLABLE_PHONE_RE = /^\+[1-9]\d{7,14}$/;
 
@@ -20,24 +18,11 @@ function calendarProviderFilter() {
   return `calendar_provider=in.(${WAKE_CALENDAR_PROVIDERS.join(",")})`;
 }
 
-// Full scheduler cohort contract. Any readiness check selecting a DAILY target must reuse this
-// fragment so paid/trial/provider eligibility cannot drift from scheduler.js. Phone is a call-only gate;
-// travel autofill and Telegram reminders also serve users who intentionally have no phone.
-//
-// COMP WINDOW: a comped user is unpaid in the database (lib/billing.js is the only writer of `paid`),
-// so leaving the entitlement predicate in the query would hand them a working onboarding and then
-// zero wakes, travel or asks. While LM_COMP_UNTIL is in the future the predicate drops out; the
-// moment it expires the paid/trial fragment is restored. Args exist for tests — production calls it bare.
-function trialEntitlementFilter(nowMs = Date.now()) {
-  const clock = Number.isFinite(nowMs) ? nowMs : Date.now();
-  return `or=(paid.is.true,trial_expires_at.gt.${encodeURIComponent(new Date(clock).toISOString())})`;
+// Scheduler eligibility is deliberately broader than paid allowance eligibility. Calendar reads,
+// cached facts, settings and Telegram control remain available after a monthly allowance is used;
+// the paid-provider boundary enforces the allowance separately.
+function schedulerCohortFilter() {
+  return calendarProviderFilter();
 }
 
-function schedulerCohortFilter(env, nowMs = Date.now()) {
-  const entitlement = compActive(env || process.env, nowMs)
-    ? ""
-    : `${trialEntitlementFilter(nowMs)}&`;
-  return `${entitlement}${calendarProviderFilter()}`;
-}
-
-module.exports = { WAKE_CALENDAR_PROVIDERS, CALLABLE_PHONE_RE, isCallablePhone, calendarProviderFilter, trialEntitlementFilter, schedulerCohortFilter };
+module.exports = { WAKE_CALENDAR_PROVIDERS, CALLABLE_PHONE_RE, isCallablePhone, calendarProviderFilter, schedulerCohortFilter };

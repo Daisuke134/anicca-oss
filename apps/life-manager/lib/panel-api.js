@@ -582,19 +582,11 @@ function onboardingMutation(body, pathAction) {
 function onboardingResponse(value, opts = {}, scope = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw onboardingError("onboarding_unavailable", 502);
   const body = {};
-  for (const key of ["step", "stage", "name", "calendarConnected", "homeAddress", "notificationsEnabled", "phone", "callEnabled", "paid", "trialExpiresAt", "trialActive"]) {
+  for (const key of ["step", "stage", "name", "calendarConnected", "homeAddress", "notificationsEnabled", "phone", "callEnabled", "paid"]) {
     if (Object.hasOwn(value, key)) body[key] = value[key];
   }
   const aliases = { payment: "dashboard", pay: "dashboard", done: "dashboard", gmail: "dashboard" };
   body.step = aliases[String(body.step || body.stage || "")] || String(body.step || body.stage || "");
-  if (body.step === "payment") {
-    const link = paymentLink(opts, scope);
-    if (!link) throw onboardingError("payment_unavailable", 503);
-    body.paymentLink = link;
-  } else if (body.step === "dashboard" && body.paid !== true) {
-    const link = paymentLink(opts, scope);
-    if (link) body.paymentLink = link;
-  }
   return body;
 }
 
@@ -703,8 +695,36 @@ function createSupabaseCommandStore(opts = {}) {
     async syncCalendarStatus(scope, status) { return onboardingRpc("sync_lm_panel_calendar_status", { p_uid: scope.uid, p_chat_id: scope.chatId, p_status: status }, opts); },
     async mutateOnboardingWithCalendar(scope, status, action, payload) { return onboardingRpc("lm_panel_onboarding_transition_with_calendar", { p_uid: scope.uid, p_chat_id: scope.chatId, p_status: status, p_action: action, p_payload: payload || {} }, opts); },
     async createOAuthState(scope, state) { const response = await fetchImpl(`${base}/rest/v1/rpc/create_lm_panel_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: state.stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_provider: state.provider, p_expires_at: state.expiresAt }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, false); const claimed = Array.isArray(value) ? value[0] === true : value === true; if (!claimed) { const error = new Error("oauth_state_in_progress"); error.status = 409; throw error; } return true; },
+    async createTelegramOAuthState(scope, state) { const response = await fetchImpl(`${base}/rest/v1/rpc/create_lm_telegram_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: state.stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_expires_at: state.expiresAt }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, false); const created = Array.isArray(value) ? value[0] === true : value === true; if (!created) throw new Error("oauth_state_failed"); return true; },
     async claimOAuthState(scope, stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_panel_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash, p_uid: scope.uid, p_chat_id: scope.chatId }) }); if (!response.ok) throw new Error("oauth_state_failed"); return jsonOr(response, false); },
+    async claimTelegramOAuthState(stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_telegram_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, []); return Array.isArray(value) ? value[0] || null : value || null; },
   };
+}
+
+async function handleTelegramOAuthCallback(req, res, opts = {}) {
+  if (req.method !== "GET") { sendJson(res, 405, { error: "method_not_allowed" }, { Allow: "GET" }); return; }
+  const url = new URL(req.url || "/", "http://telegram.local");
+  const state = String(url.searchParams.get("state") || "");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(state)) { res.writeHead(403, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }); res.end("invalid connection"); return; }
+  const store = opts.commandStore || createSupabaseCommandStore(opts);
+  const claimed = await store.claimTelegramOAuthState(crypto.createHash("sha256").update(state).digest("hex"));
+  const scope = claimed && { uid: String(claimed.uid || ""), chatId: String(claimed.chat_id || "") };
+  if (!scope || !scope.uid || !/^[1-9][0-9]{0,19}$/.test(scope.chatId) || !await store.assertCurrentScope(scope)) {
+    res.writeHead(403, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }); res.end("connection expired"); return;
+  }
+  const status = await (opts.composioCalendarStatusImpl || composioCalendarStatus)(scope, opts);
+  if (status !== "ACTIVE") { res.writeHead(403, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }); res.end("calendar connection not verified"); return; }
+  await store.syncCalendarStatus(scope, status);
+  const ja = /^ja(?:-|$)/i.test(String(url.searchParams.get("lang") || ""));
+  const sent = await opts.sendMessage(scope.chatId, ja
+    ? "Google Calendarを接続しました。\n\n自宅の住所を教えてください。"
+    : "Google Calendar is connected.\n\nWhat is your home address?");
+  if (!sent || sent.ok !== true) throw new Error("telegram_callback_send_failed");
+  const returnUrl = new URL(String(opts.telegramReturnUrl || ""));
+  if (returnUrl.protocol !== "https:" || returnUrl.hostname !== "t.me" || returnUrl.username || returnUrl.password
+    || !/^\/[A-Za-z][A-Za-z0-9_]{4,31}$/.test(returnUrl.pathname) || returnUrl.search || returnUrl.hash) throw new Error("telegram_return_unavailable");
+  res.writeHead(303, { Location: returnUrl.toString(), "cache-control": "no-store", "referrer-policy": "no-referrer" });
+  res.end();
 }
 
 async function handlePanelOAuthCallback(req, res, opts = {}) {
@@ -1087,6 +1107,7 @@ module.exports = {
   createSupabaseCommandStore, readJson, composioCalendarStatus,
   composioCalendarDisconnect,
   composioCalendarStart,
+  handleTelegramOAuthCallback,
   handlePanelOAuthCallback,
   handlePanelApiRequest,
 };

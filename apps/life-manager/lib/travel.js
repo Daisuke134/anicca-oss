@@ -439,12 +439,34 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
   const googleMinutesFn = options._directionsMinutesGoogle || directionsMinutesGoogle;
   const cache = routeCacheFor(options); // tests inject a fresh cache to avoid cross-test leakage
   const uid = options.uid ?? options.tenantId ?? options.userId ?? "anonymous";
+  const purpose = options.purpose || (call.departureMode ? "return" : "go");
+  const eventVersion = routeEventVersion({ eventId: options.eventId, anchorAtMs: call.anchorAtMs, src, dst, purpose });
+  const allowanceState = options._allowanceState;
   const usage = { tenantId: uid, options };
   const routeUsage = { tenantId: uid, options, failureClasses: [] };
   const timeoutOption = options._transitTimeoutMs ?? options.transitTimeoutMs;
   const transitTimeoutMs = Number.isFinite(Number(timeoutOption)) && Number(timeoutOption) >= 0
     ? Number(timeoutOption) : DEFAULT_TRANSIT_TIMEOUT_MS;
   if (!mapsKey || !src || !dst) return null;
+  // The durable event index is intentionally checked before geocoding. A coordinate-key-only lookup
+  // would itself require two paid geocodes and could not serve an exhausted tenant's cached result.
+  if (cache && typeof cache.getByEvent === "function" && options.eventId) {
+    const cached = await cache.getByEvent(uid, eventVersion, purpose, (_value, entry) => emitUsage(options, {
+      tenantId: uid, provider: "route_cache", feature: "travel_route", outcome: "cache_hit",
+      failureClass: entry.failureClass, cacheHit: true, providerUnits: 0,
+      providerUnit: "request", estimatedCostUsd: 0,
+    }));
+    if (cached && cached.hit === true) {
+      if (allowanceState && cached.value == null) allowanceState.negativeCacheHit = true;
+      return cached.value;
+    }
+  }
+  if (allowanceState && !allowanceState.receipt && typeof options._reserveManagedAction === "function") {
+    const receipt = await options._reserveManagedAction(uid, String(options.eventId), options.supaUrl, options.supaKey);
+    allowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
+    allowanceState.blocked = !receipt || receipt.allowed !== true;
+    if (allowanceState.blocked) return null;
+  }
   const srcLiteral = parseGeoLiteral(src);
   const dstLiteral = parseGeoLiteral(dst);
   const googleSrc = srcLiteral ? `${srcLiteral.lat},${srcLiteral.lon}` : src;
@@ -498,16 +520,10 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
     anchorType: query.type,
     fromKey: srcGeo ? "" : opaqueEndpointKey(src),
     toKey: dstGeo ? "" : opaqueEndpointKey(dst),
-    eventVersion: routeEventVersion({
-      eventId: options.eventId,
-      anchorAtMs: query.anchorAtMs,
-      src,
-      dst,
-      purpose: options.purpose || (call.departureMode ? "return" : "go"),
-    }),
-    purpose: options.purpose || (call.departureMode ? "return" : "go"),
+    eventVersion,
+    purpose,
   };
-  return cache.getOrCompute(uid, srcGeo || {}, dstGeo || {}, timeBucket(query.anchorAtMs), compute, context,
+  const result = await cache.getOrCompute(uid, srcGeo || {}, dstGeo || {}, timeBucket(query.anchorAtMs), compute, context,
     (value, cacheEntry) => emitUsage(options, {
       tenantId: uid, provider: routeMode === "google" || (value && value.provider === "google")
         ? "google_maps" : "transit_api",
@@ -515,6 +531,14 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
       cacheHit: true,
       providerUnits: 0, providerUnit: "request", estimatedCostUsd: 0,
     }));
+  if (result == null && allowanceState) allowanceState.providerFailure = true;
+  if (result == null && options._deferAllowanceRelease !== true && allowanceState && allowanceState.receipt
+      && typeof options._releaseManagedAction === "function") {
+    await options._releaseManagedAction(uid, String(options.eventId), options.supaUrl, options.supaKey,
+      { reservation: allowanceState.receipt });
+    allowanceState.receipt = null;
+  }
+  return result;
 }
 
 // Existing callers consume integer minutes. Keep this as a thin adapter over the structured route so
@@ -605,13 +629,18 @@ async function recordTravelTelegramReceipt(uid, eventKey, leg, messageId, supaUr
   return { ok: true, matched };
 }
 
-async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, gmailAccountId } = {}) {
+async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, _routeCache, _reserveManagedAction, _completeManagedAction, _releaseManagedAction, _agentResolveLocation, gmailAccountId } = {}) {
   const directionsFn = _directionsMinutes || directionsMinutes;
   const routeFn = _directionsRoute || (!_directionsMinutes ? directionsRoute : null);
   const cal = calendar || getCalendar({ apiKey, gmailAccountId });
   const events = await listEvents7d(uid, apiKey, nowMs, cal, gmailAccountId);
   let inserted = 0, checked = 0, skipped = 0;
   const outboundReports = [];
+  const releaseAllowance = async (eventKey, state) => {
+    if (!state || !state.receipt || typeof _releaseManagedAction !== "function") return;
+    await _releaseManagedAction(uid, eventKey, supaUrl, supaKey, { reservation: state.receipt });
+    state.receipt = null;
+  };
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
     if (isTravel(ev.summary) || !ev.location) continue;
@@ -623,6 +652,7 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
     // C-H1: atomic claim key per (event, leg). Prefer the gcal event id (stable + unique). Fallback to
     // startMs:summary (NOT startMs alone — two different same-user events can share a start time, FIND-001).
     const evKey = String(ev.id || `${ev.startMs}:${ev.summary || ""}`);
+    let eventAllowanceBlocked = false;
 
     // ── OUTBOUND LEG ──────────────────────────────────────────────────────────────────────────────
     // Single source of truth for the skip/insert decision (home→home, no-origin, online, etc.).
@@ -646,23 +676,35 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
         // outbound block already exists — fall through to return-leg so it can backfill a missing return block
       } else {
         let dest = ev.location;
-        const routeOpts = { uid, timezone: routeTimezone, supaUrl, supaKey, eventId: evKey, purpose: "go" };
+        const allowanceState = {};
+        const routeOpts = { uid, timezone: routeTimezone, supaUrl, supaKey, eventId: evKey, purpose: "go",
+          _allowanceState: allowanceState, _reserveManagedAction, _releaseManagedAction,
+          _deferAllowanceRelease: true, _routeCache };
+        if ((_directionsRoute || _directionsMinutes) && typeof _reserveManagedAction === "function") {
+          const receipt = await _reserveManagedAction(uid, evKey, supaUrl, supaKey);
+          allowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
+          allowanceState.blocked = !receipt || receipt.allowed !== true;
+          eventAllowanceBlocked = allowanceState.blocked;
+        }
         let route = null;
-        if (routeFn) {
+        if (!allowanceState.blocked && routeFn) {
           try { route = await routeFn(origin, dest, mapsKey, ev.startMs, nowMs, false, routeOpts); }
           catch { route = null; }
           if (routeDurationSeconds(route) == null) route = null;
         }
-        let mins = routeFn ? null : await directionsFn(origin, dest, mapsKey, ev.startMs, nowMs, false, routeOpts);
-        if (route == null && mins == null && geminiKey) {
+        let mins = routeFn || allowanceState.blocked ? null
+          : await directionsFn(origin, dest, mapsKey, ev.startMs, nowMs, false, routeOpts);
+        if (route == null && mins == null && geminiKey && !allowanceState.blocked
+            && !allowanceState.negativeCacheHit) {
           // The location is a room name / unroutable string (e.g. "情報科学大講義室[L1]（IS）"). Let the
           // agent web-search the REAL venue address so a must-travel event still gets a block instead of a
           // silent skip — never-late beats clean code. (Lazy require avoids any load-order coupling.)
           try {
-            const { agentResolveLocation } = require("./ask.js");
+            const agentResolveLocation = _agentResolveLocation || require("./ask.js").agentResolveLocation;
             const res = await agentResolveLocation(ev, { home, mapsKey, geminiKey });
             if (res && res.kind === "online") {
               skipped++;
+              await releaseAllowance(evKey, allowanceState);
               continue; // truly online — no outbound OR return block needed; skip entire iteration
             }
             if (res && res.kind === "filled" && res.location) {
@@ -678,18 +720,29 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
         }
         if (route == null && mins == null) {
           skipped++;
+          await releaseAllowance(evKey, allowanceState);
           // Cannot route outbound — still evaluate return leg in case it is independently resolvable
         } else {
           const arriveMs = ev.startMs;
           const leaveMs = route ? computeDoorDepartureMs(arriveMs, route, { bufferMin }) : arriveMs - (mins + bufferMin) * 60000;
           if (leaveMs < nowMs) {
             skipped++; // REQ-18: past GO leave time → no outbound block; return leg still evaluated below
+            await releaseAllowance(evKey, allowanceState);
           } else {
             // C-H1: atomically CLAIM the GO leg before creating — two concurrent runs can't double-insert.
-            if (await claimTravel(uid, evKey, "go", supaUrl, supaKey)) {
-              if (await createTravelBlock(uid, apiKey, leaveMs, arriveMs, origin, dest, dest, cal, gmailAccountId)) {
+            let goClaimed = false;
+            try { goClaimed = await claimTravel(uid, evKey, "go", supaUrl, supaKey); } catch { goClaimed = false; }
+            if (goClaimed) {
+              let created = false;
+              try { created = await createTravelBlock(uid, apiKey, leaveMs, arriveMs, origin, dest, dest, cal, gmailAccountId); }
+              catch { created = false; }
+              if (created) {
                 inserted++;
                 outboundInserted = true;
+                if (typeof _completeManagedAction === "function") {
+                  await _completeManagedAction(uid, evKey, supaUrl, supaKey,
+                    { reservation: allowanceState.receipt });
+                }
                 const sameAsHome = home && String(origin).replace(/\s+/g, "").toLowerCase() ===
                   String(home).replace(/\s+/g, "").toLowerCase();
                 outboundReports.push({
@@ -704,9 +757,11 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
               } else {
                 skipped++;
                 await unclaimTravel(uid, evKey, "go", supaUrl, supaKey); // create failed → release for retry
+                await releaseAllowance(evKey, allowanceState);
               }
             } else {
               skipped++; // another writer already claimed the GO block (race-safe)
+              await releaseAllowance(evKey, allowanceState);
             }
           }
         }
@@ -744,18 +799,48 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
     // outbound was skipped due to dedup/no-origin — returnDecision already checked venue non-empty).
     const venue = resolvedDest;
     if (!home) { skipped++; continue; }
-    const retMins = await directionsFn(venue, home, mapsKey, ev.endMs, nowMs, /* departureMode= */ true, {
+    if (eventAllowanceBlocked) { skipped++; continue; }
+    const returnAllowanceState = {};
+    if ((_directionsRoute || _directionsMinutes) && typeof _reserveManagedAction === "function") {
+      const receipt = await _reserveManagedAction(uid, evKey, supaUrl, supaKey);
+      returnAllowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
+      returnAllowanceState.blocked = !receipt || receipt.allowed !== true;
+    }
+    const retMins = returnAllowanceState.blocked ? null
+      : await directionsFn(venue, home, mapsKey, ev.endMs, nowMs, /* departureMode= */ true, {
       uid, timezone: routeTimezone, supaUrl, supaKey, eventId: evKey, purpose: "return",
+      _allowanceState: returnAllowanceState, _reserveManagedAction, _releaseManagedAction,
+      _routeCache,
     });
-    if (retMins == null) { skipped++; continue; }
+    if (retMins == null) {
+      skipped++;
+      await releaseAllowance(evKey, returnAllowanceState);
+      continue;
+    }
     const retLeaveMs = ev.endMs;                           // depart immediately after event ends
     const retArriveMs = retLeaveMs + retMins * 60000;
     // C-H1: atomically CLAIM the RETURN leg before creating.
-    if (await claimTravel(uid, evKey, "return", supaUrl, supaKey)) {
-      if (await createTravelBlock(uid, apiKey, retLeaveMs, retArriveMs, venue, home, home, cal, gmailAccountId)) inserted++;
-      else { skipped++; await unclaimTravel(uid, evKey, "return", supaUrl, supaKey); } // create failed → release
+    let returnClaimed = false;
+    try { returnClaimed = await claimTravel(uid, evKey, "return", supaUrl, supaKey); } catch { returnClaimed = false; }
+    if (returnClaimed) {
+      let created = false;
+      try { created = await createTravelBlock(uid, apiKey, retLeaveMs, retArriveMs, venue, home, home, cal, gmailAccountId); }
+      catch { created = false; }
+      if (created) {
+        inserted++;
+        if (typeof _completeManagedAction === "function") {
+          await _completeManagedAction(uid, evKey, supaUrl, supaKey,
+            { reservation: returnAllowanceState.receipt });
+        }
+      }
+      else {
+        skipped++;
+        await unclaimTravel(uid, evKey, "return", supaUrl, supaKey);
+        await releaseAllowance(evKey, returnAllowanceState);
+      } // create failed → release
     } else {
       skipped++; // another writer already claimed the RETURN block (race-safe)
+      await releaseAllowance(evKey, returnAllowanceState);
     }
     void outboundInserted; // suppress unused warning — used for semantic clarity only
   }

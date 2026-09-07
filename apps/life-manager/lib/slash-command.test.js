@@ -413,33 +413,33 @@ test("/stop with nothing stored and with a failed delete stay honest", async () 
   assert.ok(broken.logs[0].includes("deleted=error"), "audit records the failure");
 });
 
-test("/subscribe reuses the onboard link builder and never invents URLs", async () => {
-  const { sent, deps } = harness();
+test("/subscribe returns the tenant-scoped Stripe link only after explicit request", async () => {
+  const { sent, deps } = harness({ stripePaymentLink: "https://buy.stripe.com/test_life_manager" });
   const outcome = await handleSlashCommand(parseSlashCommand("/subscribe"), { ...ROW, paid: false }, deps);
   assert.deepEqual(outcome, { handled: true, action: "subscribe", ok: true });
   assert.equal(sent.length, 1);
   const keyboard = sent[0].extra.reply_markup.inline_keyboard;
-  assert.equal(keyboard[0][0].url, "https://lm.test/lm?tg=100", "the existing onboardLink builder, verbatim");
+  assert.equal(keyboard[0][0].url, "https://buy.stripe.com/test_life_manager?client_reference_id=u1");
+  assert.match(sent[0].text, /月額\$29/);
 });
 
-test("/subscribe on an already-paid row says so instead of re-linking; unlinked chats still get the link", async () => {
+test("/subscribe on an already-paid row says so; unlinked chats never get checkout", async () => {
   const paid = harness();
   const active = await handleSlashCommand(parseSlashCommand("/subscribe"), ROW, paid.deps);
   assert.deepEqual(active, { handled: true, action: "subscribe", ok: true, alreadyActive: true });
   assert.ok(/already active/i.test(paid.sent[0].text));
   assert.equal(paid.sent[0].extra, undefined, "no checkout button for an active subscription");
 
-  const fresh = harness();
+  const fresh = harness({ stripePaymentLink: "https://buy.stripe.com/test_life_manager" });
   const linked = await handleSlashCommand(parseSlashCommand("/subscribe"), null, fresh.deps);
-  assert.deepEqual(linked, { handled: true, action: "subscribe", ok: true });
-  assert.equal(fresh.sent[0].extra.reply_markup.inline_keyboard[0][0].url, "https://lm.test/lm?tg=100");
+  assert.deepEqual(linked, { handled: true, action: "subscribe", ok: false, reason: "unlinked" });
+  assert.equal(fresh.sent[0].extra, undefined);
 });
 
 test("/subscribe without a chat id is an honest unavailable reply, not an invented URL", async () => {
   const { sent, deps } = harness({ chatId: "" });
   const outcome = await handleSlashCommand(parseSlashCommand("/subscribe"), null, deps);
-  assert.deepEqual(outcome, { handled: true, action: "subscribe", ok: false, reason: "link_unavailable" });
-  assert.ok(/unavailable/i.test(sent[0].text));
+  assert.deepEqual(outcome, { handled: true, action: "subscribe", ok: false, reason: "unlinked" });
   assert.equal(sent[0].extra, undefined);
 });
 
@@ -500,7 +500,7 @@ test("/status projects only real local data: stage, connections, payout, locatio
   assert.ok(/Onboarding: done/.test(text));
   assert.ok(/Calendar: connected/.test(text));
   assert.ok(/Phone: on file/.test(text));
-  assert.ok(/Subscription: active/.test(text));
+  assert.ok(/Monthly allowance: Plus active/.test(text));
   assert.ok(/Payout: not set/.test(text));
   assert.ok(/observed 9s ago/.test(text));
   assert.ok(/no missed call recorded/.test(text), "a healthy loop says so rather than staying silent");
@@ -553,7 +553,7 @@ test("/status stays honest for the sparse row and the missing location", async (
   assert.ok(/Onboarding: at the "calendar" step/.test(text), "stage is computed from the row, not the stale column");
   assert.ok(/Calendar: not connected/.test(text));
   assert.ok(/Phone: not set/.test(text));
-  assert.ok(/Subscription: not active/.test(text));
+  assert.ok(/Monthly allowance: free monthly allowance/.test(text));
   assert.ok(/Payout: awaiting typed address/.test(text));
   assert.ok(/Location: not available/.test(text));
 });
@@ -562,26 +562,26 @@ test("/status stays honest for the sparse row and the missing location", async (
 // (lib/comp-window.js, read-time only). /status used to report "Subscription: not active" for exactly
 // those users while every gate treated them as entitled — a contradiction. The projection now names
 // the comp window using the only real field there is: the configured expiry.
-test("/status distinguishes a complimentary window from an inactive subscription", async () => {
+test("/status shows the monthly free allowance without reviving the old paywall", async () => {
   const comped = { ...ROW, paid: false };
   const active = harness({ env: { LM_COMP_UNTIL: "2026-08-01T00:00:00Z" }, getLiveLocation: async () => null });
   await handleSlashCommand(parseSlashCommand("/status"), comped, active.deps);
   const text = active.sent[0].text;
-  assert.ok(/Subscription: complimentary until 2026-08-01T00:00:00\.000Z/.test(text), text);
-  assert.ok(!/not active/.test(text), "a comped user is not told their subscription is inactive");
+  assert.ok(/Monthly allowance: free monthly allowance/.test(text), text);
+  assert.ok(!/not active|complimentary/.test(text));
   // The same window is what carried this row past the paywall, so the stage must agree with it.
   assert.ok(/Onboarding: done/.test(text), "the stage projection uses the same clock and env");
 
   const expired = harness({ env: { LM_COMP_UNTIL: "2026-07-01T00:00:00Z" }, getLiveLocation: async () => null });
   await handleSlashCommand(parseSlashCommand("/status"), comped, expired.deps);
-  assert.ok(/Subscription: not active/.test(expired.sent[0].text), "an expired comp is honestly inactive");
-  assert.ok(/Onboarding: at the "pay" step/.test(expired.sent[0].text), "and the paywall is back");
+  assert.ok(/Monthly allowance: free monthly allowance/.test(expired.sent[0].text));
+  assert.ok(/Onboarding: done/.test(expired.sent[0].text), "the old paywall never returns");
 
   const paid = harness({ env: { LM_COMP_UNTIL: "2026-08-01T00:00:00Z" }, getLiveLocation: async () => null });
   await handleSlashCommand(parseSlashCommand("/status"), ROW, paid.deps);
-  assert.ok(/Subscription: active$/m.test(paid.sent[0].text), "a real subscription outranks the comp copy");
+  assert.ok(/Monthly allowance: Plus active$/m.test(paid.sent[0].text));
 
   const noComp = harness({ env: {}, getLiveLocation: async () => null });
   await handleSlashCommand(parseSlashCommand("/status"), comped, noComp.deps);
-  assert.ok(/Subscription: not active/.test(noComp.sent[0].text), "no comp configured → unchanged copy");
+  assert.ok(/Monthly allowance: free monthly allowance/.test(noComp.sent[0].text));
 });

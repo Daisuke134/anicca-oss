@@ -40,17 +40,13 @@ test("Task 7B: Telegram-native onboarding page is server-state driven and safe a
   assert.match(html, /credentials:\s*["']same-origin["']/);
   assert.match(html, /idempotency-key/);
   assert.match(html, /x-lm-csrf/);
-  assert.match(html, /paymentLink/);
-  assert.match(html, /buy\.stripe\.com/);
-  assert.match(html, /090-1234-5678/);
-  assert.match(html, /\+81 90-1234-5678/);
-  assert.match(html, /ライブ位置情報/);
-  assert.match(html, /共有が終わった後/);
-  assert.match(html, /自宅住所/);
-  assert.match(html, /直近の予定/);
+  assert.doesNotMatch(html, /paymentLink|buy\.stripe\.com|無料期間|月額プラン/);
+  assert.match(html, /電話通知（任意）/);
+  assert.match(html, /10分前と5分前/);
+  assert.match(html, /自宅の住所/);
   assert.doesNotMatch(html, /現在.*ライブ位置情報/);
   assert.match(html, /window\.location\.(?:assign|replace)\(/);
-  const order = ["name", "calendar", "home", "notifications", "phone", "call", "payment", "dashboard"];
+  const order = ["name", "calendar", "home", "notifications", "phone", "call", "dashboard"];
   let previous = -1;
   for (const step of order) {
     const position = html.indexOf(`case "${step}"`);
@@ -59,7 +55,7 @@ test("Task 7B: Telegram-native onboarding page is server-state driven and safe a
   }
   assert.match(html, /phone\.skip/);
   assert.match(html, /call\.skip/);
-  assert.match(html, /payment\.skip/);
+  assert.doesNotMatch(html, /payment\.skip|payment\.open/);
   assert.match(html, /primary-action/);
   assert.match(html, /overflow-wrap:\s*anywhere/);
 });
@@ -70,7 +66,7 @@ test("Task 7B: onboarding UI never interpolates server copy into markup and keep
   assert.match(html, /createElement\(["'](?:input|button|a|label|p|span)["']\)/);
   assert.match(html, /textContent\s*=/);
   assert.match(html, /new URL\(value\)/);
-  assert.match(html, /url\.hostname\s*!==\s*["']buy\.stripe\.com["']/);
+  assert.doesNotMatch(html, /buy\.stripe\.com/);
 });
 
 class OnboardingFakeNode {
@@ -141,7 +137,7 @@ async function runOnboardingInline(state) {
   return fake;
 }
 
-test("Task 7B: every server-provided step has exactly one primary action and only phone/call/payment have skips", async () => {
+test("Task 7B: every server-provided step has one primary action and only phone/call have skips", async () => {
   const states = [
     { step: "name", name: "A" },
     { step: "calendar" },
@@ -150,18 +146,16 @@ test("Task 7B: every server-provided step has exactly one primary action and onl
     { step: "phone", phone: "" },
     { step: "call" },
     { step: "payment", paymentLink: "https://buy.stripe.com/test_life_manager?client_reference_id=server" },
-    { step: "dashboard", paid: false, paymentLink: "https://buy.stripe.com/test_life_manager?client_reference_id=server" },
     { step: "dashboard", paid: false },
     { step: "dashboard", paid: true },
   ];
   for (const state of states) {
     const fake = await runOnboardingInline(state);
     const actions = fake.root.querySelector("[data-onboarding-actions]").children;
-    const expectedPrimary = state.step === "dashboard" && state.paid !== true ? 0 : 1;
+    const expectedPrimary = state.step === "payment" ? 1 : 1;
     assert.equal(actions.filter((node) => node.className.includes("primary-action")).length, expectedPrimary, state.step);
     const secondary = actions.filter((node) => node.className.includes("secondary-action"));
-    const expectedSecondary = ["phone", "call", "payment"].includes(state.step)
-      || (state.step === "dashboard" && state.paid !== true && state.paymentLink);
+    const expectedSecondary = ["phone", "call"].includes(state.step);
     assert.equal(secondary.length, expectedSecondary ? 1 : 0, state.step);
     if (state.step === "dashboard" && state.paid === true) assert.equal(actions[0].href, "/panel");
   }
@@ -178,7 +172,7 @@ test("Task 7B: inline onboarding renderer ignores forged identity/payment fields
   assert.doesNotMatch(visible.join("\n"), /forged|evil\.example/);
 });
 
-test("Task 3: ready dashboard shows value, trial, and next event without requiring checkout", async () => {
+test("Task 3: ready dashboard shows value and next event without trial or checkout", async () => {
   const fake = await runOnboardingInline({
     step: "dashboard",
     paid: false,
@@ -188,25 +182,24 @@ test("Task 3: ready dashboard shows value, trial, and next event without requiri
     paymentLink: "https://buy.stripe.com/test_life_manager?client_reference_id=server",
   });
   const actions = fake.root.querySelector("[data-onboarding-actions]").children;
-  assert.equal(actions.filter((node) => node.className.includes("primary-action")).length, 0);
-  assert.equal(actions.filter((node) => node.className.includes("secondary-action")).length, 1);
+  assert.equal(actions.filter((node) => node.className.includes("primary-action")).length, 1);
+  assert.equal(actions.filter((node) => node.className.includes("secondary-action")).length, 0);
   const visible = [];
   const walk = (node) => { visible.push(node.textContent, node.value, node.href || ""); for (const child of node.children) walk(child); };
   walk(fake.root);
   const text = visible.join("\n");
   assert.match(text, /準備できました/);
-  assert.match(text, /移動時間を自動追加/);
-  assert.match(text, /出発5分前/);
-  assert.match(text, /無料期間/);
-  assert.match(text, /2026-08-31T12:00:00\.000Z/);
+  assert.match(text, /移動時間を確保/);
+  assert.match(text, /出発前にTelegramで経路/);
+  assert.doesNotMatch(text, /無料期間|月額プラン|2026-08-31T12:00:00\.000Z|buy\.stripe\.com/);
   assert.match(text, /<img src=x onerror=alert\(1\)>/);
   assert.match(text, /2026-08-28T14:00:00\.000Z/);
 
   const withoutCheckout = await runOnboardingInline({ step: "dashboard", paid: false, trialActive: true });
-  assert.equal(withoutCheckout.root.querySelector("[data-onboarding-actions]").children.length, 0);
+  assert.equal(withoutCheckout.root.querySelector("[data-onboarding-actions]").children.length, 1);
 });
 
-test("Task 3: ready copy follows server-owned paid and trial state", async () => {
+test("Task 3: ready copy never exposes legacy paid/trial state", async () => {
   const visibleText = async (state) => {
     const fake = await runOnboardingInline(state);
     const visible = [];
@@ -216,19 +209,17 @@ test("Task 3: ready copy follows server-owned paid and trial state", async () =>
   };
 
   const paid = await visibleText({ step: "dashboard", paid: true, trialActive: false, trialExpiresAt: "2026-08-31T12:00:00.000Z" });
-  assert.match(paid.text, /移動時間を自動追加/);
-  assert.match(paid.text, /出発5分前/);
-  assert.match(paid.text, /有料プランが有効/);
-  assert.doesNotMatch(paid.text, /無料期間/);
+  assert.match(paid.text, /移動時間を確保/);
+  assert.match(paid.text, /出発前にTelegramで経路/);
+  assert.doesNotMatch(paid.text, /有料プラン|無料期間|2026-08-31/);
 
   const ended = await visibleText({ step: "dashboard", paid: false, trialActive: false, paymentLink: "https://buy.stripe.com/test_life_manager?client_reference_id=server" });
-  assert.match(ended.text, /無料期間は終了/);
-  assert.match(ended.text, /停止中/);
-  assert.doesNotMatch(ended.text, /移動時間を自動追加|出発5分前/);
+  assert.match(ended.text, /移動時間を確保/);
+  assert.doesNotMatch(ended.text, /無料期間|停止中|月額プラン|buy\.stripe\.com/);
   const endedActions = ended.fake.root.querySelector("[data-onboarding-actions]").children;
   assert.equal(endedActions.length, 1);
-  assert.equal(endedActions[0].className, "secondary-action");
-  assert.match(endedActions[0].href, /^https:\/\/buy\.stripe\.com\//);
+  assert.equal(endedActions[0].className, "primary-action");
+  assert.equal(endedActions[0].href, "/panel");
 });
 
 function safeIntegerFinancialOrgans() {

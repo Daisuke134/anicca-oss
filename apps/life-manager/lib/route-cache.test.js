@@ -39,6 +39,22 @@ test("getOrCompute: provider called at most ONCE per key within TTL", async () =
   assert.equal(calls, 1); // second hit is cached
 });
 
+test("getByEvent reads a persisted route before any provider/geocode work", async () => {
+  let providerCalls = 0;
+  const route = { provider: "google", durationSeconds: 600 };
+  const cache = makeRouteCache({
+    store: { getByEvent: async (uid, version, purpose) => {
+      assert.deepEqual([uid, version, purpose], ["tenant-a", "event-version-a", "go"]);
+      return { value: route, computedAt: 1000, ttlMs: 600000, negative: false };
+    } },
+    now: () => 1001,
+  });
+  const hit = await cache.getByEvent("tenant-a", "event-version-a", "go");
+  if (!hit.hit) providerCalls++;
+  assert.deepEqual(hit, { hit: true, value: route, failureClass: null });
+  assert.equal(providerCalls, 0);
+});
+
 test("getOrCompute: moved event (new bucket) recomputes", async () => {
   let calls = 0;
   const provider = async () => { calls++; return { durationSecs: 1029 }; };
@@ -187,7 +203,9 @@ test("Supabase route store persists and reads a scoped negative entry without ex
     return { ok: true, json: async () => [] };
   };
   const store = makeSupabaseRouteStore({ supaUrl: "https://db.example", supaKey: "service-secret", fetchImpl });
-  const key = cacheKey("tenant", G(35.68, 139.76), G(35.69, 139.70), 42, { provider: "google" });
+  const key = cacheKey("tenant", G(35.68, 139.76), G(35.69, 139.70), 42, {
+    provider: "google", eventVersion: "event-version-1", purpose: "go",
+  });
   await store.set(key, { value: null, computedAt: 1000, ttlMs: 1800000, negative: true,
     failureClass: "provider_4xx" });
   const hit = await store.get(key);
@@ -198,6 +216,9 @@ test("Supabase route store persists and reads a scoped negative entry without ex
   assert.equal(body.cache_state, "negative");
   assert.equal(body.ttl_secs, 1800);
   assert.equal(body.duration_secs, 0);
+  assert.equal(body.time_bucket, 42);
+  assert.equal(body.event_version, "event-version-1");
+  assert.equal(body.purpose, "go");
   assert.equal(calls[0].url.includes("service-secret"), false);
 });
 

@@ -116,6 +116,7 @@ function parseUpdate(update) {
     isStart: /^\/start(?:@[A-Za-z0-9_]+)?(?:\s|$)/i.test((m.text || "").trim()),
     firstName: m.from ? String(m.from.first_name || "") : "",
     lastName: m.from ? String(m.from.last_name || "") : "",
+    languageCode: m.from ? String(m.from.language_code || "") : "",
   };
 }
 
@@ -143,33 +144,32 @@ function onboardLink(chatId, base) {
   return `${root}/lm?tg=${encodeURIComponent(chatId)}`;
 }
 
-// The /start reply: a Telegram Web App button to the authenticated panel onboarding page. The
-// chat id remains in the signature for caller compatibility, but is deliberately not placed in the
-// URL: Telegram WebApp initData is the only identity input accepted by the panel session boundary.
-function startReply(chatId, base) {
-  void chatId;
-  let origin;
+// Keep /start in Telegram. The only external hop is Google's consent URL.
+function startReply(options = {}) {
+  let calendarUrl;
   try {
-    const value = String(base || "");
-    if (value.trim() !== value || !/^https:\/\//i.test(value)) throw new Error("invalid panel origin");
+    const value = String(options.calendarUrl || "");
+    if (value.trim() !== value || !/^https:\/\//i.test(value)) throw new Error("invalid calendar URL");
     const parsed = new URL(value);
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || !parsed.origin || parsed.origin === "null") {
-      throw new Error("invalid panel origin");
+      throw new Error("invalid calendar URL");
     }
-    origin = parsed.origin;
+    const host = parsed.hostname.toLowerCase();
+    if (host !== "accounts.google.com" && host !== "connect.composio.dev" && !host.endsWith(".connect.composio.dev")) {
+      throw new Error("invalid calendar URL");
+    }
+    calendarUrl = parsed.toString();
   } catch {
-    throw new Error("panel base URL is unavailable");
+    throw new Error("calendar URL is unavailable");
   }
-  const onboardingUrl = `${origin}/panel/onboarding`;
+  const ja = /^ja(?:-|$)/i.test(String(options.languageCode || ""));
   return {
-    text:
-      "👋 <b>Life Manager</b>\n\n" +
-      "I keep you on time — I fill in travel time, send a reminder before you leave, and can call you if you choose. " +
-      "Phone calls are optional. Set up takes a minute: connect Google Calendar, choose your home base, and turn on reminders.\n\n" +
-      "Tap below to start 👇",
+    text: ja
+      ? "👋 <b>ライフマネージャー</b>\n\n次の予定を確認して、移動時間を予定に入れ、出発前に乗換案内を送ります。\n\n最初にGoogle Calendarをつなぎます。"
+      : "👋 <b>Life Manager</b>\n\nI check your next event, reserve travel time, and send directions before you leave.\n\nFirst, connect Google Calendar.",
     extra: {
       reply_markup: {
-        inline_keyboard: [[{ text: "🚀 Set up Life Manager", web_app: { url: onboardingUrl } }]],
+        inline_keyboard: [[{ text: ja ? "Google Calendarをつなぐ" : "Connect Google Calendar", url: calendarUrl }]],
       },
     },
   };

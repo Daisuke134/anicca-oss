@@ -337,6 +337,7 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   const home = deps.home !== undefined ? deps.home : user.home_address;
   const prepareCandidate = async (event) => {
     const key = eventKey(event);
+    const allowanceState = {};
     let targetGoClaimed = false;
     const previousReturnClaims = new Map();
     if (physical(event)) {
@@ -366,23 +367,39 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     });
     let route = null;
     if (routeAttempted) {
+      if (deps.directionsRoute && typeof deps.reserveManagedAction === "function") {
+        const receipt = await deps.reserveManagedAction(user.uid, key, supaUrl, supaKey);
+        allowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
+        allowanceState.blocked = !receipt || receipt.allowed !== true;
+      }
       try {
-        route = await (deps.directionsRoute || directionsRoute)(origin.value, destination, deps.mapsKey,
+        route = allowanceState.blocked ? null
+          : await (deps.directionsRoute || directionsRoute)(origin.value, destination, deps.mapsKey,
           startMs(event), now, false, {
             uid: user.uid, timezone: deps.timezone || user.call_time_zone, supaUrl, supaKey,
-            eventId: key, purpose: "go",
+            eventId: key, purpose: "go", _allowanceState: allowanceState,
+            _reserveManagedAction: deps.reserveManagedAction,
+            _releaseManagedAction: deps.releaseManagedAction,
           });
       } catch { route = null; }
     }
     const departureMs = computeDepartureMs(event, route, { bufferMin: deps.bufferMin });
     const dueAt = computeReminderDueAt(event, { departureMs });
-    return { event, key, route, routeAttempted, departureMs, dueAt };
+    return { event, key, route, routeAttempted, departureMs, dueAt, allowanceState,
+      allowanceBlocked: allowanceState.blocked === true };
   };
   const prepared = await Promise.all(candidates.map(prepareCandidate));
+  const releaseCandidate = async (candidate) => {
+    const reservation = candidate && candidate.allowanceState && candidate.allowanceState.receipt;
+    if (!reservation || typeof deps.releaseManagedAction !== "function") return;
+    await deps.releaseManagedAction(user.uid, candidate.key, supaUrl, supaKey, { reservation });
+    candidate.allowanceState.receipt = null;
+  };
   const dueCandidates = prepared
     .filter((candidate) => isReminderDue(now, candidate.dueAt))
     .sort((a, b) => (a.dueAt - b.dueAt) || (startMs(a.event) - startMs(b.event)) || a.key.localeCompare(b.key));
   if (!dueCandidates.length) {
+    await Promise.all(prepared.map(releaseCandidate));
     const nextDueAt = prepared.reduce((earliest, candidate) => candidate.dueAt !== null
       && (earliest === null || candidate.dueAt < earliest) ? candidate.dueAt : earliest, null);
     return { status: "suppressed", reason: "not-due", dueAt: nextDueAt };
@@ -391,18 +408,28 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   for (const candidate of dueCandidates) {
     let claimed = false;
     try { claimed = await (deps.claimTravel || claimTravel)(user.uid, candidate.key, "telegram-t5", supaUrl, supaKey); }
-    catch { return { status: "suppressed", reason: "claim-failed" }; }
+    catch {
+      await Promise.all(prepared.map(releaseCandidate));
+      return { status: "suppressed", reason: "claim-failed" };
+    }
     if (claimed) {
       selected = candidate;
       break;
     }
   }
+  await Promise.all(prepared.filter((candidate) => candidate !== selected).map(releaseCandidate));
   if (!selected) return { status: "suppressed", reason: "duplicate" };
   const { event, key, route, routeAttempted, departureMs } = selected;
+  if (selected.allowanceBlocked === true) {
+    await (deps.unclaimTravel || unclaimTravel)(user.uid, key, "telegram-t5", supaUrl, supaKey);
+    return { status: "suppressed", reason: "allowance-exhausted" };
+  }
   let response = null;
-  try { response = await (deps.sendMessage || sendMessage)(token, chatId, formatTravelReminder(event, route, {
+  const message = formatTravelReminder(event, route, {
     departureMs, timezone: deps.timezone || user.call_time_zone || DEFAULT_TIMEZONE, routeAttempted,
-  })); } catch { response = { ok: false, delivery_unknown: true }; }
+  });
+  try { response = await (deps.sendMessage || sendMessage)(token, chatId, message); }
+  catch { response = { ok: false, delivery_unknown: true }; }
   const deliveryUnknown = !response || response.delivery_unknown === true || response.deliveryUnknown === true
     || typeof response.ok !== "boolean" || (response.ok === true && !(response.result && typeof response.result === "object"
       && !Array.isArray(response.result) && Number.isInteger(response.result.message_id) && response.result.message_id > 0));
@@ -416,6 +443,10 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     let released = false;
     try { released = await (deps.unclaimTravel || unclaimTravel)(user.uid, key, "telegram-t5", supaUrl, supaKey); } catch { /* retry next tick */ }
     if (released !== true) logReconciliation(deps, "[travel-reminder] reconciliation required");
+    if (typeof deps.releaseManagedAction === "function") {
+      await deps.releaseManagedAction(user.uid, key, supaUrl, supaKey,
+        { reservation: selected.allowanceState && selected.allowanceState.receipt });
+    }
     return { status: "send_failed", eventKey: key };
   }
   let receipt;
@@ -429,6 +460,13 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   if (!receipt || receipt.ok !== true || receipt.matched !== 1) {
     logReconciliation(deps, "[travel-reminder] delivery receipt reconciliation required");
     return { status: "delivery_unknown" };
+  }
+  if (selected.allowanceBlocked !== true && typeof deps.completeManagedAction === "function") {
+    const completed = await deps.completeManagedAction(user.uid, key, supaUrl, supaKey,
+      { reservation: selected.allowanceState && selected.allowanceState.receipt });
+    if (!completed || completed.allowed !== true) {
+      logReconciliation(deps, "[travel-reminder] allowance receipt reconciliation required");
+    }
   }
   const provider = route && route.provider ? String(route.provider) : "none";
   (deps.log || console.log)(`[travel-reminder] uid=${String(user.uid).slice(0, 12)} event_key_hash=${crypto.createHash("sha256").update(key).digest("hex")} provider=${provider} tg_message_id=${messageId}`);

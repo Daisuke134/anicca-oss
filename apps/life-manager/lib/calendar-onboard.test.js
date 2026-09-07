@@ -386,6 +386,57 @@ test("existing OAuth callback replay, expiry, and cross-scope claims produce no 
   assert.equal(cross.status, 403);
 });
 
+test("Telegram OAuth callback needs no browser cookie and returns to the exact claimed chat", async () => {
+  const { handleTelegramOAuthCallback } = require("./panel-api.js");
+  const stateToken = "c".repeat(43);
+  const calls = [];
+  const response = { status: 0, headers: {}, writeHead(status, headers = {}) { this.status = status; this.headers = headers; }, end() {} };
+  await handleTelegramOAuthCallback({ method: "GET", url: `/telegram/oauth/calendar?state=${stateToken}&lang=ja-JP`, headers: {} }, response, {
+    commandStore: {
+      claimTelegramOAuthState: async (stateHash) => { calls.push(["claim", stateHash]); return { uid: "u-tg", chat_id: "303" }; },
+      assertCurrentScope: async (scope) => { calls.push(["scope", scope]); return true; },
+      syncCalendarStatus: async (scope, status) => { calls.push(["sync", scope, status]); return true; },
+    },
+    composioKey: "provider-key",
+    composioCalendarStatusImpl: async (scope) => { calls.push(["provider", scope]); return "ACTIVE"; },
+    sendMessage: async (chatId, text) => { calls.push(["send", chatId, text]); return { ok: true, result: { message_id: 44 } }; },
+    telegramReturnUrl: "https://t.me/LifeManagerBotbot",
+  });
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.Location, "https://t.me/LifeManagerBotbot");
+  assert.equal(calls[0][0], "claim");
+  assert.equal(calls[0][1], crypto.createHash("sha256").update(stateToken).digest("hex"));
+  assert.deepEqual(calls.find(([kind]) => kind === "scope")[1], { uid: "u-tg", chatId: "303" });
+  assert.deepEqual(calls.find(([kind]) => kind === "sync").slice(1), [{ uid: "u-tg", chatId: "303" }, "ACTIVE"]);
+  assert.deepEqual(calls.find(([kind]) => kind === "send").slice(1, 2), ["303"]);
+  assert.match(calls.find(([kind]) => kind === "send")[2], /自宅の住所/);
+});
+
+test("Telegram OAuth callback rejects invalid, replayed, and cross-bound state before provider or send", async () => {
+  const { handleTelegramOAuthCallback } = require("./panel-api.js");
+  for (const fixture of [
+    { url: "/telegram/oauth/calendar?state=bad", claimed: null },
+    { url: `/telegram/oauth/calendar?state=${"d".repeat(43)}`, claimed: null },
+    { url: `/telegram/oauth/calendar?state=${"e".repeat(43)}`, claimed: { uid: "u-tg", chat_id: "303" }, scope: false },
+  ]) {
+    let provider = 0, sends = 0, claims = 0;
+    const response = { status: 0, writeHead(status) { this.status = status; }, end() {} };
+    await handleTelegramOAuthCallback({ method: "GET", url: fixture.url, headers: {} }, response, {
+      commandStore: {
+        claimTelegramOAuthState: async () => { claims++; return fixture.claimed; },
+        assertCurrentScope: async () => fixture.scope !== false,
+      },
+      composioCalendarStatusImpl: async () => { provider++; return "ACTIVE"; },
+      sendMessage: async () => { sends++; return { ok: true }; },
+      telegramReturnUrl: "https://t.me/LifeManagerBotbot",
+    });
+    assert.equal(response.status, 403);
+    assert.equal(claims, fixture.url.includes("state=bad") ? 0 : 1);
+    assert.equal(provider, 0);
+    assert.equal(sends, 0);
+  }
+});
+
 test("production server wires only the two session calendar onboarding paths", () => {
   const source = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
   assert.match(source, /handleCalendarOnboardRequest/);
@@ -414,4 +465,24 @@ test("R1A calendar reachability migration syncs ACTIVE truth and clears stale ma
   assert.match(migration, /MISSING.*DISABLED.*INACTIVE/is);
   assert.match(migration, /telegram_chat_id::text\s*=\s*p_chat_id[\s\S]*FOR UPDATE/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.sync_lm_panel_calendar_status/i);
+});
+
+test("Telegram OAuth callback migration is hash-only, tenant-bound, one-time, and service-role only", () => {
+  const migration = fs.readFileSync(path.join(__dirname, "../migrations/2026-09-07-lm-telegram-oauth-callback.sql"), "utf8");
+  assert.match(migration, /p_state_hash\s+text/i);
+  assert.match(migration, /state_hash\s*=\s*p_state_hash/i);
+  assert.match(migration, /used_at\s+IS\s+NULL/i);
+  assert.match(migration, /expires_at\s*>\s*now\(\)/i);
+  assert.match(migration, /EXISTS[\s\S]*lm_users[\s\S]*telegram_chat_id::text\s*=\s*state\.chat_id/i);
+  assert.match(migration, /REVOKE ALL[\s\S]*FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /GRANT EXECUTE[\s\S]*TO service_role/i);
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.create_lm_telegram_oauth_state/i);
+  assert.match(migration, /DELETE FROM public\.lm_panel_oauth_states[\s\S]*provider\s*=\s*'calendar'[\s\S]*used_at\s+IS\s+NULL/i);
+  assert.match(migration, /FROM public\.lm_users[\s\S]*uid\s*=\s*p_uid[\s\S]*telegram_chat_id::text\s*=\s*p_chat_id[\s\S]*FOR UPDATE/i);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.create_lm_telegram_oauth_state[\s\S]*FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.complete_lm_telegram_home/i);
+  assert.match(migration, /telegram_chat_id::text\s*=\s*p_chat_id[\s\S]*calendar_provider\s*=\s*'composio_gcal'[\s\S]*FOR UPDATE/i);
+  assert.match(migration, /UPDATE public\.lm_users SET home_address[\s\S]*INSERT INTO public\.lm_panel_preferences[\s\S]*notifications_enabled/i);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.complete_lm_telegram_home[\s\S]*FROM PUBLIC, anon, authenticated/i);
+  assert.doesNotMatch(migration, /raw_state|CREATE TABLE/i);
 });

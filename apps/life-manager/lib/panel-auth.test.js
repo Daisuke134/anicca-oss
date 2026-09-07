@@ -7,10 +7,28 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const { sendPanelLink, handlePanelRequest, handleMoneyPrinterGuestRequest } = require("./panel-auth.js");
+const { sendPanelLink, handlePanelRequest, handleMoneyPrinterGuestRequest, claimTelegramWebhookActor } = require("./panel-auth.js");
 const { isPanelCommand } = require("./telegram.js");
 const PANEL_NOW = new Date("2026-08-27T00:00:00.000Z");
 const PANEL_AUTH_DATE = Math.floor(PANEL_NOW.getTime() / 1000);
+
+test("Telegram webhook actor claim is deterministic and private-chat scoped", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) });
+    return { ok: true, json: async () => [{ status: "claimed", uid: "lm_tg_fixture", chat_id: "123" }] };
+  };
+  const input = { actorId: "123", chatId: "123", updateId: "9001", profileName: "Fixture User" };
+  const opts = { supaUrl: "https://fixture.supabase.co", supaKey: "key", fetchImpl };
+  assert.deepEqual(await claimTelegramWebhookActor(input, opts), { status: "claimed", uid: "lm_tg_fixture", chat_id: "123" });
+  await claimTelegramWebhookActor(input, opts);
+  assert.deepEqual(calls[0].body, calls[1].body);
+  assert.match(calls[0].body.p_init_hash, /^[a-f0-9]{64}$/);
+  assert.equal(calls[0].body.p_actor_id, "123");
+  for (const invalid of [{ ...input, actorId: "999" }, { ...input, updateId: "" }, { ...input, actorId: "bad" }]) {
+    await assert.rejects(() => claimTelegramWebhookActor(invalid, opts), /telegram actor unavailable/);
+  }
+});
 
 function telegramInitData({ actorId = 123, authDate = PANEL_AUTH_DATE, token = "telegram-token", chatId = actorId, firstName = "Fixture", lastName = "" } = {}) {
   const params = new URLSearchParams({

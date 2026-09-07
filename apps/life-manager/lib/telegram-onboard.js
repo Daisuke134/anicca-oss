@@ -6,8 +6,6 @@ const { signedGmailConnectUrl } = require("./gmail-onboard.js");
 const { backfillCalendarContext } = require("./context-graph.js");
 const { mailAvailable } = require("./mail-availability.js");
 const { compActive } = require("./comp-window.js");
-const { paymentLink } = require("./payment-link.js");
-const { claimTravel, unclaimTravel } = require("./travel.js");
 
 // PURE: calendar/pay are taps, phone is the only typed question, and Gmail is skippable after pay.
 // COMP WINDOW: while LM_COMP_UNTIL is in the future an unpaid row passes the paywall and continues to
@@ -21,15 +19,16 @@ function coreReady(row) {
 }
 
 function computeStage(row, opts = {}) {
-  if (coreReady(row)) return "done";
   if (!row || row.calendar_provider !== "composio_gcal") return "calendar";
-  // The panel state machine owns the canonical paid/core-ready terminal state. The legacy loop must
-  // not reopen phone or Gmail for a paid user who intentionally skipped a phone, nor can it rewrite
-  // a server-owned `done` marker after a browser resume.
-  if (row.paid === true && coreReady(row)) return "done";
-  if (!row.phone) return "phone";
-  if (row.paid !== true && !compActive(opts.env || process.env, opts.now)) return "pay";
-  if (!row.gmail_account_id && row.gmail_skipped !== true) return "gmail";
+  const storedStage = String(row.tg_onboard_stage || "").toLowerCase();
+  if (storedStage === "done") return "done";
+  if ((storedStage === "calendar" || storedStage === "home")
+    && (typeof row.home_address !== "string" || !row.home_address.trim())) return "home";
+  if (storedStage === "phone" && !row.phone) return "phone";
+  if (storedStage === "call" && row.phone) return "call";
+  if (coreReady(row)) return "done";
+  // Optional phone/call questions run only while the server-owned stage says so. Legacy rows never
+  // reopen an onboarding paywall or optional integration.
   return "done";
 }
 
@@ -47,7 +46,7 @@ function applyTelegramProfileName(row, from) {
   return current;
 }
 
-const NATIVE_STAGES = new Set(["phone"]);
+const NATIVE_STAGES = new Set(["home", "phone", "call"]);
 const isNativeStage = (stage) => NATIVE_STAGES.has(stage);
 
 function normalizePhone(text) {
@@ -60,17 +59,24 @@ function normalizePhone(text) {
   return /^\+[1-9]\d{7,14}$/.test(value) ? value : null;
 }
 
-function stageMessage(stage, chatId, base, gmailConnectUrl, profileName) {
+function stageMessage(stage, chatId, base, gmailConnectUrl, profileName, languageCode) {
+  const ja = /^ja(?:-|$)/i.test(String(languageCode || ""));
   let link = onboardLink(chatId, base);
   if (profileName) link += `&name=${encodeURIComponent(profileName)}`;
   const urlButton = (text, url = link) => ({ reply_markup: { inline_keyboard: [[{ text, url }]] } });
   switch (stage) {
     case "calendar":
       return { text: "👋 <b>Welcome to Life Manager!</b>\n\nConnect your Google Calendar (10 sec). Tap below, sign in, then come back here.", extra: urlButton("📅 Connect Calendar") };
+    case "home":
+      return { text: "自宅の住所を教えてください。ここを普段の出発地点として、次の予定に間に合う出発時刻を計算します。", extra: undefined };
     case "phone":
-      return { text: "✅ <b>Calendar connected!</b>\n\nWhat's your phone number? Japanese numbers can be <code>090-1234-5678</code> or international <code>+81 90-1234-5678</code> — I'll call you before events.", extra: undefined };
-    case "pay":
-      return { text: "✅ <b>Phone saved!</b>\n\nSubscribe ($20/mo) and I'll take it from here.", extra: urlButton("⭐ Subscribe") };
+      return { text: ja
+        ? "電話通知も使えます（任意）。出発時刻の10分前と5分前に電話します。\n\n使う場合は電話番号（例：<code>090-1234-5678</code>）を送ってください。使わない場合は「スキップ」と送ってください。"
+        : "Phone alerts are optional. I can call 10 and 5 minutes before you need to leave.\n\nSend your number (for example <code>+81 90-1234-5678</code>) or reply “skip”.", extra: undefined };
+    case "call":
+      return { text: ja
+        ? "この番号への電話通知をオンにしますか？「はい」または「スキップ」と送ってください。"
+        : "Turn on phone alerts for this number? Reply “yes” or “skip”.", extra: undefined };
     case "gmail": {
       const connectUrl = gmailConnectUrl || `${link}&gmail=connect`;
       return {
@@ -81,7 +87,9 @@ function stageMessage(stage, chatId, base, gmailConnectUrl, profileName) {
       };
     }
     case "done":
-      return { text: "🎉 <b>You're all set!</b>\n\nI'll now manage your schedule — I call you before you must leave, fill in travel time, and only ask when I genuinely can't find a location. Talk soon.", extra: undefined };
+      return { text: ja
+        ? "準備完了です。予定に合わせて移動時間を確保し、出発前にTelegramで経路を知らせます。"
+        : "You're ready. I'll reserve travel time for your schedule and send the route in Telegram before you need to leave.", extra: undefined };
     default:
       return { text: "Tap below to continue setting up Life Manager.", extra: urlButton("Open Life Manager") };
   }
@@ -99,14 +107,14 @@ async function sendStage(token, chatId, row, base, opts = {}) {
       return "done";
     }
   }
-  const message = stageMessage(stage, chatId, base, opts.gmailConnectUrl, effective.name);
+  const message = stageMessage(stage, chatId, base, opts.gmailConnectUrl, effective.name, opts.languageCode);
   await (opts.sendMessage || sendMessage)(token, chatId, message.text, message.extra);
   return stage;
 }
 
 // payout_destination rides along so the webhook can see a pending wallet-address intake (13d-a)
 // without a second round trip on every typed message.
-const SEL = "uid,name,telegram_chat_id,tg_onboard_stage,calendar_provider,gmail_account_id,gmail_skipped,email,phone,paid,trial_expires_at,home_address,payout_destination";
+const SEL = "uid,name,telegram_chat_id,tg_onboard_stage,calendar_provider,gmail_account_id,gmail_skipped,email,phone,home_address,payout_destination";
 async function saveField(uid, patch, supaUrl, supaKey) {
   await fetch(`${supaUrl}/rest/v1/lm_users?uid=eq.${encodeURIComponent(uid)}`, {
     method: "PATCH",
@@ -159,32 +167,92 @@ async function setStage(uid, stage, supaUrl, supaKey) {
   }).catch(() => {});
 }
 
+async function transitionOnboarding(uid, chatId, action, payload, supaUrl, supaKey) {
+  const response = await fetch(`${String(supaUrl || "").replace(/\/$/, "")}/rest/v1/rpc/lm_panel_onboarding_transition`, {
+    method: "POST",
+    headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_uid: uid, p_chat_id: String(chatId), p_action: action, p_payload: payload || {} }),
+  });
+  if (!response.ok) throw new Error("onboarding_transition_failed");
+  return response.json().catch(() => ({}));
+}
+
+async function completeTelegramHome(uid, chatId, homeAddress, supaUrl, supaKey) {
+  const response = await fetch(`${String(supaUrl || "").replace(/\/$/, "")}/rest/v1/rpc/complete_lm_telegram_home`, {
+    method: "POST",
+    headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_uid: uid, p_chat_id: String(chatId), p_home_address: homeAddress }),
+  });
+  if (!response.ok) throw new Error("onboarding_transition_failed");
+  const value = await response.json().catch(() => false);
+  const completed = Array.isArray(value) ? value[0] === true : value === true;
+  if (!completed) throw new Error("onboarding_transition_failed");
+  return true;
+}
+
 async function backfillIfCalendarCompleted(row, opts = {}) {
   if (!row || row.tg_onboard_stage !== "calendar" || computeStage(row) === "calendar") return false;
   const backfill = opts.backfillCalendarContext || backfillCalendarContext;
-  await backfill(row.uid, {
-    composioKey: opts.composioKey, geminiKey: opts.geminiKey,
-    supaUrl: opts.supaUrl, supaKey: opts.supaKey, gmailAccountId: row.gmail_account_id,
-  });
-  return true;
+  try {
+    await backfill(row.uid, {
+      composioKey: opts.composioKey, geminiKey: opts.geminiKey,
+      supaUrl: opts.supaUrl, supaKey: opts.supaKey, gmailAccountId: row.gmail_account_id,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function handleOnboardingText(chatId, text, row, opts) {
   if (row && row.tg_onboard_stage === "done") return "done";
   const stage = computeStage(row);
   await backfillIfCalendarCompleted(row, opts);
+  if (stage === "home") {
+    const homeAddress = String(text || "").trim();
+    if (!homeAddress || homeAddress.length > 240) {
+      await (opts.sendMessage || sendMessage)(opts.token, chatId, "自宅の住所を240文字以内で教えてください。");
+      return "bad-home";
+    }
+    await (opts.completeTelegramHome || completeTelegramHome)(row.uid, chatId, homeAddress, opts.supaUrl, opts.supaKey);
+    const message = stageMessage("phone", chatId, opts.base, "", "", opts.languageCode);
+    await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
+    return "home";
+  }
   if (stage === "phone") {
+    const skip = /^(?:skip|スキップ|使わない|不要)$/i.test(String(text || "").trim());
+    const transition = opts.transitionOnboarding || transitionOnboarding;
+    if (skip) {
+      await transition(row.uid, chatId, "phone.skip", {}, opts.supaUrl, opts.supaKey);
+      const message = stageMessage("done", chatId, opts.base, "", "", opts.languageCode);
+      await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
+      return "phone-skip";
+    }
     const phone = normalizePhone(text);
     if (!phone) {
-      await sendMessage(opts.token, chatId, "That doesn't look like a phone number. Try <code>090-1234-5678</code> or international <code>+81 90-1234-5678</code>.");
+      await (opts.sendMessage || sendMessage)(opts.token, chatId, /^ja(?:-|$)/i.test(String(opts.languageCode || ""))
+        ? "電話番号を確認できませんでした。例：<code>090-1234-5678</code>。使わない場合は「スキップ」と送ってください。"
+        : "I couldn't read that phone number. Try <code>+81 90-1234-5678</code>, or reply “skip”.");
       return "bad-phone";
     }
-    await saveField(row.uid, { phone }, opts.supaUrl, opts.supaKey);
-    const next = computeStage({ ...row, phone });
-    const message = stageMessage(next, chatId, opts.base);
-    await sendMessage(opts.token, chatId, message.text, message.extra);
-    await setStage(row.uid, next, opts.supaUrl, opts.supaKey);
+    await transition(row.uid, chatId, "phone.save", { phone }, opts.supaUrl, opts.supaKey);
+    const message = stageMessage("call", chatId, opts.base, "", "", opts.languageCode);
+    await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
     return "phone";
+  }
+  if (stage === "call") {
+    const answer = String(text || "").trim();
+    const enable = /^(?:yes|on|はい|使う|有効)$/i.test(answer);
+    const skip = /^(?:skip|no|off|スキップ|いいえ|使わない|不要)$/i.test(answer);
+    if (!enable && !skip) {
+      const message = stageMessage("call", chatId, opts.base, "", "", opts.languageCode);
+      await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
+      return "bad-call-choice";
+    }
+    await (opts.transitionOnboarding || transitionOnboarding)(row.uid, chatId, enable ? "call.enable" : "call.skip", {}, opts.supaUrl, opts.supaKey);
+    const message = stageMessage("done", chatId, opts.base, "", "", opts.languageCode);
+    await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
+    return enable ? "call-enable" : "call-skip";
   }
   if (stage === "done") return "done";
   await sendStage(opts.token, chatId, row, opts.base, opts);
@@ -218,25 +286,6 @@ const NUDGE_COOLDOWN_MS = 30 * 60 * 1000;
 // sharded across processes, move this to a column next to last_discovery_at.
 const nudgeSentAt = new Map();
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>\"]/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;",
-  }[character]));
-}
-
-function trustedCheckoutLink(opts, uid) {
-  try {
-    const link = typeof opts.paymentLink === "function"
-      ? opts.paymentLink(opts, { uid })
-      : typeof opts.link === "function" ? opts.link(opts, { uid }) : paymentLink(opts, { uid });
-    const url = new URL(String(link || ""));
-    if (url.protocol !== "https:" || url.hostname !== "buy.stripe.com"
-      || url.username || url.password || url.pathname.length <= 1) return "";
-    url.searchParams.set("client_reference_id", String(uid));
-    return escapeHtml(url.toString());
-  } catch { return ""; }
-}
-
 async function onboardNudgeAll(opts) {
   if (!opts.token || !opts.supaUrl || !opts.supaKey) return 0;
   const list = opts.linkedRows || linkedRows;
@@ -251,42 +300,6 @@ async function onboardNudgeAll(opts) {
   for (const row of rows) {
     // Honour the panel notifications switch, like the ask and discovery loops already do.
     if (row.notifications_enabled === false) continue;
-    const expiresAt = Date.parse(String(row.trial_expires_at || ""));
-    const expired = Number.isFinite(expiresAt) && expiresAt <= now && row.paid !== true && coreReady(row);
-    if (expired && row.telegram_chat_id) {
-      const eventKey = String(row.trial_expires_at);
-      const claim = opts.claimTravel || claimTravel;
-      const unclaim = opts.unclaimTravel || unclaimTravel;
-      let claimed = false;
-      try { claimed = await claim(row.uid, eventKey, "trial-upgrade", opts.supaUrl, opts.supaKey); } catch { claimed = false; }
-      if (!claimed) continue;
-      const link = trustedCheckoutLink(opts, row.uid);
-      let result = { ok: false };
-      if (link) {
-        try {
-          result = await (opts.sendMessage || sendMessage)(opts.token, row.telegram_chat_id,
-            `無料期間が終了しました。\n\n<a href="${link}">月額プランを確認する</a>`);
-        } catch { result = { ok: false, delivery_unknown: true }; }
-      }
-      const deliveryUnknown = !result || typeof result !== "object" || Array.isArray(result)
-        || result.delivery_unknown === true || result.deliveryUnknown === true
-        || typeof result.ok !== "boolean" || (result.ok === true && !(result.result && typeof result.result === "object"
-          && !Array.isArray(result.result) && Number.isInteger(result.result.message_id) && result.result.message_id > 0));
-      if (deliveryUnknown) {
-        try { (opts.logError || opts.log || console.error)("[onboard] trial-upgrade reconciliation required"); } catch { /* keep loop alive */ }
-        continue;
-      }
-      const messageId = result && result.ok === true && result.result
-        && Number.isInteger(result.result.message_id) && result.result.message_id > 0;
-      if (!messageId) {
-        let released = false;
-        try { released = await unclaim(row.uid, eventKey, "trial-upgrade", opts.supaUrl, opts.supaKey); } catch { /* retry next tick */ }
-        if (released !== true) {
-          try { (opts.logError || opts.log || console.error)("[onboard] trial-upgrade reconciliation required"); } catch { /* keep loop alive */ }
-        }
-      } else sent++;
-      continue;
-    }
     const lastNudge = cooldown.get(row.uid);
     if (typeof lastNudge === "number" && now - lastNudge < NUDGE_COOLDOWN_MS) continue;
     let stage = computeStage(row);
@@ -318,6 +331,6 @@ async function onboardNudgeAll(opts) {
 
 module.exports = {
   computeStage, telegramProfileName, applyTelegramProfileName, stageMessage, sendStage, isNativeStage,
-  normalizePhone, handleOnboardingText, handleGmailCallback, rowByChatId, linkedRows, setStage,
-  saveField, backfillIfCalendarCompleted, onboardNudgeAll, NUDGE_COOLDOWN_MS,
+  normalizePhone, handleOnboardingText, handleGmailCallback, rowByChatId, linkedRows, setStage, transitionOnboarding,
+  saveField, completeTelegramHome, backfillIfCalendarCompleted, onboardNudgeAll, NUDGE_COOLDOWN_MS,
 };

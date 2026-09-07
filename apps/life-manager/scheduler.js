@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const { fetchUpcomingEvents } = require("./lib/events.js");
 const { schedulerCohortFilter, isCallablePhone } = require("./lib/user-selector.js");
 const { DEFAULTS: RUNTIME_DEFAULTS, readRuntimePreferences } = require("./lib/runtime-preferences.js");
-const { shouldWake, resolveDeparture, isHelperBlock } = require("./lib/wake-filter.js");
+const { shouldWake, departureMs, resolveDeparture, isHelperBlock } = require("./lib/wake-filter.js");
 const { mentalUserOnce, resolveSleepTarget } = require("./lib/mental-runtime.js");
 const { careUserOnce } = require("./lib/care-daily-runtime.js");
 const { dietUserOnce } = require("./lib/diet-runtime.js");
@@ -43,6 +43,11 @@ const {
   processLocationLateNotice, getLiveLocation,
 } = require("./lib/late-notice.js");
 const { travelReminderOnce } = require("./lib/travel-reminder.js");
+const {
+  reserveManagedAction, completeManagedAction, releaseManagedAction,
+  reserveVoiceAllowance, acceptVoiceAllowance, releaseVoiceAllowance,
+} = require("./lib/managed-allowance.js");
+const { deliverAllowanceNotice } = require("./lib/allowance-notice.js");
 const {
   DISCOVERY_WEEK_MS, listDiscoveryUsers, runDiscoveryForUser,
 } = require("./lib/feature-discovery.js");
@@ -273,8 +278,18 @@ function buildStreamUrl(ev, urgency, lang, name) {
   const nm = String(name || "").replace(/[\r\n]/g, " ").slice(0, 60); // address the user by name on the call
   const wakeUid = String(ev.wakeUid || "");
   const wakeEventKey = String(ev.wakeEventKey || "");
-  const sig = signCtx([summary, dateTime, location, urg, lg, nm, wakeUid, wakeEventKey]);
-  const qs = new URLSearchParams({ summary, dateTime, location, urgency: urg, lang: lg, name: nm, wakeUid, wakeEventKey, sig });
+  const voicePeriodStart = String(ev.voicePeriodStart || "");
+  const voiceReservationToken = String(ev.voiceReservationToken || "");
+  const voiceAllowedSeconds = String(ev.voiceAllowedSeconds || "");
+  const sig = signCtx([summary, dateTime, location, urg, lg, nm, wakeUid, wakeEventKey,
+    voicePeriodStart, voiceReservationToken, voiceAllowedSeconds]);
+  const qs = new URLSearchParams({ summary, dateTime, location, urgency: urg, lang: lg, name: nm,
+    wakeUid, wakeEventKey, sig });
+  if (voicePeriodStart && voiceReservationToken && voiceAllowedSeconds) {
+    qs.set("voicePeriodStart", voicePeriodStart);
+    qs.set("voiceReservationToken", voiceReservationToken);
+    qs.set("voiceAllowedSeconds", voiceAllowedSeconds);
+  }
   return `${base}/ws?${qs.toString()}`;
 }
 
@@ -446,14 +461,35 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
   // dialled all three. A malformed/missing phone is an independent hard gate. This is also the LAST
   // gate on the Inngest per-user path, which reaches wakeCallOnce through wakeUserOnce and never passes
   // wakeTick's filter.
-  if (u.call_enabled === true && isCallablePhone(u.phone)) {
+  if (u.paid === true && u.call_enabled === true && isCallablePhone(u.phone)) {
     for (const ev of futureEvents.filter((e) => shouldWake(e, u.home_address, u.wake_policy))) {
+      const managedActionKey = String(ev.id || `${ev.startMs || ev.startIso}:${ev.summary || ""}`);
+      const allowanceReserve = deps.reserveManagedAction || (deps.placeCall ? undefined : reserveManagedAction);
+      const allowanceRelease = deps.releaseManagedAction || (deps.placeCall ? undefined : releaseManagedAction);
+      const voiceReserve = deps.reserveVoiceAllowance || (deps.placeCall ? undefined : reserveVoiceAllowance);
+      const voiceAccept = deps.acceptVoiceAllowance || (deps.placeCall ? undefined : acceptVoiceAllowance);
+      const voiceRelease = deps.releaseVoiceAllowance || (deps.placeCall ? undefined : releaseVoiceAllowance);
+      let allowanceReserved = false;
+      let allowanceReservation = null;
+      const allowanceState = {};
+      const { url: allowanceUrl, key: allowanceKey } = SUPA();
+      if ((deps.directionsRoute || deps.directionsMinutes) && typeof allowanceReserve === "function") {
+        const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+        if (!allowance || allowance.allowed !== true) continue;
+        allowanceState.receipt = allowance.reservationToken ? allowance : null;
+      }
       const depMs = await resolveDeparture(ev, futureEvents, {
         home: u.home_address, mapsKey, nowMs: now, bufferMin: 5,
         directionsFn: deps.directionsMinutes || directionsMinutes,
         routeFn: deps.directionsRoute || (deps.directionsMinutes ? undefined : directionsRoute), uid: u.uid,
         timezone: u.call_time_zone || u.time_zone,
+        routeOptions: {
+          supaUrl: allowanceUrl, supaKey: allowanceKey, _allowanceState: allowanceState,
+          _reserveManagedAction: allowanceReserve, _releaseManagedAction: allowanceRelease,
+        },
       });
+      allowanceReservation = allowanceState.receipt || null;
+      allowanceReserved = Boolean(allowanceReservation);
       const mins = (depMs - now) / 60000;
       // A level is DUE once its threshold has passed, not only while the tick sits inside a ~2-min
       // window: this tick is not periodic (the organs above share the per-user timeout, and a redeploy
@@ -463,6 +499,18 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       const due = WAKE_LEVELS
         .filter((lvl) => mins <= lvl.min + 0.5 && mins > LATE_CUTOFF_MIN)
         .sort((a, b) => a.min - b.min);
+      if (!due.length && allowanceReserved && typeof allowanceRelease === "function") {
+        await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+          { reservation: allowanceReservation });
+        allowanceReserved = false;
+        allowanceReservation = null;
+      }
+      if (due.length && !allowanceReserved && typeof allowanceReserve === "function") {
+        const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+        if (!allowance || allowance.allowed !== true) continue;
+        allowanceReservation = allowance.reservationToken ? allowance : null;
+        allowanceReserved = Boolean(allowanceReservation);
+      }
       // 1b: the moment departure crosses the cutoff, this event can never ring again. If the finest
       // level was never even claimed, nothing was ever attempted — the exact failure that looked like
       // a non-event in lm_wake_log. Record it once, in the two ticks just past the cutoff: later ticks
@@ -488,22 +536,59 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       }
       for (const lvl of due) {
         const eventKey = `${u.uid}|${ev.startIso}|${lvl.min}`;
+        if (lvl !== due[0]) {
+          await (deps.claimWake || claimWake)(u.uid, eventKey);
+          continue;
+        }
+        const voice = typeof voiceReserve === "function"
+          ? await voiceReserve(u.uid, eventKey, allowanceUrl, allowanceKey)
+          : { allowed: true, allowedSeconds: 120, periodStart: "test", reservationToken: "test" };
+        if (!voice || voice.allowed !== true || !voice.reservationToken || voice.allowedSeconds < 1) {
+          if (allowanceReserved && typeof allowanceRelease === "function") {
+            await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+              { reservation: allowanceReservation });
+          }
+          continue;
+        }
         // `fresh` is the CLAIM TOKEN (a truthy string) when this tick won the claim — the gate below
         // is unchanged because falsy still means "someone already called". It is carried all the way
         // to releaseWake so a release that arrives late can only delete ITS OWN claim.
         const fresh = await (deps.claimWake || claimWake)(u.uid, eventKey);
-        if (!fresh) continue; // already called for this (event, level)
-        // A coarser level the call above superseded must never ring later, so it is CLAIMED here and
-        // left uncalled — the claim is what stops a future tick from resurrecting it.
-        if (lvl !== due[0]) continue;
-        const streamUrl = buildStreamUrl({ ...ev, wakeUid: u.uid, wakeEventKey: eventKey }, lvl.urgency, langForUser(u), u.name);
+        if (!fresh) {
+          if (typeof voiceRelease === "function") await voiceRelease(u.uid, eventKey, allowanceUrl, allowanceKey,
+            { reservation: voice });
+          continue;
+        }
+        if (typeof voiceAccept === "function") {
+          const accepted = await voiceAccept(u.uid, eventKey, allowanceUrl, allowanceKey, { reservation: voice });
+          if (!accepted || accepted.allowed !== true) {
+            await (deps.releaseWake || releaseWake)(u.uid, eventKey, fresh);
+            if (typeof voiceRelease === "function") await voiceRelease(u.uid, eventKey, allowanceUrl, allowanceKey,
+              { reservation: voice });
+            if (allowanceReserved && typeof allowanceRelease === "function") {
+              await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+                { reservation: allowanceReservation });
+            }
+            continue;
+          }
+        }
+        const streamUrl = buildStreamUrl({ ...ev, wakeUid: u.uid, wakeEventKey: eventKey,
+          voicePeriodStart: voice.periodStart, voiceReservationToken: voice.reservationToken,
+          voiceAllowedSeconds: voice.allowedSeconds }, lvl.urgency, langForUser(u), u.name);
         let res;
         try {
           res = await (deps.placeCall || placeCall)({
             to: u.phone,
             streamUrl,
+            timeLimitSeconds: voice.allowedSeconds,
             clientState: encodeWakeClientState({
               wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh,
+              managedActionKey: allowanceReservation ? managedActionKey : undefined,
+              managedPeriodStart: allowanceReservation && allowanceReservation.periodStart,
+              managedReservationToken: allowanceReservation && allowanceReservation.reservationToken,
+              voicePeriodStart: voice.periodStart,
+              voiceReservationToken: voice.reservationToken,
+              voiceAllowedSeconds: voice.allowedSeconds,
             }),
           });
         } catch (e) {
@@ -533,6 +618,10 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
           }
         } else {
           console.error(`[scheduler] dial failed T-${lvl.min} uid=${u.uid.slice(0, 12)}: ${res.error}`);
+          if (res.deliveryUnknown === true) {
+            console.error(`[scheduler] dial delivery unknown; retaining claims for provider reconciliation uid=${u.uid.slice(0, 12)}`);
+            continue;
+          }
           // 1b: record BEFORE releasing, because releasing is what erases the evidence. Wrapped so a
           // ledger outage can never skip the release below — the retry outranks the bookkeeping.
           await noteWakeMiss(u, {
@@ -551,6 +640,14 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
           // tick may have claimed the same key and actually rung the user. An untargeted delete
           // would erase that success and the next tick would ring them a second time.
           await (deps.releaseWake || releaseWake)(u.uid, eventKey, fresh);
+          if (typeof voiceRelease === "function") {
+            await voiceRelease(u.uid, eventKey, allowanceUrl, allowanceKey, { reservation: voice });
+          }
+          if (typeof allowanceRelease === "function") {
+            const { url: allowanceUrl, key: allowanceKey } = SUPA();
+            await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+              { reservation: allowanceReservation });
+          }
           await (deps.alertLowBalance || maybeAlertLowBalance)(res.error);
         }
       }
@@ -582,7 +679,7 @@ async function reminderUserOnce(u, nowMs, deps = {}) {
   const reminderTimeoutMs = deps.reminderTimeoutMs !== undefined
     ? deps.reminderTimeoutMs
     : (deps.travelReminderTimeoutMs !== undefined ? deps.travelReminderTimeoutMs : REMINDER_TIMEOUT_MS);
-  return runOrgan({
+  const reminderResult = await runOrgan({
     label: "organ:travel-reminder", uid: u.uid, log,
     run: () => withTimeout(async () => {
       const configuredSupa = SUPA();
@@ -605,11 +702,27 @@ async function reminderUserOnce(u, nowMs, deps = {}) {
         directionsRoute: deps.directionsRoute,
         claimTravel: deps.claimTravel,
         unclaimTravel: deps.unclaimTravel,
+        reserveManagedAction: deps.reserveManagedAction || (deps.travelReminder ? undefined : reserveManagedAction),
+        completeManagedAction: deps.completeManagedAction || (deps.travelReminder ? undefined : completeManagedAction),
+        releaseManagedAction: deps.releaseManagedAction || (deps.travelReminder ? undefined : releaseManagedAction),
         sendMessage: deps.sendMessage || sendMessage,
         log,
       });
     }, reminderTimeoutMs, "travel reminder"),
   });
+  const noticeFn = deps.allowanceNotice || (deps.travelReminder ? null : deliverAllowanceNotice);
+  if (typeof noticeFn === "function") {
+    try {
+      await noticeFn(u, {
+        supaUrl: deps.supaUrl !== undefined ? deps.supaUrl : SUPA().url,
+        supaKey: deps.supaKey !== undefined ? deps.supaKey : SUPA().key,
+        telegramToken: deps.telegramToken !== undefined ? deps.telegramToken : process.env.LM_TELEGRAM_BOT_TOKEN,
+        sendMessage: deps.sendMessage || sendMessage,
+        fetchImpl: deps.fetchImpl,
+      });
+    } catch { /* notice failure must not change the deadline-critical reminder result */ }
+  }
+  return reminderResult;
 }
 
 // organsUserOnce — everything that is NOT the wake call or deadline-critical Telegram reminder.
@@ -884,7 +997,8 @@ async function wakeTick(deps = {}) {
     // not the default. Missing/malformed values must never enter the dial path.
     // `daily_automation_enabled !== false` keeps its opt-OUT sense — that switch means "run nothing
     // for me", and it is not the thing §5.2.1 flipped.
-    users.filter(u => u.daily_automation_enabled !== false && u.call_enabled === true && isCallablePhone(u.phone)),
+    users.filter(u => u.daily_automation_enabled !== false && u.paid === true
+      && u.call_enabled === true && isCallablePhone(u.phone)),
     "wake", (u) => wake(u, now), WAKE_USER_TIMEOUT_MS,
   );
 }
@@ -984,6 +1098,9 @@ async function travelUserOnce(u, deps = {}) {
       nowMs: deps.nowMs === undefined ? Date.now() : deps.nowMs,
       calendar: deps.calendar, supaUrl, supaKey,
       _directionsMinutes: deps.directionsMinutes,
+      _reserveManagedAction: deps.reserveManagedAction || (deps.fillTravel ? undefined : reserveManagedAction),
+      _completeManagedAction: deps.completeManagedAction || (deps.fillTravel ? undefined : completeManagedAction),
+      _releaseManagedAction: deps.releaseManagedAction || (deps.fillTravel ? undefined : releaseManagedAction),
       gmailAccountId: u.gmail_account_id,
     });
     if (r.inserted) console.log(`[travel] uid=${u.uid.slice(0, 12)} inserted=${r.inserted} checked=${r.checked}`);

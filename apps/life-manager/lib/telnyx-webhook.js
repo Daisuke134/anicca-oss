@@ -10,10 +10,25 @@ function isValidOptionalText(value, maxLength) {
   return typeof value === "string" && value.trim() !== "" && value.length <= maxLength;
 }
 
-function encodeWakeClientState({ wakeUid, wakeEventKey, wakeClaimToken } = {}) {
+function encodeWakeClientState({ wakeUid, wakeEventKey, wakeClaimToken, managedActionKey,
+  managedPeriodStart, managedReservationToken, voicePeriodStart, voiceReservationToken,
+  voiceAllowedSeconds } = {}) {
   if (!wakeUid || !wakeEventKey) return "";
   const state = { wakeUid, wakeEventKey };
   if (isValidOptionalText(wakeClaimToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) state.wakeClaimToken = wakeClaimToken;
+  if (isValidOptionalText(managedActionKey, MAX_WAKE_CLAIM_TOKEN_LENGTH)) state.managedActionKey = managedActionKey;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(managedPeriodStart || ""))
+      && isValidOptionalText(managedReservationToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
+    state.managedPeriodStart = managedPeriodStart;
+    state.managedReservationToken = managedReservationToken;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(voicePeriodStart || ""))
+      && isValidOptionalText(voiceReservationToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)
+      && Number.isInteger(voiceAllowedSeconds) && voiceAllowedSeconds >= 1 && voiceAllowedSeconds <= 120) {
+    state.voicePeriodStart = voicePeriodStart;
+    state.voiceReservationToken = voiceReservationToken;
+    state.voiceAllowedSeconds = voiceAllowedSeconds;
+  }
   return Buffer.from(JSON.stringify(state), "utf8").toString("base64");
 }
 
@@ -29,6 +44,22 @@ function decodeWakeClientState(value) {
     };
     if (isValidOptionalText(parsed.wakeClaimToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
       state.wakeClaimToken = parsed.wakeClaimToken;
+    }
+    if (isValidOptionalText(parsed.managedActionKey, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
+      state.managedActionKey = parsed.managedActionKey;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(parsed.managedPeriodStart || ""))
+        && isValidOptionalText(parsed.managedReservationToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
+      state.managedPeriodStart = parsed.managedPeriodStart;
+      state.managedReservationToken = parsed.managedReservationToken;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(parsed.voicePeriodStart || ""))
+        && isValidOptionalText(parsed.voiceReservationToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)
+        && Number.isInteger(parsed.voiceAllowedSeconds) && parsed.voiceAllowedSeconds >= 1
+        && parsed.voiceAllowedSeconds <= 120) {
+      state.voicePeriodStart = parsed.voicePeriodStart;
+      state.voiceReservationToken = parsed.voiceReservationToken;
+      state.voiceAllowedSeconds = parsed.voiceAllowedSeconds;
     }
     return state;
   } catch {

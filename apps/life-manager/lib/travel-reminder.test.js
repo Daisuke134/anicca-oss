@@ -668,6 +668,44 @@ test("travelReminderOnce sends an event-only reminder when origin is unavailable
   assert.doesNotMatch(sent[0], /経路を取得できませんでした/);
 });
 
+test("monthly allowance blocks new route effects; the separate receipt-safe notifier owns the notice", async () => {
+    let routes = 0, sends = 0, releases = 0;
+    const due = event({ id: "allowance-event", startMs: NOW + T5_MS });
+    const result = await travelReminderOnce({ uid: "allowance-user", telegram_chat_id: "chat", notifications_enabled: true }, NOW, {
+      events: [due], home: HOME, telegramToken: "token", supaUrl: "supa", supaKey: "key",
+      reserveManagedAction: async () => ({ allowed: false }),
+      directionsRoute: async () => { routes += 1; return routeFixture(); },
+      claimTravel: async () => true,
+      unclaimTravel: async () => { releases += 1; return true; },
+      sendMessage: async (_token, _chat, text) => {
+        sends += 1; void text;
+        return { ok: true, result: { message_id: 799 } };
+      },
+      recordTravelTelegramReceipt: successfulReceipt,
+    });
+    assert.equal(routes, 0, "no paid route call after allowance exhaustion");
+    assert.equal(sends, 0);
+    assert.equal(result.status, "suppressed");
+    assert.equal(releases, 1);
+});
+
+test("claim failure releases every owned allowance reservation", async () => {
+  let releases = 0;
+  const due = event({ id: "claim-throws", startMs: NOW + T5_MS });
+  const result = await travelReminderOnce({ uid: "allowance-user", telegram_chat_id: "chat", notifications_enabled: true }, NOW, {
+    events: [due], home: HOME, telegramToken: "token", supaUrl: "supa", supaKey: "key",
+    reserveManagedAction: async () => ({ allowed: true, periodStart: "2026-09-01",
+      reservationToken: "11111111-1111-4111-8111-111111111111" }),
+    releaseManagedAction: async (_uid, _key, _url, _secret, opts) => {
+      assert.equal(opts.reservation.periodStart, "2026-09-01"); releases += 1;
+    },
+    directionsRoute: async () => null,
+    claimTravel: async () => { throw new Error("claim unavailable"); },
+  });
+  assert.deepEqual(result, { status: "suppressed", reason: "claim-failed" });
+  assert.equal(releases, 1);
+});
+
 test("travelReminderOnce does not send before threshold", async () => {
   let sends = 0;
   const dueEvent = event({ id: "early", startMs: NOW + 15 * T5_MS, startIso: "2026-08-28T14:15:00+09:00" });

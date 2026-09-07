@@ -97,6 +97,23 @@ function makeSupabaseRouteStore({ supaUrl, supaKey, fetchImpl = global.fetch } =
     "Content-Type": "application/json",
   };
   return {
+    async getByEvent(uid, eventVersion, purpose) {
+      if (!base || !supaKey || typeof fetchImpl !== "function" || !uid || !eventVersion) return null;
+      try {
+        const url = `${base}/rest/v1/lm_route_cache?uid=eq.${encodeURIComponent(String(uid))}`
+          + `&event_version=eq.${encodeURIComponent(String(eventVersion))}`
+          + `&purpose=eq.${encodeURIComponent(String(purpose || "go"))}`
+          + "&select=geometry,computed_at,ttl_secs,cache_state,failure_class&order=computed_at.desc&limit=1";
+        const response = await fetchImpl(url, { headers });
+        if (!response || response.ok !== true) return null;
+        const rows = await response.json();
+        const row = Array.isArray(rows) ? rows[0] : null;
+        const computedAt = Date.parse(row && row.computed_at);
+        if (!row || !Number.isFinite(computedAt)) return null;
+        return { value: row.geometry, computedAt, ttlMs: Number(row.ttl_secs) * 1000,
+          negative: row.cache_state === "negative", failureClass: row.failure_class || null };
+      } catch { return null; }
+    },
     async get(key) {
       if (memory.has(key)) return memory.get(key);
       if (!base || !supaKey || typeof fetchImpl !== "function") return null;
@@ -126,7 +143,7 @@ function makeSupabaseRouteStore({ supaUrl, supaKey, fetchImpl = global.fetch } =
       let parts;
       try { parts = JSON.parse(key); } catch { return false; }
       if (!Array.isArray(parts) || parts.length < 10) return false;
-      const [uid, fromLat, fromLon, toLat, toLon, provider, , , , bucket] = parts;
+      const [uid, fromLat, fromLon, toLat, toLon, provider, , , , , bucket, , , eventVersion, purpose] = parts;
       const seconds = Number(entry && entry.value && (entry.value.durationSeconds
         ?? entry.value.durationSecs ?? entry.value.duration_seconds));
       const body = {
@@ -142,6 +159,8 @@ function makeSupabaseRouteStore({ supaUrl, supaKey, fetchImpl = global.fetch } =
         cache_key: key,
         cache_state: entry.negative ? "negative" : "success",
         failure_class: entry.failureClass || null,
+        event_version: String(eventVersion || ""),
+        purpose: String(purpose || "go"),
       };
       try {
         const response = await fetchImpl(`${base}/rest/v1/lm_route_cache?on_conflict=cache_key`, {
@@ -162,6 +181,19 @@ function makeRouteCache({ store = new Map(), ttlMs = BUCKET_MS, negativeTtlMs = 
   transientTtlMs = TRANSIENT_TTL_MS, now = Date.now } = {}) {
   const inFlight = new Map();
   const reportedHits = new Set();
+  async function getByEvent(uid, eventVersion, purpose = "go", onCacheHit = null) {
+    if (!store || typeof store.getByEvent !== "function" || !uid || !eventVersion) return { hit: false, value: null };
+    let entry = null;
+    try { entry = await store.getByEvent(uid, eventVersion, purpose); } catch { entry = null; }
+    const entryTtlMs = entry && Number.isFinite(entry.ttlMs) ? entry.ttlMs : ttlMs;
+    if (!entry || !Number.isFinite(entry.computedAt) || now() - entry.computedAt >= entryTtlMs) {
+      return { hit: false, value: null };
+    }
+    if (typeof onCacheHit === "function") await onCacheHit(entry.negative ? null : entry.value, {
+      negative: entry.negative === true, failureClass: entry.failureClass || null,
+    });
+    return { hit: true, value: entry.negative ? null : entry.value, failureClass: entry.failureClass || null };
+  }
   async function getOrCompute(uid, fromGeo, toGeo, bucket, provider, context = {}, onCacheHit = null) {
     const key = cacheKey(uid, fromGeo, toGeo, bucket, context);
     if (inFlight.has(key)) return inFlight.get(key);
@@ -204,7 +236,7 @@ function makeRouteCache({ store = new Map(), ttlMs = BUCKET_MS, negativeTtlMs = 
       inFlight.delete(key);
     }
   }
-  return { getOrCompute };
+  return { getByEvent, getOrCompute };
 }
 
 module.exports = {

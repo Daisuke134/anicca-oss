@@ -216,6 +216,22 @@ test("PANEL-0 Composio managed OAuth uses the exact link contract and preserves 
   assert.equal(oauth.redirectUrl, providerRedirect);
 });
 
+test("Telegram Calendar OAuth uses its cookie-free callback and carries language only as display metadata", async () => {
+  const requests = [];
+  const stateToken = Buffer.alloc(32, 4).toString("base64url");
+  await startCalendarOAuth({ uid: "u-b", chatId: "202" }, stateToken, {
+    composioKey: "test", composioAuthConfig: "auth-test", panelBaseUrl: "https://panel.example/",
+    calendarCallbackPath: "/telegram/oauth/calendar", calendarCallbackParams: { lang: "ja-JP" },
+    fetchImpl: async (url, init) => { requests.push({ url: String(url), init }); return { ok: true, json: async () => ({ redirect_url: "https://connect.composio.dev/link/opaque" }) }; },
+  });
+  const callback = new URL(JSON.parse(requests[0].init.body).callback_url);
+  assert.equal(callback.pathname, "/telegram/oauth/calendar");
+  assert.equal(callback.searchParams.get("state"), stateToken);
+  assert.equal(callback.searchParams.get("lang"), "ja-JP");
+  assert.equal(callback.searchParams.has("uid"), false);
+  assert.equal(callback.searchParams.has("chat_id"), false);
+});
+
 test("PANEL-0 Composio OAuth failure is fail-closed without a legacy retry", async (t) => {
   for (const status of [400, 503]) {
     await t.test(`HTTP ${status}`, async () => {

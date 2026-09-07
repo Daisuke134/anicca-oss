@@ -37,8 +37,9 @@ const { serve: inngestServe } = require("inngest/node"); // raw Node http server
 const { inngest } = require("./inngest/client.js");
 const { functions: inngestFunctions } = require("./inngest/functions.js");
 const inngestHandler = inngestServe({ client: inngest, functions: inngestFunctions });
-const { placeCall, startRecording } = require("./lib/dial.js");
+const { placeCall, startRecording, retrieveCallDuration } = require("./lib/dial.js");
 const { recordTelnyxWakeReceipt } = require("./lib/telnyx-receipt.js");
+const { completeManagedAction, releaseManagedAction, completeVoiceAllowance } = require("./lib/managed-allowance.js");
 const { amdEnabled, shouldMarkAnswered } = require("./lib/answered.js");
 const { decodeCallClientState, encodeTestCallClientState, verifyTelnyxSignature } = require("./lib/telnyx-webhook.js");
 const { parseUpdate, sendMessage, editMessageText, answerCallbackQuery, isPanelCommand, isPanelDeepLink, routeCallbackData, startReply } = require("./lib/telegram.js");
@@ -47,8 +48,8 @@ const {
   createSupabaseLateApprovalStore,
   handleLateApprovalCallback,
 } = require("./lib/late-approval.js");
-const { sendPanelLink, handlePanelRequest, handleMoneyPrinterGuestRequest, panelDeviceCodeFromCommand, confirmPanelDeviceCode, cookieValue, sessionScope, panelScopeCookie } = require("./lib/panel-auth.js");
-const { handlePanelApiRequest, handlePanelOAuthCallback, composioCalendarStart, composioCalendarDisconnect } = require("./lib/panel-api.js");
+const { sendPanelLink, handlePanelRequest, handleMoneyPrinterGuestRequest, panelDeviceCodeFromCommand, confirmPanelDeviceCode, cookieValue, sessionScope, panelScopeCookie, claimTelegramWebhookActor } = require("./lib/panel-auth.js");
+const { handlePanelApiRequest, handlePanelOAuthCallback, handleTelegramOAuthCallback, composioCalendarStart, composioCalendarDisconnect } = require("./lib/panel-api.js");
 const { createMoneyPrinterSource } = require("./lib/money-printer-source.js");
 const { createMoneyPrinterRuntimeStore } = require("./lib/money-printer-runtime-store.js");
 const { handleMoneyPrinterSymphonyApiRequest } = require("./lib/money-printer-symphony-api.js");
@@ -63,7 +64,7 @@ const { resolveTelegramReply } = require("./lib/telegram-reply.js");
 const { handleInboundReply, handleAskCallback, parseInboundRecipient } = require("./lib/ask.js");
 const { isReplyToken } = require("./lib/reply-token.js");
 const {
-  rowByChatId, handleOnboardingText, handleGmailCallback,
+  rowByChatId, handleOnboardingText, handleGmailCallback, sendStage,
 } = require("./lib/telegram-onboard.js");
 const { createHostedGmailLink } = require("./lib/gmail-onboard.js");
 const { mailAvailable } = require("./lib/mail-availability.js");
@@ -410,15 +411,26 @@ function ctxFromReq(req) {
   const name = (q.get("name") || "").slice(0, 60); // who to address on the call (already sanitized when signed)
   const wakeUid = (q.get("wakeUid") || "").slice(0, 100);
   const wakeEventKey = (q.get("wakeEventKey") || "").slice(0, 300);
+  const voicePeriodStart = q.get("voicePeriodStart") || "";
+  const voiceReservationToken = q.get("voiceReservationToken") || "";
+  const voiceAllowedSecondsText = q.get("voiceAllowedSeconds") || "";
   const sig = q.get("sig") || "";
 
   const secret = process.env.LM_CALL_SECRET || "";
-  const expected = crypto.createHmac("sha256", secret).update([summary, dateTime, location, urgency, lang, name, wakeUid, wakeEventKey].join("\n")).digest("base64url");
+  const expected = crypto.createHmac("sha256", secret).update([summary, dateTime, location, urgency, lang, name,
+    wakeUid, wakeEventKey, voicePeriodStart, voiceReservationToken, voiceAllowedSecondsText].join("\n")).digest("base64url");
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (!secret || a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
 
-  return { event: { summary, start: { dateTime }, location }, urgency, lang, name, wakeUid, wakeEventKey };
+  const voiceAllowedSeconds = Number(voiceAllowedSecondsText);
+  const voiceReservation = /^\d{4}-\d{2}-\d{2}$/.test(voicePeriodStart)
+    && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(voiceReservationToken)
+    && Number.isInteger(voiceAllowedSeconds) && voiceAllowedSeconds >= 1 && voiceAllowedSeconds <= 120
+    ? { periodStart: voicePeriodStart, reservationToken: voiceReservationToken, allowedSeconds: voiceAllowedSeconds }
+    : null;
+  return { event: { summary, start: { dateTime }, location }, urgency, lang, name, wakeUid, wakeEventKey,
+    voiceReservation };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -574,6 +586,24 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
+  if (path === "/telegram/oauth/calendar") {
+    const botUsername = String(process.env.LM_TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+    if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(botUsername)) {
+      res.writeHead(503, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      res.end("Return to Telegram and send /start again.");
+      return;
+    }
+    handleTelegramOAuthCallback(req, res, {
+      supaUrl: SUPA_URL, supaKey: SUPA_KEY, composioKey: COMPOSIO_KEY,
+      sendMessage: (chatId, text) => sendMessage(LM_TG_TOKEN, chatId, text),
+      telegramReturnUrl: `https://t.me/${botUsername}`,
+    }).catch((error) => {
+      console.error("[telegram-oauth] callback failed", error && error.message);
+      if (!res.headersSent) res.writeHead(503, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      res.end("Return to Telegram and send /start again.");
+    });
+    return;
+  }
   if (path === "/health" || path === "/") {
     res.writeHead(200, { "content-type": "application/json" });
     // `build` lets any deploy be verified from outside (curl /health) — proves new code is live.
@@ -636,6 +666,34 @@ const server = http.createServer(async (req, res) => {
           res.end("receipt failed; send it again");
           return;
         }
+        if (wake.voicePeriodStart && wake.voiceReservationToken) {
+          const connectedSeconds = await retrieveCallDuration(payload.call_control_id);
+          if (connectedSeconds == null) {
+            console.error("[telnyx-events] voice duration reconciliation failed");
+            res.writeHead(503, { "content-type": "text/plain" });
+            res.end("voice duration unavailable; send it again");
+            return;
+          }
+          const voice = await completeVoiceAllowance(wake.wakeUid, wake.wakeEventKey, SUPA_URL, SUPA_KEY, {
+            reservation: {
+              periodStart: wake.voicePeriodStart,
+              reservationToken: wake.voiceReservationToken,
+              allowedSeconds: wake.voiceAllowedSeconds,
+            },
+            connectedSeconds,
+          });
+          if (!voice || voice.allowed !== true) {
+            console.error("[telnyx-events] voice allowance reconciliation failed");
+            res.writeHead(503, { "content-type": "text/plain" });
+            res.end("voice allowance failed; send it again");
+            return;
+          }
+        }
+        if (wake.managedActionKey && wake.managedPeriodStart && wake.managedReservationToken) {
+          await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, {
+            reservation: { periodStart: wake.managedPeriodStart, reservationToken: wake.managedReservationToken },
+          });
+        }
         res.writeHead(200);
         res.end(receipt.matched === 1 ? "recorded" : "receipt unmatched");
         return;
@@ -692,6 +750,22 @@ const server = http.createServer(async (req, res) => {
       };
       report("amd_result", detection.amd);
       if (detection.answered) report("answered_at", detection.answered);
+      if (wake.managedActionKey && wake.managedPeriodStart && wake.managedReservationToken) {
+        const reservation = {
+          periodStart: wake.managedPeriodStart,
+          reservationToken: wake.managedReservationToken,
+        };
+        const allowanceReceipt = detection.result === "human" && detection.answered
+          && detection.answered.ok === true && detection.answered.matched === 1
+          ? await completeManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, { reservation })
+          : await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, { reservation });
+        if (!allowanceReceipt || allowanceReceipt.allowed !== true) {
+          console.error("[telnyx-events] allowance receipt reconciliation required");
+          res.writeHead(503, { "content-type": "text/plain" });
+          res.end("allowance receipt failed; send it again");
+          return;
+        }
+      }
       // The hangup is best-effort and is logged apart from the writes above, because it fails for a
       // different reason (Telnyx, not Supabase) and costs a different thing: money, never evidence.
       // Silence here would put us back where we started — paying for two minutes of voicemail with
@@ -967,7 +1041,59 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(200); res.end("ok");
             return;
           }
-          const row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY); // null until they link via /lm
+          let row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+          if (u.kind === "message" && u.isStart && !isPanelDeepLink(u.text)) {
+            const claim = await claimTelegramWebhookActor({
+              actorId: u.userId,
+              chatId: u.chatId,
+              updateId: update.update_id,
+              profileName: [u.firstName, u.lastName].filter(Boolean).join(" "),
+            }, { supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+            if (claim.status === "replayed") {
+              res.writeHead(200); res.end("ok");
+              return;
+            }
+            if (claim.status !== "claimed" || String(claim.chat_id) !== String(u.chatId)) throw new Error("telegram actor claim failed");
+            row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+            if (!row || !row.uid) throw new Error("telegram actor unavailable");
+            const commandStore = createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+            commandStore.createOAuthState = commandStore.createTelegramOAuthState;
+            const telegramScope = { uid: row.uid, chatId: u.chatId };
+            const result = await executeUserCommand(telegramScope, {
+              type: "connection.start", provider: "calendar",
+            }, {
+              store: commandStore,
+              idempotencyKey: `telegram-start:${u.messageId || update.update_id}`,
+              composioKey: COMPOSIO_KEY,
+              composioAuthConfig: process.env.COMPOSIO_GCAL_AUTH_CONFIG,
+              panelBaseUrl: LM_PANEL_BASE,
+              calendarCallbackPath: "/telegram/oauth/calendar",
+              calendarCallbackParams: { lang: u.languageCode },
+              startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY }),
+            });
+            if (result && result.state && result.state.state === "connected") {
+              await commandStore.syncCalendarStatus(telegramScope, "ACTIVE");
+            }
+            if (result && result.state && result.state.redirectUrl) {
+              const reply = startReply({ calendarUrl: result.state.redirectUrl, languageCode: u.languageCode });
+              const sent = await sendMessage(LM_TG_TOKEN, u.chatId, reply.text, reply.extra);
+              if (!sent || sent.ok !== true) throw new Error("Telegram onboarding send failed");
+            } else {
+              row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+              const stage = await sendStage(LM_TG_TOKEN, u.chatId, row, PUBLIC_BASE, {
+                sendMessage: async (...args) => {
+                  const delivered = await sendMessage(...args);
+                  if (!delivered || delivered.ok !== true) throw new Error("Telegram onboarding send failed");
+                  return delivered;
+                },
+                profile: { first_name: u.firstName, last_name: u.lastName },
+                languageCode: u.languageCode,
+              });
+              if (!stage) throw new Error("Telegram onboarding send failed");
+            }
+            res.writeHead(200); res.end("ok");
+            return;
+          }
           // FIN-d (13d-a): a pending wallet-address intake claims the typed message BEFORE feedback
           // can swallow it — an address must never become a feedback ticket. The module returns
           // handled:false for everything that is not its intake (no marker, bot commands, other
@@ -1068,7 +1194,7 @@ const server = http.createServer(async (req, res) => {
           const gmailConnectUrl = ""; // Gmail connect is honestly OFF; sendStage auto-skips without rendering OAuth.
           const opts = {
             token: LM_TG_TOKEN, base: PUBLIC_BASE, supaUrl: SUPA_URL, supaKey: SUPA_KEY, gmailConnectUrl,
-            composioKey: COMPOSIO_KEY, geminiKey: GEMINI_KEY,
+            composioKey: COMPOSIO_KEY, geminiKey: GEMINI_KEY, languageCode: u.languageCode,
           };
           if (u.text && (parsedControl.kind === "command" || parsedControl.kind === "unavailable")) {
             if (parsedControl.kind === "command" && !row) {
@@ -1120,14 +1246,7 @@ const server = http.createServer(async (req, res) => {
               return;
             }
           }
-          if (u.isStart) {
-            // Telegram WebApp initData is the sole identity input for panel onboarding. The URL
-            // builder validates LM_PANEL_BASE and intentionally excludes chat IDs/tokens, so the
-            // web page can create its server session through the existing panel-auth boundary.
-            const reply = startReply(u.chatId, LM_PANEL_BASE);
-            const sent = await sendMessage(LM_TG_TOKEN, u.chatId, reply.text, reply.extra);
-            if (!sent || sent.ok !== true) throw new Error("onboarding web app button send failed");
-          } else if (u.text) {
+          if (u.text) {
             // Native steps (name/phone) capture the typed value; web steps re-nudge; "done" → reply.
             const result = await handleOnboardingText(u.chatId, u.text, row, opts);
             if (result === "done") {
@@ -1266,7 +1385,7 @@ wss.on("connection", (carrierWs, req) => {
     return;
   }
   liveCalls++;
-  const { event, urgency, lang, name, wakeUid, wakeEventKey } = ctx;
+  const { event, urgency, lang, name, wakeUid, wakeEventKey, voiceReservation } = ctx;
   console.log(`[bridge] carrier connected urgency=${urgency} live=${liveCalls}`);
   const state = { streamSid: null, inFrames: 0, outFrames: 0, setupComplete: false };
 
@@ -1422,4 +1541,4 @@ if (require.main === module) {
 // redeploy trigger 010026
 
 // Export pure helpers for unit tests (FIND-005).
-module.exports = { browserCastPublicUrl, buildTag, createBrowserCastTicket, inngestServeAllowed, panelApiOptions, panelOriginForPath, server, steelCastUrl, testCallAllowed, verifyBrowserCastTicket, TEST_CALL_COOLDOWN_MS, TEST_CALL_DAILY_MAX };
+module.exports = { browserCastPublicUrl, buildTag, createBrowserCastTicket, ctxFromReq, inngestServeAllowed, panelApiOptions, panelOriginForPath, server, steelCastUrl, testCallAllowed, verifyBrowserCastTicket, TEST_CALL_COOLDOWN_MS, TEST_CALL_DAILY_MAX };

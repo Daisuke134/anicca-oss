@@ -10,8 +10,8 @@ const TEST_URL = "wss://life-call-production.up.railway.app/ws?summary=x&wakeUid
 
 const CALL_URL = "wss://life-call-production.up.railway.app/ws?summary=x";
 
-function jsonResponse(payload, ok = true) {
-  return { ok, async json() { return payload; } };
+function jsonResponse(payload, ok = true, status = ok ? 200 : 500) {
+  return { ok, status, async json() { return payload; } };
 }
 
 async function withDialTransport(callPayload, run) {
@@ -29,6 +29,8 @@ async function withDialTransport(callPayload, run) {
     requests.push({ url, options });
     if (url.endsWith("/balance")) return jsonResponse({ data: { balance: "1.00" } });
     assert.equal(url, "https://api.telnyx.com/v2/calls");
+    if (callPayload instanceof Error) throw callPayload;
+    if (callPayload && callPayload.__status) return jsonResponse(callPayload.body || {}, false, callPayload.__status);
     return jsonResponse(callPayload);
   };
   try {
@@ -48,6 +50,22 @@ test("a wake stream url still derives its client_state from the url", () => {
   // The wake path is the one that already works in production; the test-call fix must not move it.
   const opts = amdDialOptions(WAKE_URL, { LM_AMD: "on" });
   assert.deepEqual(decodeCallClientState(opts.client_state), { kind: "wake", wakeUid: "lm_abc", wakeEventKey: "k1" });
+});
+
+test("placeCall distinguishes response loss from an explicit provider rejection", async () => {
+  const unknown = await withDialTransport(new Error("socket reset"), () => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL,
+  }));
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.deliveryUnknown, true);
+  const serverError = await withDialTransport({ __status: 503 }, () => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL,
+  }));
+  assert.equal(serverError.deliveryUnknown, true);
+  const rejection = await withDialTransport({ __status: 422 }, () => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL,
+  }));
+  assert.equal(rejection.deliveryUnknown, false);
 });
 
 test("an explicit client_state wins over the url", () => {
@@ -72,6 +90,17 @@ test("LM_AMD=off disables AMD even with an explicit client_state", () => {
   assert.deepEqual(opts, {});
 });
 
+test("LM_AMD=off keeps the lifecycle webhook for a voice allowance owner", () => {
+  const { encodeWakeClientState } = require("./telnyx-webhook.js");
+  const clientState = encodeWakeClientState({ wakeUid: "lm_abc", wakeEventKey: "call-a",
+    wakeClaimToken: "claim", voicePeriodStart: "2026-09-01",
+    voiceReservationToken: "11111111-1111-4111-8111-111111111111", voiceAllowedSeconds: 120 });
+  const opts = amdDialOptions(WAKE_URL, { LM_AMD: "off" }, { clientState });
+  assert.equal(opts.answering_machine_detection, undefined);
+  assert.equal(opts.client_state, clientState);
+  assert.match(opts.webhook_url, /\/telnyx-events$/);
+});
+
 test("placeCall returns all exact Telnyx call identities from one successful response", async () => {
   const ids = {
     call_control_id: "v2:opaque/control+id",
@@ -87,6 +116,15 @@ test("placeCall returns all exact Telnyx call identities from one successful res
     callSessionId: ids.call_session_id,
     callLegId: ids.call_leg_id,
   });
+});
+
+test("placeCall sends the reserved connected-second ceiling to Telnyx", async () => {
+  await withDialTransport({ data: { call_control_id: "voice-budget-call" } }, (requests) => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL, timeLimitSeconds: 37,
+  }).then((result) => {
+    assert.equal(result.ok, true);
+    assert.equal(JSON.parse(requests[1].options.body).time_limit_secs, 37);
+  }));
 });
 
 test("placeCall maps absent or invalid optional Telnyx identities to null", async () => {
@@ -114,5 +152,6 @@ test("placeCall rejects blank, non-string, and oversized mandatory call-control 
     assert.equal(result.ok, false, `accepted ${String(call_control_id)}`);
     assert.equal("ccid" in result, false);
     assert.equal(result.error, "no call_control_id");
+    assert.equal(result.deliveryUnknown, true);
   }
 });

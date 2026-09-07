@@ -28,6 +28,7 @@ const DEPARTURE_MS = EVENT_START_MS - 40 * MINUTE;
 const TEST_PHONE = "+99900000000";
 
 const USER = {
+  paid: true,
   uid: "iso-user",
   name: "Iso User",
   phone: TEST_PHONE,
@@ -80,6 +81,85 @@ test("the dial half does not run a single organ — a stalled organ cannot reach
   const elapsed = Date.now() - started;
   assert.equal(h.dialed.length, 1, "the call is placed");
   assert.ok(elapsed < 1000, `the dial path must not wait on organs (took ${elapsed}ms)`);
+});
+
+test("monthly allowance exhaustion performs zero inline route and zero Telnyx call", async () => {
+  clearEvents();
+  const h = deps();
+  let routes = 0, reserves = 0;
+  h.deps.reserveManagedAction = async (_uid, actionKey) => {
+    reserves += 1;
+    assert.equal(actionKey, EVENT.id);
+    return { allowed: false, notify: true };
+  };
+  h.deps.directionsMinutes = async () => { routes += 1; return TRAVEL_MIN; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(reserves, 1);
+  assert.equal(routes, 0);
+  assert.equal(h.dialed.length, 0);
+});
+
+test("voice allowance exhaustion performs zero Telnyx call and releases its pending event action", async () => {
+  clearEvents();
+  const h = deps();
+  let actionReleases = 0;
+  h.deps.reserveManagedAction = async () => ({ allowed: true, periodStart: "2026-09-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: false, usedSeconds: 3600, limitSeconds: 3600,
+    allowedSeconds: 0, periodStart: "2026-09-01", resetAt: "2026-10-01" });
+  h.deps.releaseManagedAction = async () => { actionReleases += 1; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(h.dialed.length, 0);
+  assert.equal(actionReleases, 1);
+});
+
+test("a voice reservation becomes the signed stream context and Telnyx time limit", async () => {
+  clearEvents();
+  const h = deps();
+  let dial;
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: true, usedSeconds: 3563, limitSeconds: 3600,
+    allowedSeconds: 37, periodStart: "2026-09-01", resetAt: "2026-10-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.placeCall = async (input) => { dial = input; return { ok: true, ccid: "voice-budget" }; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  const stream = new URL(dial.streamUrl);
+  assert.equal(dial.timeLimitSeconds, 37);
+  assert.equal(stream.searchParams.get("voiceAllowedSeconds"), "37");
+  assert.equal(stream.searchParams.get("voicePeriodStart"), "2026-09-01");
+  assert.equal(stream.searchParams.get("voiceReservationToken"), "11111111-1111-4111-8111-111111111111");
+});
+
+test("a voice reservation that cannot become durable accepted state never dials", async () => {
+  clearEvents();
+  const h = deps();
+  let voiceReleases = 0, wakeReleases = 0;
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: true, usedSeconds: 0, limitSeconds: 3600,
+    allowedSeconds: 120, periodStart: "2026-09-01", resetAt: "2026-10-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.acceptVoiceAllowance = async () => null;
+  h.deps.releaseVoiceAllowance = async () => { voiceReleases += 1; };
+  h.deps.releaseWake = async () => { wakeReleases += 1; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(h.dialed.length, 0);
+  assert.equal(voiceReleases, 1);
+  assert.equal(wakeReleases, 1);
+});
+
+test("transport-unknown dial retains wake and accepted voice ownership for webhook reconciliation", async () => {
+  clearEvents();
+  const h = deps();
+  let wakeReleases = 0, voiceReleases = 0;
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: true, usedSeconds: 0, limitSeconds: 3600,
+    allowedSeconds: 120, periodStart: "2026-09-01", resetAt: "2026-10-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.acceptVoiceAllowance = async () => ({ allowed: true, usedSeconds: 0, limitSeconds: 3600,
+    allowedSeconds: 120, periodStart: "2026-09-01", resetAt: "2026-10-01" });
+  h.deps.placeCall = async () => ({ ok: false, error: "delivery unknown", deliveryUnknown: true });
+  h.deps.releaseWake = async () => { wakeReleases += 1; };
+  h.deps.releaseVoiceAllowance = async () => { voiceReleases += 1; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(wakeReleases, 0);
+  assert.equal(voiceReleases, 0);
 });
 
 test("a hung bookkeeping write cannot hold the dial — the daily poll ledger is not awaited", async () => {
@@ -176,7 +256,7 @@ test("the organ tick serves a user who gave no phone number", async () => {
   const served = [];
   await tick({
     listUsers: async () => [
-      { uid: "has-phone", phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
+      { uid: "has-phone", paid: true, phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
       { uid: "no-phone", daily_automation_enabled: true, call_enabled: false },
     ],
     organs: async (u) => { served.push(u.uid); },
@@ -209,7 +289,7 @@ test("the wake tick keeps its own call_enabled filter — dialing a user with no
   const dialled = [];
   await wakeTick({
     listUsers: async () => [
-      { uid: "has-phone", phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
+      { uid: "has-phone", paid: true, phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
       { uid: "no-phone", daily_automation_enabled: true, call_enabled: false },
       { uid: "malformed-phone", phone: "090-1234-5678", daily_automation_enabled: true, call_enabled: true },
     ],
@@ -239,7 +319,7 @@ test("a user who never asked for calls is not dialled; an explicit opt-in still 
   const dialled = [];
   await wakeTick({
     listUsers: async () => [
-      { uid: "opted-in", phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
+      { uid: "opted-in", paid: true, phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
       { uid: "no-preference-row", daily_automation_enabled: true },
       { uid: "null-column", daily_automation_enabled: true, call_enabled: null },
       { uid: "opted-out", daily_automation_enabled: true, call_enabled: false },
@@ -249,6 +329,19 @@ test("a user who never asked for calls is not dialled; an explicit opt-in still 
   });
   assert.deepEqual(dialled, ["opted-in"],
     "silence is not consent to be phoned — §5.2.1 makes the phone an extra, and Telegram the default");
+});
+
+test("normal scheduled calls are a paid feature even when a free tenant opted in", async () => {
+  const dialled = [];
+  await wakeTick({
+    listUsers: async () => [
+      { uid: "free-opted-in", paid: false, phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
+      { uid: "paid-opted-in", paid: true, phone: TEST_PHONE, daily_automation_enabled: true, call_enabled: true },
+    ],
+    wake: async (u) => { dialled.push(u.uid); },
+    now: 0,
+  });
+  assert.deepEqual(dialled, ["paid-opted-in"]);
 });
 
 // The tick filter is not the only door. wakeUserOnce (the Inngest per-user path) calls wakeCallOnce
