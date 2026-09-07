@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+PYTHON="${LIFE_MANAGER_PYTHON:-$(command -v python3)}"
+STATE_DIR="${WRITER_STATE_DIR:-$HOME/.local/state/life-manager/writer}"
+
+exec "$PYTHON" "$ROOT/skills/writer-agent/scripts/opportunity_discovery.py" \
+  --db "$STATE_DIR/opportunities.sqlite3" \
+  --claims-db "$STATE_DIR/claims.sqlite3" \
+  --receipt "$STATE_DIR/opportunity-discovery-latest.json" \
+  "$@"

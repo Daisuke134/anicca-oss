@@ -14,6 +14,29 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_writer_opportunity_discovery_wrapper_preserves_external_state_argv(self):
+        wrapper = ROOT / "skills/writer-agent/scripts/opportunity-discovery-owner"
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        state_root = "/private/life-manager-state/writer"
+        result = subprocess.run(
+            [str(wrapper)],
+            env={
+                **os.environ,
+                "LIFE_MANAGER_PYTHON": "/bin/echo",
+                "WRITER_STATE_DIR": state_root,
+            },
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            result.stdout.strip(),
+            f"{ROOT}/skills/writer-agent/scripts/opportunity_discovery.py "
+            f"--db {state_root}/opportunities.sqlite3 "
+            f"--claims-db {state_root}/claims.sqlite3 "
+            f"--receipt {state_root}/opportunity-discovery-latest.json",
+        )
+
     def test_writer_money_sync_wrapper_preserves_external_state_argv(self):
         wrapper = ROOT / "skills/writer-agent/scripts/money-sync-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))

@@ -318,30 +318,6 @@
       "log_basename": "article-healthcheck"
     },
     {
-      "label": "ai.anicca.writer-opportunity-discovery",
-      "lane": "writer-opportunity-discovery",
-      "summary": "Discovers and records publisher opportunities for later demand cards.",
-      "env_profile": "writer",
-      "program": [
-        "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
-        "{{PYTHON}}",
-        "{{RELEASE}}/skills/writer-agent/scripts/opportunity_discovery.py",
-        "--db",
-        "{{WRITER_STATE_DIR}}/opportunities.sqlite3",
-        "--claims-db",
-        "{{WRITER_STATE_DIR}}/claims.sqlite3",
-        "--receipt",
-        "{{WRITER_STATE_DIR}}/opportunity-discovery-latest.json",
-        "--runner",
-        "{{RELEASE}}/skills/writer-agent/runtime/model-runner.sh"
-      ],
-      "StartInterval": 86400,
-      "RunAtLoad": true,
-      "ProcessType": "Background",
-      "log_basename": "writer-opportunity-discovery"
-    },
-    {
       "label": "ai.anicca.writer-opportunity-response",
       "lane": "writer-opportunity-response",
       "summary": "Responds to eligible publisher opportunities using the Writer identity gate.",
