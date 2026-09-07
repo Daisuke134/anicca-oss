@@ -25,7 +25,15 @@ function authHeaders(apiKey) {
 // without a network or a mutated process.env. Omitted, both fall back to production exactly as before.
 async function txPost(path, body, opts = {}) {
   const f = opts.fetchImpl || fetch;
-  const r = await f(`${TELNYX}${path}`, { method: "POST", headers: authHeaders(opts.apiKey), body: JSON.stringify(body) });
+  let r;
+  try {
+    r = await f(`${TELNYX}${path}`, { method: "POST", headers: authHeaders(opts.apiKey), body: JSON.stringify(body) });
+  } catch (cause) {
+    const error = new Error(`telnyx ${path} delivery unknown`);
+    error.deliveryUnknown = true;
+    error.cause = cause;
+    throw error;
+  }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`telnyx ${path} ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
   return j;
@@ -81,7 +89,7 @@ async function placeCall({ to, streamUrl, clientState, timeLimitSeconds = 120 })
   try {
     call = await txPost("/calls", dialBody);
   } catch (e) {
-    return { ok: false, error: String(e.message || e) };
+    return { ok: false, error: String(e.message || e), deliveryUnknown: e && e.deliveryUnknown === true };
   }
   const ccid = normalizeProviderId(call && call.data && call.data.call_control_id);
   if (!ccid) return { ok: false, error: "no call_control_id" };
@@ -95,6 +103,18 @@ async function placeCall({ to, streamUrl, clientState, timeLimitSeconds = 120 })
     callSessionId: normalizeProviderId(call && call.data && call.data.call_session_id),
     callLegId: normalizeProviderId(call && call.data && call.data.call_leg_id),
   };
+}
+
+async function retrieveCallDuration(ccid, opts = {}) {
+  if (!normalizeProviderId(ccid)) return null;
+  const f = opts.fetchImpl || fetch;
+  try {
+    const response = await f(`${TELNYX}/calls/${encodeURIComponent(ccid)}`, { headers: authHeaders(opts.apiKey) });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => ({}));
+    const seconds = Number(payload && payload.data && payload.data.call_duration);
+    return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : null;
+  } catch { return null; }
 }
 
 // Start mp3 recording on an ANSWERED call. Telnyx record_start requires the call to be active
@@ -132,4 +152,4 @@ async function hangupCall(ccid, opts = {}) {
   }
 }
 
-module.exports = { placeCall, startRecording, hangupCall, telnyxStreamingStartBody, balanceUsd, amdDialOptions };
+module.exports = { placeCall, startRecording, hangupCall, retrieveCallDuration, telnyxStreamingStartBody, balanceUsd, amdDialOptions };

@@ -29,6 +29,7 @@ async function withDialTransport(callPayload, run) {
     requests.push({ url, options });
     if (url.endsWith("/balance")) return jsonResponse({ data: { balance: "1.00" } });
     assert.equal(url, "https://api.telnyx.com/v2/calls");
+    if (callPayload instanceof Error) throw callPayload;
     return jsonResponse(callPayload);
   };
   try {
@@ -48,6 +49,14 @@ test("a wake stream url still derives its client_state from the url", () => {
   // The wake path is the one that already works in production; the test-call fix must not move it.
   const opts = amdDialOptions(WAKE_URL, { LM_AMD: "on" });
   assert.deepEqual(decodeCallClientState(opts.client_state), { kind: "wake", wakeUid: "lm_abc", wakeEventKey: "k1" });
+});
+
+test("placeCall distinguishes response loss from an explicit provider rejection", async () => {
+  const unknown = await withDialTransport(new Error("socket reset"), () => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL,
+  }));
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.deliveryUnknown, true);
 });
 
 test("an explicit client_state wins over the url", () => {

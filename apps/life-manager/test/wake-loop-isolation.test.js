@@ -145,6 +145,23 @@ test("a voice reservation that cannot become durable accepted state never dials"
   assert.equal(wakeReleases, 1);
 });
 
+test("transport-unknown dial retains wake and accepted voice ownership for webhook reconciliation", async () => {
+  clearEvents();
+  const h = deps();
+  let wakeReleases = 0, voiceReleases = 0;
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: true, usedSeconds: 0, limitSeconds: 3600,
+    allowedSeconds: 120, periodStart: "2026-09-01", resetAt: "2026-10-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.acceptVoiceAllowance = async () => ({ allowed: true, usedSeconds: 0, limitSeconds: 3600,
+    allowedSeconds: 120, periodStart: "2026-09-01", resetAt: "2026-10-01" });
+  h.deps.placeCall = async () => ({ ok: false, error: "delivery unknown", deliveryUnknown: true });
+  h.deps.releaseWake = async () => { wakeReleases += 1; };
+  h.deps.releaseVoiceAllowance = async () => { voiceReleases += 1; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(wakeReleases, 0);
+  assert.equal(voiceReleases, 0);
+});
+
 test("a hung bookkeeping write cannot hold the dial — the daily poll ledger is not awaited", async () => {
   // Same failure class as the test above, in miniature and easier to miss: recordDailyComposioPoll
   // is 1-2 Supabase round trips with no timeout and no AbortController, and it sat AWAITED in front

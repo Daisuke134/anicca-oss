@@ -37,7 +37,7 @@ const { serve: inngestServe } = require("inngest/node"); // raw Node http server
 const { inngest } = require("./inngest/client.js");
 const { functions: inngestFunctions } = require("./inngest/functions.js");
 const inngestHandler = inngestServe({ client: inngest, functions: inngestFunctions });
-const { placeCall, startRecording } = require("./lib/dial.js");
+const { placeCall, startRecording, retrieveCallDuration } = require("./lib/dial.js");
 const { recordTelnyxWakeReceipt } = require("./lib/telnyx-receipt.js");
 const { completeManagedAction, releaseManagedAction, completeVoiceAllowance,
   releaseVoiceAllowance } = require("./lib/managed-allowance.js");
@@ -683,6 +683,29 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(503, { "content-type": "text/plain" });
           res.end("receipt failed; send it again");
           return;
+        }
+        if (wake.voicePeriodStart && wake.voiceReservationToken) {
+          const connectedSeconds = await retrieveCallDuration(payload.call_control_id);
+          if (connectedSeconds == null) {
+            console.error("[telnyx-events] voice duration reconciliation failed");
+            res.writeHead(503, { "content-type": "text/plain" });
+            res.end("voice duration unavailable; send it again");
+            return;
+          }
+          const voice = await completeVoiceAllowance(wake.wakeUid, wake.wakeEventKey, SUPA_URL, SUPA_KEY, {
+            reservation: {
+              periodStart: wake.voicePeriodStart,
+              reservationToken: wake.voiceReservationToken,
+              allowedSeconds: wake.voiceAllowedSeconds,
+            },
+            connectedSeconds,
+          });
+          if (!voice || voice.allowed !== true) {
+            console.error("[telnyx-events] voice allowance reconciliation failed");
+            res.writeHead(503, { "content-type": "text/plain" });
+            res.end("voice allowance failed; send it again");
+            return;
+          }
         }
         if (wake.managedActionKey && wake.managedPeriodStart && wake.managedReservationToken) {
           await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, {

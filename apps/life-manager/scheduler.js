@@ -586,6 +586,9 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
               managedActionKey: allowanceReservation ? managedActionKey : undefined,
               managedPeriodStart: allowanceReservation && allowanceReservation.periodStart,
               managedReservationToken: allowanceReservation && allowanceReservation.reservationToken,
+              voicePeriodStart: voice.periodStart,
+              voiceReservationToken: voice.reservationToken,
+              voiceAllowedSeconds: voice.allowedSeconds,
             }),
           });
         } catch (e) {
@@ -615,6 +618,10 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
           }
         } else {
           console.error(`[scheduler] dial failed T-${lvl.min} uid=${u.uid.slice(0, 12)}: ${res.error}`);
+          if (res.deliveryUnknown === true) {
+            console.error(`[scheduler] dial delivery unknown; retaining claims for provider reconciliation uid=${u.uid.slice(0, 12)}`);
+            continue;
+          }
           // 1b: record BEFORE releasing, because releasing is what erases the evidence. Wrapped so a
           // ledger outage can never skip the release below — the retry outranks the bookkeeping.
           await noteWakeMiss(u, {

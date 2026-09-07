@@ -44,6 +44,17 @@ test("a managed action key round-trips only when explicitly supplied", () => {
   assert.equal(decodeCallClientState(encodeWakeClientState({ wakeUid: "lm_abc", wakeEventKey: "wake-key" })).managedActionKey, undefined);
 });
 
+test("voice allowance owner metadata round-trips for durable hangup reconciliation", () => {
+  const state = decodeCallClientState(encodeWakeClientState({
+    wakeUid: "lm_abc", wakeEventKey: "wake-key", wakeClaimToken: "claim",
+    voicePeriodStart: "2026-09-01", voiceReservationToken: "11111111-1111-4111-8111-111111111111",
+    voiceAllowedSeconds: 83,
+  }));
+  assert.equal(state.voicePeriodStart, "2026-09-01");
+  assert.equal(state.voiceReservationToken, "11111111-1111-4111-8111-111111111111");
+  assert.equal(state.voiceAllowedSeconds, 83);
+});
+
 test("a two-field wake blob keeps its exact legacy bytes and decoded shape", () => {
   const legacyBytes = Buffer.from(JSON.stringify({
     wakeUid: "lm_abc",
