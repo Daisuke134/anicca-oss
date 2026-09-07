@@ -92,6 +92,33 @@ test("local ledger uses the portable runtime data root and rejects legacy roots"
   );
 });
 
+test("local JSONL jobs project through the common Job contract without rewriting storage", async () => {
+  const dataDir = tempDataDir();
+  const ledger = createMarketingLocalLedger({ dataDir });
+  await ledger.enqueueJob(job());
+
+  assert.deepEqual(await ledger.readCommonJob({ tenantId: "dais-local", jobId: "publication-job" }), {
+    schema_version: 1,
+    record_type: "job",
+    job_id: "publication-job",
+    tenant_id: "dais-local",
+    loop_id: "marketing.video",
+    capability: "marketing.video.publish",
+    effect_class: "publish",
+    effect_key: "tiktok:honne-ai:en:2026-08-21T02:00:00.000Z",
+    input_refs: {
+      product_ref: "product://honne-ai",
+      locale_ref: "locale://en",
+      platform_ref: "platform://tiktok",
+    },
+    max_attempts: 3,
+  });
+  assert.match(
+    fs.readFileSync(path.join(dataDir, "marketing", "jobs.jsonl"), "utf8"),
+    /"available_at":"9999-12-31T23:59:59.000Z"/,
+  );
+});
+
 test("closed publication effect fence rejects a new provider job and records the refusal", async () => {
   const dataDir = tempDataDir();
   const marketingDir = path.join(dataDir, "marketing");
