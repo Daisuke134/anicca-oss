@@ -22,10 +22,15 @@ a label is thin evidence, so it may only refuse on words that cannot mean anythi
 
 from __future__ import annotations
 
-from typing import Optional
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 __all__ = ["HARD_PROHIBITION_CLASSES", "PROHIBITED_CATEGORY_TERMS", "category_refusal",
-           "PROVEN_BOARD_TERMS", "GENERAL_WORK_TERMS", "discovery_terms"]
+           "PROVEN_BOARD_TERMS", "GENERAL_WORK_TERMS", "discovery_terms",
+           "JUDGEMENT_SCHEMA", "build_judgement_prompt", "judge"]
 
 # Kosuke is an autonomous agent. It cannot show a face, speak in real time, hold a body in a
 # room, or lend a credential it does not have. Everything below follows from that, and nothing
@@ -119,3 +124,112 @@ def discovery_terms(catalog_terms: tuple[str, ...] = ()) -> tuple[str, ...]:
             continue
         out.append(term)
     return tuple(out)
+
+
+# Judging the posting text, not the category label. `category_refusal` above is what a platform
+# gets when a label is all it has; this is what it gets when it has the posting.
+#
+# CrowdWorks had neither. Measured 2026-09-07, the first five applications after its category
+# allow-list was removed included three agency and reseller recruitments -- nothing is delivered,
+# so there is nothing to deliver well. Coconala had no fitness judgement either, applied to 楽譜
+# 制作, イラストレッスン and 留学相談 twenty to thirty times a day for a week, and was restricted
+# by the marketplace on 2026-09-02. A lane that applies without judging is the shape that costs
+# an account.
+
+JUDGEMENT_SCHEMA = Path(__file__).resolve().parents[1] / "schemas" / "work_fit_judgement.schema.json"
+_AGENT_RUNNER = Path(__file__).resolve().parents[4] / "runtime" / "agent-runner" / "agent_runner.py"
+_JUDGE_TIMEOUT_SECONDS = 240
+
+
+class JudgementUnavailable(RuntimeError):
+    """The judge could not run. Callers must treat this as 'do not apply', never as 'workable'."""
+
+
+def build_judgement_prompt(postings: Sequence[Mapping[str, object]]) -> str:
+    """One posting per row: id, title, and enough body to decide on."""
+    rows = [{
+        "posting_id": str(item.get("posting_id") or item.get("external_id") or "").strip(),
+        "title": str(item.get("title") or "")[:200],
+        "body": str(item.get("body") or item.get("description") or "")[:4000],
+    } for item in postings]
+    classes = "\n".join(f"- {name}: {text}" for name, text in HARD_PROHIBITION_CLASSES.items())
+    return (
+        "あなたは受注可否だけを判定します。提案文も価格も書きません。\n"
+        "次のいずれかに当たる募集は workable=false とし、reason_code にそのclass keyを、"
+        "quote に募集本文から連続する200文字以内の原文引用を入れてください。\n"
+        f"{classes}\n"
+        "- no_deliverable: 代理店・パートナー・アフィリエイト等の勧誘で、納品する成果物が存在しない\n"
+        "どれにも当たらなければ workable=true、reason_code と quote は null にします。\n"
+        "得意でない分野というだけでは false にしません。判断は本文の記述だけに基づかせ、"
+        "推測で条件を足しません。全てのpostingについて1件ずつ返します。\n"
+        "POSTINGS:\n" + json.dumps(rows, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    )
+
+
+def _default_runner(prompt: str, evidence_dir: Path, loop: str) -> Mapping[str, object]:
+    command = [
+        sys.executable, str(_AGENT_RUNNER), "--task-class", "planning", "--prompt-stdin",
+        "--schema", str(JUDGEMENT_SCHEMA), "--evidence-dir", str(evidence_dir),
+        "--task-label", "work-fit-judgement", "--loop", loop,
+        "--workdir", str(Path(__file__).resolve().parents[4]),
+    ]
+    # stderr is kept. A runner that refuses on configuration the lane cannot see is a lane that
+    # stops applying without ever saying why.
+    completed = subprocess.run(command, input=prompt, text=True, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.PIPE, check=False,
+                               timeout=_JUDGE_TIMEOUT_SECONDS + 30)
+    if completed.returncode != 0:
+        raise JudgementUnavailable(((completed.stderr or "").strip().splitlines() or ["no stderr"])[-1])
+    evidence = Path(evidence_dir)
+    summary = json.loads((evidence / "summary.json").read_text(encoding="utf-8"))
+    if summary.get("status") != "success":
+        raise JudgementUnavailable(str(summary.get("status")))
+    result_path = Path(str(summary["result_path"])).resolve()
+    result_path.relative_to(evidence.resolve())
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    if not isinstance(result, Mapping):
+        raise JudgementUnavailable("result_not_an_object")
+    return result
+
+
+def judge(
+    postings: Sequence[Mapping[str, object]],
+    *,
+    evidence_dir: Path,
+    runner: Optional[Callable[..., Mapping[str, object]]] = None,
+    loop: str = "marketplace-work-fit",
+) -> dict[str, Optional[tuple[str, str]]]:
+    """`{posting_id: None}` when workable, `{posting_id: (reason_code, quote)}` when not.
+
+    A posting the judge did not return is absent from the result rather than defaulted to
+    workable: an unjudged posting is not an approved one, and defaulting the other way is how a
+    lane applies to work nobody looked at.
+    """
+    if not postings:
+        return {}
+    ids = [str(item.get("posting_id") or item.get("external_id") or "").strip() for item in postings]
+    try:
+        result = (runner or (lambda prompt, directory: _default_runner(prompt, directory, loop)))(
+            build_judgement_prompt(postings), Path(evidence_dir))
+    except JudgementUnavailable:
+        raise
+    except Exception as error:
+        raise JudgementUnavailable(str(error)) from None
+
+    rows = result.get("judgements") if isinstance(result, Mapping) else None
+    if not isinstance(rows, list):
+        raise JudgementUnavailable("judgements_missing")
+    verdicts: dict[str, Optional[tuple[str, str]]] = {}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        posting_id = str(row.get("posting_id") or "").strip()
+        if posting_id not in ids or posting_id in verdicts:
+            continue
+        if row.get("workable") is True:
+            verdicts[posting_id] = None
+            continue
+        reason = str(row.get("reason_code") or "").strip() or "unstated"
+        quote = str(row.get("quote") or "").strip()[:200]
+        verdicts[posting_id] = (reason, quote)
+    return verdicts

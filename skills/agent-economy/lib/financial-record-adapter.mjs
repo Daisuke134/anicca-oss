@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import commonRecord from "../../../runtime/contracts/common-record.cjs";
 
 import { isNormalizedRevenueReceipt } from "./revenue-receipt.mjs";
 
@@ -6,6 +7,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const DECIMALS = new Map([["JPY", 0], ["USD", 2], ["EUR", 2], ["GBP", 2], ["USDC", 6], ["USDT", 6]]);
 const POSITIVE_TERMINALS = new Set(["settled", "paid", "received", "completed"]);
 const REFUND_TERMINALS = new Set(["refunded", "charged_back", "chargeback", "reversed"]);
+const { financialRecordId } = commonRecord;
 
 function hash(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -80,10 +82,12 @@ export function revenueReceiptToFinancialRecords(receipt, { subjectId, recordedA
   } else {
     return [];
   }
-  return components.filter(([, , , amount]) => minor(amount, receipt.asset) > 0).map(([component, kind, direction, amount]) => ({
+  return components.filter(([, , , amount]) => minor(amount, receipt.asset) > 0).map(([component, kind, direction, amount]) => {
+    const idempotencyKey = `revenue-financial:v1:${hash(`${scoped}\n${component}`)}`;
+    return {
     schema_version: 1,
     record_type: "financial_record",
-    record_id: `revenue:${hash(`${scoped}\n${component}`).slice(0, 24)}`,
+    record_id: financialRecordId(subject, idempotencyKey),
     subject_id: subject,
     scope: "business",
     kind,
@@ -92,8 +96,9 @@ export function revenueReceiptToFinancialRecords(receipt, { subjectId, recordedA
     currency: receipt.asset,
     occurred_at: receipt.occurred_at,
     recorded_at: recorded,
-    idempotency_key: `revenue-financial:v1:${hash(`${scoped}\n${component}`)}`,
+    idempotency_key: idempotencyKey,
     source: { provider: commonId(receipt.provider, "FinancialRecord provider"), source_type: receipt.proof.tx_hash ? "wallet" : "payment_processor", external_ref: evidence.externalRef },
     verification: { status: "verified", observed_at: recorded, evidence_refs: [evidence.evidenceRef] },
-  }));
+    };
+  });
 }

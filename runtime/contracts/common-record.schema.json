@@ -118,7 +118,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["schema_version", "record_type", "record_id", "subject_id", "scope", "kind", "direction", "amount_minor", "currency", "occurred_at", "recorded_at", "idempotency_key", "source", "verification"],
       "properties": {
-        "schema_version": {"const": 1}, "record_type": {"const": "financial_record"}, "record_id": {"$ref": "#/$defs/Id"}, "subject_id": {"$ref": "#/$defs/Id"},
+        "schema_version": {"const": 1}, "record_type": {"const": "financial_record"}, "record_id": {"type": "string", "pattern": "^financial:[a-f0-9]{64}$"}, "subject_id": {"$ref": "#/$defs/Id"},
         "scope": {"enum": ["personal", "business"]},
         "kind": {"enum": ["asset_balance", "liability_balance", "personal_income", "personal_expense", "business_revenue", "business_cost", "payout", "fee", "tax", "transfer"]},
         "direction": {"enum": ["credit", "debit", "snapshot"]}, "amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
