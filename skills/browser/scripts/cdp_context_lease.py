@@ -757,8 +757,13 @@ def gc(idle_min=45):
             task: dict(held)
             for task, held in leases.items()
             if held.get("cleanup_pending") is True
-            or now - held.get("ts", 0) > idle_min * 60
-            or _pid_alive(held.get("pid")) is False
+            or (
+                held.get("parked") is not True
+                and (
+                    now - held.get("ts", 0) > idle_min * 60
+                    or _pid_alive(held.get("pid")) is False
+                )
+            )
         }
 
     reaped = []
@@ -779,8 +784,13 @@ def gc(idle_min=45):
             )
             still_stale = same_lease and (
                 current.get("cleanup_pending") is True
-                or now - current.get("ts", 0) > idle_min * 60
-                or _pid_alive(current.get("pid")) is False
+                or (
+                    current.get("parked") is not True
+                    and (
+                        now - current.get("ts", 0) > idle_min * 60
+                        or _pid_alive(current.get("pid")) is False
+                    )
+                )
             )
             if still_stale and disposed:
                 leases.pop(task, None)
