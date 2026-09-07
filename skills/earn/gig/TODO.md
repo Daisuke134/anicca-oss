@@ -765,6 +765,15 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
    `skills/_shared/marketplace-core/`. Coconala and Lancers keep only auth, selectors, provider state
    and actual mutation in adapters; neither provider gets a copied Reply loop.
+   In progress: the provider-neutral `reply_kernel.py` now owns per-thread identity and locking,
+   cumulative-context dispatch, intent-before-effect, official reconciliation, durable exponential
+   retry, receipt persistence, independent thread failure and replay-zero. Nine focused kernel,
+   Lancers-adapter and wrapper checks pass. Lancers has a thin adapter for authenticated message
+   inventory, its provider POST and exact official message readback; `negotiate-owner` enters the
+   shared kernel with one owner-scoped browser page. The read-only `work-sync` path no longer owns
+   or contains a reply mutation, eliminating the prior double-owner risk. Coconala still needs to
+   enter this same shared entrypoint, and a natural installed-owner terminal still needs official
+   inventory readback, so this atom remains unchecked.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
