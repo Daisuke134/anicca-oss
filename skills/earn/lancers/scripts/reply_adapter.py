@@ -100,13 +100,21 @@ class LancersReplyAdapter:
                 "role": "buyer" if row.get("is_required_reply") is True else "seller",
                 "body": str(row.get("description") or "").strip(),
             })
+        proposal = None
+        related = detail.get("with")
+        if isinstance(related, Mapping):
+            candidate = related.get("proposal")
+            if isinstance(candidate, Mapping) and candidate.get("id") is not None:
+                proposal_id = work_sync._id(candidate.get("id"))
+                if proposal_id in self._verified_proposals:
+                    proposal = work_sync._proposal_context(
+                        self.page, detail, self._verified_proposals
+                    )
         return {
             "board": {"title": board.get("title"), "description": board.get("description")},
             "conversation": conversation,
             "reply_required": bool(board.get("is_required_reply")),
-            "verified_proposal": work_sync._proposal_context(
-                self.page, detail, self._verified_proposals
-            ),
+            "verified_proposal": proposal,
         }
 
     def mutate(self, intent: dict[str, Any]) -> None:

@@ -56,3 +56,22 @@ def test_adapter_mutation_is_only_lancers_reply(monkeypatch, tmp_path):
     intent = {"action": "reply", "thread_id": "12", "effect_key": "key", "payload": {"body": "ok"}}
     adapter.mutate(intent)
     assert adapter._posted == {"key": "55"}
+
+
+def test_unverified_proposal_does_not_discard_buyer_conversation(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    adapter.page = object()
+    adapter._boards = {
+        "12": (
+            {"id": "12", "title": "相談", "description": "詳細", "is_required_reply": True},
+            {"id": "12", "with": {"proposal": {"id": "999"}}},
+            [{"id": "7", "board_id": "12", "description": "対応できますか", "is_required_reply": True}],
+        )
+    }
+    monkeypatch.setattr(
+        adapter_module.work_sync, "_proposal_context",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("unverified grounding was read")),
+    )
+    context = adapter.context("12")
+    assert context["verified_proposal"] is None
+    assert context["conversation"][-1]["body"] == "対応できますか"
