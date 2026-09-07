@@ -52,11 +52,13 @@ prevent.
 | Piece | Coconala | Lancers | CrowdWorks |
 |---|---|---|---|
 | Has a shelf at all | yes | yes | **no — no lane to build** |
-| Listing form shape | single page | six-step wizard, steps hidden by CSS-module class | n/a |
+| Listing form shape | staged draft → publish; the wizard question was never asked here | six-step wizard, steps hidden by CSS-module class (fault 10) | n/a |
 | Category vocabulary source | official selects, read live | catalogue override still wrong (fault 8); recoverable from public taxonomy (fault 9) | n/a |
 | Plans per listing | flexible | exactly three, enforced (fault 11) | n/a |
 | Revenue to date | ¥0 | ¥0 | n/a |
-| Catalogue-derived listing ever published | yes (13+ live) | **no — never** | n/a |
+| Reads the shared catalogue | yes — `storefront_direct.py` loads `entries_by_family` and passes the family's entry into the create decision as the owner's pre-decided spec | yes — `storefront_offer.py` | n/a |
+| Listings published by the loop | 4 | 1, hand-authored, predating the catalogue wiring | n/a |
+| Catalogue-derived listing ever published | yes | **no — never** | n/a |
 
 ## Coconala faults
 
@@ -110,14 +112,22 @@ standard's.
 `platform_overrides.lancers.category = "システム開発"` in `skills/gig-work/profile/listings/catalog.json`.
 The live `___main_category_id` select (read at `skills/earn/lancers/scripts/storefront_offer.py`,
 where the field is filled via `_field(page, '[name="___main_category_id"]').select_option(label=...)`)
-offers nine labels, and `"システム開発"` alone is not one of them — the value that is actually
-accepted and already proven live is `"AI・システム開発・運用"` (the label the production listing
-`skills/earn/lancers/products/monthly-sns-content-ops-v1.json` carries, and the one
-`skills/earn/lancers/tests/test_storefront_offer_reads_catalog.py` asserts against). Every
-catalogue-derived create would have failed on every family with the override as it stands.
+offers exactly nine labels, read live on 2026-09-07: `AI・プログラミング・システム開発` /
+`音楽・ナレーション` / `Web集客・マーケティング` / `ビジネス・コンサルティング` /
+`デザイン・Webデザイン` / `データ分析・作業自動化` / `動画制作・アニメーション・写真` /
+`ライティング・翻訳` / `その他`. `"システム開発"` is not among them, so every catalogue-derived
+create would have failed on every family with the override as it stands.
+
 Nothing in the catalogue's own tests could see this, because the catalogue was self-consistent
 — it was only wrong about the world. The rule: an overlay naming a provider's own vocabulary
 must be checked against that vocabulary, and the check belongs in a test, not a hope.
+
+Do not take the corrected value from the production listing file by pattern-matching on a
+similar-looking field. `skills/earn/lancers/products/monthly-sns-content-ops-v1.json` carries
+two different taxonomies: its package `category` is `Web集客・マーケティング`, while its
+`software_portfolio.category` is `AI・システム開発・運用` — a portfolio label that the package
+form's select does not offer at all. Reading the nearest plausible string out of a neighbouring
+structure is how a wrong value gets laundered into looking measured.
 
 **9. Dependent selects cannot be read from the initial DOM.** `ProjectPlanForm.project_category_id`
 (the subcategory) populates only after the main category is chosen — both `_apply` and
@@ -200,8 +210,9 @@ official public-page receipt exists.
 State this plainly rather than let the fault list above read as a working lane:
 
 - No catalogue-derived listing has ever been published on Lancers. Fault 10's fix is unmerged;
-  until it lands, `create_package()` cannot get past the third wizard step for a description
-  field.
+  until it lands, `create_package()` dies on the second step (料金表) at
+  `ProjectPlanMenuForm[0].description`, which is the first field the flat fill reaches that
+  belongs to a step other than 基本情報.
 - Storefront revenue is ¥0 on every platform this has run on.
 - The Lancers 公開 step's submit control label is unobserved. `_create_submit_control` in
   `storefront_offer.py` discovers it at runtime from a set of known labels
