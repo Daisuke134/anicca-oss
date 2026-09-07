@@ -34,6 +34,12 @@ _LANCERS_CATALOG_OWNED_FIELDS = ("title_stem", "subtitle", "category", "plans", 
 # overlay must supply, not only the ones the catalog projection itself flags.
 _LANCERS_IDENTITY_FIELDS = ("product_id", "product_version", "listing_external_id", "superseded_listing_ids")
 ORIGIN = "https://www.lancers.jp"
+# Where _step() records a refusal, via dom_contract.py (see _reach_dom_contract). Mirrors
+# application_tick.py's FORM_EVIDENCE (~/.local/state/anicca/lancers/proposal-form-changes.jsonl)
+# -- same directory, dom_contract's own filename (dom-contract-failures.jsonl) -- so both of this
+# lane's strict matchers leave their evidence in one place a human already knows to look.
+# Module-level so a test can monkeypatch it to a tmp_path before calling _step() directly.
+_EVIDENCE_DIR = Path("~/.local/state/anicca/lancers").expanduser()
 DEMAND_LABELS = {
     "検索結果の表示人数": "search_impressions",
     "パッケージの閲覧人数": "detail_views",
@@ -64,6 +70,18 @@ def _reach_marketplace_core() -> Any:
         sys.path.insert(0, str(shared_scripts))
     import listing_catalog
     return listing_catalog
+
+
+def _reach_dom_contract() -> Any:
+    """Reach skills/_shared/marketplace-core/scripts/dom_contract.py, the same way
+    _reach_marketplace_core/_reach_form_observer already reach their modules. The one mechanism
+    _step() uses to say what it saw before it raises -- see _step's own docstring.
+    """
+    shared_scripts = HERE.parents[2] / "_shared" / "marketplace-core" / "scripts"
+    if str(shared_scripts) not in sys.path:
+        sys.path.insert(0, str(shared_scripts))
+    import dom_contract
+    return dom_contract
 
 
 def _reach_form_observer() -> Any:
@@ -349,9 +367,75 @@ def _write_receipt(state_path: Path, product: Mapping[str, Any], demand: Mapping
         except FileNotFoundError: pass
 
 
-def _step(page: Any, label: str) -> None:
+def _page_identity(page: Any) -> dict[str, Any]:
+    """The page's own identity at the moment of a _step() refusal: url always, title when the
+    page can still answer for itself. dom_contract.py's own docstring names exactly why this
+    matters -- "a selector alone cannot say 'you were on the login page', which is how an expired
+    session reads as a markup change." title is read defensively so a page that cannot answer
+    (already navigating, already closed) still reports its url rather than nothing at all.
+    """
+    try:
+        title = page.title()
+    except Exception:
+        title = None
+    return {"url": str(getattr(page, "url", None)), "title": title}
+
+
+class _VisibleTextMatches:
+    """Adapter letting dom_contract.exactly_one judge _step()'s own "exactly one *visible* match"
+    contract without changing what counts as a match.
+
+    _step() has always computed this itself: every element whose own text equals `label`
+    (Lancers' wizard keeps every step's markup in the DOM at once -- see the module comment above
+    _CREATE_STEP_FIELDS -- so a hidden step can share a visible one's label), kept only if
+    is_visible() is true. `.count()` here is exactly that pre-filtered length, so dom_contract
+    sees precisely the same "found" number _step() always enforced -- neither looser nor
+    stricter than the matcher this replaces.
+    """
+
+    def __init__(self, items: list[Any], label: str) -> None:
+        self._items, self._label = items, label
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def click(self, **kwargs: Any) -> None:
+        self._items[0].click(**kwargs)
+
+    def __str__(self) -> str:
+        return f"get_by_text({self._label!r}, exact=True, visible-only)"
+
+
+def _step(page: Any, label: str, *, context: str | None = None) -> None:
+    """Click the single visible element whose own text equals `label`.
+
+    Matching is unchanged: still exactly one element, among every match for `label`, whose
+    is_visible() is true -- a label matching twice is still as broken as matching zero times, and
+    this still never clicks an ambiguous match. What changes is the refusal: routed through
+    dom_contract.exactly_one (see _reach_dom_contract), which records the label, how many visible
+    matches were actually seen, and the page's own identity (_page_identity) to
+    dom-contract-failures.jsonl before raising -- the fix for the fault
+    marketplace-apply-lane.md's "refuse loudly" section names for this exact lane: a bare
+    "form_changed" that discarded which of several possible steps it was even looking at, which
+    is how "form_changed" alone cost 81 skips in one day on this lane's sibling proposal form
+    without naming a single one of the ten selectors it could have been.
+
+    `context` names which call site is asking -- e.g. create_package()'s manual-package chooser
+    vs. a step inside _apply()'s edit form -- so the raised error answers "which step" as well as
+    "a step failed". Every one of _apply()'s five existing call sites omits it, so their click
+    target and control flow are unchanged; only the message a refusal carries is richer than the
+    bare "form_changed" they always raised.
+    """
+    dom_contract = _reach_dom_contract()
     values = [item for item in page.get_by_text(label, exact=True).all() if item.is_visible()]
-    if len(values) != 1: raise OfferError("form_changed")
+    try:
+        dom_contract.exactly_one(
+            _VisibleTextMatches(values, label), platform="lancers", evidence_dir=_EVIDENCE_DIR,
+            selector=label, observe=lambda: _page_identity(page),
+        )
+    except dom_contract.DomContractError as error:
+        suffix = f": {context}" if context else ""
+        raise OfferError(f"form_changed{suffix}: label={label!r} found={error.found}") from None
     values[0].click()
 
 
@@ -1071,9 +1155,13 @@ def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[s
     returns still owns image alignment end to end regardless, so nothing here duplicates it.
 
     Fails closed at every step: a required field missing from `product` (including a
-    description over the 2000-char cap) raises before any navigation; landing anywhere other
-    than /myplan/add?type=manual after clicking the manual option raises rather than filling a
-    form that cannot be identified; a delivery_time with no matching option raises without
+    description over the 2000-char cap) raises before any navigation; a failure to click the
+    chooser's manual option itself raises `form_changed: create_manual_chooser: ...` (see
+    _step's `context`), distinct from `create_step_stalled: ...` raised later if a wizard step's
+    own 次へ fails to advance -- so the next wake's error line already says which of the two
+    happened; landing anywhere other than /myplan/add?type=manual after clicking the manual
+    option raises rather than filling a form that cannot be identified; a delivery_time with no
+    matching option raises without
     selecting anything; an advance to the next wizard step that does not actually arrive raises
     create_step_stalled naming the step; no single matching submit button raises, naming the
     buttons actually present; and a successful submission whose public page cannot be read back
@@ -1081,7 +1169,7 @@ def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[s
     """
     _require_create_fields(product)
     page.goto(_CREATE_ADD_URL, wait_until="domcontentloaded", timeout=30_000)
-    _step(page, _CREATE_MANUAL_BUTTON_TEXT)
+    _step(page, _CREATE_MANUAL_BUTTON_TEXT, context="create_manual_chooser")
     if page.url != _CREATE_MANUAL_URL: raise OfferError(f"create_route_invalid: url={page.url}")
     page.wait_for_selector('[name="ProjectPlanForm.title"]', state="visible", timeout=5_000)
     fill_result = _fill_create_form(page, product, image)
