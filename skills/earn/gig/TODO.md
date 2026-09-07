@@ -691,6 +691,56 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    model wording and evidence path. Human-gate identity now canonicalizes this named reusable ceremony
    independently of listing, wording, run and evidence path, including legacy pending rows. Future wakes
    reuse the first pending gate and the shared outbox event key, so the interview request is replay-zero.
+   Final-main replay `mercor-20260907-191801-61537` reused the parked context as generation 4,
+   began officially authenticated without issuing email login, preserved the 22-row application
+   ledger and sent no duplicate Bilingual Competency notification. It remained unaccepted because
+   the model spent its bound progressing the Japanese Writer Mac eligibility form, inspected only
+   four of twelve visible candidates, and the deterministic validator correctly returned
+   `bounded_scan_incomplete:4_of_12`. The same result repeated an ungrounded request for Dais to
+   provide Mac model/chip details even though the host owns those facts. Branch
+   `fix/mercor-host-capabilities-20260907` commit `1cf702b7f` supplies exact host chip/model to the
+   bounded context and makes terminal reporting reference the canonical human-gate ID instead of
+   repeating model-authored instructions; all 92 Mercor tests pass. PR `#4570` is merged at main SHA
+   `c9ac2df3ed272fcc84464d355690403cdbb18528`, and immutable release
+   `20260907T195434-c9ac2df3` is cut from that pushed main. Production apply is not yet performed:
+   this Remote process resolves UID/console owner only as numeric `501`, Directory Services returns
+   `eServerError`, and `launchctl managername/uid/pid` return 153, so `launchctl-safe preflight`
+   correctly records `blocked_control_plane` and forbids GUI-domain mutation. Do not bypass it or
+   restart Mac/Aqua/browser. When an Aqua-owned control context is available, apply only
+   `mercor-revenue-application`, then require the same clean terminal acceptance before advancing.
+   A separate host-safety defect was measured during that final replay. The model entered the
+   Bilingual Competency ceremony far enough to expose camera and full-screen-sharing controls;
+   shortly afterward WindowServer restarted at `2026-09-07 19:37 JST`. The Mac itself did not
+   reboot, but its watchdog report records the WindowServer main thread blocked in TCC for 40
+   seconds, followed by loginwindow replacement. Thermal pressure was nominal, so this is not the
+   previous memory-pressure class. Exact causation cannot be proven from the report alone, but the
+   person-bound media-permission surface is the strongest matching trigger. The Mercor pass contract
+   now forbids opening any interview/assessment/person-bound surface or requesting browser/macOS
+   camera, microphone or screen-sharing permission. It must use the application summary's exact
+   required/`Not done` step as human-gate evidence, notify once, and continue to another listing.
+   Focused contract tests pass 22/22. The repair is merged through PR `#4572` at pushed-main SHA
+   `d0b87ea62d44c8d3c8df3aba9d6ad07e45e8eaae`; immutable loop release
+   `20260907T200648-d0b87ea6` is cut from that main. It still requires a targeted production apply
+   before another Mercor wake; no Mac, Aqua or browser restart is part of the repair.
+   Targeted apply receipt `c97108948e1e8843a29ec836` then loaded only Mercor Apply from that
+   release without restarting the shared browser. Its first wake disproved the prompt-only repair:
+   after `Continue application`, Mercor selected the incomplete Bilingual Competency step by default
+   and exposed camera/screenshare controls despite the model instruction. The owner was immediately
+   stopped before any permission control was used; the shared browser and other loops remained live.
+   The pass now sets Mercor-origin `microphone`, `camera`, and `display-capture` permissions to
+   `denied` through the exact leased CDP target before any model browser work and fails closed if any
+   setting is rejected. A human-required candidate is reported once, skipped for the rest of that
+   wake without waiting, and scanning continues. Focused tests pass 23/23, and the running Chromium
+   accepted all three permission settings without restart. Merge, cut a new immutable release, then
+   re-enable only Mercor and obtain the still-required natural terminal/replay acceptance.
+   The next guarded wake proved a second policy defect without triggering an OS prompt: step 2 still
+   ordered the model to reconcile the oldest in-progress application, so it reopened the application
+   summary even though the permission guard denied all media capabilities. The cursor now requires
+   incomplete application cards to be recorded and skipped without opening them; `Continue
+   application` and incomplete-card clicks are prohibited. The pass goes directly to Explore,
+   prefers visible `1-click apply`, submits only candidates whose live detail exposes no person-bound
+   requirement, and continues after a human-gate report. Keep the currently running guarded wake
+   alive to its natural terminal, then target the next release while idle; do not stop the loop again.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<body>
+<form id="listing-form">
+  <div class="p-wizard-step">
+    <h2>ステップ1: カテゴリ選択</h2>
+    <select name="category" required>
+      <option value="">選択してください</option>
+      <option value="web_dev">Web制作・システム開発</option>
+      <option value="writing">ライティング・翻訳</option>
+      <option value="design">デザイン</option>
+    </select>
+    <select name="subcategory">
+      <option value="">選択してください</option>
+    </select>
+  </div>
+  <div class="p-wizard-step _hidden_x7q2m_81">
+    <h2>ステップ2: 基本情報</h2>
+    <input type="text" name="title" required>
+    <textarea name="description" required></textarea>
+  </div>
+  <div class="p-wizard-step _hidden_x7q2m_81">
+    <h2>ステップ3: 価格・納期</h2>
+    <select name="delivery_days">
+      <option value="">選択してください</option>
+      <option value="3">3日</option>
+      <option value="5">5日</option>
+      <option value="7">7日</option>
+    </select>
+    <input type="number" name="price" required>
+  </div>
+  <div class="p-wizard-step _hidden_x7q2m_81">
+    <h2>ステップ4: パッケージ</h2>
+    <textarea id="package_details"></textarea>
+  </div>
+  <div class="p-wizard-step _hidden_x7q2m_81">
+    <h2>ステップ5: よくある質問</h2>
+    <textarea name="faq"></textarea>
+  </div>
+  <div class="p-wizard-step _hidden_x7q2m_81">
+    <h2>ステップ6: 確認</h2>
+    <input type="checkbox" name="agree_terms" required>
+  </div>
+  <button type="button" class="c-btn">次へ</button>
+  <button type="submit" class="c-btn c-btn--primary">出品する</button>
+</form>
+</body>
+</html>

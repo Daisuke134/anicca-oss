@@ -8,7 +8,9 @@ from unittest.mock import patch
 
 from job_search_loop.agent_runner import AgentRunner, PassAlreadyRunning, TASK_CLASSES
 from job_search_loop.mercor_pass import (
+    _host_capabilities,
     build_context,
+    deny_mercor_media_permissions,
     main,
     record_inspections,
     record_verified_submissions,
@@ -22,6 +24,38 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MercorPassContractTests(unittest.TestCase):
+    def test_media_permissions_are_denied_before_model_browser_work(self):
+        class FakeWebSocket:
+            def __init__(self):
+                self.sent = []
+                self.closed = False
+
+            def send(self, value):
+                self.sent.append(json.loads(value))
+
+            def recv(self):
+                return json.dumps({"id": len(self.sent), "result": {}})
+
+            def close(self):
+                self.closed = True
+
+        connection = FakeWebSocket()
+        deny_mercor_media_permissions(
+            "ws://127.0.0.1:9222/devtools/page/owned",
+            websocket_factory=lambda *_args, **_kwargs: connection,
+        )
+        self.assertEqual(
+            [item["params"]["permission"]["name"] for item in connection.sent],
+            ["microphone", "camera", "display-capture"],
+        )
+        self.assertTrue(all(
+            item["method"] == "Browser.setPermission"
+            and item["params"]["setting"] == "denied"
+            and item["params"]["origin"] == "https://work.mercor.com"
+            for item in connection.sent
+        ))
+        self.assertTrue(connection.closed)
+
     @staticmethod
     def _profile(path: Path) -> Path:
         path.write_text(json.dumps({
@@ -44,9 +78,14 @@ class MercorPassContractTests(unittest.TestCase):
             )
             self.assertEqual(context["recently_inspected_listing_ids"], ["list-seen"])
 
+    @patch("job_search_loop.mercor_pass._sysctl")
     @patch("job_search_loop.mercor_pass.platform.mac_ver", return_value=("15.6", ("", "", ""), ""))
     @patch("job_search_loop.mercor_pass.platform.machine", return_value="arm64")
-    def test_context_proves_local_mac_eligibility(self, _machine, _mac_ver):
+    def test_context_proves_local_mac_eligibility(self, _machine, _mac_ver, sysctl):
+        sysctl.side_effect = lambda key: {
+            "machdep.cpu.brand_string": "Apple M4",
+            "hw.model": "Mac16,10",
+        }[key]
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             context = build_context(
@@ -58,11 +97,20 @@ class MercorPassContractTests(unittest.TestCase):
             self.assertEqual(context["host_capabilities"], {
                 "architecture": "arm64", "macos_version": "15.6",
                 "apple_silicon": True, "macos_sequoia_or_newer": True,
+                "chip": "Apple M4", "machine_model": "Mac16,10",
             })
             self.assertEqual(context["mercor_auth_context"], {
                 "login_method": "email",
                 "account_email": "operator@example.invalid",
             })
+
+    @patch("job_search_loop.mercor_pass.subprocess.run")
+    def test_host_capabilities_keep_unknown_sysctl_values_explicit(self, run):
+        run.return_value.returncode = 1
+        run.return_value.stdout = ""
+        facts = _host_capabilities()
+        self.assertEqual(facts["chip"], "")
+        self.assertEqual(facts["machine_model"], "")
 
     def test_mercor_is_retired_locally_but_keeps_portable_thirty_minute_cadence(self):
         registry = json.loads((ROOT.parents[1] / "config" / "loop-registry.json").read_text())
@@ -149,6 +197,17 @@ class MercorPassContractTests(unittest.TestCase):
             "Japan-eligible Japanese-language",
             "host_capabilities",
             "job_search_loop.mercor_human_gate_notify",
+            "Never open or enter a person-bound step",
+            "skip it without",
+            "Never click an existing incomplete application, `Continue application`",
+            "Go directly to Explore",
+            "Prefer a visible `1-click apply` candidate",
+            "Do not resume an already-incomplete application",
+            "camera, microphone, or screen-sharing permission",
+            "Do not click an interview or assessment step",
+            "Do not call browser media-device or permission APIs",
+            "application summary is sufficient evidence",
+            "skip that candidate for the rest of this wake without waiting",
             "One broken card must not block the whole pass",
             "invoke `.click()` once on that",
             "signals, not pre-application rejection gates",
@@ -284,12 +343,13 @@ class MercorPassContractTests(unittest.TestCase):
             with patch(
                 "job_search_loop.mercor_pass.run_pass",
                 side_effect=PassAlreadyRunning(),
-            ):
+            ), patch("job_search_loop.mercor_pass.deny_mercor_media_permissions"):
                 self.assertEqual(main([
                     "--state-root", str(root / "state"),
                     "--profile", str(profile),
                     "--resume", str(root / "resume.pdf"),
                     "--cdp-url", "http://127.0.0.1:9334",
+                    "--cdp-page-ws", "ws://127.0.0.1:9334/devtools/page/owned",
                     "--prompt", str(root / "prompt.md"),
                     "--schema", str(root / "schema.json"),
                     "--evidence-dir", str(evidence),

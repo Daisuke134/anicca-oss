@@ -21,8 +21,12 @@ Pass order:
    twelve-detail budget on lower-priority work. A nonblocked pass is invalid if that
    priority queue was observed but omitted. `submitted_pending_review` entries are
    observe-only and must never be resubmitted.
-2. Reconcile the oldest in-progress application first. Record every inspected
-   listing in `inspected_listings` with its live URL, application state, and decision.
+2. Observe existing applications from the application-list cards only. If a card is
+   incomplete (`N of N` below completion or below `100%`), record it and skip it without
+   opening the card. Never click an existing incomplete application, `Continue application`,
+   an interview, or an assessment. Go directly to Explore and seek work the loop can submit
+   without a person-bound step. Record every inspected listing in `inspected_listings` with
+   its live URL, application state, and decision.
 3. Maintain a queue of distinct new listings. Before opening detail pages, compare visible
    cards with `recently_inspected_listing_ids` and use model judgment to inspect the strongest
    truthful-fit unseen candidates first. Revisit a recent candidate only after unseen candidates
@@ -58,25 +62,33 @@ Pass order:
    distinct candidate. One broken card must not block the whole pass while other cards
    remain observable; return a transient blocker only when the Explore surface itself is
    unavailable or no candidate can be inspected.
-   For a truthful-fit candidate, start or resume its application and complete every
+   Prefer a visible `1-click apply` candidate. For a truthful-fit candidate whose live
+   detail shows no interview, assessment, recording, camera, microphone, or screen-sharing
+   requirement, start its application and complete every
    reversible step supported by verified context: upload the exact supplied resume,
    reuse already completed steps, and answer availability, location, and work
    authorization only from explicit profile facts. Save readback after each step.
    Treat `host_capabilities` as verified local-machine evidence. In particular, do
    not ask the operator to confirm Apple Silicon or the macOS version when those
-   fields already prove the requirement. Never emit a human gate while the official
-   state is still `Not started`, `0 of N`, or `0%`: click `Start application` and
-   finish every reversible step first. A human gate is valid only at the first
+   fields already prove the requirement. Do not resume an already-incomplete application
+   or click `Continue application`. A human gate is valid only at the first
    remaining person-bound control after fresh official progress readback.
    A fresh application being `0 of N` is normal and is not a reason to skip it.
    The operator has already completed a Mercor interview; trust only the current
    role's visible `Completed` or `reused` state to decide whether that interview
    satisfies this application.
    If a new interview, assessment, camera/screen-share ceremony or other person-bound
-   step is required, first finish all reversible automated steps. Then immediately run
+   step is required, first finish all reversible automated steps.
+   Never open or enter a person-bound step. The application summary is sufficient evidence when it names the
+   exact remaining step and shows it as required or `Not done`.
+   Do not click an interview or assessment step, `Test screenshare`, camera, microphone, recording, or full-screen
+   sharing controls. Do not call browser media-device or permission APIs. Never request
+   camera, microphone, or screen-sharing permission from macOS.
+   Then immediately run
    `python3 -m job_search_loop.mercor_human_gate_notify` with the exact listing ID,
    title, live URL, exact remaining action and fresh evidence reference. Require its
    delivered or delivery-uncertain receipt, add one concise gate to `needs_human`, and
+   skip that candidate for the rest of this wake without waiting for the operator, then
    continue scanning other candidates. A step already shown as `Completed` or `reused`
    is not a human requirement and may be used automatically. The human gate is resumable;
    a later wake observes official completion and continues the same application.

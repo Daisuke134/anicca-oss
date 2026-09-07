@@ -159,6 +159,28 @@ class MercorReportingTests(unittest.TestCase):
         self.assertIn("submitted=Japanese Evaluator", message)
         self.assertIn("needs_human=interview_required", message)
 
+    def test_report_references_canonical_gate_without_repeating_model_instructions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = root / "result.json"
+            result.write_text(json.dumps({
+                "status": "needs_human",
+                "inspected_listings": [],
+                "submitted": [],
+                "needs_human": ["provide Mac screenshot and interview"],
+                "blocked": [],
+                "evidence": {},
+            }), encoding="utf-8")
+            with patch("job_search_loop.mercor_reporting.send_once", return_value={"status": "sent", "message_id": "1"}):
+                receipt = report_pass(
+                    run_id="run-1",
+                    result_path=result,
+                    outbox=root / "outbox.sqlite3",
+                    gate_store=root / "human-gates.jsonl",
+                )
+        self.assertNotIn("provide Mac screenshot", receipt["message"])
+        self.assertIn("human_gate_ids=", receipt["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

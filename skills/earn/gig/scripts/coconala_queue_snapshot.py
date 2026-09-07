@@ -2152,11 +2152,21 @@ class DefaultTab:
             ]
             if self.background:
                 arguments.append("--background")
-            result = subprocess.run(
-                arguments,
-                stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                timeout=25, check=True,
-            )
+            try:
+                result = subprocess.run(
+                    arguments,
+                    stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                    timeout=25, check=True,
+                )
+            except subprocess.CalledProcessError as error:
+                detail = error.stderr or error.stdout or ""
+                try:
+                    reason = json.loads(detail.splitlines()[-1]).get("reason")
+                except (IndexError, AttributeError, json.JSONDecodeError):
+                    reason = None
+                raise RuntimeError(
+                    f"failed to open authenticated default tab: {reason or 'helper exit 1'}"
+                ) from error
             row = json.loads(result.stdout.splitlines()[-1])
             if not row.get("ok") or not row.get("target_id") or not row.get("ws"):
                 raise RuntimeError(f"failed to open authenticated default tab: {row}")

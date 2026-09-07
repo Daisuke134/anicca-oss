@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,43 @@ from typing import Any
 from .agent_runner import AgentRunner, PassAlreadyRunning
 from .mercor_provider import run_pass
 from .mercor_submit_guard import fenced_listing_ids
+
+
+def deny_mercor_media_permissions(
+    cdp_page_ws: str,
+    *,
+    websocket_factory: Any | None = None,
+) -> None:
+    """Fail closed before Mercor can reach macOS media-permission/TCC UI."""
+    if not cdp_page_ws:
+        raise RuntimeError("mercor_owned_page_websocket_required")
+    if websocket_factory is None:
+        import websocket
+
+        websocket_factory = websocket.create_connection
+    connection = websocket_factory(cdp_page_ws, timeout=20)
+    try:
+        for command_id, permission in enumerate(
+            ("microphone", "camera", "display-capture"), start=1
+        ):
+            connection.send(json.dumps({
+                "id": command_id,
+                "method": "Browser.setPermission",
+                "params": {
+                    "permission": {"name": permission},
+                    "setting": "denied",
+                    "origin": "https://work.mercor.com",
+                },
+            }))
+            while True:
+                response = json.loads(connection.recv())
+                if response.get("id") != command_id:
+                    continue
+                if response.get("error") is not None:
+                    raise RuntimeError(f"mercor_media_permission_guard_failed:{permission}")
+                break
+    finally:
+        connection.close()
 
 
 def _shared_apply_context(profile_path: Path) -> dict[str, Any]:
@@ -39,6 +77,16 @@ def _mercor_auth_context(profile_path: Path) -> dict[str, str]:
     return {"login_method": "email", "account_email": email.strip()}
 
 
+def _sysctl(key: str) -> str:
+    result = subprocess.run(
+        ["/usr/sbin/sysctl", "-n", key],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def _host_capabilities() -> dict[str, Any]:
     architecture = platform.machine()
     macos_version = platform.mac_ver()[0]
@@ -51,6 +99,8 @@ def _host_capabilities() -> dict[str, Any]:
         "macos_version": macos_version,
         "apple_silicon": architecture == "arm64",
         "macos_sequoia_or_newer": macos_major >= 15,
+        "chip": _sysctl("machdep.cpu.brand_string"),
+        "machine_model": _sysctl("hw.model"),
     }
 
 
@@ -337,6 +387,7 @@ def main(argv: list[str] | None = None) -> int:
             run_id=args.run_id,
             cdp_page_ws=args.cdp_page_ws,
         )
+        deny_mercor_media_permissions(args.cdp_page_ws)
         result = run_pass(
             runner=runner,
             prompt_path=args.prompt,
