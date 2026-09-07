@@ -66,6 +66,19 @@ def _reach_marketplace_core() -> Any:
     return listing_catalog
 
 
+def _reach_form_observer() -> Any:
+    """Reach skills/_shared/marketplace-core/scripts/form_observer.py, the platform-neutral
+    wizard/step observer, via the same sys.path mechanism _reach_marketplace_core already uses.
+    This is the one and only place create_package's stall report is allowed to ask "which step
+    is actually showing" -- see _create_observer_step_state, called from _create_step_evidence.
+    """
+    shared_scripts = HERE.parents[2] / "_shared" / "marketplace-core" / "scripts"
+    if str(shared_scripts) not in sys.path:
+        sys.path.insert(0, str(shared_scripts))
+    import form_observer
+    return form_observer
+
+
 def _catalog_projection(catalog_module: Any, catalog_path: Path, family: str) -> dict[str, Any]:
     """Load the shared catalog and project `family` onto the Lancers shape.
 
@@ -556,17 +569,21 @@ def _create_field_state(page: Any, name: str, selector: str) -> dict[str, Any]:
     if count != 1:
         return {"field": name, "present": False, "count": count}
     try:
+        visible = field.is_visible()
+    except Exception:
+        visible = None
+    try:
         option_count = field.locator("option").count()
     except Exception:
         option_count = 0
     if option_count:
         label, value = _create_selected_option(field)
-        return {"field": name, "present": True, "type": "select", "selected_label": label, "filled": bool(value and value.strip())}
+        return {"field": name, "present": True, "type": "select", "selected_label": label, "filled": bool(value and value.strip()), "visible": visible}
     try:
         value = field.input_value()
     except Exception:
         value = None
-    return {"field": name, "present": True, "type": "text", "filled": bool(value and str(value).strip())}
+    return {"field": name, "present": True, "type": "text", "filled": bool(value and str(value).strip()), "visible": visible}
 
 
 def _create_tag_widget_state(page: Any) -> dict[str, Any]:
@@ -711,12 +728,101 @@ def _bounded_create_stall_payload(payload: dict[str, Any]) -> str:
     return text[:max(budget, 0)] + _CREATE_STALL_TRUNCATION_MARKER
 
 
-def _create_step_evidence(page: Any, step_name: str) -> str:
+def _create_current_step_name(steps: Mapping[str, Any], fields_report: Sequence[Mapping[str, Any]]) -> str | None:
+    """Which step of the observer's step->field map is actually showing, from live evidence
+    only -- never from whatever step_name the caller happened to be advancing from (that is
+    exactly the "adapter's own idea" this must not fall back to).
+
+    Primary signal: for each step, how many of its own fields the live DOM reports `visible`.
+    The step with the most wins -- deliberately a count, not "all fields visible", because a
+    single field the wizard hasn't finished mounting yet (the exact stall this shipped from,
+    see _create_arrival_field_state) must not make an otherwise-current step invisible to this
+    check. Falls back to the observer's own has_wrapper_class flag (the structural fact the
+    CSS-module hiding class encodes) only when literally no field anywhere reads as visible --
+    e.g. a step whose only owned field is the one still lagging.
+    """
+    if not steps.get("is_wizard"):
+        return None
+    visible_by_identifier: dict[Any, bool | None] = {}
+    for field in fields_report:
+        identifier = field.get("identifier")
+        if identifier is not None:
+            visible_by_identifier[identifier] = field.get("visible")
+    best_name: str | None = None
+    best_count = 0
+    for step in steps.get("steps", []):
+        field_ids = [fid for fid in step.get("fields", []) if fid is not None]
+        visible_count = sum(1 for fid in field_ids if visible_by_identifier.get(fid))
+        if visible_count > best_count:
+            best_count = visible_count
+            best_name = step.get("name")
+    if best_name is not None:
+        return best_name
+    not_hidden = [step for step in steps.get("steps", []) if step.get("has_wrapper_class") is False]
+    if len(not_hidden) == 1:
+        return not_hidden[0].get("name")
+    return None
+
+
+def _create_observer_step_state(page: Any) -> dict[str, Any]:
+    """What skills/_shared/marketplace-core/scripts/form_observer.py's platform-neutral wizard
+    detector says about this exact live page: which step is actually showing (per
+    _create_current_step_name above) and the CSS-module class it inferred the wizard hides
+    non-current steps with. This is the fix for the report hole named in the task this shipped
+    from: `present`/`filled` alone cannot tell "the click did nothing" apart from "the wizard
+    advanced and the arrival selector is wrong" -- both leave every field present and holding
+    its value, since every step's fields sit in the DOM at once. `current_step`, derived here
+    from live visibility rather than from the step_name argument the caller passed in, is the
+    fact that tells those two apart.
+
+    Never raises: an observer exception or a page the observer cannot recognise as a wizard is
+    itself reported (observer_error / is_wizard: False), not swallowed -- a diagnostic must
+    never become the thing that fails.
+    """
+    try:
+        observer = _reach_form_observer()
+        report = observer.observe_page(page)
+    except Exception as error:
+        return {
+            "observer_error": f"{type(error).__name__}: {error}",
+            "is_wizard": None,
+            "wrapper_class": None,
+            "current_step": None,
+        }
+    steps = report.get("steps") or {}
+    is_wizard = bool(steps.get("is_wizard"))
+    current_step = _create_current_step_name(steps, report.get("fields", [])) if is_wizard else None
+    return {
+        "observer_error": None,
+        "is_wizard": is_wizard,
+        "wrapper_class": steps.get("wrapper_class"),
+        "current_step": current_step,
+    }
+
+
+def _create_arrival_field_state(arrival: Any, arrival_field: str | None) -> dict[str, Any]:
+    """Visibility of the exact locator `_advance_create_step` was waiting for when it gave up --
+    the single fact the task naming this report's hole says settles the question on its own:
+    still invisible means the click did nothing; visible (on a page that has otherwise advanced)
+    means the wizard moved and this specific field is what is lagging."""
+    if arrival is None:
+        return {"field": arrival_field, "visible": None}
+    try:
+        visible = arrival().is_visible()
+    except Exception:
+        visible = None
+    return {"field": arrival_field, "visible": visible}
+
+
+def _create_step_evidence(page: Any, step_name: str, arrival: Any = None, arrival_field: str | None = None) -> str:
     """Everything create_step_stalled can report about why `step_name` did not advance: every
     field that step owns (state 1 above), the best real validation message found (state 2), the
-    page URL (state 3, so a silent navigation reads differently from a refusal to advance), and
-    the advance control's own found/text state (state 4). Nothing here is inferred -- every value
-    is read straight off the page."""
+    page URL (state 3, so a silent navigation reads differently from a refusal to advance), the
+    advance control's own found/text state (state 4), which step the observer says is actually
+    showing plus its inferred wrapper class (state 5 -- see _create_observer_step_state), and the
+    visibility of the field `_advance_create_step` was itself waiting for (state 6 -- see
+    _create_arrival_field_state). Nothing here is inferred -- every value is read straight off
+    the page (or, for state 5/6, off form_observer's own read of the page)."""
     fields = [_create_field_state(page, name, selector) for name, selector in _CREATE_STEP_FIELDS.get(step_name, ())]
     payload: dict[str, Any] = {
         "step": step_name,
@@ -727,6 +833,8 @@ def _create_step_evidence(page: Any, step_name: str) -> str:
     }
     if step_name == "基本情報":
         payload["tag_widget"] = _create_tag_widget_state(page)
+    payload.update(_create_observer_step_state(page))
+    payload["arrival_field"] = _create_arrival_field_state(arrival, arrival_field)
     return _bounded_create_stall_payload(payload)
 
 
@@ -739,20 +847,21 @@ def _click_create_next_button(page: Any, step_name: str) -> None:
         raise OfferError(f"create_step_stalled: {step_name}: next_button_missing") from None
 
 
-def _advance_create_step(page: Any, step_name: str, arrival: Any) -> None:
+def _advance_create_step(page: Any, step_name: str, arrival: Any, arrival_field: str) -> None:
     """Click 次へ from `step_name` and confirm the next step actually became current.
 
     `arrival` is a zero-arg callable returning a Locator whose visibility proves the next step
-    now shows. A step whose click does not produce that visibility -- most likely a validation
-    failure on the step just filled -- raises create_step_stalled naming the step and any
-    validation text the page is showing, instead of letting the next .fill() time out
-    anonymously against a field with a zero-size bounding box (the bug this shipped from).
+    now shows; `arrival_field` names it for the stall report (see _create_arrival_field_state).
+    A step whose click does not produce that visibility -- most likely a validation failure on
+    the step just filled -- raises create_step_stalled naming the step and any validation text
+    the page is showing, instead of letting the next .fill() time out anonymously against a
+    field with a zero-size bounding box (the bug this shipped from).
     """
     _click_create_next_button(page, step_name)
     try:
         arrival().wait_for(state="visible", timeout=10_000)
     except Exception:
-        raise OfferError(f"create_step_stalled: {step_name}: {_create_step_evidence(page, step_name)}") from None
+        raise OfferError(f"create_step_stalled: {step_name}: {_create_step_evidence(page, step_name, arrival, arrival_field)}") from None
 
 
 def _create_business_textarea(page: Any) -> Any:
@@ -795,7 +904,10 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
     tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]')
     for tag in product["tags"]:
         tag_field.fill(tag); tag_field.press("Enter")
-    _advance_create_step(page, "基本情報", lambda: page.locator('[name="ProjectPlanMenuForm[0].description"]'))
+    _advance_create_step(
+        page, "基本情報", lambda: page.locator('[name="ProjectPlanMenuForm[0].description"]'),
+        "ProjectPlanMenuForm[0].description",
+    )
 
     # 2/6 料金表 -- 「料金は必ず3プラン必要です」, exactly 3 plans (ベーシック/スタンダード/プレミアム).
     for index, plan in enumerate(product["plans"]):
@@ -803,16 +915,22 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
         _field(page, f'[name="{prefix}.description"]').fill(plan["description"])
         _select_delivery_time(page, f'[name="{prefix}.delivery_time"]', plan["delivery_days"])
         _field(page, f'[name="{prefix}.price"]').fill(str(plan["price_jpy"]))
-    _advance_create_step(page, "料金表", lambda: _create_business_textarea(page))
+    _advance_create_step(page, "料金表", lambda: _create_business_textarea(page), "業務内容 textarea (unnamed)")
 
     # 3/6 業務内容 -- the single unnamed textarea, max 2000 chars (already enforced against
     # `product["description"]` by _require_create_fields before this function ever ran).
     _create_business_textarea(page).fill(product["description"])
-    _advance_create_step(page, "業務内容", lambda: page.locator('[name="ProjectPlanForm.notice_for_sale"]'))
+    _advance_create_step(
+        page, "業務内容", lambda: page.locator('[name="ProjectPlanForm.notice_for_sale"]'),
+        "ProjectPlanForm.notice_for_sale",
+    )
 
     # 4/6 確認事項 -- 注文時のお願い (必須); 注文時の質問 is optional and unused here.
     _field(page, '[name="ProjectPlanForm.notice_for_sale"]').fill(product["notice"])
-    _advance_create_step(page, "確認事項", lambda: page.get_by_text(_CREATE_IMAGE_STEP_MARKER_TEXT, exact=False))
+    _advance_create_step(
+        page, "確認事項", lambda: page.get_by_text(_CREATE_IMAGE_STEP_MARKER_TEXT, exact=False),
+        _CREATE_IMAGE_STEP_MARKER_TEXT,
+    )
 
     # 5/6 画像ほか -- 任意. See this function's docstring for why a missing/failed attach only
     # sets a flag rather than raising: every required field already passed _require_create_fields,
