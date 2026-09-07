@@ -83,6 +83,7 @@ Pass order:
    `python3 -m job_search_loop.mercor_human_gate_notify` with the exact listing ID,
    title, live URL, exact remaining action and fresh evidence reference. Require its
    delivered or delivery-uncertain receipt, add one concise gate to `needs_human`, and
+   skip that candidate for the rest of this wake without waiting for the operator, then
    continue scanning other candidates. A step already shown as `Completed` or `reused`
    is not a human requirement and may be used automatically. The human gate is resumable;
    a later wake observes official completion and continues the same application.

@@ -18,6 +18,43 @@ from .mercor_provider import run_pass
 from .mercor_submit_guard import fenced_listing_ids
 
 
+def deny_mercor_media_permissions(
+    cdp_page_ws: str,
+    *,
+    websocket_factory: Any | None = None,
+) -> None:
+    """Fail closed before Mercor can reach macOS media-permission/TCC UI."""
+    if not cdp_page_ws:
+        raise RuntimeError("mercor_owned_page_websocket_required")
+    if websocket_factory is None:
+        import websocket
+
+        websocket_factory = websocket.create_connection
+    connection = websocket_factory(cdp_page_ws, timeout=20)
+    try:
+        for command_id, permission in enumerate(
+            ("microphone", "camera", "display-capture"), start=1
+        ):
+            connection.send(json.dumps({
+                "id": command_id,
+                "method": "Browser.setPermission",
+                "params": {
+                    "permission": {"name": permission},
+                    "setting": "denied",
+                    "origin": "https://work.mercor.com",
+                },
+            }))
+            while True:
+                response = json.loads(connection.recv())
+                if response.get("id") != command_id:
+                    continue
+                if response.get("error") is not None:
+                    raise RuntimeError(f"mercor_media_permission_guard_failed:{permission}")
+                break
+    finally:
+        connection.close()
+
+
 def _shared_apply_context(profile_path: Path) -> dict[str, Any]:
     path = (
         Path(__file__).resolve().parents[3]
@@ -350,6 +387,7 @@ def main(argv: list[str] | None = None) -> int:
             run_id=args.run_id,
             cdp_page_ws=args.cdp_page_ws,
         )
+        deny_mercor_media_permissions(args.cdp_page_ws)
         result = run_pass(
             runner=runner,
             prompt_path=args.prompt,

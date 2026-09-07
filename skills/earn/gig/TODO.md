@@ -722,6 +722,17 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `d0b87ea62d44c8d3c8df3aba9d6ad07e45e8eaae`; immutable loop release
    `20260907T200648-d0b87ea6` is cut from that main. It still requires a targeted production apply
    before another Mercor wake; no Mac, Aqua or browser restart is part of the repair.
+   Targeted apply receipt `c97108948e1e8843a29ec836` then loaded only Mercor Apply from that
+   release without restarting the shared browser. Its first wake disproved the prompt-only repair:
+   after `Continue application`, Mercor selected the incomplete Bilingual Competency step by default
+   and exposed camera/screenshare controls despite the model instruction. The owner was immediately
+   stopped before any permission control was used; the shared browser and other loops remained live.
+   The pass now sets Mercor-origin `microphone`, `camera`, and `display-capture` permissions to
+   `denied` through the exact leased CDP target before any model browser work and fails closed if any
+   setting is rejected. A human-required candidate is reported once, skipped for the rest of that
+   wake without waiting, and scanning continues. Focused tests pass 23/23, and the running Chromium
+   accepted all three permission settings without restart. Merge, cut a new immutable release, then
+   re-enable only Mercor and obtain the still-required natural terminal/replay acceptance.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
