@@ -140,10 +140,26 @@ function callTool(tool, args, { codexBin = "codex", cwd = process.cwd(), timeout
   return new Promise((resolve, reject) => {
     const child = spawn(codexBin, ["app-server", "--stdio"], { cwd, stdio: ["pipe", "pipe", "ignore"] });
     let buffer = "";
+    let finishing = false;
     const finish = (error, value) => {
+      if (finishing) return;
+      finishing = true;
       clearTimeout(timer);
-      child.kill();
-      error ? reject(error) : resolve(value);
+      let finalized = false;
+      const finalize = () => {
+        if (finalized) return;
+        finalized = true;
+        clearTimeout(forceKill);
+        clearTimeout(forceFinish);
+        error ? reject(error) : resolve(value);
+      };
+      child.once("close", finalize);
+      try { child.stdin.end(); } catch {}
+      try { child.kill(); } catch {}
+      const forceKill = setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch {}
+      }, 1_000);
+      const forceFinish = setTimeout(finalize, 2_000);
     };
     const timer = setTimeout(() => finish(new Error("Moneytree app-server timeout")), timeoutMs);
     const send = (message) => child.stdin.write(`${JSON.stringify(message)}\n`);
