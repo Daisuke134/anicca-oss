@@ -8,14 +8,27 @@ set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOOP_NAME="${X_LOOP_NAME:-x-repost}"
-LABEL="${X_LOOP_LABEL:-ai.anicca.x-repost-pass}"
+if [ "${LIFE_MANAGER_LOOP_ID:-}" = "x-repost-ja-healthcheck" ]; then
+  DEFAULT_LOOP_NAME="x-repost-ja"
+  DEFAULT_LABEL="ai.anicca.x-repost-ja-pass"
+  DEFAULT_STATE="$HOME/loops/x-repost-ja"
+  DEFAULT_MAX_AGE_SECONDS=5400
+  DEFAULT_INITIAL_GRACE_SECONDS=3600
+else
+  DEFAULT_LOOP_NAME="x-repost"
+  DEFAULT_LABEL="ai.anicca.x-repost-pass"
+  DEFAULT_STATE="$HOME/loops/x-repost-en"
+  DEFAULT_MAX_AGE_SECONDS=10800
+  DEFAULT_INITIAL_GRACE_SECONDS=0
+fi
+LOOP_NAME="${X_LOOP_NAME:-$DEFAULT_LOOP_NAME}"
+LABEL="${X_LOOP_LABEL:-$DEFAULT_LABEL}"
 INSTALLED="$HOME/Library/LaunchAgents/$LABEL.plist"
-HEARTBEAT="${X_REPOST_STATE_DIR:-$SKILL/state}/.last-pass"
+HEARTBEAT="${X_REPOST_STATE_DIR:-$DEFAULT_STATE}/.last-pass"
 # Hourly cadence, so 3h of silence is already three missed passes -- and the heartbeat is written
 # on every pass that reaches a decision, not only the ones that publish.
-MAX_AGE_SECONDS="${X_REPOST_MAX_PASS_AGE:-10800}"
-INITIAL_GRACE_SECONDS="${X_LOOP_INITIAL_GRACE_SECONDS:-0}"
+MAX_AGE_SECONDS="${X_REPOST_MAX_PASS_AGE:-$DEFAULT_MAX_AGE_SECONDS}"
+INITIAL_GRACE_SECONDS="${X_LOOP_INITIAL_GRACE_SECONDS:-$DEFAULT_INITIAL_GRACE_SECONDS}"
 
 # shellcheck source=/dev/null
 source "$HOME/.openclaw/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || \

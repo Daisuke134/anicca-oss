@@ -2921,7 +2921,7 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "skills/x-repost/x-repost-cli.sh",
+      "entrypoint": "skills/x-repost/x-repost-en-cli.sh",
       "label": "ai.anicca.x-repost-pass",
       "log_root": "~/loops/logs",
       "provider_route": "shared-agent-runner",

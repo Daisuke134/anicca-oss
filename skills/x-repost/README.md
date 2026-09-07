@@ -32,12 +32,9 @@ used.
 
 ## Configure your accounts
 
-Edit the three declarations before installation:
-
-- `loops/x-repost/loop.toml`: browser identity, Postiz integration, model, cadence.
-- `loops/x-repost-ja/loop.toml`: model and cadence; edit `x-repost-ja-cli.sh` for the handle,
-  browser identity, persona, language, and transport.
-- `loops/x-tweeter/loop.toml`: English browser identity, Postiz integration, model, cadence.
+The single scheduler declaration is `config/loop-registry.json`. Account-specific runtime defaults
+live in the repository-owned `x-repost-en-cli.sh`, `x-repost-ja-cli.sh`, and `x-tweeter-cli.sh`
+wrappers; there is no second `loop.toml`/plist generator path.
 
 Runtime credentials stay outside Git. Provide `POSTIZ_API_KEY` when using Postiz and a healthy
 registered CloakBrowser X session for source collection and exact readback. Browser identities are
@@ -49,9 +46,7 @@ also requires the `crwl` CLI on `PATH`.
 ```bash
 python3 -m unittest discover -s skills/x-repost/tests -p 'test_*.py' -v
 python3 -m unittest discover -s skills/x-tweeter/tests -p 'test_*.py' -v
-python3 bin/plistgen.py --loops-dir loops --out-dir /tmp/x-loop-plists --only x-repost --diff
-python3 bin/plistgen.py --loops-dir loops --out-dir /tmp/x-loop-plists --only x-repost-ja --diff
-python3 bin/plistgen.py --loops-dir loops --out-dir /tmp/x-loop-plists --only x-tweeter --diff
+python3 -m unittest runtime.loop.tests.test_macos_loop_registry -v
 ```
 
 ## Install on a Mac

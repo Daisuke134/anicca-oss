@@ -4,6 +4,11 @@ set -uo pipefail
 SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export X_LOOP_ROLE=original
 export X_LOOP_NAME=x-tweeter
+export X_REPOST_BROWSER_IDENTITY="x:anicca"
+export X_REPOST_MODEL="gpt-5.6-luna"
+export X_REPOST_REASONING_EFFORT="max"
+export X_REPOST_PUBLISH_TRANSPORT="postiz"
+export X_REPOST_POSTIZ_INTEGRATION_ID="cmt4l2jld031tqp0y8qtyo983"
 export X_REPOST_FORCE_KIND=original
 export X_REPOST_FORCE_LANGUAGE=en
 export X_REPOST_SOURCE_MODE=chinese-public

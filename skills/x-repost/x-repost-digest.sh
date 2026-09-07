@@ -10,7 +10,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PAT
 
 SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SKILL/../.." && pwd)"
-STATE="${X_REPOST_STATE_DIR:-$SKILL/state}"
+STATE="${X_REPOST_STATE_DIR:-$HOME/loops/x-repost-en}"
 PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3
 WINDOW="${X_REPOST_DIGEST_WINDOW_HOURS:-24}"
 TELEGRAM_SEND_TIMEOUT="${X_REPOST_TELEGRAM_SEND_TIMEOUT:-30}"

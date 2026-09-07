@@ -708,7 +708,7 @@ plist を atomic write したあと `bootout` → `bootstrap` を行い、
 `_loaded_arguments` が期待値と一致するまで最大3回試行する。
 `_preserve_operational_attributes` には `_is_immutable_release_working_directory` があり、
 plist が release 内の `WorkingDirectory` を持っていた場合はそれを引き継がない。
-`bin/plistgen.py` の既定も `WorkingDirectory: $HOME` である。
+旧`bin/plistgen.py`も`WorkingDirectory: $HOME`だったが、現在はregistry単独所有へ統合済みである。
 **つまり apply 側の restart と cwd 対策は既に入っている。**
 
 ### 実際に掴んでいるもの

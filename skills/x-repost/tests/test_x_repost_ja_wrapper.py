@@ -1,11 +1,13 @@
 import pathlib
-import tomllib
+import json
 import unittest
 
 
 ROOT = pathlib.Path(__file__).parents[3]
 WRAPPER = ROOT / "skills/x-repost/x-repost-ja-cli.sh"
 MAIN = ROOT / "skills/x-repost/x-repost-cli.sh"
+HEALTHCHECK = ROOT / "skills/x-repost/x-repost-healthcheck.sh"
+DIGEST = ROOT / "skills/x-repost/x-repost-digest.sh"
 
 
 class JapaneseDiceLoopContractTests(unittest.TestCase):
@@ -32,10 +34,24 @@ class JapaneseDiceLoopContractTests(unittest.TestCase):
         self.assertIn('--loop "${LIFE_MANAGER_LOOP_ID:-$LOOP_NAME}"', text)
 
     def test_launchd_contract_is_half_hourly_and_offset(self):
-        loop = tomllib.loads((ROOT / "loops/x-repost-ja/loop.toml").read_text())
-        self.assertEqual(loop["jobs"]["pass"]["calendars"], [{"minute": 5}, {"minute": 35}])
-        self.assertEqual(loop["jobs"]["healthcheck"]["env"]["X_LOOP_LABEL"],
-                         "ai.anicca.x-repost-ja-pass")
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        loop = registry["loops"]["x-repost-ja-pass"]
+        self.assertEqual(loop["cadence"]["calendar_interval"], [{"Minute": 5}, {"Minute": 35}])
+        health = registry["loops"]["x-repost-ja-healthcheck"]
+        self.assertEqual(health["label"], "ai.anicca.x-repost-ja-healthcheck")
+
+    def test_clean_registry_healthchecks_select_their_pass_and_state(self):
+        text = HEALTHCHECK.read_text()
+        self.assertIn('LIFE_MANAGER_LOOP_ID:-', text)
+        self.assertIn('DEFAULT_LABEL="ai.anicca.x-repost-ja-pass"', text)
+        self.assertIn('DEFAULT_STATE="$HOME/loops/x-repost-ja"', text)
+        self.assertIn("DEFAULT_MAX_AGE_SECONDS=5400", text)
+        self.assertIn("DEFAULT_INITIAL_GRACE_SECONDS=3600", text)
+        self.assertIn('DEFAULT_LABEL="ai.anicca.x-repost-pass"', text)
+        self.assertIn('DEFAULT_STATE="$HOME/loops/x-repost-en"', text)
+
+    def test_digest_defaults_to_the_english_repost_state(self):
+        self.assertIn('$HOME/loops/x-repost-en', DIGEST.read_text())
 
 
 if __name__ == "__main__":
