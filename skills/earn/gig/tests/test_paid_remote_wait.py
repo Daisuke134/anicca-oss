@@ -1823,6 +1823,15 @@ def test_runner_loop_id_uses_managed_control_plane_identity(monkeypatch):
     assert paid._runner_loop_id() == "hf-gig-paid-direct"
 
 
+def test_remote_verifier_accepts_its_single_evidence_reference():
+    paid = load("paid_direct")
+    result = {"verifier_evidence": "remote-verifier-evidence.json"}
+
+    references = getattr(paid, "_verifier_evidence_references", lambda _result: [])(result)
+
+    assert references == [("verifier_evidence", "remote-verifier-evidence.json")]
+
+
 def test_remote_owner_cannot_treat_one_invalid_candidate_as_exhaustion():
     source = (SCRIPTS / "paid_direct.py").read_text(encoding="utf-8")
     assert "One invalid, private, unreachable, or unverified candidate is not batch exhaustion" in source

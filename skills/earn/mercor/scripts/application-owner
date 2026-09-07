@@ -57,6 +57,7 @@ MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:
   "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
 rc=$?
 "$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
+  --origin https://work.mercor.com --local-storage-key mercor-auth-store \
   --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >"$WRITEBACK_JSON"
 writeback_rc=$?
 set -e

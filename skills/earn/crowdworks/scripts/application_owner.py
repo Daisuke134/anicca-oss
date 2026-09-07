@@ -97,12 +97,35 @@ def _decline(declined, job_id, title, reason):
     if len(declined) < DECLINED_PER_WAKE and not any(item["external_id"] == job_id for item in declined):
         declined.append({"external_id": job_id, "title": re.sub(r"\s+", " ", title).strip()[:200], "reason": reason})
 
+EVIDENCE_ROOT = STATE / "work-fit-evidence"
+
+
+def _work_fit_verdict(job_id, title, body):
+    """`None` when the posting is workable, `(reason_code, quote)` when it is not.
+
+    A judge that cannot run refuses. Treating an unavailable judge as approval is precisely how a
+    lane keeps applying while the thing that was supposed to stop it is broken, and on Coconala
+    that cost the account.
+    """
+    directory = EVIDENCE_ROOT / f"{job_id}-{int(time.time())}"
+    try:
+        verdicts = work_fit.judge(
+            [{"posting_id": str(job_id), "title": title, "body": body}],
+            evidence_dir=directory, loop="crowdworks-application")
+    except Exception as error:
+        return ("judge_unavailable", str(error)[:120])
+    if str(job_id) not in verdicts:
+        # Absent is not approved.
+        return ("unjudged", "")
+    return verdicts[str(job_id)]
+
+
 def _candidate(page, listings, rotation):
     """Search the catalog's own terms and return the first job a catalog tier can actually serve."""
     # Rotation decides where to start, not where to stop: capping at a handful of listings meant a
     # day whose slice happened to be quiet reported no work while other listings had live jobs.
     ordered = listings[rotation:] + listings[:rotation]
-    seen = _applied(); already = len(seen); rejected = {"closed_or_unverified": 0, "off_topic": 0, "wrong_category": 0, "budget": 0}
+    seen = _applied(); already = len(seen); rejected = {"closed_or_unverified": 0, "off_topic": 0, "wrong_category": 0, "budget": 0, "not_workable": 0, "judge_unavailable": 0}
     # Postings we looked at seriously and still declined. Reporting every search hit would be noise;
     # a job that matched the listing and was then declined is a decision worth telling Dais about.
     declined = []
@@ -143,6 +166,16 @@ def _candidate(page, listings, rotation):
                 rejected["budget"]+=1
                 budget=_budget(text)
                 _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{listing['tiers'][0]['price_jpy']:,}円に届きません" if budget else "固定報酬の提示がありません")
+                continue
+            # The category label got this far; the posting text decides. Without this the lane
+            # applied to 「採用支援事業のパートナー募集」 and two more like it on 2026-09-07 --
+            # agency recruitment, where nothing is delivered so nothing can be delivered well.
+            # Coconala had no judgement here either and the marketplace restricted the account.
+            verdict = _work_fit_verdict(job_id, title, detail or text)
+            if verdict is not None:
+                rejected["not_workable"]+=1
+                reason, quote = verdict
+                _decline(declined,job_id,title,f"募集文の「{quote}」が対応できない条件（{reason}）に当たります" if quote else f"対応できない条件（{reason}）に当たります")
                 continue
             return {"external_id":job_id,"title":re.sub(r"\s+"," ",title).strip()},listing,tier,{"inspected":len(seen)-already,**rejected,"declined":declined}
     return None,None,None,{"inspected":len(seen)-already,**rejected,"declined":declined}

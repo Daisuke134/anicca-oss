@@ -149,6 +149,29 @@ async def _calls(pairs, timeout=20.0):
     return out
 
 
+async def _page_calls(ws_url, pairs, timeout=20.0):
+    """Run CDP calls against one exact leased page target."""
+    out = []
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    async with websockets.connect(
+        ws_url, max_size=64 * 1024 * 1024, open_timeout=min(10.0, timeout)
+    ) as ws:
+        for i, (method, params) in enumerate(pairs, start=1):
+            await ws.send(json.dumps({"id": i, "method": method, "params": params or {}}))
+            while True:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    raise TimeoutError(f"{method} did not answer within {timeout}s")
+                message = json.loads(await asyncio.wait_for(ws.recv(), timeout=remaining))
+                if message.get("id") == i:
+                    if "error" in message:
+                        raise RuntimeError(f"{method}: {message['error']}")
+                    out.append(message.get("result", {}))
+                    break
+    return out
+
+
 def _pid_alive(pid):
     """Is the process that last proved it holds this lease still running?
 
@@ -327,9 +350,12 @@ def acquire(task, url="about:blank", no_seed=False):
             with open(vault_path, encoding="utf-8") as handle:
                 cookies = json.load(handle).get("cookies", [])
         overlay_path = _vault_writeback_path()
+        overlay_origins = []
         if not no_seed and overlay_path != vault_path and os.path.exists(overlay_path):
             with open(overlay_path, encoding="utf-8") as handle:
-                overlay_cookies = json.load(handle).get("cookies", [])
+                overlay = json.load(handle)
+            overlay_cookies = overlay.get("cookies", [])
+            overlay_origins = overlay.get("origins", [])
             overlay_domains = {
                 _normalized_cookie_domain(cookie.get("domain"))
                 for cookie in overlay_cookies if isinstance(cookie, dict)
@@ -348,6 +374,16 @@ def acquire(task, url="about:blank", no_seed=False):
         calls.append(("Target.createTarget", {"url": url, "browserContextId": ctx_id}))
         results = asyncio.run(_calls(calls))
         target_id = results[-1]["targetId"]
+        try:
+            storage_origins_seeded = _seed_local_storage(
+                _page_ws(target_id), url, overlay_origins
+            )
+        except Exception:
+            with contextlib.suppress(Exception):
+                asyncio.run(_calls([(
+                    "Target.disposeBrowserContext", {"browserContextId": ctx_id}
+                )]))
+            raise
 
         lease = {
             "context_id": ctx_id,
@@ -355,6 +391,7 @@ def acquire(task, url="about:blank", no_seed=False):
             "ws": _page_ws(target_id),
             "ts": int(time.time()),
             "cookies_seeded": len(cookies),
+            "storage_origins_seeded": storage_origins_seeded,
             "token": secrets.token_hex(16),
             "generation": 1,
             "pid": _holder_pid(),
@@ -414,7 +451,57 @@ def _cookie_matches_domain(cookie, domains):
     )
 
 
-def commit_cookies(task, domains, token=None, generation=None):
+def _normalized_origin(value):
+    parsed = urlparse(str(value or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return ""
+    default_port = (parsed.scheme == "https" and parsed.port in {None, 443}) or (
+        parsed.scheme == "http" and parsed.port in {None, 80}
+    )
+    netloc = parsed.hostname.lower() if default_port else f"{parsed.hostname.lower()}:{parsed.port}"
+    return f"{parsed.scheme}://{netloc}"
+
+
+def _seed_local_storage(ws_url, target_url, origins):
+    target_origin = _normalized_origin(target_url)
+    matching = []
+    for row in origins if isinstance(origins, list) else []:
+        if not isinstance(row, dict) or _normalized_origin(row.get("origin")) != target_origin:
+            continue
+        items = row.get("localStorage", [])
+        matching = [
+            {"name": item.get("name"), "value": item.get("value")}
+            for item in items if isinstance(item, dict)
+            and isinstance(item.get("name"), str)
+            and isinstance(item.get("value"), str)
+        ]
+        break
+    if not target_origin or not matching:
+        return 0
+
+    expression = """(async()=>{
+      const expected=%s, entries=%s;
+      const deadline=Date.now()+10000;
+      while(location.origin!==expected && Date.now()<deadline) {
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      if(location.origin!==expected) throw new Error('storage_origin_not_ready');
+      for(const item of entries) localStorage.setItem(item.name,item.value);
+      setTimeout(()=>location.reload(),50);
+      return entries.length;
+    })()""" % (json.dumps(target_origin), json.dumps(matching))
+    (result,) = asyncio.run(_page_calls(ws_url, [(
+        "Runtime.evaluate",
+        {"expression": expression, "awaitPromise": True, "returnByValue": True},
+    )], timeout=15.0))
+    if result.get("exceptionDetails"):
+        raise RuntimeError("local_storage_seed_failed")
+    return len(matching)
+
+
+def commit_cookies(
+    task, domains, token=None, generation=None, origin=None, local_storage_keys=None
+):
     """Merge one leased context's provider cookies into its seed vault.
 
     Isolated contexts are deliberately disposable, but a provider may refresh or mint its
@@ -425,6 +512,13 @@ def commit_cookies(task, domains, token=None, generation=None):
     normalized_domains = sorted({_normalized_cookie_domain(domain) for domain in domains})
     if not normalized_domains or any("." not in domain for domain in normalized_domains):
         return {"ok": False, "reason": "invalid_cookie_domain"}
+    normalized_storage_origin = _normalized_origin(origin) if origin else ""
+    storage_keys = sorted({
+        key for key in (local_storage_keys or [])
+        if isinstance(key, str) and key and len(key) <= 256
+    })
+    if (origin or storage_keys) and (not normalized_storage_origin or not storage_keys):
+        return {"ok": False, "reason": "invalid_local_storage_scope"}
 
     with _ledger_lock():
         held = _leases().get(task)
@@ -443,6 +537,21 @@ def commit_cookies(task, domains, token=None, generation=None):
                 "Storage.getCookies",
                 {"browserContextId": held["context_id"]},
             )]))
+            storage_items = []
+            if storage_keys:
+                expression = "JSON.stringify(Object.fromEntries(%s.map(k=>[k,localStorage.getItem(k)])))" % json.dumps(storage_keys)
+                (storage_result,) = asyncio.run(_page_calls(
+                    held["ws"],
+                    [("Runtime.evaluate", {"expression": expression, "returnByValue": True})],
+                ))
+                if storage_result.get("exceptionDetails"):
+                    return {"ok": False, "reason": "local_storage_read_failed"}
+                raw = storage_result.get("result", {}).get("value")
+                values = json.loads(raw) if isinstance(raw, str) else {}
+                storage_items = [
+                    {"name": key, "value": values[key]}
+                    for key in storage_keys if isinstance(values.get(key), str) and values[key]
+                ]
         finally:
             fcntl.flock(operation_lock.fileno(), fcntl.LOCK_UN)
 
@@ -453,6 +562,8 @@ def commit_cookies(task, domains, token=None, generation=None):
     ]
     if not matching:
         return {"ok": False, "reason": "no_matching_context_cookies"}
+    if storage_keys and not storage_items:
+        return {"ok": False, "reason": "no_matching_local_storage"}
 
     vault_path = _vault_writeback_path()
     with _vault_lock():
@@ -468,6 +579,16 @@ def commit_cookies(task, domains, token=None, generation=None):
         payload = dict(prior) if isinstance(prior, dict) else {}
         payload["ts"] = int(time.time())
         payload["cookies"] = preserved + matching
+        if storage_keys:
+            prior_origins = payload.get("origins", [])
+            payload["origins"] = [
+                row for row in prior_origins
+                if isinstance(row, dict)
+                and _normalized_origin(row.get("origin")) != normalized_storage_origin
+            ] + [{
+                "origin": normalized_storage_origin,
+                "localStorage": storage_items,
+            }]
         os.makedirs(os.path.dirname(vault_path), mode=0o700, exist_ok=True)
         temporary = f"{vault_path}.{os.getpid()}.tmp"
         with open(temporary, "w", encoding="utf-8") as handle:
@@ -482,6 +603,7 @@ def commit_cookies(task, domains, token=None, generation=None):
         "domains": normalized_domains,
         "cookies_committed": len(matching),
         "cookies_preserved": len(preserved),
+        "local_storage_committed": len(storage_items),
     }
 
 
@@ -625,7 +747,13 @@ if __name__ == "__main__":
                 if value == "--domain"
             ]
             out = commit_cookies(
-                arg or "unnamed", domains, token=token, generation=generation
+                arg or "unnamed", domains, token=token, generation=generation,
+                origin=(sys.argv[sys.argv.index("--origin") + 1] if "--origin" in sys.argv else None),
+                local_storage_keys=[
+                    sys.argv[index + 1]
+                    for index, value in enumerate(sys.argv[:-1])
+                    if value == "--local-storage-key"
+                ],
             )
         elif cmd == "gc":
             idle = int(sys.argv[sys.argv.index("--idle-min") + 1]) if "--idle-min" in sys.argv else 45

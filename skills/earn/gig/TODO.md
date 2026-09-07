@@ -518,6 +518,30 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    shared base vault and every other provider cookie untouched, fail without overwriting prior state
    when no Mercor cookie is observed, and prove a following natural wake starts authenticated without
    any browser or Mac restart.
+   PR `#4496` merged that repair at main SHA
+   `a8d78976e9f289720e05e395fe08c655b6274703`. Targeted production wake
+   `mercor-20260907-145643-76542` ended naturally at `2026-09-07T06:10:58Z` with exit `0` and
+   returned to `loaded-idle`; no Mac, Aqua or browser restart occurred. The exact leased context was
+   authenticated, and release committed five `mercor.com` cookies to the provider-only overlay while
+   leaving the shared base vault untouched. It inspected twelve official candidates and submitted
+   zero. The two Japanese candidates required a new unfinished Bilingual Competency ceremony; the
+   remaining inspected roles required unverified US/Canada residency, degree, certification or
+   five-year specialist history, so a truthful no-human application was unavailable in that bounded
+   scan. The application ledger therefore remains at 19 and no per-application Telegram receipt was
+   emitted. Authentication persistence is fixed, but this atom remains unchecked until a later natural
+   wake finds a truthful no-human candidate, obtains official submission readback, reports it
+   immediately, and the following wake proves application replay-zero.
+   The immediately following targeted wake `mercor-20260907-151305-7211` disproved cookie-only
+   persistence: its initial Explore DOM still showed `Sign in`, although the owner recovered through
+   the existing Google session and reached authenticated Home/Applications again without human input.
+   Mercor keeps its signed-in client state in provider Web Storage as well as cookies. The shared lease
+   overlay must therefore persist and seed only an adapter-declared origin/key; Mercor declares only
+   `https://work.mercor.com` / `mercor-auth-store`, with the private file remaining mode `0600` and no
+   value entering logs or Git. That wake then ended naturally `pass`/`loaded-idle` at
+   `2026-09-07T06:19:01Z`, but its bounded result was blocked after the visible Japanese Writer Apply
+   action failed to render the listing detail. It inspected one, submitted zero and emitted no
+   application receipt. After Web Storage persistence is installed, repair that exact official detail
+   transition and continue this same atom; do not call either wake accepted and do not advance order.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
@@ -1222,6 +1246,60 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
     without judging. PASS = the posting text is judged against
     `work_fit.HARD_PROHIBITION_CLASSES` before submission, and a wake that would have bid on the
     three partner-recruitment postings declines them by name.
+
+### Reporting, measured by reading the chat rather than the logs — 2026-09-07
+
+`skills/tools/telegram-user` reads Dais's own Telegram history over MTProto, so what he actually
+receives can be measured instead of inferred from a lane reporting `delivered: 1`. The session was
+already saved in `~/.cloak/telegram-user.json`; only the venv was missing. Every claim below comes
+from the chat, and two of them contradict what this cursor had previously reported.
+
+15. [x] `APPLY-REPORT-11` An application report must say what was applied for and for how much.
+    Lancers, on a real application: 「案件: 案件5598169」 and nothing else -- no title, no amount,
+    while CrowdWorks has printed both since it started applying
+    (「提案: JPY 250000 / 固定報酬」). Both facts were in hand: the pending descriptor this path
+    reconciles carries `title` and `amount_minor`, and the report substituted 「案件<id>」 for one
+    and dropped the other. Not an edge case -- it is how most Lancers applications are confirmed.
+
+16. [x] `APPLY-REPORT-12` An unchanged message must not bury the ones that matter. 200 messages in
+    48 minutes, of which **93 were one identical sentence**, about one every thirty seconds. The
+    per-application reports were being delivered the whole time and could not be found, which is
+    what "not getting realtime reports" turned out to mean. `telegram_outbox.enqueue` deduplicated
+    on `event_key`, fresh every pass, so a lane whose state had not moved repeated itself forever.
+    Identical text is now held for an hour, then allowed through once so a quiet lane still proves
+    it is alive; any change sends immediately. `repeat_after_seconds=None` opts out.
+
+    The lane doing the flooding is Coconala's negotiate loop, which does not use the shared outbox
+    -- it is one of the nine modules Coconala does not read. Fixing the outbox does not silence it
+    today. That belongs to the negotiate owner, with this evidence.
+
+17. [x] `APPLY-REPORT-13` **Correction: `submission_uncertain` is not a lost application.** This
+    cursor reported "45 eligible → 13 submitted, 71% lost". Reading the chat, all 7 of 7
+    `submission_uncertain` projects were confirmed on the next wake, within 80 seconds:
+
+    ```
+    5598169  06:14:48 -> 06:16:04     5597055  05:47:38 -> 05:49:22
+    5598091  06:10:34 -> 06:11:52     5595939  05:39:47 -> 05:41:23
+    ```
+
+    The real loss is `proposal_form_changed` (15 of 46) and `provider_terminal_blocked` (3), about
+    a third rather than seven tenths. The lesson is not about the number: a wake-level counter
+    cannot see an outcome that resolves on a later wake, so a loss rate computed from one wake's
+    fields is wrong by construction, and the chat -- where the same project id appears twice --
+    was the only place the resolution was visible.
+
+18. [x] `APPLY-REPORT-14` Every proposal-form failure names where it happened.
+    `application_tick.py` raises `proposal_form_changed` from 41 places and three of them
+    recorded; `LANCERS-FORM-1` was marked done after fixing those three, so
+    `proposal-form-changes.jsonl` did not exist while 15 applications were lost to that one code.
+    All 38 now record function and line. The test greps the file, because that is the check that
+    would have caught it.
+
+19. [ ] `APPLY-REPORT-15` ★ Read `proposal-form-changes.jsonl` once it has rows and repair the
+    named step. This is now the largest measured loss of real work on any platform: about one in
+    three eligible Lancers projects. Blocked only on a natural failure occurring under the release
+    that records.
+
 
 
 
