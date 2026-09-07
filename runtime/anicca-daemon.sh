@@ -6,7 +6,7 @@
 # by hand. On every (re)start it:
 #   1. SELF-UPDATES: git pull the mother repo so this body always runs the latest motherboard.
 #   2. ensures its own brain is up — the repository x402 adapter (Base/EVM self-pay, or a
-#      readiness-probe-only wait for Franklin — see franklin-loop-revival REQ-004/§ENGINE-PARITY).
+#      per-instance repository-owned compute proxy).
 #   3. ensures its telemetry poster is up (reports to the dashboard).
 #   4. exec's the ReAct loop in the FOREGROUND — when the loop exits, this script exits, and the
 #      supervisor brings the whole body back (freshly updated).
@@ -15,8 +15,8 @@
 # routing fixed by franklin-loop-revival REQ-004 2026-07-08): default (unset or legacy instance ID
 # 'clawrouter') = the repository EVM/Base compute adapter + telemetry-poster.mjs path. 'franklin' = Franklin's OWN
 # Solana wallet (~/.blockrun/.solana-session, resolved via resolve-identity.mjs, never touched
-# here) for balance/tier purposes, while THINK temporarily reaches the legacy shared :8402 LLM
-# router (Franklin no longer runs its own dedicated proxy binary) + the ed25519
+# here) for balance/tier purposes, while THINK uses the same repository compute adapter with a
+# separate per-instance EVM payer wallet and port + the ed25519
 # telemetry-post-franklin.mjs poster (one-shot script, looped here since it has no built-in interval).
 #
 # The loop itself is already crash-resilient (while-true + per-wake try/catch); this wrapper adds
@@ -40,11 +40,12 @@ is_franklin_instance() {
   esac
 }
 
-# Franklin temporarily remains on the separately owned legacy router at :8402. Generic self-host
-# instances default to the repository proxy's dedicated :18402 boundary, so a live legacy router can
-# never be mistaken for this daemon's own compute process. Either class may be explicitly overridden.
+# Every instance owns a distinct repository-proxy port so one instance can never borrow another
+# instance's EVM payer wallet. Generic self-host uses :18402; Franklin-family ports start at :18403.
 if is_franklin_instance "$INSTANCE"; then
-  PORT="${COMPUTE_PROXY_PORT:-8402}"
+  FRANKLIN_SUFFIX="${INSTANCE#franklin}"
+  FRANKLIN_INDEX="${FRANKLIN_SUFFIX:-1}"
+  PORT="${COMPUTE_PROXY_PORT:-$((18402 + 10#$FRANKLIN_INDEX))}"
 else
   PORT="${COMPUTE_PROXY_PORT:-18402}"
 fi
@@ -79,33 +80,10 @@ export EARN_LEDGER="${EARN_LEDGER:-$EARN_STATE_ROOT/earn-ledger.jsonl}"
 export ANICCA_STATE_DIR="${ANICCA_STATE_DIR:-$ANICCA_HOME/state}"
 export ANICCA_REPO="$REPO"
 mkdir -p "$EARN_STATE_ROOT"
-# 2. brain: start this instance's own OpenAI-compatible proxy on $PORT if not already answering.
-if is_franklin_instance "$INSTANCE"; then
-  # franklin-loop-revival REQ-004(b)/REQ-005/PROP-016 (2026-07-08): Franklin's brain is the
-  # ALREADY-RUNNING, SEPARATELY-launchd shared free-tier LLM-router job on :8402 (its own
-  # RunAtLoad+KeepAlive plist, confirmed live — free-tier-only, no shared-wallet credential
-  # configured at all). Franklin's daemon reaches it ONLY as a same-machine loopback HTTP client
-  # (the PORT/OPENAI_BASE_URL fix above) — it NEVER spawns the old dedicated @blockrun/franklin
-  # CLI's own "proxy" subcommand, the shared router's own binary, or any other process for this
-  # instance, and NEVER reads any other instance's own env/wallet/key material to do so (that
-  # would be exactly the cross-instance leakage REQ-005 forbids —
-  # the non-franklin branch's own, separately-designed use of those stays untouched below and
-  # never executes for INSTANCE=franklin). Retired: the port-8403 spawn of that CLI's proxy
-  # subcommand with --model/--no-fallback flags (verified live 2026-07-05, now dead per
-  # FIND-006/FIND-009) — this branch is AT MOST a readiness probe, a pure no-op otherwise, since
-  # bringing the shared router up is exclusively ITS OWN separate launchd job's responsibility,
-  # never Franklin's. export kept ONLY for runtime/dashboard/telemetry-post-franklin.mjs's own
-  # labeling (unchanged, out of scope for this requirement — the poster is independent of THINK
-  # routing).
-  export FRANKLIN_FREE_MODEL="${FRANKLIN_FREE_MODEL:-nvidia/llama-4-maverick}"
-  if ! curl -sf "http://127.0.0.1:$PORT/v1/models" >/dev/null 2>&1; then
-    log "waiting for the shared LLM router on :$PORT (its own launchd job brings it up — Franklin's daemon never spawns its own brain)"
-  fi
-else
-  # New self-host instances use the repository-owned OpenAI-compatible x402 adapter. It creates or
-  # preserves this instance's own EVM identity under ANICCA_HOME and never reads another runtime's
-  # checkout, environment, or wallet.
-  ensure_brain() {
+# 2. brain: every instance uses the same repository-owned OpenAI-compatible x402 adapter. It creates
+# or preserves that instance's own EVM identity under ANICCA_HOME and never reads another runtime's
+# checkout, environment, wallet, or proxy process.
+ensure_brain() {
     env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY \
       ANICCA_HOME="$ANICCA_HOME" COMPUTE_PROXY_PORT="$PORT" \
       "$REPO/runtime/compute-proxy/start-local.sh" --proxy-only \
@@ -124,11 +102,10 @@ else
       wait "$BRAIN_PID" 2>/dev/null || true
       BRAIN_PID=""
     fi
-  }
-  if ! curl -sf "http://127.0.0.1:$PORT/v1/models" >/dev/null 2>&1; then
-    log "starting repository compute proxy on :$PORT"
-    ensure_brain || { log "repository compute proxy failed readiness on :$PORT"; exit 78; }
-  fi
+}
+if ! curl -sf "http://127.0.0.1:$PORT/v1/models" >/dev/null 2>&1; then
+  log "starting repository compute proxy for $INSTANCE on :$PORT"
+  ensure_brain || { log "repository compute proxy failed readiness on :$PORT"; exit 78; }
 fi
 
 # 3. telemetry poster: one instance (kill any stale one first so the dashboard never doubles) -----

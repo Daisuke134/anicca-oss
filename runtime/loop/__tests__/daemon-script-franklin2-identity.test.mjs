@@ -69,14 +69,14 @@ test('REQ-001/REQ-004 PROP-004: is_franklin_instance rejects non-matching decoys
   }
 });
 
-test('REQ-001 PROP-005 (static): all 3 daemon call sites use is_franklin_instance — zero remaining literal `"$INSTANCE" = "franklin"` string-equality left in the file', () => {
+test('REQ-001 PROP-005 (static): port, telemetry and Solana identity use the Franklin-family classifier', () => {
   assert.equal(
     (source.match(/"\$INSTANCE"\s*=\s*"franklin"/g) || []).length,
     0,
     'no call site may still literal-match only "franklin" — franklin2/franklin3/... would fall through',
   );
   const classifierCalls = (source.match(/is_franklin_instance\s+"\$INSTANCE"/g) || []).length;
-  assert.equal(classifierCalls, 3, `expected exactly 3 call sites (brain/telemetry/wallet) to use is_franklin_instance "$INSTANCE", found ${classifierCalls}`);
+  assert.equal(classifierCalls, 3, `expected exactly 3 call sites (port/telemetry/wallet) to use is_franklin_instance "$INSTANCE", found ${classifierCalls}`);
 });
 
 test('REQ-002(b): step-3 telemetry branch condition now reached for franklin2 (static: step 3 still selects telemetry-post-franklin.mjs behind is_franklin_instance)', () => {

@@ -58,24 +58,19 @@ function runPortSnippet(env) {
   });
 }
 
-test('REQ-004(a): INSTANCE=franklin resolves PORT to ClawRouter\'s 8402 (matching the non-franklin branch), not 8403', () => {
+test('ARCH-11: each Franklin-family instance resolves to its own repository-proxy port', () => {
   const result = runPortSnippet({ ANICCA_INSTANCE: 'franklin' });
   assert.equal(result.status, 0, `snippet must run cleanly (stderr: ${result.stderr})`);
-  assert.equal(
-    result.stdout.trim(),
-    'PORT=8402',
-    'today this resolves PORT=8403 via FRANKLIN_PROXY_PORT (behavioral-spec.md Root cause B) — REQ-004(a) requires 8402',
-  );
+  assert.equal(result.stdout.trim(), 'PORT=18403');
+  assert.equal(runPortSnippet({ ANICCA_INSTANCE: 'franklin2' }).stdout.trim(), 'PORT=18404');
+  assert.equal(runPortSnippet({ ANICCA_INSTANCE: 'franklin08' }).stdout.trim(), 'PORT=18410');
+  assert.equal(runPortSnippet({ ANICCA_INSTANCE: 'franklin10' }).stdout.trim(), 'PORT=18412');
 });
 
-test('REQ-004(c): even with FRANKLIN_PROXY_PORT=8403 set (mirroring the deployed plist\'s current value), PORT still resolves 8402 for franklin', () => {
+test('ARCH-11: retired FRANKLIN_PROXY_PORT cannot redirect Franklin to the external router', () => {
   const result = runPortSnippet({ ANICCA_INSTANCE: 'franklin', FRANKLIN_PROXY_PORT: '8403' });
   assert.equal(result.status, 0, `stderr: ${result.stderr}`);
-  assert.equal(
-    result.stdout.trim(),
-    'PORT=8402',
-    'daemon.sh must no longer derive franklin\'s PORT from FRANKLIN_PROXY_PORT at all (REQ-004(c))',
-  );
+  assert.equal(result.stdout.trim(), 'PORT=18403');
 });
 
 test('ARCH-11: non-franklin uses a dedicated repository-proxy port, never Franklin ClawRouter :8402', () => {
@@ -87,7 +82,7 @@ test('ARCH-11: non-franklin uses a dedicated repository-proxy port, never Frankl
   assert.equal(invalidFranklinResult.stdout.trim(), 'PORT=18402');
 });
 
-test('REQ-004(a): OPENAI_BASE_URL (the SAME $PORT variable line 117 already uses) resolves to http://127.0.0.1:8402/v1 for franklin', () => {
+test('ARCH-11: OPENAI_BASE_URL resolves to Franklin\'s own repository proxy', () => {
   const exportLine = extractLine(source, 'export OPENAI_BASE_URL=');
   const result = spawnSync('/bin/bash', ['-c', `${PORT_SNIPPET}\n${exportLine}\necho "URL=$OPENAI_BASE_URL"`], {
     env: { PATH: '/usr/bin:/bin', ANICCA_INSTANCE: 'franklin' },
@@ -95,32 +90,21 @@ test('REQ-004(a): OPENAI_BASE_URL (the SAME $PORT variable line 117 already uses
     timeout: 5000,
   });
   assert.equal(result.status, 0, `stderr: ${result.stderr}`);
-  assert.equal(result.stdout.trim(), 'URL=http://127.0.0.1:8402/v1');
+  assert.equal(result.stdout.trim(), 'URL=http://127.0.0.1:18403/v1');
 });
 
-test('REQ-004(b)/REQ-005/PROP-016 (static): step-2 franklin branch never spawns `franklin proxy` or `clawrouter`, never reads $HOME/.local/state/life-manager/.env or BLOCKRUN_WALLET_KEY, but keeps AT MOST a curl readiness probe', () => {
+test('ARCH-11: step 2 has one shared repository compute path and no external router path', () => {
   const step2 = extractBetween(source, '# 2. brain:', '# 3. telemetry poster');
-  // franklin2-daemon-identity rewired the literal `"$INSTANCE" = "franklin"` comparison to the shared
-  // is_franklin_instance() predicate (so franklin2/franklin3/… route the same way) — the condition text
-  // changed, the franklin-branch BODY this test inspects did not.
-  const franklinBranchMatch = step2.match(/if is_franklin_instance "\$INSTANCE"; then([\s\S]*?)\nelse\b/);
-  assert.ok(franklinBranchMatch, 'expected an `if is_franklin_instance "$INSTANCE"; then ... else` block inside daemon.sh step 2');
-  const franklinBranch = franklinBranchMatch[1];
-
-  assert.ok(!/franklin proxy/.test(franklinBranch), 'must NEVER spawn `franklin proxy` (REQ-004(b)) — today it does (line ~69)');
-  assert.ok(!/\bclawrouter\b/i.test(franklinBranch), 'must NEVER spawn a clawrouter process for franklin (REQ-005)');
-  assert.ok(!/\.openclaw\/\.env/.test(franklinBranch), 'must NEVER read $HOME/.local/state/life-manager/.env for franklin (REQ-005/PROP-016)');
-  assert.ok(!/BLOCKRUN_WALLET_KEY/.test(franklinBranch), 'must NEVER read/export BLOCKRUN_WALLET_KEY for franklin (REQ-005/PROP-016)');
-  assert.ok(/curl/.test(franklinBranch), 'the franklin branch must still be AT MOST a curl readiness probe (REQ-004(b)), not deleted entirely');
+  assert.doesNotMatch(step2, /if is_franklin_instance/);
+  assert.match(step2, /runtime\/compute-proxy\/start-local\.sh" --proxy-only/);
+  assert.doesNotMatch(step2, /franklin proxy|\bclawrouter\b|\.openclaw/i);
+  assert.match(step2, /env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY/);
 });
 
 test('ARCH-11: the non-franklin brain starts the repository-owned compute proxy without OpenClaw or a global ClawRouter', () => {
   const step2 = extractBetween(source, '# 2. brain:', '# 3. telemetry poster');
-  // The two branches must remain textually distinct: exactly one `if is_franklin_instance "$INSTANCE"`
-  // conditional inside step 2, with its own `else` — never collapsed into one ensure_brain (REQ-005).
-  // (franklin2-daemon-identity: condition text rewired from a literal comparison to the shared predicate.)
   const franklinConditionals = (step2.match(/if is_franklin_instance "\$INSTANCE"; then/g) || []).length;
-  assert.equal(franklinConditionals, 1, 'step 2 must have exactly one franklin/else conditional (branches not collapsed, REQ-005)');
+  assert.equal(franklinConditionals, 0, 'compute ownership is shared; only port and instance state differ');
   assert.match(step2, /runtime\/compute-proxy\/start-local\.sh" --proxy-only/);
   assert.doesNotMatch(step2, /npm install -g|command -v clawrouter|\bclawrouter\s*>>/i);
   assert.doesNotMatch(step2, /\.openclaw|OpenClaw instance|OpenClaw gateway/i);
