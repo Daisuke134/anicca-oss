@@ -633,11 +633,18 @@ def _filter_claimed_rows(rows: Sequence[Mapping[str, object]], state_path: Path)
     # discarding every other row observed this tick alongside it.
     valid_rows = [row for row in rows if _valid_observed_budget(row)]
     skipped = [{"project_id": str(row.get("external_id")) if isinstance(row, Mapping) and isinstance(row.get("external_id"), str) else "unknown", "reason": "invalid_observed_budget"} for row in rows if not _valid_observed_budget(row)]
+    # A コンペ is not a proposal. The buyer picks from finished work submitted on spec, so there
+    # is no price to quote and no fee field on the form -- measured 2026-09-07, three logo
+    # contests in a row reached the submitter and every one raised proposal_form_changed at
+    # _production_prepare:479, waiting for a `#FeeApp` widget that a contest page does not have.
+    # That was 15 of the 46 eligible projects in 120 wakes, the largest single loss on the lane,
+    # and it read as a broken selector rather than as work we should never have selected.
+    UNSUPPORTED_BUDGET_TYPES = {"bounty", "contest"}
     skipped.extend({
         "project_id": str(row.get("external_id")),
         "reason": "unsupported_application_workflow",
-    } for row in valid_rows if row.get("budget_type") == "bounty")
-    good_rows = [row for row in valid_rows if row.get("budget_type") != "bounty"]
+    } for row in valid_rows if row.get("budget_type") in UNSUPPORTED_BUDGET_TYPES)
+    good_rows = [row for row in valid_rows if row.get("budget_type") not in UNSUPPORTED_BUDGET_TYPES]
     ids = [row.get("external_id") if isinstance(row, Mapping) else None for row in good_rows]
     duplicate_ids = {project_id for project_id in ids if isinstance(project_id, str) and ids.count(project_id) > 1}
     skip_cache = _read_skip_cache(state_path)
