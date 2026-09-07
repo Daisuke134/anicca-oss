@@ -137,6 +137,8 @@ class MercorPassContractTests(unittest.TestCase):
             "Japan-eligible Japanese-language",
             "host_capabilities",
             "Never invoke `mercor_human_gate_notify` from Apply",
+            "One broken card must not block the whole pass",
+            "invoke `.click()` once on that",
             "requires_new_human_application_step",
         ):
             self.assertIn(required, prompt)

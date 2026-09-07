@@ -44,6 +44,15 @@ Pass order:
    `1-click apply` control and wait for the listing/application content to render.
    Do not navigate directly to an `/explore?listingId=...` URL: that route can leave
    only the Explore shell loaded without the candidate detail.
+   On the authenticated Explore surface, `Apply` may be only hover text inside an exact
+   `<a data-test="listing-card" href="/explore?listingId=...">`. If a physical click on
+   that observed card leaves `location.href` unchanged, invoke `.click()` once on that
+   same exact observed anchor and require its query-bound detail readback. Do not guess or
+   construct a URL. If both reversible attempts leave the exact card unopened, record a
+   candidate-local `listing_detail_not_rendered` decision and continue to the next
+   distinct candidate. One broken card must not block the whole pass while other cards
+   remain observable; return a transient blocker only when the Explore surface itself is
+   unavailable or no candidate can be inspected.
    For a truthful-fit candidate, start or resume its application and complete every
    reversible step supported by verified context: upload the exact supplied resume,
    reuse already completed steps, and answer availability, location, and work
