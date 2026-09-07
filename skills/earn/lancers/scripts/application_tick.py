@@ -996,9 +996,23 @@ def run_live_tick(
                             return TickResult(ok=False, error="state_invalid", project_id=str(project_id))
                         return TickResult(ok=False, error=TERMINAL_STATE_STATUS, project_id=str(project_id))
                     if error not in {"financial_terms_required", "proposal_form_changed"}:
+                        # Relabelling is kept -- the caller's contract is a small set of codes --
+                        # but the real reason is written down first. Measured 2026-09-07: the lane
+                        # reported proposal_form_changed while proposal-form-changes.jsonl stayed
+                        # empty, because these two handlers rename anything that reaches them and
+                        # the named recorder below only ever sees failures raised by _form_changed.
+                        _record_form_change(f"_production_prepare:relabelled:{error[:60]}",
+                                            "relabelled_as_form_changed",
+                                            {"project_id": str(project_id), "original": error[:200]})
                         error = "proposal_form_changed"
                     return TickResult(ok=False, error=error, project_id=str(project_id))
-                except Exception:
+                except Exception as exc:
+                    # Any exception at all became proposal_form_changed here -- a browser timeout,
+                    # a dead page, a bug of mine -- so the code named the step that had least to do
+                    # with it. The exception type is what tells them apart.
+                    _record_form_change(f"_production_prepare:unhandled:{type(exc).__name__}",
+                                        "unhandled_exception",
+                                        {"project_id": str(project_id), "detail": str(exc)[:200]})
                     return TickResult(ok=False, error="proposal_form_changed", project_id=str(project_id))
             submitter = submitter_override or (lambda opportunity, text, amount, due: _production_submitter(page, opportunity, text, amount, due, proposal_reader))
 

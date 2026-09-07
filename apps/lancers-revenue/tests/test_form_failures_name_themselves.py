@@ -74,3 +74,34 @@ def test_returning_the_error_keeps_every_call_site_a_raise():
     for line in source.split("\n"):
         if "_form_changed(" in line and "def _form_changed" not in line:
             assert line.strip().startswith("raise "), line.strip()
+
+
+# --- the relabellers, 2026-09-07 -------------------------------------------------------------
+
+def test_nothing_can_become_proposal_form_changed_without_saying_what_it_was():
+    """Measured after the recorder shipped: the lane kept reporting proposal_form_changed while
+    proposal-form-changes.jsonl stayed empty. Two handlers in run_live_tick rename anything that
+    reaches them -- one every RuntimeError that is not financial_terms_required, the other every
+    exception of any kind -- so the recorder only ever saw failures raised by _form_changed, and
+    a browser timeout was indistinguishable from a changed form."""
+    source = TICK.read_text(encoding="utf-8")
+    relabel = source[source.index('if error not in {"financial_terms_required"'):]
+    relabel = relabel[:relabel.index("submitter = submitter_override")]
+    assert "_record_form_change(" in relabel
+    assert "relabelled_as_form_changed" in relabel
+    assert "unhandled_exception" in relabel
+
+
+def test_the_unhandled_handler_keeps_the_exception_type():
+    """`except Exception:` threw away the one field that separates a dead page from a moved
+    selector."""
+    source = TICK.read_text(encoding="utf-8")
+    assert "except Exception as exc:" in source
+    assert "type(exc).__name__" in source
+
+
+def test_the_relabelling_itself_is_kept():
+    """The caller's contract is a small set of codes; widening it here would push the problem out
+    rather than record it."""
+    source = TICK.read_text(encoding="utf-8")
+    assert 'error = "proposal_form_changed"' in source
