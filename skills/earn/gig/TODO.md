@@ -610,6 +610,17 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    waits for `input[type=email][name=email]`, fills the profile email, and clicks exact `Login` once.
    Focused verification passes 40 tests plus 2 subtests. Production login/session persistence/application
    receipt/Telegram/replay-zero remain the unchanged acceptance.
+   Release `d0960335af067e730e1f4aea787f370a6e0d9359` completed the first correct production recovery:
+   a fresh official email was issued, the same wake reached authenticated Home/Applications, observed
+   eighteen official submitted applications, progressed Japanese Writer to its existing `2 of 4 / 50%`
+   person-bound gate, delivered the natural-language job/link/action message as Telegram `65754`, and
+   continued through eleven other candidates. It ended naturally exit `0`/`loaded-idle`, committed five
+   cookies, one local-storage key and two session-storage keys, but submitted no new application because
+   the bounded candidates were existing applications or shared Bilingual Competency pending. The following
+   wake exposed a shared CLI regression: `cdp_context_lease.py acquire TASK URL` discarded its URL argument,
+   so Web Storage was saved but `storage_origins_seeded` stayed zero. The shared CLI now preserves the exact
+   requested URL; no Mercor-specific duplicate is added. Focused verification passes 40 tests plus 2
+   subtests. Merge/install, new official submission, realtime application Telegram and replay-zero remain.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
