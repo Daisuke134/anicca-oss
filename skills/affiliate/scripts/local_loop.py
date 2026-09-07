@@ -1039,7 +1039,10 @@ def _private_env_value(name):
     value = os.environ.get(name, "").strip()
     if value:
         return value
-    for path in (Path("~/.config/anicca/affiliate.env"), Path("~/.openclaw/.env")):
+    for path in (
+        Path("~/.config/anicca/affiliate.env"),
+        Path(os.environ.get("LIFE_MANAGER_ENV_FILE", "~/.local/state/life-manager/.env")),
+    ):
         path = path.expanduser()
         if not path.is_file():
             continue
@@ -3942,21 +3945,6 @@ def advance_known_publication(
     state, landing_root, x_cdp_port, private_markdown=None, provider_cdp_port=9324,
 ):
     landing_root = Path(landing_root).expanduser()
-    if not landing_root.is_dir():
-        repo_root = landing_root.parent.parent
-        if (
-            landing_root.name != "affiliate-foundation-prod"
-            or landing_root.parent.name != ".worktrees"
-            or not (repo_root / ".git").exists()
-        ):
-            raise FileNotFoundError(landing_root)
-        subprocess.run(
-            ["git", "-C", str(repo_root), "worktree", "add", str(landing_root),
-             "feature/affiliate-foundation-prod"],
-            check=True, capture_output=True, text=True, timeout=120,
-        )
-        if not landing_root.is_dir():
-            raise FileNotFoundError(landing_root)
     generic = advance_generic_publication(
         state, landing_root, x_cdp_port, private_markdown, provider_cdp_port,
     )
@@ -4869,10 +4857,7 @@ def _wake_once(args, started_at, run_id):
     try:
         landing_root = getattr(
             args, "landing_root",
-            Path(os.environ.get(
-                "AFFILIATE_LANDING_ROOT",
-                "~/anicca-project/.worktrees/affiliate-foundation-prod",
-            )),
+            Path(os.environ.get("AFFILIATE_LANDING_ROOT", Path(__file__).resolve().parents[3])),
         )
         publication = (
             admit(
@@ -5443,10 +5428,7 @@ def main():
     parser.add_argument("--impact-cdp-port", type=int, default=9327)
     parser.add_argument(
         "--landing-root", type=Path,
-        default=Path(os.environ.get(
-            "AFFILIATE_LANDING_ROOT",
-            "~/anicca-project/.worktrees/affiliate-foundation-prod",
-        )),
+        default=Path(os.environ.get("AFFILIATE_LANDING_ROOT", Path(__file__).resolve().parents[3])),
     )
     parser.add_argument("--placement", default="article-1")
     parser.add_argument("--locale", choices=("en", "ja"), default="en")
