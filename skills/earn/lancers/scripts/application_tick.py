@@ -89,6 +89,21 @@ def _record_form_change(locator: Any, why: str, found: Any = None) -> None:
         return
 
 
+def _form_changed(where: str, **detail: Any) -> RuntimeError:
+    """Record where the proposal form stopped matching, then hand back the error to raise.
+
+    Measured 2026-09-07: this file raises `proposal_form_changed` from 41 places and only three
+    of them -- the two strict matchers above -- recorded anything, so the evidence file this was
+    built for stayed empty while 9 of 45 eligible projects in 120 wakes were lost to that one
+    code. An error name shared by 41 sites is a name that identifies nothing.
+
+    Returning the exception rather than raising it keeps every call site a `raise`, so control
+    flow reads the same as before and no site can record without raising.
+    """
+    _record_form_change(where, "form_step_failed", detail or None)
+    return RuntimeError("proposal_form_changed")
+
+
 def _one(locator: Any) -> Any:
     found = _count(locator)
     if found != 1:
@@ -391,17 +406,17 @@ def _proposal_href(page: Any, project_id: str) -> str:
         if not visible:
             continue
         if href == expected_href and text != "提案する":
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_proposal_href:394")
         if text == "提案する" and (not isinstance(href, str) or href != expected_href):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_proposal_href:396")
         if text != "提案する":
             continue
         raw = _url(href)
         if not _route(raw, f"/work/propose_start/{project_id}", "proposeReferer="):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_proposal_href:401")
         matches.append(raw)
     if not matches or len(set(matches)) != 1:
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_proposal_href:404")
     return matches[0]
 
 
@@ -432,7 +447,7 @@ def _exact_page_metadata(page: Any, expected_url: str) -> None:
         (f'meta[property="og:url"][content="{expected_url}"]', "content"),
     ):
         if _one(page.locator(selector)).get_attribute(attribute) != expected_url:
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_exact_page_metadata:435")
 
 
 def _production_prepare(
@@ -455,19 +470,19 @@ def _production_prepare(
     detail_url = _url(f"/work/detail/{project_id}")
     page.goto(detail_url, wait_until="domcontentloaded", timeout=20_000)
     if not _route(getattr(page, "url", None), f"/work/detail/{project_id}"):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_production_prepare:458")
     _exact_page_metadata(page, detail_url)
     if _provider_terminal_blocked(page):
         raise RuntimeError("provider_terminal_blocked")
     proposal_url = _proposal_href(page, project_id)
     page.goto(proposal_url, wait_until="domcontentloaded", timeout=20_000)
     if not _route(getattr(page, "url", None), f"/work/propose_start/{project_id}", "proposeReferer="):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_production_prepare:465")
     _exact_page_metadata(page, _url(f"/work/propose_start/{project_id}"))
 
     wait_for_function = getattr(page, "wait_for_function", None)
     if not callable(wait_for_function):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_production_prepare:470")
     fee_selector = f'#FeeApp[data-work-id="{project_id}"]'
     fee_selector_js = json.dumps(fee_selector)
     try:
@@ -476,19 +491,19 @@ def _production_prepare(
             timeout=5_000,
         )
     except Exception:
-        raise RuntimeError("proposal_form_changed") from None
+        raise _form_changed("_production_prepare:479") from None
     form = _one(page.locator("form#ProposalProposeForm"))
     if (
         str(form.get_attribute("method") or "").upper() != "POST"
         or form.get_attribute("action") != f"/work/propose_start/{project_id}"
     ):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_production_prepare:485")
     body = _visible_one(form.locator('textarea#ProposalDescription[name="data[Proposal][description]"]'))
     if body.get_attribute("required") is None:
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_production_prepare:488")
     fee = _one(page.locator(fee_selector))
     if fee.get_attribute("data-work-id") != project_id:
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_production_prepare:491")
     _visible_one(page.locator('#FeeApp input[type="number"][step="1000"][max="100000000"]'))
     _visible_one(page.locator('#FeeApp input[type="text"]'))
     _visible_one(form.locator("#form_end"))
@@ -504,9 +519,9 @@ def _field_value(locator: Any) -> str:
     try:
         value = locator.input_value()
     except Exception:
-        raise RuntimeError("proposal_form_changed") from None
+        raise _form_changed("_field_value:507") from None
     if not isinstance(value, str):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_field_value:509")
     return value
 
 
@@ -529,7 +544,7 @@ def _milestone_form_contract(page: Any) -> Mapping[str, object]:
     amount_name = amount.get_attribute("name")
     match = re.fullmatch(r"data\[Milestone\]\[([0-9]+)\]\[amount_exclude_tax\]", amount_name or "")
     if match is None:
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_milestone_form_contract:532")
     index = match.group(1)
     components = {}
     for component in ("year", "month", "day"):
@@ -543,7 +558,7 @@ def _wait_for_milestone_terms(
 ) -> None:
     wait_for_function = getattr(page, "wait_for_function", None)
     if not callable(wait_for_function):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_wait_for_milestone_terms:546")
     amount = contract["amount"]
     components = contract["components"]
     amount_name = amount.get_attribute("name")
@@ -565,16 +580,16 @@ def _wait_for_milestone_terms(
     try:
         wait_for_function(script, timeout=5_000)
     except Exception:
-        raise RuntimeError("proposal_form_changed") from None
+        raise _form_changed("_wait_for_milestone_terms:568") from None
     if _field_value(amount) != str(proposed_amount_minor):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_wait_for_milestone_terms:570")
     expected = {"year": year, "month": month, "day": day}
     for key, control in components.items():
         raw = _field_value(control)
         if key == "year" and raw != expected[key]:
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_wait_for_milestone_terms:575")
         if key != "year" and raw.zfill(2) != expected[key]:
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_wait_for_milestone_terms:577")
 
 
 def _confirmation_terms(page: Any, project_id: str, milestone_index: str) -> Mapping[str, object]:
@@ -583,26 +598,26 @@ def _confirmation_terms(page: Any, project_id: str, milestone_index: str) -> Map
         str(form.get_attribute("method") or "").upper() != "POST"
         or form.get_attribute("action") != f"/work/propose_finish/{project_id}"
     ):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_confirmation_terms:586")
     row = _one(page.locator("tr.p-milestone-form__tr.Milestone"))
     amount = _one(row.locator(f'input#Milestone{milestone_index}AmountExcludeTax[type="hidden"]'))
     if (
         amount.get_attribute("id") != f"Milestone{milestone_index}AmountExcludeTax"
         or amount.get_attribute("type") != "hidden"
     ):
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_confirmation_terms:593")
     date_cell = _visible_one(row.locator("td.p-milestone-form__col.p-milestone-form__col--date"))
     raw_amount = _field_value(amount)
     raw_due = _iso_date(" ".join(date_cell.inner_text().split()))
     if re.fullmatch(r"[0-9]+", raw_amount) is None or raw_due is None:
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_confirmation_terms:598")
     return {"project_id": project_id, "amount_minor": int(raw_amount), "delivery_due_on": raw_due}
 
 
 def _proposal_og_url(page: Any, expected: str) -> None:
     meta = _one(page.locator('meta[property="og:url"]')).nth(0)
     if meta.get_attribute("content") != expected:
-        raise RuntimeError("proposal_form_changed")
+        raise _form_changed("_proposal_og_url:605")
 
 
 def _default_proposal_reader(page: Any, project_id: str) -> Mapping[str, object]:
@@ -775,13 +790,13 @@ def _production_submitter(
             f"/work/propose_start/{project_id}",
             "proposeReferer=",
         ):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:778")
         form = _one(page.locator("form#ProposalProposeForm"))
         if (
             str(form.get_attribute("method") or "").upper() != "POST"
             or form.get_attribute("action") != f"/work/propose_start/{project_id}"
         ):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:784")
         body = _visible_one(form.locator('textarea#ProposalDescription[name="data[Proposal][description]"]'))
         amount = _visible_one(page.locator('#FeeApp input[type="number"][step="1000"][max="100000000"]'))
         due = _visible_one(page.locator('#FeeApp input[type="text"]'))
@@ -790,7 +805,7 @@ def _production_submitter(
             ai_use = _visible_one(form.locator('input#ProposalAiDeclarationAiDeclaration1[name="data[ProposalAiDeclaration][ai_declaration]"][value="1"][required]'))
             ai_use_label = _visible_one(form.locator('label[for="ProposalAiDeclarationAiDeclaration1"]'))
             if " ".join(ai_use_label.inner_text().split()) != "生成AIを使用している / 使用するが、著作権の侵害がなく、修正の要望も対応できる":
-                raise RuntimeError("proposal_form_changed")
+                raise _form_changed("_production_submitter:793")
         if not isinstance(proposal_text, str) or not proposal_text or not isinstance(proposed_amount_minor, int) or isinstance(proposed_amount_minor, bool) or proposed_amount_minor <= 0 or _iso_date(delivery_due_on) != delivery_due_on:
             raise RuntimeError("financial_terms_required")
         milestone = _milestone_form_contract(page)
@@ -798,50 +813,50 @@ def _production_submitter(
         if ai_use is not None and ai_use_label is not None:
             ai_use_label.click()
         if ai_use is not None and not ai_use.is_checked():
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:801")
         amount.fill(str(proposed_amount_minor))
         due.fill(delivery_due_on.replace("-", "年", 1).replace("-", "月", 1) + "日")
         for control in (amount, due):
             blur = getattr(control, "blur", None)
             if not callable(blur):
-                raise RuntimeError("proposal_form_changed")
+                raise _form_changed("_production_submitter:807")
             try:
                 blur()
             except Exception:
-                raise RuntimeError("proposal_form_changed") from None
+                raise _form_changed("_production_submitter:811") from None
         _wait_for_milestone_terms(page, milestone, proposed_amount_minor, delivery_due_on)
         confirm = _visible_one(form.locator("#form_end"))
         confirm.click(no_wait_after=True)
         confirmation_url = _url(f"/work/propose_confirm/{project_id}")
         wait_for_url = getattr(page, "wait_for_url", None)
         if not callable(wait_for_url):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:818")
         try:
             wait_for_url(confirmation_url, timeout=10_000)
         except Exception:
-            raise RuntimeError("proposal_form_changed") from None
+            raise _form_changed("_production_submitter:822") from None
         if not _route(getattr(page, "url", None), f"/work/propose_confirm/{project_id}"):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:824")
         confirm_form = _one(page.locator("form#ProposalProposeConfirmForm"))
         if str(confirm_form.get_attribute("method") or "").upper() != "POST" or confirm_form.get_attribute("action") != f"/work/propose_finish/{project_id}":
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:827")
         terms = _confirmation_terms(page, project_id, str(milestone["index"]))
         if terms.get("project_id") != project_id or terms.get("amount_minor") != proposed_amount_minor or terms.get("delivery_due_on") != delivery_due_on:
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:830")
         final = _visible_one(confirm_form.locator('input#form_end[type="submit"][value="利用規約に同意して提案する"]'))
         if (
             final.get_attribute("id") != "form_end"
             or final.get_attribute("type") != "submit"
             or final.get_attribute("value") != "利用規約に同意して提案する"
         ):
-            raise RuntimeError("proposal_form_changed")
+            raise _form_changed("_production_submitter:837")
         try:
             if not final.is_enabled():
-                raise RuntimeError("proposal_form_changed")
+                raise _form_changed("_production_submitter:840")
         except RuntimeError:
             raise
         except Exception:
-            raise RuntimeError("proposal_form_changed") from None
+            raise _form_changed("_production_submitter:844") from None
     except SubmissionNotStarted:
         raise
     except RuntimeError as exc:
