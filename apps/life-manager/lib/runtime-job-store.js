@@ -2,7 +2,6 @@
 
 const crypto = require("node:crypto");
 const { isDeepStrictEqual } = require("node:util");
-const { projectJob, projectReceipt } = require("../../../runtime/contracts/common-record.cjs");
 
 const EFFECT_CLASSES = new Set(["none", "publish", "message", "money"]);
 // After this many consecutive unknown reconcile results a reconciling job dead-letters
@@ -10,6 +9,10 @@ const EFFECT_CLASSES = new Set(["none", "publish", "message", "money"]);
 const MAX_UNKNOWN_RECONCILE_RESULTS = 5;
 const REFERENCE_KEY = /_(?:ref|refs)$/;
 let defaultPool;
+
+function commonRecordContract() {
+  return require("../../../runtime/contracts/common-record.cjs");
+}
 
 function nonEmpty(value, label, max = 200) {
   const text = String(value == null ? "" : value).trim();
@@ -240,7 +243,7 @@ async function readCommonJob(input, opts = {}) {
   `, [jobId, tenantId])).rows;
   if (rows.length === 0) return null;
   if (rows.length !== 1) throw new Error("runtime common job read returned multiple rows");
-  return projectJob(rows[0]);
+  return commonRecordContract().projectJob(rows[0]);
 }
 
 function canonicalJson(value) {
@@ -282,7 +285,7 @@ function postgresReceiptToCommon(row) {
     throw new Error("runtime completed receipt lacks provider verification evidence");
   }
   const identity = `${row.tenant_id}\n${row.job_id}\n${row.attempt}`;
-  return projectReceipt({
+  return commonRecordContract().projectReceipt({
     receipt_id: digestId("receipt", identity),
     effect_id: digestId("effect", `${identity}\n${row.effect_key || "none"}`),
     loop_id: row.loop_id,
