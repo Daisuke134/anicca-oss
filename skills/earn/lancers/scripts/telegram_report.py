@@ -645,9 +645,15 @@ def render_application_decision(decision: Mapping[str, object]) -> str:
     else:
         outcome = "⚠️ 応募判断後の送信結果が未確定です"
         explanation = "応募候補ですが、公式proposal receiptをまだ確認できていません。"
+    # What was applied for, and for how much. Dais 2026-09-07: the report has to carry the price
+    # and what the job is, or an application is indistinguishable from a skip in the chat.
+    price = decision.get("price_jpy")
+    amount = f"\n提案額: {int(price):,}円" if isinstance(price, int) and not isinstance(price, bool) and price > 0 else ""
+    proposal_id = decision.get("provider_proposal_id")
+    receipt = f"\nProposal ID: {proposal_id}" if proposal_id else ""
     return (
         f"[Lancers][応募判断] {outcome}\n"
-        f"案件: {title}\n案件ID: {project_id}\n理由: {explanation}\n"
+        f"案件: {title}\n案件ID: {project_id}{receipt}{amount}\n理由: {explanation}\n"
         "次: 同じwake内で次の案件の判断と応募を続けます。"
     )
 

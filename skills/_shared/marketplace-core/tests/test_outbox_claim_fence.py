@@ -76,3 +76,54 @@ def test_callers_that_pass_no_claim_are_unchanged(tmp_path):
     outbox.claim_next(database)
     outbox.mark_delivered(database, "k", "id-1", "2026-09-06T12:00:00+00:00")
     assert outbox.list_items(database)[0].status == "delivered"
+
+
+# --- unchanged messages must not bury the ones that matter, 2026-09-07 ----------------------
+
+
+def test_the_same_sentence_twice_in_a_row_is_held_back(tmp_path):
+    """Measured in Dais's chat: 93 of 200 messages in 48 minutes were one identical sentence,
+    and the per-application reports were unfindable underneath them."""
+    database = tmp_path / "outbox.sqlite3"
+    assert outbox.enqueue(database, "wake-1", "状態は変わっていません", "2026-09-07T06:00:00+00:00")
+    assert not outbox.enqueue(database, "wake-2", "状態は変わっていません", "2026-09-07T06:00:30+00:00")
+    assert not outbox.enqueue(database, "wake-3", "状態は変わっていません", "2026-09-07T06:01:00+00:00")
+
+
+def test_a_changed_sentence_goes_out_at_once(tmp_path):
+    """The text is how these lanes express state, so any change is news."""
+    database = tmp_path / "outbox.sqlite3"
+    assert outbox.enqueue(database, "wake-1", "状態は変わっていません", "2026-09-07T06:00:00+00:00")
+    assert outbox.enqueue(database, "wake-2", "1件の応募を公式確認しました", "2026-09-07T06:00:30+00:00")
+    assert outbox.enqueue(database, "wake-3", "状態は変わっていません", "2026-09-07T06:01:00+00:00")
+
+
+def test_a_quiet_lane_still_proves_it_is_alive_once_an_hour(tmp_path):
+    database = tmp_path / "outbox.sqlite3"
+    assert outbox.enqueue(database, "wake-1", "変化なし", "2026-09-07T06:00:00+00:00")
+    assert not outbox.enqueue(database, "wake-2", "変化なし", "2026-09-07T06:59:00+00:00")
+    assert outbox.enqueue(database, "wake-3", "変化なし", "2026-09-07T07:00:01+00:00")
+
+
+def test_a_caller_can_insist_the_message_always_goes_out(tmp_path):
+    """An irreversible external effect is not a description of state."""
+    database = tmp_path / "outbox.sqlite3"
+    assert outbox.enqueue(database, "e-1", "応募しました", "2026-09-07T06:00:00+00:00",
+                          repeat_after_seconds=None)
+    assert outbox.enqueue(database, "e-2", "応募しました", "2026-09-07T06:00:05+00:00",
+                          repeat_after_seconds=None)
+
+
+def test_an_unreadable_timestamp_cannot_silence_a_lane(tmp_path):
+    database = tmp_path / "outbox.sqlite3"
+    assert outbox.enqueue(database, "wake-1", "変化なし", "not-a-time")
+    assert outbox.enqueue(database, "wake-2", "変化なし", "2026-09-07T06:00:00+00:00")
+
+
+def test_replaying_one_event_key_is_still_false_and_still_conflicts(tmp_path):
+    """The suppression must not have changed what idempotency means."""
+    database = tmp_path / "outbox.sqlite3"
+    assert outbox.enqueue(database, "wake-1", "本文", "2026-09-07T06:00:00+00:00")
+    assert not outbox.enqueue(database, "wake-1", "本文", "2026-09-07T06:00:00+00:00")
+    with pytest.raises(outbox.IdempotencyConflict):
+        outbox.enqueue(database, "wake-1", "別の本文", "2026-09-07T06:00:00+00:00")

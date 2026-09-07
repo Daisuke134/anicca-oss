@@ -147,8 +147,43 @@ def _item_from_row(row: sqlite3.Row) -> OutboxItem:
     )
 
 
-def enqueue(database: Path, event_key: str, message: str, created_at: str) -> bool:
-    """Insert one pending message, returning False for an exact replay."""
+# A lane whose state has not moved says the same sentence every wake, and the outbox only ever
+# deduplicated on event_key -- which is fresh each pass, so the sentence went out every time.
+# Measured 2026-09-07 by reading Dais's own Telegram: 200 messages in 48 minutes, of which 93 were
+# one identical 「前回の確認処理が継続中のため、今回は重複起動せず見送りました」, roughly one every
+# thirty seconds. The per-application reports were being delivered the whole time and could not be
+# found. Repeating an unchanged sentence is not reporting; it is hiding the reports.
+#
+# So: an identical message is held back while nothing changes, and allowed through once an hour so
+# a quiet lane still proves it is alive. Any change to the text sends immediately, because the text
+# is how these lanes express state.
+REPEAT_AFTER_SECONDS = 3600
+
+
+def _seconds_between(earlier: str, later: str) -> Optional[float]:
+    try:
+        start = datetime.fromisoformat(str(earlier).replace("Z", "+00:00"))
+        end = datetime.fromisoformat(str(later).replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if (start.tzinfo is None) != (end.tzinfo is None):
+        return None
+    return (end - start).total_seconds()
+
+
+def enqueue(
+    database: Path,
+    event_key: str,
+    message: str,
+    created_at: str,
+    *,
+    repeat_after_seconds: Optional[float] = REPEAT_AFTER_SECONDS,
+) -> bool:
+    """Insert one pending message, returning False for an exact replay or a held-back repeat.
+
+    Pass `repeat_after_seconds=None` for a message that must go out every time it is enqueued --
+    an irreversible external effect, say -- rather than one that describes state.
+    """
 
     event_key = _require_text("event_key", event_key)
     message = _require_text("message", message)
@@ -164,6 +199,18 @@ def enqueue(database: Path, event_key: str, message: str, created_at: str) -> bo
             if existing["message_sha256"] != message_sha256:
                 raise IdempotencyConflict(event_key)
             return False
+        if repeat_after_seconds is not None:
+            latest = connection.execute(
+                f"""
+                SELECT message_sha256, created_at FROM {_TABLE}
+                ORDER BY created_at DESC, event_key DESC LIMIT 1
+                """
+            ).fetchone()
+            if latest is not None and latest["message_sha256"] == message_sha256:
+                elapsed = _seconds_between(latest["created_at"], created_at)
+                # An unreadable timestamp must not be able to silence a lane, so it sends.
+                if elapsed is not None and 0 <= elapsed < repeat_after_seconds:
+                    return False
         connection.execute(
             f"""
             INSERT INTO {_TABLE} (
