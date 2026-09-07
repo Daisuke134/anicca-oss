@@ -39,6 +39,28 @@ requested_estimate = _load_module(
 )
 
 
+def test_default_tab_open_failure_preserves_helper_reason(monkeypatch, tmp_path):
+    failure = snapshot.subprocess.CalledProcessError(
+        1,
+        ["python3", "cdp_default_tab.py", "open"],
+        output='{"ok": false, "reason": "Target.createTarget: rate limited"}\n',
+        stderr="",
+    )
+
+    def fail(*_args, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(snapshot.subprocess, "run", fail)
+
+    with pytest.raises(RuntimeError, match="Target.createTarget: rate limited"):
+        with snapshot.DefaultTab(
+            tmp_path / "cdp_default_tab.py",
+            "https://coconala.com/talkrooms/18223833",
+            owner="paid-direct-18223833",
+        ):
+            pass
+
+
 def test_attachment_download_temp_lives_under_project(monkeypatch, tmp_path):
     project_root = tmp_path / "project"
     project_root.mkdir()
