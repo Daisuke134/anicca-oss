@@ -44,7 +44,10 @@ def main():
     alloc = entry.get("allocation") or {}
     status = alloc.get("status", "normal")
     mult = alloc.get("pass_frequency_multiplier", 1.0)
+    cadence = entry.get("cadence") or {}
     base_interval = entry.get("base_interval_seconds")
+    if base_interval is None:
+        base_interval = cadence.get("start_interval_seconds")
     base_minute = entry.get("base_minute")
     base_hour = entry.get("base_hour")
 
