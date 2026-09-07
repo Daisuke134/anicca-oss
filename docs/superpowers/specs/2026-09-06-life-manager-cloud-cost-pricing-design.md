@@ -159,7 +159,7 @@ owns `CLOUD-01` through `CLOUD-08`. Finish and integrate one cost atom before st
 - Plus p95 direct monthly cost is at most JPY 1,000 before enabling the JPY 4,980 Stripe price.
 - No local loop, Alpaca state/worktree, ElizaOS component, or unrelated production route is modified.
 
-## 8. Friend beta launch and pricing validation
+## 8. Friend launch and pricing validation
 
 Cloud engineering and operator acceptance are complete. Real friend UAT is the next action. The
 public entrypoint is `https://aniccaai.com/life-manager`, and the fastest mobile entrypoint is
@@ -174,7 +174,7 @@ Telegramへ送る。「Google Calendarや地図を二度と見なくてよい」
 
 ### Friend DM
 
-> 今、Life Managerの少人数βを始めてるんだけど、5分だけ試してもらえない？
+> Life Managerをリリースしたので、5分だけ試してもらえない？
 > Google Calendarをつなぐと、次の予定までの移動時間を自動で予定に入れて、
 > 出発前に電車や乗換案内をTelegramで送ってくれる。
 > 毎回カレンダーと地図アプリを行き来して、出発時間を逆算しなくてよくなるものです。
@@ -288,7 +288,10 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    44/44。成功した乗換案内をMTProtoでreadbackし、その1.27秒後のprovider receipt、同じevent keyの
    `go` claim、leg重複0を本番DBで突合した。同じ成功時刻を固定して本番Reminder関数を再実行し、
    Telegram send spyの追加送信0を確認した。新規友人固有のGoogle同意は最終friend UATで行う。
-6. **IN PROGRESS — public handoff:** 公開導線を再確認し、友人DMとX投稿パッケージを確定する。
+6. **DONE — public handoff:** `https://aniccaai.com/life-manager` と
+   `https://t.me/LifeManagerBotbot?start=lp` はHTTP 200。公開ページはCalendar、Travel block、
+   Telegram経路、電話任意、3日無料、Cloud利用にMac不要を表示し、友人DMとX投稿copyを確定した。
+   次はDaisが友人DM/X投稿を実送信し、実友人UATを行う。
 
 ## 10. `$29/month` unit-cost envelope
 
