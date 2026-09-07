@@ -377,12 +377,17 @@ def acquire(task, url="about:blank", no_seed=False):
         calls = []
         if cookies:
             calls.append(("Storage.setCookies", {"cookies": cookies, "browserContextId": ctx_id}))
-        calls.append(("Target.createTarget", {"url": url, "browserContextId": ctx_id}))
+        seed_before_app = _has_web_storage_for_origin(url, overlay_origins)
+        calls.append(("Target.createTarget", {
+            "url": "about:blank" if seed_before_app else url,
+            "browserContextId": ctx_id,
+        }))
         results = asyncio.run(_calls(calls))
         target_id = results[-1]["targetId"]
         try:
-            storage_origins_seeded = _seed_web_storage(
-                _page_ws(target_id), url, overlay_origins
+            storage_origins_seeded = (
+                _seed_web_storage(_page_ws(target_id), url, overlay_origins)
+                if seed_before_app else 0
             )
         except Exception:
             with contextlib.suppress(Exception):
@@ -468,6 +473,16 @@ def _normalized_origin(value):
     return f"{parsed.scheme}://{netloc}"
 
 
+def _has_web_storage_for_origin(target_url, origins):
+    target_origin = _normalized_origin(target_url)
+    return any(
+        isinstance(row, dict)
+        and _normalized_origin(row.get("origin")) == target_origin
+        and (row.get("localStorage") or row.get("sessionStorage"))
+        for row in origins if isinstance(origins, list)
+    )
+
+
 def _seed_web_storage(ws_url, target_url, origins):
     target_origin = _normalized_origin(target_url)
     matching_local = []
@@ -491,34 +506,17 @@ def _seed_web_storage(ws_url, target_url, origins):
     if not target_origin or not (matching_local or matching_session):
         return 0
 
-    expression = """(async()=>{
-      const expected=%s, localEntries=%s, sessionEntries=%s;
-      const deadline=Date.now()+10000;
-      while(location.origin!==expected && Date.now()<deadline) {
-        await new Promise(resolve=>setTimeout(resolve,100));
-      }
-      if(location.origin!==expected) throw new Error('storage_origin_not_ready');
-      for(const item of localEntries) localStorage.setItem(item.name,item.value);
-      for(const item of sessionEntries) sessionStorage.setItem(item.name,item.value);
-      setTimeout(()=>location.reload(),50);
-      return localEntries.length+sessionEntries.length;
+    source = """(()=>{
+      if(location.origin!==%s) return;
+      for(const item of %s) localStorage.setItem(item.name,item.value);
+      for(const item of %s) sessionStorage.setItem(item.name,item.value);
     })()""" % (
         json.dumps(target_origin), json.dumps(matching_local), json.dumps(matching_session)
     )
-    deadline = time.monotonic() + 10.0
-    while True:
-        try:
-            (result,) = asyncio.run(_page_calls(ws_url, [(
-                "Runtime.evaluate",
-                {"expression": expression, "awaitPromise": True, "returnByValue": True},
-            )], timeout=15.0))
-            break
-        except RuntimeError as error:
-            if "Cannot find default execution context" not in str(error) or time.monotonic() >= deadline:
-                raise
-            time.sleep(0.1)
-    if result.get("exceptionDetails"):
-        raise RuntimeError("web_storage_seed_failed")
+    asyncio.run(_page_calls(ws_url, [
+        ("Page.addScriptToEvaluateOnNewDocument", {"source": source}),
+        ("Page.navigate", {"url": target_url}),
+    ], timeout=15.0))
     return len(matching_local) + len(matching_session)
 
 

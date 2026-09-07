@@ -345,13 +345,13 @@ def test_commit_cookies_also_commits_only_declared_web_storage(monkeypatch, tmp_
     }]
 
 
-def test_seed_web_storage_targets_exact_origin_and_reloads(monkeypatch):
+def test_seed_web_storage_injects_before_exact_origin_navigation(monkeypatch):
     module = load_module()
     calls = []
 
     async def page_calls(ws_url, pairs, timeout=None):
         calls.append((ws_url, pairs, timeout))
-        return [{"result": {"value": 1}}]
+        return [{"identifier": "bootstrap"}, {"frameId": "frame"}]
 
     monkeypatch.setattr(module, "_page_calls", page_calls)
     count = module._seed_web_storage(
@@ -365,33 +365,27 @@ def test_seed_web_storage_targets_exact_origin_and_reloads(monkeypatch):
     )
 
     assert count == 2
-    expression = calls[0][1][0][1]["expression"]
-    assert '"https://work.mercor.com"' in expression
-    assert "localStorage.setItem" in expression
-    assert "sessionStorage.setItem" in expression
-    assert "setTimeout(()=>location.reload(),50)" in expression
+    pairs = calls[0][1]
+    assert [method for method, _params in pairs] == [
+        "Page.addScriptToEvaluateOnNewDocument", "Page.navigate",
+    ]
+    source = pairs[0][1]["source"]
+    assert '"https://work.mercor.com"' in source
+    assert "localStorage.setItem" in source
+    assert "sessionStorage.setItem" in source
+    assert pairs[1][1]["url"] == "https://work.mercor.com/explore"
 
 
-def test_seed_web_storage_waits_for_navigation_execution_context(monkeypatch):
+def test_origin_storage_detection_requires_exact_origin_and_items():
     module = load_module()
-    attempts = []
-
-    async def page_calls(_ws_url, _pairs, timeout=None):
-        attempts.append(timeout)
-        if len(attempts) == 1:
-            raise RuntimeError("Cannot find default execution context")
-        return [{"result": {"value": 1}}]
-
-    monkeypatch.setattr(module, "_page_calls", page_calls)
-    monkeypatch.setattr(module.time, "sleep", lambda _seconds: None)
-    assert module._seed_web_storage(
-        "ws://leased-page", "https://work.mercor.com/explore",
+    origins = [
         [{
             "origin": "https://work.mercor.com",
             "sessionStorage": [{"name": "mercor-session-id", "value": "session"}],
-        }],
-    ) == 1
-    assert len(attempts) == 2
+        }]
+    ][0]
+    assert module._has_web_storage_for_origin("https://work.mercor.com/explore", origins)
+    assert not module._has_web_storage_for_origin("https://evil.example", origins)
 
 
 def test_acquire_disposes_context_when_local_storage_seed_fails(monkeypatch, tmp_path):
