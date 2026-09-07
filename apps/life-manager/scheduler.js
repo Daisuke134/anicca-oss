@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const { fetchUpcomingEvents } = require("./lib/events.js");
 const { schedulerCohortFilter, isCallablePhone } = require("./lib/user-selector.js");
 const { DEFAULTS: RUNTIME_DEFAULTS, readRuntimePreferences } = require("./lib/runtime-preferences.js");
-const { shouldWake, resolveDeparture, isHelperBlock } = require("./lib/wake-filter.js");
+const { shouldWake, departureMs, resolveDeparture, isHelperBlock } = require("./lib/wake-filter.js");
 const { mentalUserOnce, resolveSleepTarget } = require("./lib/mental-runtime.js");
 const { careUserOnce } = require("./lib/care-daily-runtime.js");
 const { dietUserOnce } = require("./lib/diet-runtime.js");
@@ -451,6 +451,17 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
   // wakeTick's filter.
   if (u.call_enabled === true && isCallablePhone(u.phone)) {
     for (const ev of futureEvents.filter((e) => shouldWake(e, u.home_address, u.wake_policy))) {
+      const managedActionKey = String(ev.id || `${ev.startMs || ev.startIso}:${ev.summary || ""}`);
+      const allowanceReserve = deps.reserveManagedAction || (deps.placeCall ? undefined : reserveManagedAction);
+      const allowanceRelease = deps.releaseManagedAction || (deps.placeCall ? undefined : releaseManagedAction);
+      let allowanceReserved = false;
+      const hasTravelBlock = departureMs(ev, futureEvents) !== ev.startMs;
+      if (!hasTravelBlock && typeof allowanceReserve === "function") {
+        const { url: allowanceUrl, key: allowanceKey } = SUPA();
+        const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+        if (!allowance || allowance.allowed !== true) continue;
+        allowanceReserved = true;
+      }
       const depMs = await resolveDeparture(ev, futureEvents, {
         home: u.home_address, mapsKey, nowMs: now, bufferMin: 5,
         directionsFn: deps.directionsMinutes || directionsMinutes,
@@ -466,6 +477,17 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       const due = WAKE_LEVELS
         .filter((lvl) => mins <= lvl.min + 0.5 && mins > LATE_CUTOFF_MIN)
         .sort((a, b) => a.min - b.min);
+      if (!due.length && allowanceReserved && typeof allowanceRelease === "function") {
+        const { url: allowanceUrl, key: allowanceKey } = SUPA();
+        await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+        allowanceReserved = false;
+      }
+      if (due.length && !allowanceReserved && typeof allowanceReserve === "function") {
+        const { url: allowanceUrl, key: allowanceKey } = SUPA();
+        const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+        if (!allowance || allowance.allowed !== true) continue;
+        allowanceReserved = true;
+      }
       // 1b: the moment departure crosses the cutoff, this event can never ring again. If the finest
       // level was never even claimed, nothing was ever attempted — the exact failure that looked like
       // a non-event in lm_wake_log. Record it once, in the two ticks just past the cutoff: later ticks
@@ -506,7 +528,7 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
             to: u.phone,
             streamUrl,
             clientState: encodeWakeClientState({
-              wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh,
+              wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh, managedActionKey,
             }),
           });
         } catch (e) {
@@ -554,6 +576,10 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
           // tick may have claimed the same key and actually rung the user. An untargeted delete
           // would erase that success and the next tick would ring them a second time.
           await (deps.releaseWake || releaseWake)(u.uid, eventKey, fresh);
+          if (typeof allowanceRelease === "function") {
+            const { url: allowanceUrl, key: allowanceKey } = SUPA();
+            await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+          }
           await (deps.alertLowBalance || maybeAlertLowBalance)(res.error);
         }
       }

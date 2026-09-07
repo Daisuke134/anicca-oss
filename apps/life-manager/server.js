@@ -39,6 +39,7 @@ const { functions: inngestFunctions } = require("./inngest/functions.js");
 const inngestHandler = inngestServe({ client: inngest, functions: inngestFunctions });
 const { placeCall, startRecording } = require("./lib/dial.js");
 const { recordTelnyxWakeReceipt } = require("./lib/telnyx-receipt.js");
+const { completeManagedAction, releaseManagedAction } = require("./lib/managed-allowance.js");
 const { amdEnabled, shouldMarkAnswered } = require("./lib/answered.js");
 const { decodeCallClientState, encodeTestCallClientState, verifyTelnyxSignature } = require("./lib/telnyx-webhook.js");
 const { parseUpdate, sendMessage, editMessageText, answerCallbackQuery, isPanelCommand, isPanelDeepLink, routeCallbackData, startReply } = require("./lib/telegram.js");
@@ -654,6 +655,9 @@ const server = http.createServer(async (req, res) => {
           res.end("receipt failed; send it again");
           return;
         }
+        if (wake.managedActionKey) {
+          await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY);
+        }
         res.writeHead(200);
         res.end(receipt.matched === 1 ? "recorded" : "receipt unmatched");
         return;
@@ -710,6 +714,18 @@ const server = http.createServer(async (req, res) => {
       };
       report("amd_result", detection.amd);
       if (detection.answered) report("answered_at", detection.answered);
+      if (wake.managedActionKey) {
+        const allowanceReceipt = detection.result === "human" && detection.answered
+          && detection.answered.ok === true && detection.answered.matched === 1
+          ? await completeManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY)
+          : await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY);
+        if (!allowanceReceipt || allowanceReceipt.allowed !== true) {
+          console.error("[telnyx-events] allowance receipt reconciliation required");
+          res.writeHead(503, { "content-type": "text/plain" });
+          res.end("allowance receipt failed; send it again");
+          return;
+        }
+      }
       // The hangup is best-effort and is logged apart from the writes above, because it fails for a
       // different reason (Telnyx, not Supabase) and costs a different thing: money, never evidence.
       // Silence here would put us back where we started — paying for two minutes of voicemail with

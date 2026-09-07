@@ -32,6 +32,15 @@ test("a wake claim token round-trips without changing the legacy fields", () => 
   });
 });
 
+test("a managed action key round-trips only when explicitly supplied", () => {
+  const state = decodeCallClientState(encodeWakeClientState({
+    wakeUid: "lm_abc", wakeEventKey: "wake-key", wakeClaimToken: "claim", managedActionKey: "calendar-event-1",
+  }));
+  assert.equal(state.kind, "wake");
+  assert.equal(state.managedActionKey, "calendar-event-1");
+  assert.equal(decodeCallClientState(encodeWakeClientState({ wakeUid: "lm_abc", wakeEventKey: "wake-key" })).managedActionKey, undefined);
+});
+
 test("a two-field wake blob keeps its exact legacy bytes and decoded shape", () => {
   const legacyBytes = Buffer.from(JSON.stringify({
     wakeUid: "lm_abc",

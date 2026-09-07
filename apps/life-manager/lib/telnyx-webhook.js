@@ -10,10 +10,11 @@ function isValidOptionalText(value, maxLength) {
   return typeof value === "string" && value.trim() !== "" && value.length <= maxLength;
 }
 
-function encodeWakeClientState({ wakeUid, wakeEventKey, wakeClaimToken } = {}) {
+function encodeWakeClientState({ wakeUid, wakeEventKey, wakeClaimToken, managedActionKey } = {}) {
   if (!wakeUid || !wakeEventKey) return "";
   const state = { wakeUid, wakeEventKey };
   if (isValidOptionalText(wakeClaimToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) state.wakeClaimToken = wakeClaimToken;
+  if (isValidOptionalText(managedActionKey, MAX_WAKE_CLAIM_TOKEN_LENGTH)) state.managedActionKey = managedActionKey;
   return Buffer.from(JSON.stringify(state), "utf8").toString("base64");
 }
 
@@ -29,6 +30,9 @@ function decodeWakeClientState(value) {
     };
     if (isValidOptionalText(parsed.wakeClaimToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
       state.wakeClaimToken = parsed.wakeClaimToken;
+    }
+    if (isValidOptionalText(parsed.managedActionKey, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
+      state.managedActionKey = parsed.managedActionKey;
     }
     return state;
   } catch {

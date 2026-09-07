@@ -33,6 +33,10 @@ const CLAIM_TOKEN = "claim-bound-token";
 const claimClientState = encodeWakeClientState({
   wakeUid: CLAIM_UID, wakeEventKey: CLAIM_EVENT_KEY, wakeClaimToken: CLAIM_TOKEN,
 });
+const managedClaimClientState = encodeWakeClientState({
+  wakeUid: CLAIM_UID, wakeEventKey: CLAIM_EVENT_KEY, wakeClaimToken: CLAIM_TOKEN,
+  managedActionKey: "calendar-event-1",
+});
 
 function response(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -86,7 +90,9 @@ before(async () => {
     upstreamCalls.push({ url: String(input), method, body: init.body || "" });
     if (url.hostname === "fixture.supabase.co") {
       if ((url.pathname === "/rest/v1/lm_wake_log" && method === "PATCH") ||
-        (url.pathname === "/rest/v1/rpc/record_lm_wake_telnyx_receipt" && method === "POST")) {
+        (url.pathname === "/rest/v1/rpc/record_lm_wake_telnyx_receipt" && method === "POST") ||
+        (url.pathname === "/rest/v1/rpc/complete_lm_managed_action" && method === "POST") ||
+        (url.pathname === "/rest/v1/rpc/release_lm_managed_action" && method === "POST")) {
         return supabaseHandler(String(input), init);
       }
       throw new Error(`unexpected supabase ${method} ${url.pathname}`);
@@ -375,6 +381,49 @@ test("a claim-bound human writes answered_at only after receipt matched=1", asyn
   assert.equal(res.status, 200);
   assert.equal(res.text, "answered");
   assert.deepEqual(order, ["receipt", "answered"], "record-first is the human answered_at fence");
+});
+
+test("a human-confirmed call completes the same managed event allowance after wake receipt", async () => {
+  upstreamCalls.length = 0;
+  const order = [];
+  const supabase = (url, init) => {
+    const parsed = new URL(url);
+    if (parsed.pathname === "/rest/v1/rpc/record_lm_wake_telnyx_receipt") {
+      order.push("receipt"); return response(200, 1);
+    }
+    if (parsed.pathname === "/rest/v1/lm_wake_log") {
+      order.push("answered"); return response(200, [{ event_key: CLAIM_EVENT_KEY }]);
+    }
+    if (parsed.pathname === "/rest/v1/rpc/complete_lm_managed_action") {
+      order.push("allowance");
+      assert.deepEqual(JSON.parse(init.body), { p_uid: CLAIM_UID, p_action_key: "calendar-event-1" });
+      return response(200, { allowed: true, used: 1, limit: 30, periodStart: "2026-09-01", resetAt: "2026-10-01", notify: false });
+    }
+    throw new Error(`unexpected supabase write ${init.method} ${parsed.pathname}`);
+  };
+  const res = await postSignedAmdEvent({
+    clientState: managedClaimClientState, result: "human", eventId: "claim-webhook-id",
+    callControlId: "v2:claim-control-id", callSessionId: "claim-session-id", callLegId: "claim-leg-id", supabase,
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(order, ["receipt", "answered", "allowance"]);
+});
+
+test("managed allowance receipt failure returns 5xx for replay without creating another call", async () => {
+  upstreamCalls.length = 0;
+  const supabase = (url, init) => {
+    const pathname = new URL(url).pathname;
+    if (pathname === "/rest/v1/rpc/record_lm_wake_telnyx_receipt") return response(200, 1);
+    if (pathname === "/rest/v1/lm_wake_log") return response(200, [{ event_key: CLAIM_EVENT_KEY }]);
+    if (pathname === "/rest/v1/rpc/complete_lm_managed_action") return response(503, {});
+    throw new Error(`unexpected supabase write ${init.method} ${pathname}`);
+  };
+  const res = await postSignedAmdEvent({
+    clientState: managedClaimClientState, result: "human", eventId: "claim-webhook-id",
+    callControlId: "v2:claim-control-id", supabase,
+  });
+  assert.equal(res.status, 503);
+  assert.equal(upstreamCalls.filter((call) => pathOf(call) === "/v2/calls").length, 0);
 });
 
 test("a claim-bound answered_at failure is bounded and still answers 200 after the receipt", async () => {

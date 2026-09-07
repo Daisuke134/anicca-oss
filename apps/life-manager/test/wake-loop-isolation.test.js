@@ -82,6 +82,22 @@ test("the dial half does not run a single organ — a stalled organ cannot reach
   assert.ok(elapsed < 1000, `the dial path must not wait on organs (took ${elapsed}ms)`);
 });
 
+test("monthly allowance exhaustion performs zero inline route and zero Telnyx call", async () => {
+  clearEvents();
+  const h = deps();
+  let routes = 0, reserves = 0;
+  h.deps.reserveManagedAction = async (_uid, actionKey) => {
+    reserves += 1;
+    assert.equal(actionKey, EVENT.id);
+    return { allowed: false, notify: true };
+  };
+  h.deps.directionsMinutes = async () => { routes += 1; return TRAVEL_MIN; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(reserves, 1);
+  assert.equal(routes, 0);
+  assert.equal(h.dialed.length, 0);
+});
+
 test("a hung bookkeeping write cannot hold the dial — the daily poll ledger is not awaited", async () => {
   // Same failure class as the test above, in miniature and easier to miss: recordDailyComposioPoll
   // is 1-2 Supabase round trips with no timeout and no AbortController, and it sat AWAITED in front
