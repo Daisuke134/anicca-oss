@@ -96,6 +96,22 @@ class CommonContractTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             validate(job)
 
+    def test_connector_browser_target_lease_is_the_common_contract(self):
+        lease = {
+            "schema_version": 1,
+            "owner_token": "connector-owner-token-0001",
+            "generation": 1,
+            "target_id": "TARGET_A",
+            "page_websocket": "ws://[::1]:9222/devtools/page/TARGET_A",
+            "canonical_url": "https://luma.com/tokyo-ai",
+            "claimed_at": "2026-09-07T00:00:00Z",
+            "heartbeat_at": "2026-09-07T00:00:10Z",
+        }
+        validate(lease)
+        lease["page_websocket"] = "ws://[::1]:9222/devtools/browser/FOREIGN"
+        with self.assertRaises(AssertionError):
+            validate(lease)
+
 
 if __name__ == "__main__":
     unittest.main()

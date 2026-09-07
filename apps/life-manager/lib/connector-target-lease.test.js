@@ -106,6 +106,26 @@ test("reports renderer death without closing or releasing the live ownership fen
   assert.equal(ledger.targets.TARGET_A.owner_token, fence.owner_token);
 });
 
+test("rejects a heartbeat that moves the common lease clock backwards", async (t) => {
+  let clock = new Date("2026-08-06T12:00:00.000Z");
+  const fx = fixture(t, { now: () => clock });
+  const fence = await fx.lease.claim(claimInput());
+  clock = new Date("2026-08-06T11:59:59.000Z");
+
+  await assert.rejects(fx.lease.heartbeat(fence), /heartbeat moved backwards/i);
+  const ledger = JSON.parse(fs.readFileSync(fx.ledgerPath, "utf8"));
+  assert.equal(ledger.targets.TARGET_A.heartbeat_at, fence.heartbeat_at);
+});
+
+test("keeps the ownership fence when exact target close fails", async (t) => {
+  const fx = fixture(t, { closeTarget: async () => false });
+  const fence = await fx.lease.claim(claimInput());
+
+  await assert.rejects(fx.lease.release(fence), /target close failed/i);
+  const ledger = JSON.parse(fs.readFileSync(fx.ledgerPath, "utf8"));
+  assert.deepEqual(ledger.targets.TARGET_A, fence);
+});
+
 test("refuses non-Connector websocket endpoints and credential-bearing event URLs", async (t) => {
   const fx = fixture(t);
   await assert.rejects(fx.lease.claim({
