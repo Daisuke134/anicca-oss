@@ -2849,16 +2849,18 @@
       "state_root": "~/.openclaw"
     },
     "writer-report": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 300
       },
+      "command": [],
       "cleanup": {
         "max_age_days": 14,
         "max_runs": 100
       },
       "domain": "earn",
       "effect_class": "message",
-      "entrypoint": "runtime/loop/entry_dispatch.py",
+      "entrypoint": "skills/writer-agent/scripts/writer-report-owner",
       "label": "ai.anicca.writer-report",
       "log_root": "~/.openclaw/logs",
       "provider_route": "shared-agent-runner",

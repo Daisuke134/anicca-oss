@@ -59,8 +59,6 @@ def command_for(loop_id: str, root: Path, home: Path) -> list[str]:
             "--port", "4000",
             str(root / "ops/symphony/WORKFLOW.money-printer.md"),
         ]
-    writer = root / "skills/writer-agent/scripts"
-    writer_state = home / ".local/state/life-manager/writer"
     python = sys.executable
     memory_guard = [python, str(root / "runtime/host/memory_admission.py")]
     fixed = {
@@ -91,8 +89,6 @@ def command_for(loop_id: str, root: Path, home: Path) -> list[str]:
             python, str(root / "skills/earn/gig/scripts/storefront_direct.py"),
             "--effect", "--auto-cadence", "--full-interval-seconds", "60",
         ],
-        "writer-report": [python, str(writer / "writer_report_worker.py"),
-                          "--state-dir", str(writer_state)],
     }
     if loop_id in {"marketing-owner-daily", "marketing-owner-weekly"}:
         kind = "product_daily" if loop_id.endswith("daily") else "portfolio_weekly"

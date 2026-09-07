@@ -282,13 +282,9 @@ class EntryDispatchTest(unittest.TestCase):
         self.assertEqual(reply[-5:],['--continuous','--poll-seconds','30','--workers','2'])
         self.assertEqual(storefront[-4:],['--effect','--auto-cadence','--full-interval-seconds','60'])
 
-    def test_writer_jobs_keep_mutable_state_outside_release(self):
-        root=Path('/release'); home=Path('/home')
-        for loop_id in ('writer-report',):
-            command=command_for(loop_id,root,home)
-            joined=' '.join(command)
-            self.assertIn('/home/.local/state/life-manager/writer',joined)
-            self.assertNotIn('/release/skills/writer-agent/state',joined)
+    def test_writer_report_no_longer_has_a_handwritten_dispatch(self):
+        with self.assertRaisesRegex(ValueError, 'no dispatch command'):
+            command_for('writer-report', Path('/release'), Path('/home'))
 
     def test_lancers_browser_disables_code_sign_clone(self):
         script = Path(__file__).parents[3] / 'runtime/legacy/lancers-revenue-browser/run.sh'

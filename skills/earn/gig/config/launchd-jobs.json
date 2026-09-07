@@ -318,24 +318,6 @@
       "log_basename": "article-healthcheck"
     },
     {
-      "label": "ai.anicca.writer-report",
-      "lane": "writer-report",
-      "summary": "Renders neutral natural-language Writer progress and money reports.",
-      "env_profile": "writer",
-      "program": [
-        "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
-        "{{PYTHON}}",
-        "{{RELEASE}}/skills/writer-agent/scripts/writer_report_worker.py",
-        "--state-dir",
-        "{{WRITER_STATE_DIR}}"
-      ],
-      "StartInterval": 300,
-      "RunAtLoad": true,
-      "ProcessType": "Background",
-      "log_basename": "writer-report"
-    },
-    {
       "label": "ai.anicca.writer-sales-measure",
       "lane": "writer-sales",
       "summary": "Collects publisher-native sales observations without converting unknown to zero.",
