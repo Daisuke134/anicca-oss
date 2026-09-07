@@ -152,3 +152,22 @@ def test_single_worker_keeps_thread_affine_adapter_on_calling_thread(tmp_path):
     )
     assert result["failed"] == 0
     assert result["items"][0]["status"] == "no_reply"
+
+
+def test_delivery_unknown_never_blindly_replays_same_intent(tmp_path):
+    class Unknown(Adapter):
+        def mutate(self, intent):
+            self.effects.append(intent)
+
+        def readback(self, _intent):
+            return {"authoritative_absent": True}
+
+    adapter = Unknown()
+    decide = lambda _row: {"action": "reply", "payload": {"body": "one"}}
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert first["effect"] == 1
+    assert first["items"][0]["reason"] == "reconcile_unknown"
+    second = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert second["effect"] == 0
+    assert second["items"][0]["reason"] == "reconcile_unknown"
+    assert len(adapter.effects) == 1

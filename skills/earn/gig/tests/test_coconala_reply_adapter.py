@@ -90,7 +90,7 @@ def test_semantic_composer_projects_validated_judgement_without_provider_decide(
     class Adapter:
         def semantic_dom(self, thread_id):
             assert thread_id == "12"
-            return {"version": "official"}
+            return {"version": "official", "estimate_url": "/direct_offers/add/12"}
 
         def official_application_context(self, _thread_id):
             raise AssertionError("application context not requested")
@@ -99,14 +99,21 @@ def test_semantic_composer_projects_validated_judgement_without_provider_decide(
 
     def judge(dom, url, **kwargs):
         calls.append((dom, url, kwargs))
-        return {"judgement": {
+        return {"context_sha256": "a" * 64, "judgement": {
             "next_action": "send_estimate",
             "required_official_context": "none",
-            "estimate_terms": {"title": "開発", "price_jpy": 10000},
+            "evidence_message_ids": ["m1"],
+            "estimate_terms": {
+                "title": "開発", "content": "実装", "quantity": 1,
+                "price_jpy": 10000, "delivery_days": 7, "purchase_plan": "single",
+            },
         }}
 
     composer = adapter_module.CoconalaSemanticComposer(Adapter(), judge)
-    result = composer({"thread_id": "12"})
+    result = composer({
+        "thread_id": "12",
+        "conversation": [{"message_id": "m1", "sent_at": "2026-09-08T00:00:00Z"}],
+    })
     assert result["next_action"] == "send_estimate"
     assert calls[0][1].endswith("/12")
 
@@ -141,3 +148,146 @@ def test_semantic_composer_refreshes_required_official_application_once():
     result = adapter_module.CoconalaSemanticComposer(Adapter(), judge)({"thread_id": "12"})
     assert result["reply_body"] == "対応可能です。"
     assert calls[1] == ({"version": 2}, {"official_context": {"application": {"proposal_id": "7"}}})
+
+
+def _estimate_intent():
+    return {
+        "action": "estimate", "thread_id": "12", "effect_key": "effect",
+        "payload": {
+            "title": "開発", "content": "実装", "quantity": 1,
+            "price_jpy": 10000, "delivery_days": 7, "purchase_plan": "single",
+            "_semantic_context_sha256": "a" * 64,
+            "_request_sent_at": "2026-09-08T00:00:00Z",
+            "_estimate_url": "/direct_offers/add/12", "_offer_date": "2026-09-08",
+        },
+    }
+
+
+def test_estimate_mutation_uses_provider_ceremony_and_caches_official_receipt(monkeypatch, tmp_path):
+    calls = []
+
+    class Composer:
+        def select_category(self, level, _context, _form):
+            return {"master": "M", "sub": "S", "type": "T"}[level]
+
+        def terms_with_categories(self, context, **labels):
+            return {
+                **context["semantic_estimate_terms"],
+                "master_category_label": labels["master"],
+                "sub_category_label": labels["sub"],
+                "category_type_label": labels["typ"],
+            }
+
+    class Browser:
+        semantic_context_required = False
+
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read_thread_context(self):
+            return {"conversation": [{"message_id": "m1"}]}, {"own_user_path": "/users/1"}
+        def open_form(self): calls.append("open"); return {"categories": {}}
+        def select_master(self, _label): calls.append("master"); return {"categories": {}}
+        def select_sub(self, _label): calls.append("sub"); return {"categories": {}}
+        def fill(self, _terms, _completion): calls.append("fill"); return {"selected_categories": {}}
+        def read_form(self): return {}
+        def first_submit(self): calls.append("first")
+        def read_confirmation(self): return {}
+        def fresh_thread_context(self, own): return {"own_user_path": own, "conversation": [{"message_id": "m1"}]}
+        def final_submit(self, *_args, **_kwargs): calls.append("final")
+        def read_after(self):
+            return {"structured_offers": [{}], "own_user_path": "/users/1"}
+
+    semantic = adapter_module.requested_estimate
+    monkeypatch.setattr(semantic, "semantic_context_sha256", lambda _rows: "a" * 64)
+    monkeypatch.setattr(semantic, "validate_form_contract", lambda _form: True)
+    monkeypatch.setattr(semantic, "_category_type_optional", lambda _form: False)
+    monkeypatch.setattr(semantic, "validate_estimate_terms", lambda terms, _context: terms)
+    monkeypatch.setattr(semantic, "materialize_delivery_content", lambda terms, _today: terms)
+    monkeypatch.setattr(semantic, "validate_selected_categories", lambda *_args: True)
+    monkeypatch.setattr(semantic, "validate_form_selection", lambda *_args: True)
+    monkeypatch.setattr(semantic, "validate_confirmation", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(semantic, "completion_date", lambda *_args: __import__("datetime").date(2026, 9, 15))
+    monkeypatch.setattr(semantic, "classify_delivery", lambda **_kwargs: {
+        "status": "verified", "cards": [{"offer_url": "/mypage/direct_offers/55"}],
+    })
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+        thread_reader=lambda _thread: ({}, {}), sender=lambda *_args: {},
+        estimate_composer=Composer(), estimate_browser_factory=lambda *_args: Browser(),
+    )
+    intent = _estimate_intent()
+    adapter.mutate(intent)
+    assert calls == ["open", "master", "sub", "fill", "first", "final"]
+    assert adapter.readback(intent)["provider_receipt_id"] == "/mypage/direct_offers/55"
+
+
+def test_estimate_readback_finds_existing_official_card_without_mutation(monkeypatch, tmp_path):
+    class Browser:
+        semantic_context_required = False
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read_thread_context(self):
+            return {"conversation": []}, {
+                "structured_offers": [{"offer_url": "/mypage/direct_offers/55"}],
+                "own_user_path": "/users/1",
+            }
+
+    semantic = adapter_module.requested_estimate
+    monkeypatch.setattr(semantic, "semantic_context_sha256", lambda _rows: "a" * 64)
+    monkeypatch.setattr(semantic, "materialize_delivery_content", lambda terms, _today: terms)
+    monkeypatch.setattr(semantic, "classify_delivery", lambda **_kwargs: {
+        "status": "already_delivered",
+        "cards": [{"offer_url": "/mypage/direct_offers/55"}],
+    })
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+        thread_reader=lambda _thread: ({}, {}), sender=lambda *_args: {},
+        estimate_composer=object(), estimate_browser_factory=lambda *_args: Browser(),
+    )
+    assert adapter.readback(_estimate_intent())["provider_receipt_id"] == "/mypage/direct_offers/55"
+
+
+def test_estimate_post_click_unknown_returns_for_reconciliation_without_retry_signal(monkeypatch, tmp_path):
+    class Composer:
+        def select_category(self, level, _context, _form):
+            return {"master": "M", "sub": "S", "type": "T"}[level]
+        def terms_with_categories(self, context, **labels):
+            return {**context["semantic_estimate_terms"],
+                    "master_category_label": labels["master"],
+                    "sub_category_label": labels["sub"],
+                    "category_type_label": labels["typ"]}
+
+    class Browser:
+        semantic_context_required = False
+        final_clicks = 0
+        def __enter__(self): return self
+        def __exit__(self, *_args): return None
+        def read_thread_context(self): return {"conversation": []}, {"own_user_path": "/users/1"}
+        def open_form(self): return {}
+        def select_master(self, _label): return {}
+        def select_sub(self, _label): return {}
+        def fill(self, *_args): return {"selected_categories": {}}
+        def read_form(self): return {}
+        def first_submit(self): return None
+        def read_confirmation(self): return {}
+        def fresh_thread_context(self, own): return {"own_user_path": own, "conversation": []}
+        def final_submit(self, *_args, **_kwargs):
+            self.final_clicks += 1
+            raise RuntimeError("transition_unknown")
+
+    semantic = adapter_module.requested_estimate
+    monkeypatch.setattr(semantic, "semantic_context_sha256", lambda _rows: "a" * 64)
+    monkeypatch.setattr(semantic, "validate_form_contract", lambda _form: True)
+    monkeypatch.setattr(semantic, "_category_type_optional", lambda _form: False)
+    monkeypatch.setattr(semantic, "validate_estimate_terms", lambda terms, _context: terms)
+    monkeypatch.setattr(semantic, "materialize_delivery_content", lambda terms, _today: terms)
+    monkeypatch.setattr(semantic, "validate_selected_categories", lambda *_args: True)
+    monkeypatch.setattr(semantic, "validate_form_selection", lambda *_args: True)
+    monkeypatch.setattr(semantic, "validate_confirmation", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(semantic, "completion_date", lambda *_args: __import__("datetime").date(2026, 9, 15))
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+        thread_reader=lambda _thread: ({}, {}), sender=lambda *_args: {},
+        estimate_composer=Composer(), estimate_browser_factory=lambda *_args: Browser(),
+    )
+    assert adapter.mutate(_estimate_intent()) is None

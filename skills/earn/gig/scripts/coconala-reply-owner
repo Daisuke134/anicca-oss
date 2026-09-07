@@ -20,4 +20,5 @@ exec "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/reply_kernel.py" \
   --cdp-helper "$ROOT/skills/browser/scripts/cdp_default_tab.py" \
   --runner "$ROOT/runtime/agent-runner/agent_runner.py" \
   --schema "$ROOT/skills/earn/gig/schemas/reply_semantic_judgement.schema.json" \
+  --estimate-schema "$ROOT/skills/earn/gig/schemas/estimate_category_selection.schema.json" \
   "$@"

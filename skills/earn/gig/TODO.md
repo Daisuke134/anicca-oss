@@ -886,6 +886,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    so an acknowledged but still-unsent estimate is not discarded by a superficial last-role check.
    The exact production Python import smoke passes and Reply-focused regression is 144 passed.
    Official estimate form mutation/readback extraction and live activation remain open.
+   The official estimate ceremony now lives behind the thin Coconala adapter without invoking the
+   legacy connector-outbox lifecycle: it reuses the proven live category selector and validators,
+   verifies the semantic conversation hash, fills the official form, verifies the confirmation,
+   refreshes the exact thread before the final click, submits once, and binds a structured-offer URL
+   as the provider receipt. A new adapter instance can read the same official card back for
+   replay-zero. The shared kernel now also treats a post-effect `reconcile_unknown` as permanently
+   readback-only for that event; even an authoritative absence cannot authorize a blind duplicate.
+   The exact production Python build smoke passes, focused ceremony/kernel tests pass 24/24, and the
+   wider Reply/estimate regression passes 152/152 after one isolated timing test was rerun and then
+   passed again in the full suite. Source merge/release and live activation remain open.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

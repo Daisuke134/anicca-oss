@@ -176,6 +176,8 @@ def _run_locked(
                           "receipt": receipt, "status": "verified"})
             return {"thread_id": row["thread_id"], "status": "verified",
                     "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
+        if state.get("status") == "reconcile_unknown":
+            return _pending(row, "reconcile_unknown")
         if official.get("authoritative_absent") is not True:
             return _pending(row, "reconcile_unknown")
 
