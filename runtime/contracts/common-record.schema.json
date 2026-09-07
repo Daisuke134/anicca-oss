@@ -8,7 +8,8 @@
     {"$ref": "#/$defs/Effect"},
     {"$ref": "#/$defs/Receipt"},
     {"$ref": "#/$defs/OutboxItem"},
-    {"$ref": "#/$defs/FinancialRecord"}
+    {"$ref": "#/$defs/FinancialRecord"},
+    {"$ref": "#/$defs/BrowserTargetLease"}
   ],
   "$defs": {
     "Id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
@@ -98,6 +99,20 @@
         {"if": {"properties": {"status": {"const": "delivered"}}}, "then": {"properties": {"attempt_count": {"minimum": 1}, "claimed_at": {"type": "string", "format": "date-time"}, "delivered_at": {"type": "string", "format": "date-time"}, "provider_message_ids": {"minItems": 1}}}},
         {"if": {"properties": {"status": {"const": "delivery_uncertain"}}}, "then": {"properties": {"attempt_count": {"minimum": 1}, "claimed_at": {"type": "string", "format": "date-time"}, "delivered_at": {"type": "null"}, "provider_message_ids": {"maxItems": 0}}}}
       ]
+    },
+    "BrowserTargetLease": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "owner_token", "generation", "target_id", "page_websocket", "canonical_url", "claimed_at", "heartbeat_at"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "owner_token": {"type": "string", "pattern": "^[A-Za-z0-9._-]{16,200}$"},
+        "generation": {"type": "integer", "minimum": 1},
+        "target_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$"},
+        "page_websocket": {"type": "string", "pattern": "^wss?://[^?#]+/devtools/page/[A-Za-z0-9_-]{1,128}$"},
+        "canonical_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+        "claimed_at": {"$ref": "#/$defs/Timestamp"},
+        "heartbeat_at": {"$ref": "#/$defs/Timestamp"}
+      }
     },
     "FinancialRecord": {
       "type": "object", "additionalProperties": false,
