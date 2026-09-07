@@ -10,7 +10,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EARN_MODE="${EARN_MODE:-discover}"
 WAKE="${WAKE_ID:-$(date -u +%s)}"
 PY=/opt/homebrew/bin/python3
-STATE="$HERE/state"; mkdir -p "$STATE"
+[ -x "$PY" ] || PY=python3
+STATE="${BOUNTY_STATE_DIR:-$HERE/state}"; mkdir -p "$STATE"
 emit(){ printf '{"slot":"earn/bounty","did":%s,"earn_usdc":0,"cost_usdc":0}\n' \
   "$(printf '%s' "$1" | "$PY" -c 'import json,sys;print(json.dumps(sys.stdin.read()))')"; }
 
@@ -144,7 +145,7 @@ print(' '.join(sorted(resolved)))
   done
   # SETTLE (FIND-002): if anything merged, call the chain oracle — only real external USDC counts (INV-7)
   if [ "$merged" -gt 0 ]; then
-    local re="${ANICCA_HOME:-$HOME/anicca}/skills/self/founder-loop/record-earn.mjs"
+    local re="${LIFE_MANAGER_REPO:-$(cd "$HERE/../.." && pwd)}/skills/self/founder-loop/record-earn.mjs"
     if [ -f "$re" ]; then local out; out=$(timeout 45 node "$re" --source bounty --task settle --wake "$WAKE" 2>&1 || true); echo "[bounty] settle: $out"; fi
   fi
   emit "track: $tracked attempt(s), $merged merged → record-earn settle (real USDC only)."

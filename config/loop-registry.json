@@ -425,9 +425,9 @@
       "effect_class": "none",
       "entrypoint": "skills/bounty/bounty-healthcheck.sh",
       "label": "ai.anicca.bounty-core-healthcheck",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/bounty/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/bounty"
     },
     "browser-state-backup": {
       "cadence": {
@@ -885,9 +885,9 @@
       "effect_class": "none",
       "entrypoint": "skills/bounty/bounty-cli.sh",
       "label": "ai.anicca.hf-bounty-daily",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/bounty/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/bounty"
     },
     "hf-gig-apply-direct": {
       "cadence": {
