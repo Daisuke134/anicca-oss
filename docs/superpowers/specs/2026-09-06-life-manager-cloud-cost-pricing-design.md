@@ -244,3 +244,32 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
 3. 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
 4. DaisのTelegram actorと隔離test actorで、新規開始から最初のTravel block・乗換案内・Telegram receiptまでE2Eする。
 5. E2E receipt後にだけ公開導線を再開する。
+
+## 10. `$29/month` unit-cost envelope
+
+Planning exchange rate is USD 1 = JPY 150. One normal active user means 60 physical events/month,
+one accepted route fact per event/version/purpose, at most 100 short Gemini text actions, and optional
+calls averaging one total connected minute per physical event across T-10 and T-5. Free SKU caps are
+excluded from the safety calculation even when the actual invoice is lower.
+
+| Component | Unit assumption | Monthly cost without calls | Monthly cost with calls |
+|---|---:|---:|---:|
+| Google Geocoding | up to 2 × USD 0.005 per physical event | USD 0.60 | USD 0.60 |
+| Google Routes/Directions | up to 2 × USD 0.005 per physical event | USD 0.60 | USD 0.60 |
+| Gemini short text | 100 bounded Flash actions | USD 0.20–1.00 | USD 0.20–1.00 |
+| Calendar / Telegram APIs | no per-message product charge | USD 0 | USD 0 |
+| Gemini Live | measured planning rate about USD 0.023/min | USD 0 | USD 1.38 |
+| Telnyx voice, streaming, AMD, destination carrier | conservative blended reserve | USD 0 | USD 2.00–4.00 |
+| provider error / FX reserve | after cache and replay fences | USD 0.50–1.50 | USD 1.00–2.50 |
+| **Direct API total** | | **USD 1.90–3.70** | **USD 5.78–10.08** |
+
+Therefore `$29/month` is sufficient only while phone usage is bounded. The paid plan includes at most
+60 connected phone minutes/month; after that, Telegram, Calendar, Travel block, and cached/read/settings
+continue, while new phone calls wait for the next monthly reset. This is one plan with a fair-use boundary,
+not a second tier. At direct cost USD 10.08, contribution before Stripe, hosting, support, and fixed costs is
+USD 18.92 and direct-API margin is 65.2%. At the expected USD 6 cost it is USD 23 and 79.3%.
+
+The free allowance is 20 completed managed events/month, not 20 internal effects. One event may create a
+Travel block and one Telegram乗換案内 while consuming one allowance unit. Optional phone is excluded from
+the standing free allowance except for one onboarding test call; this caps expected free-user direct API
+cost below approximately USD 1 before shared fixed costs. Usage resets monthly at the tenant billing timezone.
