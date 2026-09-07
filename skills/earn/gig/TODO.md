@@ -1405,6 +1405,44 @@ from the chat, and two of them contradict what this cursor had previously report
     three eligible Lancers projects. Blocked only on a natural failure occurring under the release
     that records.
 
+20. [x] `APPLY-CROWDWORKS-2` Account for every posting a wake looked at. Measured 2026-09-07:
+    `{"inspected":63, ...}` against counters summing to 26, so 37 postings were dropped with
+    nothing said. Both exits were bare `continue`/`break` -- an unreadable posting page, and the
+    search budget expiring mid-listing, which truncates the board and then reads as a quiet day.
+    Same anonymous-refusal fault as Lancers, one level up.
+
+    The budget filter was investigated first and cleared: the three postings it rejected as
+    「固定報酬の提示がありません」 were 求人・採用支援業務, a 成果報酬 BDR/SDR cold-calling role and
+    an interview-based article. All three are refused on other grounds anyway, so the price parser
+    is not costing work and the earlier read that it was is withdrawn.
+
+21. [ ] `APPLY-DISK-1` ★ Releases are never consolidated, and it stops the Apply lanes. Measured
+    2026-09-07, the whole chain:
+
+    ```
+    git archive exports committed files only, so a fresh release has no node_modules
+      -> lm-loop apply (global) fails the life-manager-connector-native dependency check,
+         which wants apps/life-manager/node_modules/{playwright-core,jsqr}
+      -> no label is ever repointed in bulk, so every loop pins its own release
+      -> disk-cleanup reports evaluated_releases 40, reclaimed 0: all forty are pinned
+      -> the volume reaches 100% and the Apply lanes exit 1
+    ```
+
+    Both lanes died of it twice today: `sqlite3.OperationalError: unable to open database file`
+    on Lancers (a WAL that cannot be created) and a bare `[Errno 28]` on CrowdWorks. Neither
+    error names the disk, and neither lane is at fault -- both recovered on their own the moment
+    space was freed, with no code change.
+
+    The dependency the check wants is 8.6 MB. What each release carried was 332 MB of
+    `apps/life-manager/node_modules`, times forty. Copying the two packages into the current
+    release and deleting the rest took the release tree from 15.1 GB to 8.3 GB.
+
+    PASS = a fresh release passes the global apply without a manual copy, whether by the cutter
+    installing the two runtime dependencies or by the check reading them from a shared location.
+    This belongs to whoever owns release cutting; it is recorded here because it has now cost the
+    Apply lanes more downtime than any bug in them.
+
+
 
 
 
