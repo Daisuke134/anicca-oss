@@ -96,6 +96,12 @@
 3. **CrowdWorks 復旧** — **実態を訂正（2026-09-07 実測）**: 認証は通っている（`status` が `authenticated`/`role: employee` を返す）。8/11 からの `input_required` は state ファイルが古いだけだった。停止の真因は5段で、いずれも今日剥がした: ①`security find-generic-password -w` が GUI 解錠待ちで永久ハング（手元で2分ハングを再現）。launchd では誰も応答できない ②vault モジュールのパスが repo 外前提で `~/.local/_shared/...` を指す（実際は `skills/browser/scripts/`）③`spec_from_file_location` で同階層が sys.path に入らず `target_ownership` の import 失敗 ④クッキー120個中16個が旧 Chrome 形式の文字列 `partitionKey`。`setCookies` は全か無かなので全体が復元不能（**#4318、repo・全レーン共通**）⑤`session_vault` が実行中イベントループ内で `asyncio.run()`（**#4359、repo・全レーン共通**）。
    **アーキテクチャが二重（未解決）**: `ai.anicca.crowdworks.{acquisition,negotiation,fulfillment,storefront}` は repo 外 `~/.local/share/anicca/crowdworks-revenue-skill/lane_runtime.py` の旧方式で、storefront は 8/15 凍結・`fixed_service_listing_not_supported`（プロフィール確認のみで出品しない）。`ai.anicca.crowdworks-revenue-{application,paid,report}` は repo 内の新方式だが **storefront が存在しない**。つまり現行アーキテクチャにクラウドワークスの出品機能は無い。CrowdWorks 側にはパッケージ（固定価格出品）があるのでプラットフォームの制約ではない。
    repo の `account.py` は既に SSOT を読む新版で、動いている repo 外の版が古い。**repo 外の版を repo へコピーしてはいけない**（退行する）。正しい順序は repo 版へ label を差し替え、`lane_runtime.py` の storefront 相当を新方式で作ること。
+   **出品できない理由の切り分け（2026-09-07、自分の公開プロフィールを一次情報として観測）**:
+   `https://crowdworks.jp/public/employees/7145638` の実測 — `Kaito｜AI自動化`（ココナラの `Kosuke` とは別ペルソナ）、**本人確認 未提出**、NDA未締結、インボイス発行事業者未確認、完了数 0 / 契約数 0、時間単価 3,000〜5,000円、登録 2026-08-11。公開プロフィールのタブは サマリー / 評価実績 / 職種・スキル / ポートフォリオ・経歴 / 回答・相談履歴 / ランキング のみで、**出品（パッケージ）タブが無い**。
+   旧レーンの `fixed_service_listing_not_supported` は `https://crowdworks.jp/user_skills`（**スキルタグのページ**）に価格入力欄が無いことを根拠にしている（`provider_sources.py:9` の `_ROUTES["storefront"]`）。スキルページに価格欄が無いのは当然で、**この判定は見ているページが違う**。ココナラで「ログイン画面を空の棚」と誤命名したのと同じクラス。
+   **未確定（推測で作らないこと）**: CrowdWorks が受注者に固定価格出品（パッケージ）を提供しているか、提供しているならそれが本人確認に紐づくか。help centre と公開ページからは確定できなかった。**認証済みセッションで受注者側の出品導線を実際に観測してから作る**こと。
+   **Dais 側の項目**: 本人確認が未提出。KYC は Dais が行う唯一の人手工程として明示されている。CrowdWorks の出品が本人確認に紐づく場合、ここが開くまでこのレーンは収益化できない。
+
    旧記載: — 実測: `account.json` が 8/11 から `status: input_required`（credential 待ち）で application lane exit 1。9/3 に書いた `hours_limit` 文字列説は repo/state に該当ファイル無し（**誤りとして取り消し**）。credentials.json SSOT から再ログイン → 4 lane を launchd に bootstrap。
    DONE: `application-receipts.jsonl` に 8/11 以降初の receipt 1 件。
 4. **profile readback を loop 化** — 3 platform の公開プロフィールを定期 readback し完成度を state に記録（Lancers storefront lane は 9/4 から `profile_completion_percent` を返す。Coconala/CrowdWorks は未）。
