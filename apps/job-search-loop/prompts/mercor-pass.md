@@ -15,7 +15,10 @@ Pass order:
    observe-only and must never be resubmitted.
 2. Reconcile the oldest in-progress application first. Record every inspected
    listing in `inspected_listings` with its live URL, application state, and decision.
-3. Maintain a queue of distinct new listings and inspect candidates in order. A
+3. Maintain a queue of distinct new listings. Before opening detail pages, compare visible
+   cards with `recently_inspected_listing_ids` and use model judgment to inspect the strongest
+   truthful-fit unseen candidates first. Revisit a recent candidate only after unseen candidates
+   in the bounded pages are exhausted or the live card shows a changed state. A
    candidate that is ready in the UI but fails a verified-fact requirement is not a terminal pass result:
    record its exact missing fact in `inspected_listings` and
    continue to the next distinct listing. Submit every ready distinct listing

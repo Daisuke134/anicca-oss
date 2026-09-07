@@ -31,6 +31,21 @@ def _ledger_listing_ids(path: Path) -> list[str]:
     return sorted(set(identifiers))
 
 
+def _recent_listing_ids(path: Path, limit: int = 200) -> list[str]:
+    if not path.is_file():
+        return []
+    identifiers: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        listing_id = value.get("listing_id") if isinstance(value, dict) else None
+        if isinstance(listing_id, str) and listing_id.strip() and listing_id != "unavailable":
+            identifiers.append(listing_id.strip())
+    return list(dict.fromkeys(identifiers))
+
+
 def build_context(
     *,
     state_root: Path,
@@ -43,6 +58,7 @@ def build_context(
 ) -> dict[str, Any]:
     ledger = state_root / "applications.jsonl"
     fence_ledger = state_root / "submission-fences.jsonl"
+    inspection_ledger = state_root / "inspections.jsonl"
     submitted_listing_ids = set(_ledger_listing_ids(ledger))
     submitted_listing_ids.update(fenced_listing_ids(fence_ledger))
     context = {
@@ -53,6 +69,7 @@ def build_context(
         "applications_ledger": str(ledger.resolve()),
         "submission_fence_ledger": str(fence_ledger.resolve()),
         "submitted_listing_ids": sorted(submitted_listing_ids),
+        "recently_inspected_listing_ids": _recent_listing_ids(inspection_ledger),
         "run_id": run_id,
         "cdp_url": cdp_url,
         "cdp_page_ws": cdp_page_ws,
@@ -92,6 +109,30 @@ def record_verified_submissions(state_root: Path, result: dict[str, Any], *, run
             output.flush()
             os.fsync(output.fileno())
         os.chmod(ledger, 0o600)
+
+
+def record_inspections(state_root: Path, result: dict[str, Any], *, run_id: str) -> None:
+    inspected = result.get("inspected_listings")
+    if not isinstance(inspected, list):
+        return
+    ledger = state_root / "inspections.jsonl"
+    ledger.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with ledger.open("a", encoding="utf-8") as output:
+        for item in inspected:
+            if not isinstance(item, dict):
+                continue
+            listing_id = item.get("listing_id")
+            if not isinstance(listing_id, str) or not listing_id.strip():
+                continue
+            output.write(json.dumps({
+                "listing_id": listing_id.strip(),
+                "decision": str(item.get("decision") or ""),
+                "run_id": run_id,
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+            }, ensure_ascii=False, sort_keys=True) + "\n")
+        output.flush()
+        os.fsync(output.fileno())
+    os.chmod(ledger, 0o600)
 
 
 def validate_evidence_paths(result: dict[str, Any], evidence_root: Path) -> None:
@@ -207,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         result = _blocked_for_evidence_violation(result, args.evidence_dir, error)
     record_verified_submissions(args.state_root, result, run_id=args.run_id)
+    record_inspections(args.state_root, result, run_id=args.run_id)
     output = args.evidence_dir / "mercor-pass-summary.json"
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.chmod(output, 0o600)
