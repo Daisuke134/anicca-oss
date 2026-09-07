@@ -35,6 +35,10 @@ trap release_lease EXIT
 chmod 600 "$LEASE_JSON"
 MERCOR_CDP_PAGE_WS=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ws"])' "$LEASE_JSON")
 export MERCOR_CDP_PAGE_WS MERCOR_CDP_BASE_URL="$CDP"
+PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+  -m job_search_loop.mercor_page_ready \
+  --ws "$MERCOR_CDP_PAGE_WS" \
+  --output "$STATE_ROOT/page-ready.json"
 
 set +e
 MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:h:h}" \
