@@ -279,15 +279,23 @@ async def _cdp_connect(ws_url: str):
     """
     import websockets
 
+    # The window is deliberately wider than the loop's usual five-by-three. CDP allows one
+    # websocket per target, so a refusal usually means a sibling lane is holding the page this
+    # wake wants, and a sibling's single browser step can take as long as the thirty-second tab
+    # timeout that bounds it. Twelve seconds of waiting expired inside one sibling step and
+    # four wakes in five were lost to it. Forty seconds outlasts one such step.
+    #
+    # This is a mitigation, not the cure. The cure is one browser context per lane, which the
+    # spec already requires (6.2A PAR-1) and which this loop does not yet have.
     last: Exception | None = None
-    for attempt in range(5):
+    for attempt in range(8):
         try:
             return await websockets.connect(
                 ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024)
         except (OSError, asyncio.TimeoutError, websockets.exceptions.WebSocketException) as error:
             last = error
-            if attempt < 4:
-                await asyncio.sleep(3)
+            if attempt < 7:
+                await asyncio.sleep(5)
     raise last
 
 

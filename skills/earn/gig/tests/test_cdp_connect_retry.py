@@ -66,16 +66,16 @@ def test_a_refusal_that_clears_is_not_fatal(connect):
     install([REFUSED, REFUSED, socket])
     assert asyncio.run(listing_inventory._cdp_connect("ws://x")) is socket
     assert len(calls) == 3
-    assert sleeps == [3, 3]
+    assert sleeps == [5, 5]
 
 
-def test_five_attempts_before_giving_up(connect):
+def test_the_window_outlasts_one_sibling_browser_step(connect):
     install, calls, sleeps = connect
     install([REFUSED])
     with pytest.raises(type(REFUSED)):
         asyncio.run(listing_inventory._cdp_connect("ws://x"))
-    assert len(calls) == 5
-    assert sleeps == [3, 3, 3, 3]
+    assert len(calls) == 8
+    assert sleeps == [5, 5, 5, 5, 5, 5, 5]
 
 
 def test_a_socket_that_opens_first_time_costs_nothing(connect):
