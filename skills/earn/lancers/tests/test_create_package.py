@@ -137,6 +137,22 @@ class _LocatorList:
         if not any(item.is_visible() for item in self._items):
             raise TimeoutError("no visible match")
 
+    def click(self, **kwargs) -> None:
+        # Mirrors real Playwright strict-mode Locator.click(): only sensible on a locator
+        # resolving to exactly one element. _resolve_create_advance_control's own
+        # `.locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)` call returns exactly this shape.
+        if len(self._items) != 1:
+            raise AssertionError(f"strict mode violation: {len(self._items)} matches")
+        self._items[0].click(**kwargs)
+
+
+# A sentinel distinguishing "this field's own click resolves the advance control" (the default --
+# a real <button>/[role=button]/input[type=submit] whose text sits directly on itself) from an
+# explicit `enclosing_interactive=None` (a text node with no interactive ancestor at all) from an
+# explicit `enclosing_interactive=<other _Field>` (text sitting in a child <span> of a real
+# button). See _resolve_create_advance_control's own docstring in storefront_offer.py.
+_SELF_INTERACTIVE = object()
+
 
 class _Field:
     """One form control. Records every fill/select_option/press call it receives.
@@ -154,9 +170,17 @@ class _Field:
     has ever been explicitly chosen -- it defaults to 0 (the first/placeholder option) exactly as
     an unset native `<select>` does, and `select_option()` updates it, so `option:checked` always
     reflects genuine selection state rather than merely "was select_option ever called".
+
+    `enclosing_interactive` models what `_resolve_create_advance_control`'s
+    `.locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)` call resolves to when called on this field: the
+    default `_SELF_INTERACTIVE` means this field is already the real button (ancestor-or-self
+    finds itself, matching every pre-existing test's `_next_button`/`_manual_button`); `None`
+    means a text node with no interactive ancestor exists at all; another `_Field` models a real
+    button enclosing this one as a child text node. `outer_html`, when set, is what `.evaluate()`
+    returns -- modelling `el => el.outerHTML`.
     """
 
-    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = "", attrs: dict[str, str] | None = None):
+    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = "", attrs: dict[str, str] | None = None, enclosing_interactive: "_Field | None | object" = _SELF_INTERACTIVE, outer_html: str | None = None):
         self.fills: list[str] = []
         self.selected: list[dict] = []
         self.presses: list[str] = []
@@ -167,6 +191,8 @@ class _Field:
         self._step = step
         self._name = name
         self._attrs = attrs or {}
+        self._enclosing_interactive = enclosing_interactive
+        self._outer_html = outer_html
         self._selected_index: int | None = 0 if self._options else None
         self.page: "_FakeCreatePage | None" = None  # bound by _FakeCreatePage.__init__
 
@@ -224,22 +250,33 @@ class _Field:
     def click(self, **_kwargs) -> None:
         self.clicks += 1
 
-    def locator(self, selector: str) -> _OptionList:
+    def locator(self, selector: str):
         if selector == "option":
             return _OptionList(self._options)
         if selector == "option:checked":
             if self._options and self._selected_index is not None:
                 return _OptionList([self._options[self._selected_index]])
             return _OptionList([])
-        # A non-select field (e.g. a text input) queried for "option" -- 0 results, exactly like
-        # a real Playwright locator finding no descendant <option> elements.
-        return _OptionList([])
+        # Any other selector models _resolve_create_advance_control's own
+        # `.locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)` call: resolve to the enclosing
+        # interactive element per `enclosing_interactive` (see this class's own docstring), never
+        # by matching the selector string itself -- the fake doesn't reimplement xpath.
+        if self._enclosing_interactive is _SELF_INTERACTIVE:
+            return _LocatorList([self])
+        if self._enclosing_interactive is None:
+            return _LocatorList([])
+        return _LocatorList([self._enclosing_interactive])
 
     def wait_for(self, state: str = "visible", timeout=None) -> None:
         if state != "visible":
             raise NotImplementedError(state)
         if not self.is_visible():
             raise TimeoutError(f"field {self._name!r} not visible (step={self._step})")
+
+    def evaluate(self, _script: str) -> str:
+        if self._outer_html is not None:
+            return self._outer_html
+        return f"<button>{self._text}</button>"
 
 
 class _EmptyField:
@@ -404,6 +441,10 @@ class _FakeCreatePage:
 
         self._next_button = _Field(visible=next_button_visible, text="次へ", name="次へ")
         self._next_button.click = lambda **_kwargs: (_click_next(), setattr(self._next_button, "clicks", self._next_button.clicks + 1))[-1]
+        # What get_by_text("次へ") resolves to -- defaults to the real button itself (the shape
+        # every pre-existing test in this file drives), but a test may swap this for a bare text
+        # node (see _Field's own `enclosing_interactive`) to exercise click-target resolution.
+        self._next_button_text_node = self._next_button
 
         self._image_marker = _Field(step=4, text=_IMAGE_STEP_MARKER_TEXT, name="画像ほかマーカー")
         self._image_marker.page = self
@@ -436,7 +477,7 @@ class _FakeCreatePage:
         if label == "手動でパッケージを作成する":
             return _LocatorList([self._manual_button])
         if label == "次へ":
-            return _LocatorList([self._next_button])
+            return _LocatorList([self._next_button_text_node])
         if label == _IMAGE_STEP_MARKER_TEXT and not exact:
             return _LocatorList([self._image_marker])
         return _LocatorList([])
@@ -610,6 +651,70 @@ def test_missing_next_button_raises_create_step_stalled_named_next_button_missin
     assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
 
 
+# 3a. The click target -- 次へ is resolved to its enclosing interactive element, not the bare
+#     text node ---------------------------------------------------------------------------------
+#
+# get_by_text(label, exact=True) resolves to the element whose own text equals the label -- on a
+# real button that is commonly a <span> sitting inside the actual <button>. Clicking that span
+# resolves without error and does nothing, which reads exactly like a stalled step from the
+# caller's side. These tests exercise _resolve_create_advance_control (and, through it,
+# _click_create_next_button) directly against small hand-built _Field graphs, independent of the
+# larger wizard-walking fixtures used elsewhere in this file.
+
+
+def test_click_next_resolves_to_the_enclosing_button_when_text_sits_in_a_child_span():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+    real_button = page._next_button
+    span = _Field(text="次へ", name="次へ-span", enclosing_interactive=real_button)
+    page._next_button_text_node = span
+
+    module._click_create_next_button(page, "基本情報")
+
+    assert real_button.clicks == 1
+    assert span.clicks == 0  # the bare text node itself was never clicked
+
+
+def test_click_next_raises_a_named_failure_when_the_text_match_has_no_interactive_ancestor():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+    orphan = _Field(text="次へ", name="次へ-orphan", enclosing_interactive=None)
+    page._next_button_text_node = orphan
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._click_create_next_button(page, "基本情報")
+
+    assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
+    assert orphan.clicks == 0  # never clicked the bare text node as a nearest guess
+
+
+def test_click_next_raises_a_named_failure_on_ambiguous_visible_matches():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+    first = _Field(text="次へ", name="次へ-1")
+    second = _Field(text="次へ", name="次へ-2")
+    page.get_by_text = lambda label, exact=True: _LocatorList([first, second]) if label == "次へ" else _LocatorList([])
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._click_create_next_button(page, "基本情報")
+
+    assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
+    assert first.clicks == 0
+    assert second.clicks == 0  # unchanged discipline: ambiguity never picks a nearest guess
+
+
+def test_click_next_still_clicks_a_real_button_directly_unchanged():
+    """The default case -- the text sits directly on the real <button>, exactly like every other
+    test in this file's `_next_button` fixture -- still resolves and clicks normally."""
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+
+    module._click_create_next_button(page, "基本情報")
+
+    assert page._next_button.clicks == 1
+    assert page.current_step == 1
+
+
 # 3b. Stall evidence -- what create_step_stalled now reports beyond the bare validation text ----
 #
 # The live incident this shipped from: `create_step_stalled: 基本情報: 基本情報`. The "validation
@@ -731,7 +836,7 @@ def test_stall_evidence_reports_the_advance_control_found_and_its_text():
 
     payload = json.loads(module._create_step_evidence(page, "基本情報"))
 
-    assert payload["advance_control"] == {"found": True, "text": "次へ", "disabled": False}
+    assert payload["advance_control"] == {"found": True, "text": "次へ", "disabled": False, "outer_html": "<button>次へ</button>"}
 
 
 def test_stall_evidence_payload_is_bounded_and_says_when_truncated():
@@ -798,7 +903,7 @@ def test_stalled_advance_error_message_embeds_the_full_evidence_payload():
     assert payload["step"] == "基本情報"
     assert payload["validation_messages"] == ["タイトルを入力してください"]
     assert payload["url"] == page.url
-    assert payload["advance_control"] == {"found": True, "text": "次へ", "disabled": False}
+    assert payload["advance_control"] == {"found": True, "text": "次へ", "disabled": False, "outer_html": "<button>次へ</button>"}
     by_name = {item["field"]: item for item in payload["fields"]}
     assert set(by_name) == {"title", "subtitle", "category", "subcategory", "industry", "tags"}
     # Every 基本情報 field was already filled before the stalled advance was even attempted.
@@ -902,6 +1007,26 @@ class _PositionalLocator:
 
     def bounding_box(self):
         return {"width": 0, "height": 0} if self._hidden() else {"width": 120, "height": 24}
+
+    def input_value(self) -> str:
+        # form_observer._requirement_filled's text/textarea branch -- a <textarea>'s value is
+        # its own text content; every other native control's is its `value` attribute.
+        if self._node.tag == "textarea":
+            return self._node.text
+        return self._node.attrs.get("value") or ""
+
+    def locator(self, selector: str):
+        # form_observer._requirement_filled's <select> branch: option:checked always resolves to
+        # exactly one option in a real browser -- the one carrying `selected`, or the first
+        # (placeholder) option when nothing has ever been explicitly chosen.
+        if selector != "option:checked":
+            raise NotImplementedError(selector)
+        options = [child for child in self._node.children if child.tag == "option"]
+        selected = [option for option in options if "selected" in option.attrs]
+        chosen = selected[0] if selected else (options[0] if options else None)
+        if chosen is None:
+            return _OptionList([])
+        return _OptionList([_Option(chosen.text, chosen.attrs.get("value") or "")])
 
 
 _NAME_SELECTOR = re.compile(r'^\[name="([^"]+)"\]$')
@@ -1081,6 +1206,143 @@ def test_stall_evidence_survives_an_observer_failure_and_names_it():
     assert "advance_control" in payload
     assert "tag_widget" in payload
     assert "arrival_field" in payload
+    assert payload["step_requirements"] == []
+
+
+# 3e. step_requirements -- every required/optional control the visible step carries, read by
+# form_observer straight off the DOM, never from _CREATE_STEP_FIELDS' own six known names -----
+#
+# The task this shipped from: `fields` only ever enumerates the six controls this file already
+# knows to fill, so a seventh required control on 基本情報 -- especially a custom widget that is
+# not a native input/textarea/select -- would never show up in any report this file could build
+# by itself. _requirements_wizard_html below models exactly that: 基本情報 carries three native
+# controls (title/subtitle/category, mirroring three of the six known ones) plus one this file's
+# own _CREATE_STEP_FIELDS never names at all (対応可能日, backed by nothing but a <div> widget);
+# 料金表 (hidden, wrapped in the same structural signature form_observer._hiding_class_signature
+# looks for) carries a required native control that must never surface, since its step is not the
+# one showing. Step detection and requirement extraction are both the real form_observer code --
+# nothing about either is reimplemented here.
+
+_REQUIREMENTS_HIDING_CLASS = "_hidden_faketest_requirements_7"
+
+
+def _requirements_wizard_html() -> str:
+    basic_info = (
+        '<div class="field"><label>タイトル<span>必須</span></label>'
+        '<input type="text" name="ProjectPlanForm.title" value="サンプルタイトル"></div>'
+        '<div class="field"><label>サブタイトル<span>任意</span></label>'
+        '<input type="text" name="ProjectPlanForm.subtitle"></div>'
+        '<div class="field"><label>カテゴリー<span>必須</span></label>'
+        '<select name="___main_category_id"><option value="">選択してください</option>'
+        '<option value="1">AI・プログラミング・システム開発</option></select></div>'
+        '<div class="field"><label>対応可能日<span>必須</span></label>'
+        '<div class="custom-widget" role="combobox"></div></div>'
+    )
+    pricing = (
+        '<div class="field"><label>納期<span>必須</span></label>'
+        '<input type="text" name="ProjectPlanMenuForm[0].delivery_time"></div>'
+    )
+    return (
+        '<div class="wizard">'
+        f'<div class="step-panel"><h2>基本情報</h2>{basic_info}</div>'
+        f'<div class="step-panel {_REQUIREMENTS_HIDING_CLASS}"><h2>料金表</h2>{pricing}</div>'
+        "</div>"
+    )
+
+
+def _requirements_payload(module) -> dict:
+    page = _ObservablePage(content_html=_requirements_wizard_html(), fields={}, manual_button_lands_on=None)
+    return json.loads(module._create_step_evidence(page, "基本情報"))
+
+
+def test_step_requirements_reports_a_required_control_the_adapter_never_fills():
+    """This is the case the whole task exists for: 対応可能日 is a required custom widget none of
+    _CREATE_STEP_FIELDS' six known names cover, and it still shows up here with its visible
+    label."""
+    module = _module()
+
+    labels = {entry["label"] for entry in _requirements_payload(module)["step_requirements"]}
+
+    assert "対応可能日" in labels
+
+
+def test_step_requirements_required_select_holding_only_its_placeholder_reports_empty():
+    module = _module()
+
+    by_label = {entry["label"]: entry for entry in _requirements_payload(module)["step_requirements"]}
+
+    assert by_label["カテゴリー"]["tag"] == "select"
+    assert by_label["カテゴリー"]["required"] is True
+    assert by_label["カテゴリー"]["filled"] is False
+
+
+def test_step_requirements_custom_widget_reports_present_but_unreadable_not_filled():
+    module = _module()
+
+    by_label = {entry["label"]: entry for entry in _requirements_payload(module)["step_requirements"]}
+
+    assert by_label["対応可能日"]["readable"] is False
+    assert by_label["対応可能日"]["filled"] is None
+
+
+def test_step_requirements_only_reports_the_visible_steps_controls():
+    module = _module()
+
+    by_label = {entry["label"]: entry for entry in _requirements_payload(module)["step_requirements"]}
+
+    assert "納期" not in by_label  # belongs to 料金表, hidden behind _REQUIREMENTS_HIDING_CLASS
+    assert by_label["タイトル"]["required"] is True  # belongs to the visible 基本情報 step
+
+
+def test_step_requirements_is_not_vacuous_when_restricted_to_the_adapters_known_names():
+    """Per the task: prove the previous test is not vacuous. Restrict the observer's own
+    candidate enumeration to labels the adapter's _CREATE_STEP_FIELDS already knows about
+    (mirroring the six known field names at this fixture's smaller scale), confirm 対応可能日 then
+    fails to appear, revert, confirm it is reported again."""
+    module = _module()
+    observer_module = module._reach_form_observer()
+    known_labels = {"タイトル", "サブタイトル", "カテゴリー"}
+    original = observer_module._step_requirement_candidates
+    observer_module._step_requirement_candidates = lambda root: [
+        candidate for candidate in original(root) if candidate["label"] in known_labels
+    ]
+    try:
+        restricted_labels = {entry["label"] for entry in _requirements_payload(module)["step_requirements"]}
+        assert "対応可能日" not in restricted_labels
+    finally:
+        observer_module._step_requirement_candidates = original
+
+    restored_labels = {entry["label"] for entry in _requirements_payload(module)["step_requirements"]}
+    assert "対応可能日" in restored_labels
+
+
+# 3f. The advance control's outerHTML, hard-truncated -------------------------------------------
+
+
+def test_stall_evidence_includes_the_advance_controls_truncated_outer_html():
+    module = _module()
+    long_html = '<button type="submit" class="c-btn c-btn--primary" data-testid="next">' + ("次へ" * 200) + "</button>"
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+    page._next_button = _Field(visible=True, text="次へ", name="次へ", outer_html=long_html)
+    page._next_button_text_node = page._next_button
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    outer_html = payload["advance_control"]["outer_html"]
+    assert outer_html.startswith('<button type="submit"')
+    assert outer_html.endswith(module._CREATE_STALL_TRUNCATION_MARKER)
+    assert len(outer_html) == module._CREATE_OUTER_HTML_MAX_CHARS + len(module._CREATE_STALL_TRUNCATION_MARKER)
+
+
+def test_stall_evidence_short_outer_html_is_not_truncated():
+    module = _module()
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
+    page._next_button = _Field(visible=True, text="次へ", name="次へ", outer_html='<button type="submit">次へ</button>')
+    page._next_button_text_node = page._next_button
+
+    payload = json.loads(module._create_step_evidence(page, "基本情報"))
+
+    assert payload["advance_control"]["outer_html"] == '<button type="submit">次へ</button>'
 
 
 # 3d. Fail-closed is unchanged by any of the above: exactly one advance click, no later-step
