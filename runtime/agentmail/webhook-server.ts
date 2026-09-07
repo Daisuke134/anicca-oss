@@ -16,11 +16,10 @@ import bodyParser from "body-parser";
 import { Webhook, WebhookVerificationError } from "svix";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { homedir } from "node:os";
+import { agentMailQueuePath } from "./paths.ts";
 
 const PORT = Number.parseInt(process.env.AGENTMAIL_WEBHOOK_PORT ?? "8810", 10);
-const QUEUE_PATH = process.env.AGENTMAIL_QUEUE_PATH
-  ?? `${homedir()}/.openclaw/state/inbox-queue.jsonl`;
+const QUEUE_PATH = agentMailQueuePath;
 
 // Multi-org / multi-secret support. AgentMail issues one Svix secret per webhook
 // subscription. We may have several orgs (e.g. anicca-001-claude lives in the

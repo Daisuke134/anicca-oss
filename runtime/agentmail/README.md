@@ -33,14 +33,13 @@ AgentMail free tier hard-caps inboxes at **3 per org**. A 4th inbox needs a paid
 | primary (`4812311a…`) | `AGENTMAIL_API_KEY` | `AGENTMAIL_WEBHOOK_SECRET` | `anicca-001-claude`, `anicca-001-openclaw`, `anicca-genesis` |
 | hermes (`63a065d7…`) | `AGENTMAIL_HERMES_API_KEY` | `AGENTMAIL_WEBHOOK_SECRET_HERMES` | `anicca-001-hermes` |
 
-Adding more sibling Anicca instances: run `inboxes-hermes.ts` style flow with a fresh `+alias` gmail address. OTP is read programmatically via `gog gmail`.
+Adding inboxes uses the same `inboxes.ts` provisioner and environment contract; no sibling runtime checkout is required.
 
 ## Files
 
 | File | Role |
 |---|---|
 | `inboxes.ts` | Provisions claude + openclaw in primary org. |
-| `inboxes-hermes.ts` | Idempotent: signUp hermes-org if `AGENTMAIL_HERMES_API_KEY` is missing, verify via OTP from gog gmail. |
 | `webhook-server.ts` | Express on `:8810`. Multi-secret Svix HMAC verify. `/healthz` lists active secret buckets. |
 | `webhook-subscribe.ts` | Subscribe a webhook with `WEBHOOK_PUBLIC_URL` and a given API key. |
 | `ingest.ts` | Drain JSONL → SQLite, cursor-based idempotent. |
@@ -49,11 +48,15 @@ Adding more sibling Anicca instances: run `inboxes-hermes.ts` style flow with a 
 | `replier-tick.sh` / `nudge-tick.sh` / `launch.sh` | launchd wrappers. |
 | `state-schema.sql` | `inbox_threads`, `inbox_messages` (+`in_reply_to`), `awaiting_reply`. |
 | `netlify-relay/` | Legacy fallback. Use only if Tailscale Funnel is unavailable. |
-| `ai.anicca.agentmail-{webhook,replier,nudge}.plist` | Installed launchd units. |
-| `ai.anicca.agentmail-cloudflared.plist` | Repo template only — NOT installed. Use if Tailscale Funnel is down. |
+| `../../config/loop-registry.json` | Canonical source for generated launchd units. |
 | `state/inboxes.json` | Ledger of provisioned addresses across both orgs. |
 
-## Env (in `~/.openclaw/.env`, chmod 600)
+## Env and state
+
+Secrets live in `~/.local/state/life-manager/.env` (chmod 600). Runtime data lives under
+`~/.local/state/life-manager/agentmail/`; override with `AGENTMAIL_STATE_ROOT` when needed.
+Before the first registry-managed release, run `migrate-legacy-state.sh` once. It copies
+legacy queue, SQLite, adapter, semantic evidence, and logs without deleting the source.
 
 ```
 AGENTMAIL_API_KEY=…                       # primary org

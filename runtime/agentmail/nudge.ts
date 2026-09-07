@@ -9,11 +9,11 @@
 // Idempotent: only acts on rows that cross the 24h SLA boundary.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { semanticDecision } from "./semantic-reply.ts";
+import { agentMailDbPath } from "./paths.ts";
 
-const DB_PATH = process.env.AGENTMAIL_DB_PATH ?? `${homedir()}/.openclaw/state/agentmail.db`;
+const DB_PATH = agentMailDbPath;
 const ADAPTER_SEND = process.env.AGENTMAIL_ADAPTER_SEND_SH
   ?? fileURLToPath(new URL("./send.sh", import.meta.url));
 const FROM_INBOX = process.env.AGENTMAIL_REPLIER_FROM_INBOX ?? "anicca-001-claude@agentmail.to";

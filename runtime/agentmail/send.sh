@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
-[ -f "$HOME/.openclaw/.env" ] && set -a && . "$HOME/.openclaw/.env" && set +a
+ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+[ -f "$ENV_FILE" ] && set -a && . "$ENV_FILE" && set +a
 
 TO="${1:-}"
 SUBJECT="${2:-}"
@@ -9,7 +10,8 @@ INBOX="${4:-${AGENTMAIL_INBOX_ID:-}}"
 [ -n "$TO" ] && [ -n "$SUBJECT" ] && [ -n "$TEXT" ] && [ -n "$INBOX" ] || exit 2
 [ -n "${AGENTMAIL_API_KEY:-}" ] || exit 2
 
-STATE_DIR="${AGENTMAIL_ADAPTER_STATE_DIR:-$HOME/.openclaw/state/agentmail-adapter}"
+STATE_ROOT="${AGENTMAIL_STATE_ROOT:-$HOME/.local/state/life-manager/agentmail}"
+STATE_DIR="${AGENTMAIL_ADAPTER_STATE_DIR:-$STATE_ROOT/state/adapter}"
 mkdir -p "$STATE_DIR"
 LOG="$STATE_DIR/sent-log.jsonl"
 touch "$LOG"; chmod 600 "$LOG"

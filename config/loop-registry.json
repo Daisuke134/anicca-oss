@@ -235,9 +235,9 @@
       "effect_class": "message",
       "entrypoint": "runtime/agentmail/nudge-tick.sh",
       "label": "ai.anicca.agentmail-nudge",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/agentmail/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/agentmail"
     },
     "agentmail-replier": {
       "cadence": {
@@ -251,9 +251,9 @@
       "effect_class": "message",
       "entrypoint": "runtime/agentmail/replier-tick.sh",
       "label": "ai.anicca.agentmail-replier",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/agentmail/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/agentmail"
     },
     "agentmail-webhook": {
       "cadence": {
@@ -267,9 +267,9 @@
       "effect_class": "message",
       "entrypoint": "runtime/agentmail/launch.sh",
       "label": "ai.anicca.agentmail-webhook",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/agentmail/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/agentmail"
     },
     "article-audit-7day": {
       "cadence": {

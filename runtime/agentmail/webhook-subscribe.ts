@@ -12,7 +12,7 @@
 // duplicating.
 //
 // On success prints both the public URL and the signing secret (whsec_...) so it
-// can be pasted into ~/.openclaw/.env as AGENTMAIL_WEBHOOK_SECRET.
+// can be saved in ~/.local/state/life-manager/.env as AGENTMAIL_WEBHOOK_SECRET.
 import { AgentMailClient } from "agentmail";
 import { spawn } from "node:child_process";
 
@@ -80,7 +80,7 @@ try {
   console.log(`  url:        ${hook.url ?? publicUrl}`);
   if (hook.secret) {
     console.log(`  secret:     ${hook.secret}`);
-    console.log(`\n→ add to ~/.openclaw/.env:`);
+    console.log(`\n→ add to ~/.local/state/life-manager/.env:`);
     console.log(`     AGENTMAIL_WEBHOOK_SECRET=${hook.secret}`);
   } else {
     console.log(`  secret:     <not returned — fetch via client.webhooks.get(id)>`);
