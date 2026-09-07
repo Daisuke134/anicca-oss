@@ -1,0 +1,42 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
+LEASE_SCRIPT="$ROOT/skills/browser/scripts/cdp_context_lease.py"
+TASK="mercor-revenue-application"
+CDP="http://127.0.0.1:9222"
+LEASE_JSON="$STATE_ROOT/browser-lease.json"
+
+[[ -x "$PYTHON" ]] || { print -u2 "mercor application owner: managed Python unavailable"; exit 69; }
+mkdir -p "$STATE_ROOT"; chmod 700 "$STATE_ROOT"
+LEGACY_ROOT="${STATE_ROOT:h}"
+if [[ ! -f "$STATE_ROOT/applications.jsonl" && -f "$LEGACY_ROOT/applications.jsonl" ]]; then
+  /bin/cp "$LEGACY_ROOT/applications.jsonl" "$STATE_ROOT/applications.jsonl"
+  chmod 600 "$STATE_ROOT/applications.jsonl"
+fi
+if [[ ! -f "$STATE_ROOT/resume-state.json" && -f "$LEGACY_ROOT/resume-state.json" ]]; then
+  /bin/cp "$LEGACY_ROOT/resume-state.json" "$STATE_ROOT/resume-state.json"
+  chmod 600 "$STATE_ROOT/resume-state.json"
+fi
+export CLOAK_CDP_BASE_URL="$CDP"
+export CLOAK_SESSION_VAULT_FILE="$HOME/.cloak/vault/job-search-daily/auth-state.json"
+export AI_BROWSER_HOLDER_PID=$$
+
+release_lease() {
+  "$PYTHON" "$LEASE_SCRIPT" release "$TASK" >/dev/null 2>&1 || true
+}
+trap release_lease EXIT
+
+"$PYTHON" "$LEASE_SCRIPT" acquire "$TASK" "https://work.mercor.com/explore" >"$LEASE_JSON"
+chmod 600 "$LEASE_JSON"
+MERCOR_CDP_PAGE_WS=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ws"])' "$LEASE_JSON")
+export MERCOR_CDP_PAGE_WS MERCOR_CDP_BASE_URL="$CDP"
+
+set +e
+MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:h:h}" \
+  "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
+rc=$?
+set -e
+exit "$rc"
