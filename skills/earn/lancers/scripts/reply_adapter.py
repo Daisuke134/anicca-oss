@@ -175,10 +175,17 @@ def decide(row: dict[str, Any]) -> dict[str, Any]:
          "is_required_reply": item["role"] == "buyer"}
         for item in conversation
     ]
-    body = work_sync._compose_reply(
-        board, messages, Path(row["state_path"]),
-        {"verified_proposal": context.get("verified_proposal")},
-    )
+    try:
+        body = work_sync._compose_reply(
+            board, messages, Path(row["state_path"]),
+            {"verified_proposal": context.get("verified_proposal")},
+        )
+    except work_sync.ReplySemanticUncertain as error:
+        return {
+            "action": "human",
+            "reason": "reply_facts_required",
+            "remaining_work": error.remaining_work,
+        }
     if body is None:
         return {"action": "noop", "classification": "no_reply"}
     return {"action": "reply", "payload": {"body": body}}

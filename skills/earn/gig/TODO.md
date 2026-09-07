@@ -791,6 +791,21 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    the other four seller-last threads remain non-actionable. Forty-four focused Reply/Lancers checks
    plus eight subtests pass. The shared owner still needs an immutable-release natural terminal and
    Coconala adapter before this atom can close.
+   The first installed shared-owner wake on release `db2ccfba7dedc29ce8da9d485dd8761d46493c7d`
+   naturally failed at `2026-09-07 22:38 JST` with observed five, effect zero and failed five.
+   Root cause: the shared kernel used a one-worker thread pool, which still moved a synchronous
+   Playwright page away from its creation thread and invalidated all five calls. `max_workers=1`
+   now executes inline; only adapters configured above one use the pool. A thread-affinity regression
+   raises if any adapter call changes thread, and the focused total is now forty-five checks plus
+   eight subtests. No buyer message was sent by the failed wake; a corrected immutable-release
+   natural terminal remains required. The corrected release then ran naturally at
+   `2026-09-07 22:46 JST`: it observed all five official threads, independently classified four
+   seller-last threads as `awaiting_buyer` with readback four, and isolated the one buyer-last
+   thread without sending any customer message. That remaining thread ended `SourceFailure`
+   because the Lancers composer correctly returned missing personal facts but its adapter discarded
+   the uncertainty instead of converting it to the shared kernel's durable human wait. The adapter
+   now preserves those model-selected missing facts as `reply_facts_required`; another natural
+   installed-release terminal is required, so this atom remains unchecked.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

@@ -270,17 +270,23 @@ def run_wake(*, adapter: ReplyAdapter,
         if len(identities) != len(set(identities)):
             raise ValueError("reply_inventory_duplicate")
         workers = max(1, min(max_workers, len(normalized) or 1))
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(_run_one, adapter, decide, Path(state_root), row)
-                       for row in normalized]
-            items = []
-            for row, future in zip(normalized, futures):
-                try:
-                    items.append(future.result())
-                except Exception as error:
-                    items.append({"thread_id": row["thread_id"], "status": "failed",
-                                  "reason": type(error).__name__, "effect": 0,
-                                  "readback": 0, "failed": 1})
+        if workers == 1:
+            # Sync browser adapters are thread-affine: even a one-worker pool moves
+            # their Playwright page to another thread and invalidates every call.
+            items = [_run_one(adapter, decide, Path(state_root), row)
+                     for row in normalized]
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = [pool.submit(_run_one, adapter, decide, Path(state_root), row)
+                           for row in normalized]
+                items = []
+                for row, future in zip(normalized, futures):
+                    try:
+                        items.append(future.result())
+                    except Exception as error:
+                        items.append({"thread_id": row["thread_id"], "status": "failed",
+                                      "reason": type(error).__name__, "effect": 0,
+                                      "readback": 0, "failed": 1})
     finally:
         close = getattr(adapter, "close", None)
         if callable(close):
