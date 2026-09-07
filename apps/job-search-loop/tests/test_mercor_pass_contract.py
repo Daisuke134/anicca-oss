@@ -10,6 +10,7 @@ from job_search_loop.agent_runner import AgentRunner, PassAlreadyRunning, TASK_C
 from job_search_loop.mercor_pass import (
     _host_capabilities,
     build_context,
+    deny_mercor_media_permissions,
     main,
     record_inspections,
     record_verified_submissions,
@@ -23,6 +24,38 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MercorPassContractTests(unittest.TestCase):
+    def test_media_permissions_are_denied_before_model_browser_work(self):
+        class FakeWebSocket:
+            def __init__(self):
+                self.sent = []
+                self.closed = False
+
+            def send(self, value):
+                self.sent.append(json.loads(value))
+
+            def recv(self):
+                return json.dumps({"id": len(self.sent), "result": {}})
+
+            def close(self):
+                self.closed = True
+
+        connection = FakeWebSocket()
+        deny_mercor_media_permissions(
+            "ws://127.0.0.1:9222/devtools/page/owned",
+            websocket_factory=lambda *_args, **_kwargs: connection,
+        )
+        self.assertEqual(
+            [item["params"]["permission"]["name"] for item in connection.sent],
+            ["microphone", "camera", "display-capture"],
+        )
+        self.assertTrue(all(
+            item["method"] == "Browser.setPermission"
+            and item["params"]["setting"] == "denied"
+            and item["params"]["origin"] == "https://work.mercor.com"
+            for item in connection.sent
+        ))
+        self.assertTrue(connection.closed)
+
     @staticmethod
     def _profile(path: Path) -> Path:
         path.write_text(json.dumps({
@@ -169,6 +202,7 @@ class MercorPassContractTests(unittest.TestCase):
             "Do not click an interview or assessment step",
             "Do not call browser media-device or permission APIs",
             "application summary is sufficient evidence",
+            "skip that candidate for the rest of this wake without waiting",
             "One broken card must not block the whole pass",
             "invoke `.click()` once on that",
             "signals, not pre-application rejection gates",
@@ -304,12 +338,13 @@ class MercorPassContractTests(unittest.TestCase):
             with patch(
                 "job_search_loop.mercor_pass.run_pass",
                 side_effect=PassAlreadyRunning(),
-            ):
+            ), patch("job_search_loop.mercor_pass.deny_mercor_media_permissions"):
                 self.assertEqual(main([
                     "--state-root", str(root / "state"),
                     "--profile", str(profile),
                     "--resume", str(root / "resume.pdf"),
                     "--cdp-url", "http://127.0.0.1:9334",
+                    "--cdp-page-ws", "ws://127.0.0.1:9334/devtools/page/owned",
                     "--prompt", str(root / "prompt.md"),
                     "--schema", str(root / "schema.json"),
                     "--evidence-dir", str(evidence),
