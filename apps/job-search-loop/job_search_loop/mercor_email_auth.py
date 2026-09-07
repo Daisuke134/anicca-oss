@@ -65,9 +65,27 @@ def application_email(profile_path: Path) -> str:
 
 
 async def request_email_login(ws_url: str, email: str) -> dict[str, str]:
+    parsed_ws = urlsplit(ws_url)
+    if parsed_ws.scheme not in {"ws", "wss"} or parsed_ws.hostname not in {
+        "127.0.0.1", "localhost", "::1",
+    }:
+        raise ValueError("leased_page_websocket_must_be_loopback")
     async with websockets.connect(
         ws_url, open_timeout=10, ping_interval=None, max_size=8 * 1024 * 1024
     ) as ws:
+        await _call(ws, 1, "Page.navigate", {"url": "https://work.mercor.com/login"})
+        controls_ready = False
+        for index in range(80):
+            controls = await _call(ws, 10 + index, "Runtime.evaluate", {
+                "expression": "!!document.querySelector('input[type=\"email\"][name=\"email\"]')",
+                "returnByValue": True,
+            })
+            if controls.get("result", {}).get("value") is True:
+                controls_ready = True
+                break
+            await asyncio.sleep(0.25)
+        if not controls_ready:
+            raise RuntimeError("mercor_email_login_controls_not_ready")
         expression = """(()=>{
           const emailInput=document.querySelector('input[type="email"][name="email"]');
           const login=[...document.querySelectorAll('button')]
@@ -80,9 +98,9 @@ async def request_email_login(ws_url: str, email: str) -> dict[str, str]:
           login.click();
           return true;
         })()""" % json.dumps(email)
-        await _call(ws, 1, "Runtime.evaluate", {"expression": expression})
+        await _call(ws, 100, "Runtime.evaluate", {"expression": expression})
         for index in range(80):
-            observed = await _call(ws, 10 + index, "Runtime.evaluate", {
+            observed = await _call(ws, 110 + index, "Runtime.evaluate", {
                 "expression": "JSON.stringify({url:location.href,text:(document.body?.innerText||'').slice(0,5000)})",
                 "returnByValue": True,
             })
@@ -141,7 +159,19 @@ def main(argv=None) -> int:
         action_url = newest_action_url(args.after_epoch)
         result = asyncio.run(authenticate(args.ws, action_url))
     except Exception as exc:
-        result = {"status": "failed", "reason": type(exc).__name__}
+        safe_reasons = {
+            "mercor_email_login_controls_not_ready",
+            "mercor_email_login_provider_error",
+            "mercor_email_login_request_not_observed",
+            "mercor_magic_link_not_found",
+            "fresh_mercor_magic_link_not_observed",
+            "mercor_magic_link_did_not_authenticate",
+        }
+        message = str(exc)
+        result = {
+            "status": "failed",
+            "reason": message if message in safe_reasons else type(exc).__name__,
+        }
     args.output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     args.output.write_text(json.dumps(result, sort_keys=True) + "\n", encoding="utf-8")
     os.chmod(args.output, 0o600)
