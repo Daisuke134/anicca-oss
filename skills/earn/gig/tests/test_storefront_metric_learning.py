@@ -135,16 +135,25 @@ def test_official_quality_signals_separate_no_rating_from_zero():
 
 def test_catalog_baseline_binds_each_listing_version_to_its_latest_official_metrics(tmp_path):
     analytics = tmp_path / "analytics.jsonl"
+    # 2026-08-28 4792e22c0 "fix(storefront): retain official metric baseline" tightened
+    # _catalog_conversion_baseline to only trust rows explicitly marked `"official": True`
+    # with fully known views/favorites/purchases -- a same-day response to a real ~4.5-hour
+    # production incident (2026-08-27 18:33-22:56 UTC, 39 consecutive
+    # storefront_catalog_baseline_incomplete wake failures in
+    # ~/gig/storefront-direct/wakes.jsonl) caused by the original, looser version binding to
+    # whichever row was merely newest regardless of source or completeness. This fixture
+    # predates that hardening; mark rows official to match the contract the shipped fix
+    # actually enforces.
     analytics.write_text("\n".join(json.dumps(row) for row in [
-        {"service_id": "2", "observed_at_epoch": 10,
+        {"service_id": "2", "observed_at_epoch": 10, "official": True,
          "metrics": {"views": {"status": "known", "value": 8},
                      "favorites": {"status": "known", "value": 1},
                      "purchases": {"status": "known", "value": 0}}},
-        {"service_id": "1", "observed_at_epoch": 9,
+        {"service_id": "1", "observed_at_epoch": 9, "official": True,
          "metrics": {"views": {"status": "known", "value": 3},
                      "favorites": {"status": "known", "value": 0},
                      "purchases": {"status": "known", "value": 0}}},
-        {"service_id": "1", "observed_at_epoch": 11,
+        {"service_id": "1", "observed_at_epoch": 11, "official": True,
          "metrics": {"views": {"status": "known", "value": 5},
                      "favorites": {"status": "known", "value": 0},
                      "purchases": {"status": "known", "value": 0}}},

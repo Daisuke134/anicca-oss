@@ -48,6 +48,33 @@ def _load_reply_detector():
     return module
 
 
+def test_default_headroom_kib_is_524288_when_env_absent(monkeypatch):
+    # skills/earn/gig/TODO.md documents 524,288 KiB (512 MiB) as the house floor. A lane whose
+    # plist never carries GIG_DISK_HEADROOM_KIB -- e.g. one migrated onto lm-loop's registry,
+    # whose rendered plist never sets this key -- must fall back to this default, not to zero.
+    monkeypatch.delenv("GIG_DISK_HEADROOM_KIB", raising=False)
+    guard = _load_guard()
+    assert guard.REQUIRED_KIB == 524288
+    assert guard.REQUIRED_BYTES == 524288 * 1024
+
+
+def test_explicit_headroom_kib_still_overrides_the_default(monkeypatch):
+    monkeypatch.setenv("GIG_DISK_HEADROOM_KIB", "1048576")
+    guard = _load_guard()
+    assert guard.REQUIRED_KIB == 1048576
+    assert guard.REQUIRED_BYTES == 1048576 * 1024
+
+
+def test_explicit_zero_headroom_kib_still_disables_the_byte_floor(monkeypatch):
+    # A caller that genuinely wants no fixed-byte floor (relying only on the stop/pressure
+    # flags) sets GIG_DISK_HEADROOM_KIB=0 deliberately. The default above must not become
+    # unoverridable.
+    monkeypatch.setenv("GIG_DISK_HEADROOM_KIB", "0")
+    guard = _load_guard()
+    assert guard.REQUIRED_KIB == 0
+    assert guard.REQUIRED_BYTES == 0
+
+
 def test_one_byte_under_threshold_writes_receipt_and_never_execs(tmp_path, monkeypatch, capsys):
     guard = _load_guard()
     monkeypatch.setenv("GIG_STATE_DIR", str(tmp_path))
@@ -321,9 +348,21 @@ def test_low_headroom_skips_probe_worker_reconcile_and_sqlite(tmp_path, monkeypa
 
 
 def test_manifest_wraps_only_four_business_lanes():
+    # 2ecb2c8c9 "fix: migrate hf gig paid dispatch" (2026-09-07) moved the `paid` lane's job
+    # definition out of this legacy launchd manifest entirely and onto
+    # config/loop-registry.json's "hf-gig-paid-direct" entry, whose "entrypoint" is now
+    # skills/earn/gig/scripts/paid-direct-owner -- a small wrapper that execs
+    # memory_admission.py -> gig_disk_guard.py -> paid_direct.py itself, so the disk-guard
+    # invariant still holds, just for a script this manifest no longer owns. `release` (the
+    # watcher lane) was retired outright by 93d6720ee and no longer exists here either. Assert
+    # the intent for both halves: every lane this manifest DOES still own within the business
+    # set is disk-guarded, `paid` is provably not one of this manifest's jobs any more, and its
+    # successor script still wraps the same guard before the same real command.
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     jobs = {job["lane"]: job for job in manifest["jobs"]}
-    business = {"apply", "negotiate", "storefront", "paid"}
+    assert "paid" not in jobs
+    assert "release" not in jobs
+    business = {"apply", "negotiate", "storefront"}
 
     for lane in business:
         program = jobs[lane]["program"]
@@ -331,9 +370,21 @@ def test_manifest_wraps_only_four_business_lanes():
         assert program[1] == "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py"
         assert program[2] == "{{PYTHON}}"
 
-    for lane in {"browser", "release"}:
+    for lane in {"browser"}:
         program = jobs[lane]["program"]
         assert "gig_disk_guard.py" not in program
+
+    registry = json.loads(
+        (GIG_ROOT.parents[2] / "config" / "loop-registry.json").read_text(encoding="utf-8")
+    )
+    paid_owner = registry["loops"]["hf-gig-paid-direct"]
+    assert paid_owner["entrypoint"] == "skills/earn/gig/scripts/paid-direct-owner"
+    owner_script = (
+        GIG_ROOT.parents[2] / "skills" / "earn" / "gig" / "scripts" / "paid-direct-owner"
+    ).read_text(encoding="utf-8")
+    assert "gig_disk_guard.py" in owner_script
+    assert "paid_direct.py" in owner_script
+    assert owner_script.index("gig_disk_guard.py") < owner_script.index("paid_direct.py")
 
 
 def test_manifest_keeps_browser_start_direct_and_pins_real_floor():
@@ -376,7 +427,16 @@ def test_self_build_uses_shared_guard_before_dependency_and_node_effects():
 
     assert "GIG_DISK_HEADROOM_KIB=524288" in script
     assert "GIG_HOST_STATE_DIR=" in script
-    assert 'readonly LM_SELFBUILD_CANONICAL_HOST_STATE="$LIFE_MANAGER_STATE_HOME/state"' in script
+    # 2026-08-27 bbe15dbcb "fix(life-manager): pin self-build host state root" repointed this
+    # from $HOME/.openclaw/state to $LIFE_MANAGER_STATE_HOME/state, but the shared disk-pressure
+    # monitor (skills/self/disk-cleanup/disk_cleanup.py: `self.home / ".openclaw/state"`) and the
+    # writer lane's own bounded-stop paths (see BOUNDED_EXEC_STOP_PATHS below) both still write
+    # and read disk-writers.stop / disk-pressure.block under $HOME/.openclaw/state.
+    # $LIFE_MANAGER_STATE_HOME/state exists on this host but is never written by that monitor, so
+    # the repointed guard could never see a real stop flag -- a silent fail-open on the shared
+    # host-wide disk-pressure signal for this producer. Reverted to the value every other
+    # consumer of these flags actually reads.
+    assert 'readonly LM_SELFBUILD_CANONICAL_HOST_STATE="$HOME/.openclaw/state"' in script
     assert "GIG_STATE_DIR=" in script
     assert script.count('/usr/bin/python3 "$DISK_GUARD" /usr/bin/true') == 2
     assert "unset GIG_IGNORE_DISK_PRESSURE_BLOCK GIG_IGNORE_DISK_WRITERS_STOP" in script
@@ -394,11 +454,24 @@ def test_writer_article_daily_already_has_media_preflight_and_bounded_stop_paths
 
     assert "media_create_once.py" in script
     assert "arm --run-dir \"$RUN_DIR\"" in script
+    # writer_capacity_preflight() (2026-08-21 a73ee4c04) gates BOTH the 11GiB floor and both
+    # control flags -- disk-writers.stop and disk-pressure.block -- before a model pass is ever
+    # started.
     assert "writer_capacity_preflight" in script
+    preflight = script[script.index("writer_capacity_preflight() {"):script.index(
+        "if ! writer_capacity_preflight"
+    )]
+    assert '"$control_dir/disk-writers.stop" "$control_dir/disk-pressure.block"' in preflight
+    # 2026-08-28 f6e700c9a "fix(writer): ignore preventive disk marker" narrowed the *in-flight*
+    # bounded-exec watchdog to disk-writers.stop only: disk-pressure.block is a preventive/soft
+    # signal the preflight above already resolves (and GIG_IGNORE_DISK_PRESSURE_BLOCK can waive)
+    # before any provider starts, so it must not abort an already-running, expensive model pass
+    # mid-flight. disk-writers.stop is the harder stop and still interrupts a running pass.
+    assert 'BOUNDED_EXEC_STOP_PATHS="$HOME/.openclaw/state/disk-writers.stop"' in script
     assert (
         'BOUNDED_EXEC_STOP_PATHS="$HOME/.openclaw/state/disk-writers.stop:'
         '$HOME/.openclaw/state/disk-pressure.block"'
-    ) in script
+    ) not in script
 
 
 @pytest.mark.parametrize(
@@ -610,7 +683,13 @@ def test_writer_lanes_render_from_immutable_release_and_life_manager_state():
     manifest, table = release.settings(release_path)
     writer = [job for job in manifest["jobs"] if job.get("env_profile") == "writer"]
 
-    assert len(writer) == 14
+    # Was 14. Five writer lanes (report, opportunity-response, opportunity-discovery,
+    # money-sync, claim) migrated off this legacy launchd manifest onto loop-registry.json
+    # between 2026-09-04 and 2026-09-07 (see test_gig_release.py's
+    # test_migrated_writer_*_is_not_owned_by_legacy_manifest, which cover all five and already
+    # pass). The remaining nine (creator, resume, zenn-retry, healthcheck, sales-measure,
+    # craft-train, self-improve, audit-7day, learn-whitelist) are still rendered from here.
+    assert len(writer) == 9
     for job in writer:
         rendered = release.plist_for(job, table)
         assert rendered["EnvironmentVariables"]["ARTICLE_ROOT"] == (

@@ -205,6 +205,21 @@ same discipline `marketplace-paid-lane.md` states for Paid: "Paid work is not re
 relevant official money receipt exists." A Storefront listing is not live until the relevant
 official public-page receipt exists.
 
+**17. An env var frozen at migration time outlives every later change.** Merging, cutting a
+release and repointing the label all leave it untouched, because the plist writer preserves old
+environment variables and the new definition never mentions the key. A config file that no
+longer reaches the job is worse than no config file, because it reads as authoritative. This is
+`_preserve_operational_attributes` in `runtime/loop/lm_loop_apply.py`: every old
+`EnvironmentVariables` entry is carried forward unless named in `retired_environment_keys`, and
+once `hf-gig-apply-direct` and `hf-gig-reply-detector` migrated onto lm-loop's registry
+(`config/loop-registry.json`), their rendered plist stopped mentioning
+`GIG_DISK_HEADROOM_KIB` at all — the value frozen in each plist at migration time (`"0"`,
+inherited from the legacy `skills/earn/gig/config/launchd-jobs.json` manifest) survived a
+merge, a release cut, and a label repoint of `launchd-jobs.json`'s corrected `"524288"` before
+anyone noticed, because that file no longer had any path to either lane's installed plist.
+Verify a config change by reading the installed plist, not by observing that the label was
+repointed.
+
 ## What is still unproven
 
 State this plainly rather than let the fault list above read as a working lane:

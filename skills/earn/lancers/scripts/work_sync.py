@@ -23,7 +23,6 @@ SKILLS_ROOT = HERE.parents[2]
 REPO_ROOT = SKILLS_ROOT.parent
 AGENT_RUNNER = REPO_ROOT / "runtime" / "agent-runner" / "agent_runner.py"
 REPLY_SCHEMA = SKILLS_ROOT / "gig-work" / "schemas" / "reply_composition.schema.json"
-PRODUCT_PATH = HERE.parent / "products" / "monthly-sns-content-ops-v1.json"
 
 
 def _load(name: str, path: Path) -> Any:
@@ -59,15 +58,6 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _sales_state(path: Path) -> dict[str, Any]:
-    if not path.exists(): return {"handled": [], "pending": None}
-    try: value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError): raise SourceFailure("sales_state_invalid") from None
-    if not isinstance(value, Mapping) or set(value) != {"handled", "pending"} or not isinstance(value["handled"], list) or any(not isinstance(item, str) for item in value["handled"]) or value["pending"] is not None and not isinstance(value["pending"], Mapping):
-        raise SourceFailure("sales_state_invalid")
-    return {"handled": list(value["handled"]), "pending": value["pending"]}
-
-
 def _write_state(path: Path, value: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, mode=0o700, exist_ok=True); path.parent.chmod(0o700)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -79,13 +69,6 @@ def _write_state(path: Path, value: Mapping[str, Any]) -> None:
     finally:
         try: os.unlink(temporary)
         except FileNotFoundError: pass
-
-
-def _product_context() -> Mapping[str, Any]:
-    try: value = json.loads(PRODUCT_PATH.read_text(encoding="utf-8"))
-    except (OSError, ValueError): raise SourceFailure("product_context_invalid") from None
-    if not isinstance(value, Mapping) or not isinstance(value.get("plans"), list): raise SourceFailure("product_context_invalid")
-    return {key: value.get(key) for key in ("product_id", "title_stem", "description", "notice", "plans")}
 
 
 def _proposal_context(page: Any, detail: Mapping[str, Any], verified_proposals: set[str]) -> Optional[Mapping[str, Any]]:
@@ -186,60 +169,6 @@ def _message_rows(fetch: Callable[[str], Any], board_id: str) -> list[Mapping[st
 
 def _messages(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
     return sorted(({"message_id": _id(row["id"]), "content_sha256": _digest(row)} for row in rows), key=lambda row: row["message_id"])
-
-
-def _post_reply(page: Any, board_id: str, body: str) -> str:
-    value = page.evaluate("""async ({path, body}) => { const form = new FormData(); form.append("description", body); form.append("rich_description", body); const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 20000); try { const response = await fetch(path, {method:"POST", credentials:"same-origin", body:form, signal:controller.signal}); const text = await response.text(); if (!response.ok || text.length > 1048576) return {ok:false}; let parsed={}; try { parsed=JSON.parse(text); } catch (_) {} return {ok:true, body:parsed}; } catch (_) { return {ok:false}; } finally { clearTimeout(timer); } }""", {"path": f"/v1/message_api/boards/{quote(board_id, safe='')}/messages", "body": body})
-    if not isinstance(value, Mapping) or value.get("ok") is not True: raise SourceFailure("reply_submission_uncertain")
-    response = value.get("body")
-    if isinstance(response, Mapping) and isinstance(response.get("data"), Mapping): response = response["data"]
-    if not isinstance(response, Mapping): raise SourceFailure("reply_submission_uncertain")
-    return _id(response.get("id"))
-
-
-def _readback(rows: Sequence[Mapping[str, Any]], board_id: str, body: str, provider_id: Optional[str]) -> Optional[str]:
-    for row in rows:
-        if _id(row.get("board_id")) == board_id and row.get("description") == body:
-            message_id = _id(row.get("id"))
-            if provider_id is None or provider_id == message_id: return message_id
-    return None
-
-
-def _sales_action(page: Any, state_path: Path, boards: Sequence[tuple[Mapping[str, Any], Mapping[str, Any], Sequence[Mapping[str, Any]]]], verified_proposals: Optional[set[str]] = None) -> dict[str, Any]:
-    path = state_path.with_name("sales.json"); state = _sales_state(path); pending = state["pending"]
-    if pending is not None:
-        try: board_id, body = _id(pending.get("board_id")), str(pending["reply_body"]); provider_id = pending.get("provider_message_id")
-        except (KeyError, TypeError, SourceFailure): raise SourceFailure("sales_state_invalid") from None
-        rows = next((rows for board, _detail, rows in boards if _id(board.get("id")) == board_id), None)
-        if rows is None: rows = _message_rows(lambda route: _fetch(page, route), board_id)
-        verified = _readback(rows, board_id, body, provider_id if isinstance(provider_id, str) else None)
-        if verified is None: return {"status": "reply_uncertain", "board_id": board_id, "content_sha256": _digest(body)}
-        event_key = str(pending.get("event_key")); handled = list(dict.fromkeys([*state["handled"], event_key]))[-1000:]
-        _write_state(path, {"handled": handled, "pending": None})
-        return {"status": "reply_verified", "board_id": board_id, "provider_message_id": verified, "content_sha256": _digest(body)}
-
-    candidate = next(((board, detail, rows) for board, detail, rows in boards if board.get("is_required_reply") is True and rows), None)
-    if candidate is None: return {"status": "no_reply_required"}
-    board, detail, rows = candidate; latest = max(rows, key=lambda row: int(_id(row.get("id"))))
-    if latest.get("is_required_reply") is not True: return {"status": "seller_last"}
-    board_id, message_id = _id(board.get("id")), _id(latest.get("id")); event_key = f"{board_id}:{message_id}"
-    if event_key in state["handled"]: return {"status": "already_handled", "board_id": board_id}
-    grounding = {"canonical_product": _product_context(), "verified_proposal": _proposal_context(page, detail, verified_proposals or set())}
-    body = _compose_reply(board, rows, state_path, grounding)
-    if body is None:
-        handled = list(dict.fromkeys([*state["handled"], event_key]))[-1000:]
-        _write_state(path, {"handled": handled, "pending": None})
-        return {"status": "no_reply_needed", "board_id": board_id}
-    pending = {"board_id": board_id, "event_key": event_key, "reply_body": body, "content_sha256": _digest(body), "provider_message_id": None}
-    _write_state(path, {"handled": state["handled"], "pending": pending})
-    provider_id = _post_reply(page, board_id, body); pending["provider_message_id"] = provider_id
-    _write_state(path, {"handled": state["handled"], "pending": pending})
-    readback_rows = _message_rows(lambda route: _fetch(page, route), board_id)
-    verified = _readback(readback_rows, board_id, body, provider_id)
-    if verified is None: return {"status": "reply_uncertain", "board_id": board_id, "provider_message_id": provider_id, "content_sha256": _digest(body)}
-    handled = list(dict.fromkeys([*state["handled"], event_key]))[-1000:]
-    _write_state(path, {"handled": handled, "pending": None})
-    return {"status": "reply_verified", "board_id": board_id, "provider_message_id": verified, "content_sha256": _digest(body)}
 
 
 def _snapshot(fetch: Callable[[str], Any], verified_proposals: set[str], private_boards: Optional[list[Any]] = None) -> dict[str, Any]:
@@ -394,9 +323,7 @@ def _finance_source(page: Any) -> dict[str, Any]:
 def _read_surfaces(page: Any, verified_proposals: set[str], private_boards: list[Any]) -> dict[str, Any]:
     """Every provider read behind the seven inventory surfaces.
 
-    _sales_action is deliberately not called here. ELZ-L01 needs a path that
-    cannot post a reply, and a runtime flag would leave _post_reply reachable in
-    the call graph.
+    Reply mutation belongs exclusively to reply_adapter.py and the Reply owner.
     """
     result = _snapshot(lambda path: _fetch(page, path), verified_proposals, private_boards)
     result.update(_contract_sources(page))
@@ -497,9 +424,8 @@ def run_tick(*, state_path: Path = DEFAULT_STATE_PATH, browser_factory: Optional
             if not application_tick._production_account_ready(page):
                 raise SourceFailure("account_unavailable")
             logged_in = True
-            private_boards: list[Any] = []
-            result = _read_surfaces(page, verified_proposals, private_boards)
-            result["reply_action"] = _sales_action(page, Path(state_path), private_boards, verified_proposals)
+            result = _read_surfaces(page, verified_proposals, [])
+            result["reply_action"] = {"status": "owned_by_reply_lane"}
             _write_state(Path(state_path).with_name("contracts.json"), {
                 "source_complete": True,
                 "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),

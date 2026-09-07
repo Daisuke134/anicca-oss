@@ -66,6 +66,19 @@ def _reach_marketplace_core() -> Any:
     return listing_catalog
 
 
+def _reach_form_observer() -> Any:
+    """Reach skills/_shared/marketplace-core/scripts/form_observer.py, the platform-neutral
+    wizard/step observer, via the same sys.path mechanism _reach_marketplace_core already uses.
+    This is the one and only place create_package's stall report is allowed to ask "which step
+    is actually showing" -- see _create_observer_step_state, called from _create_step_evidence.
+    """
+    shared_scripts = HERE.parents[2] / "_shared" / "marketplace-core" / "scripts"
+    if str(shared_scripts) not in sys.path:
+        sys.path.insert(0, str(shared_scripts))
+    import form_observer
+    return form_observer
+
+
 def _catalog_projection(catalog_module: Any, catalog_path: Path, family: str) -> dict[str, Any]:
     """Load the shared catalog and project `family` onto the Lancers shape.
 
@@ -480,28 +493,349 @@ _CREATE_NEXT_BUTTON_TEXT = "次へ"
 _CREATE_IMAGE_STEP_MARKER_TEXT = "受注率が約10倍になります"
 
 
-def _create_step_validation_text(page: Any) -> str:
-    """Best-effort scrape of on-page validation text for a stalled step's error message.
+# --- Stall evidence -------------------------------------------------------------------------
+# The original _create_step_validation_text scraped every visible [class*='error'] element and
+# joined whatever text it found. That net is wide enough to catch the stepper's own step-nav
+# chrome -- observed live as `create_step_stalled: 基本情報: 基本情報`, where the "validation
+# text" was just the 基本情報 tab re-scraped, not a complaint about anything. A strict matcher
+# that discards what it saw is exactly the fault marketplace-apply-lane.md's "refuse loudly"
+# section names; the fix is not a looser matcher, it is a *reported* one: name every field the
+# stalled step owns, prefer real validation markup over incidental "error"-classed chrome, and
+# say plainly when nothing qualifies rather than emit a nearby string. Nothing below infers a
+# cause -- every value is read straight off the page for a human or the next wake to conclude
+# from.
 
-    The live DOM read never named Lancers' validation-message markup, so unlike every other
-    selector in this file this one is not something create_step_stalled can assert an exact
-    match on. It casts a wide net across every visible element whose class mentions "error" and
-    joins whatever text they carry. Finding nothing is not itself a failure -- it just leaves
-    the surrounding create_step_stalled error with no extra detail to report.
-    """
+# One entry per wizard step naming the fields that step owns, as (label, selector) pairs -- the
+# same selectors _fill_create_form() already fills, kept here as the single source of what
+# "belongs to this step" means so a stall report and the fill order can never drift apart. 画像ほか
+# and 公開 own no field whose emptiness is diagnostic (the upload is optional; 公開 has no input),
+# so they carry none.
+_CREATE_STEP_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "基本情報": (
+        ("title", '[name="ProjectPlanForm.title"]'),
+        ("subtitle", '[name="ProjectPlanForm.subtitle"]'),
+        ("category", '[name="___main_category_id"]'),
+        ("subcategory", '[name="ProjectPlanForm.project_category_id"]'),
+        ("industry", '[name="ProjectPlanForm.industry_type_id"]'),
+        ("tags", '[name="MultiSelectTagSearch_ProjectPlanTagForm"]'),
+    ),
+    "料金表": tuple(
+        (f"plan[{index}].{field}", f'[name="ProjectPlanMenuForm[{index}].{field}"]')
+        for index in range(3)
+        for field in ("description", "delivery_time", "price")
+    ),
+    "業務内容": (("description", "textarea:not([name])"),),
+    "確認事項": (("notice", '[name="ProjectPlanForm.notice_for_sale"]'),),
+    "画像ほか": (),
+    "公開": (),
+}
+# The six step names themselves -- excluded from validation-message candidates because the
+# observed bug is precisely a stepper/heading element being mistaken for a complaint.
+_CREATE_STEP_NAMES = ("基本情報", "料金表", "業務内容", "確認事項", "画像ほか", "公開")
+_CREATE_STALL_PAYLOAD_MAX_CHARS = 4000
+_CREATE_STALL_TRUNCATION_MARKER = "...(truncated)"
+
+
+def _is_create_stepper_chrome(text: str) -> bool:
+    return text.strip() in _CREATE_STEP_NAMES
+
+
+def _create_selected_option(field: Any) -> tuple[str | None, str | None]:
+    """Read a <select>'s currently-checked option (label, value). `option:checked` is native
+    CSS -- a browser always has exactly one option selected, the first one by default when
+    nothing has been explicitly chosen, which is what lets an empty-but-present select read as
+    "the placeholder" rather than as absent."""
     try:
-        nodes = page.locator("[class*='error']").all()
+        checked = field.locator("option:checked")
+        if checked.count() != 1: return None, None
+        option = checked.all()[0]
+        label = " ".join(str(option.inner_text() or "").split())
+        value = option.get_attribute("value") or ""
+        return label, value
+    except Exception:
+        return None, None
+
+
+def _create_field_state(page: Any, name: str, selector: str) -> dict[str, Any]:
+    """Observed state of one field the current step owns: identifier, whether it is present at
+    all, and either its selected option's label (selects) or whether it holds a value (text
+    inputs/textareas). Never raises -- a field this can't read is reported absent, not fatal,
+    because the whole point of this function is to keep going and report everything it can."""
+    field = page.locator(selector)
+    try:
+        count = field.count()
+    except Exception:
+        return {"field": name, "present": False}
+    if count != 1:
+        return {"field": name, "present": False, "count": count}
+    try:
+        visible = field.is_visible()
+    except Exception:
+        visible = None
+    try:
+        option_count = field.locator("option").count()
+    except Exception:
+        option_count = 0
+    if option_count:
+        label, value = _create_selected_option(field)
+        return {"field": name, "present": True, "type": "select", "selected_label": label, "filled": bool(value and value.strip()), "visible": visible}
+    try:
+        value = field.input_value()
+    except Exception:
+        value = None
+    return {"field": name, "present": True, "type": "text", "filled": bool(value and str(value).strip()), "visible": visible}
+
+
+def _create_tag_widget_state(page: Any) -> dict[str, Any]:
+    """The tag autocomplete (MultiSelectTagSearch_ProjectPlanTagForm) is filled with fill()+Enter
+    on an autocomplete widget, which can leave the typed text unregistered as a real tag -- one
+    of the named candidate causes for this stall. `[aria-label="削除"]` is already this file's own
+    observed selector for a committed tag's remove button (see _apply's tag-clearing loop above),
+    reused here rather than guessed, so the report can tell "typed but never committed" apart
+    from "genuinely empty" apart from "committed but the field itself reads empty"."""
+    try:
+        committed = page.locator('[aria-label="削除"]').count()
+    except Exception:
+        committed = None
+    try:
+        typed = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]').input_value()
+    except Exception:
+        typed = None
+    return {"committed_tag_count": committed, "typed_value_present": bool(typed and str(typed).strip())}
+
+
+def _create_validation_messages(page: Any) -> list[str]:
+    """Real validation messages only, in preference order: aria-invalid="true" elements (plus
+    whatever describes them via aria-describedby/aria-label), then [role="alert"], then any
+    element whose own class marks it an error message. Each tier is tried only if the one before
+    it found nothing. Every candidate that equals a step name verbatim is excluded -- that
+    exclusion is the fix for the exact bug this shipped from, where the step heading was scraped
+    as if it were a complaint. Finding nothing at any tier is reported as
+    "no_validation_message_found", never as a nearby string standing in for "found nothing"."""
+    messages = _create_aria_invalid_messages(page)
+    if not messages:
+        messages = _create_role_alert_messages(page)
+    if not messages:
+        messages = _create_error_class_messages(page)
+    return messages or ["no_validation_message_found"]
+
+
+def _create_describing_text(page: Any, node: Any) -> str:
+    try:
+        described_by = node.get_attribute("aria-describedby")
+    except Exception:
+        described_by = None
+    if described_by:
+        for target_id in described_by.split():
+            try:
+                described = page.locator(f"#{target_id}")
+                if described.count() == 1:
+                    text = " ".join(str(described.inner_text() or "").split())
+                    if text: return text
+            except Exception:
+                continue
+    try:
+        label = node.get_attribute("aria-label")
+    except Exception:
+        label = None
+    if label and label.strip(): return label.strip()
+    try:
+        return " ".join(str(node.inner_text() or "").split())
     except Exception:
         return ""
-    texts: list[str] = []
+
+
+def _create_aria_invalid_messages(page: Any) -> list[str]:
+    try:
+        nodes = page.locator('[aria-invalid="true"]').all()
+    except Exception:
+        return []
+    messages: list[str] = []
+    for node in nodes:
+        try:
+            if not node.is_visible(): continue
+        except Exception:
+            continue
+        text = _create_describing_text(page, node)
+        if text and not _is_create_stepper_chrome(text): messages.append(text)
+    return messages
+
+
+def _create_role_alert_messages(page: Any) -> list[str]:
+    try:
+        nodes = page.locator('[role="alert"]').all()
+    except Exception:
+        return []
+    messages: list[str] = []
     for node in nodes:
         try:
             if not node.is_visible(): continue
             text = " ".join(str(node.inner_text() or "").split())
         except Exception:
             continue
-        if text: texts.append(text)
-    return " / ".join(texts)
+        if text and not _is_create_stepper_chrome(text): messages.append(text)
+    return messages
+
+
+def _create_error_class_messages(page: Any) -> list[str]:
+    try:
+        nodes = page.locator("[class*='error']").all()
+    except Exception:
+        return []
+    messages: list[str] = []
+    for node in nodes:
+        try:
+            if not node.is_visible(): continue
+            text = " ".join(str(node.inner_text() or "").split())
+        except Exception:
+            continue
+        if text and not _is_create_stepper_chrome(text): messages.append(text)
+    return messages
+
+
+def _create_advance_control_state(page: Any) -> dict[str, Any]:
+    """Whether 次へ was found, exactly as _step()/_click_create_next_button match it (exact
+    visible text), and its text and disabled state when found -- so "control missing" and
+    "control present but disabled" read as different observations, not the same failure."""
+    try:
+        matches = [item for item in page.get_by_text(_CREATE_NEXT_BUTTON_TEXT, exact=True).all() if item.is_visible()]
+    except Exception:
+        return {"found": False}
+    if len(matches) != 1: return {"found": False, "count": len(matches)}
+    control = matches[0]
+    try:
+        text = " ".join(str(control.inner_text() or "").split())
+    except Exception:
+        text = None
+    try:
+        disabled = control.get_attribute("disabled") is not None or control.get_attribute("aria-disabled") == "true"
+    except Exception:
+        disabled = None
+    return {"found": True, "text": text, "disabled": disabled}
+
+
+def _bounded_create_stall_payload(payload: dict[str, Any]) -> str:
+    """Serialize the stall payload bounded to _CREATE_STALL_PAYLOAD_MAX_CHARS. A wake report and
+    a Telegram line both need this bounded, not an unbounded DOM dump. When even the compact form
+    does not fit, the payload names itself truncated (a "truncated": true key survives if it
+    fits at all) rather than silently dropping content with no notice."""
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if len(text) <= _CREATE_STALL_PAYLOAD_MAX_CHARS: return text
+    marked = dict(payload); marked["truncated"] = True
+    text = json.dumps(marked, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if len(text) <= _CREATE_STALL_PAYLOAD_MAX_CHARS: return text
+    budget = _CREATE_STALL_PAYLOAD_MAX_CHARS - len(_CREATE_STALL_TRUNCATION_MARKER)
+    return text[:max(budget, 0)] + _CREATE_STALL_TRUNCATION_MARKER
+
+
+def _create_current_step_name(steps: Mapping[str, Any], fields_report: Sequence[Mapping[str, Any]]) -> str | None:
+    """Which step of the observer's step->field map is actually showing, from live evidence
+    only -- never from whatever step_name the caller happened to be advancing from (that is
+    exactly the "adapter's own idea" this must not fall back to).
+
+    Primary signal: for each step, how many of its own fields the live DOM reports `visible`.
+    The step with the most wins -- deliberately a count, not "all fields visible", because a
+    single field the wizard hasn't finished mounting yet (the exact stall this shipped from,
+    see _create_arrival_field_state) must not make an otherwise-current step invisible to this
+    check. Falls back to the observer's own has_wrapper_class flag (the structural fact the
+    CSS-module hiding class encodes) only when literally no field anywhere reads as visible --
+    e.g. a step whose only owned field is the one still lagging.
+    """
+    if not steps.get("is_wizard"):
+        return None
+    visible_by_identifier: dict[Any, bool | None] = {}
+    for field in fields_report:
+        identifier = field.get("identifier")
+        if identifier is not None:
+            visible_by_identifier[identifier] = field.get("visible")
+    best_name: str | None = None
+    best_count = 0
+    for step in steps.get("steps", []):
+        field_ids = [fid for fid in step.get("fields", []) if fid is not None]
+        visible_count = sum(1 for fid in field_ids if visible_by_identifier.get(fid))
+        if visible_count > best_count:
+            best_count = visible_count
+            best_name = step.get("name")
+    if best_name is not None:
+        return best_name
+    not_hidden = [step for step in steps.get("steps", []) if step.get("has_wrapper_class") is False]
+    if len(not_hidden) == 1:
+        return not_hidden[0].get("name")
+    return None
+
+
+def _create_observer_step_state(page: Any) -> dict[str, Any]:
+    """What skills/_shared/marketplace-core/scripts/form_observer.py's platform-neutral wizard
+    detector says about this exact live page: which step is actually showing (per
+    _create_current_step_name above) and the CSS-module class it inferred the wizard hides
+    non-current steps with. This is the fix for the report hole named in the task this shipped
+    from: `present`/`filled` alone cannot tell "the click did nothing" apart from "the wizard
+    advanced and the arrival selector is wrong" -- both leave every field present and holding
+    its value, since every step's fields sit in the DOM at once. `current_step`, derived here
+    from live visibility rather than from the step_name argument the caller passed in, is the
+    fact that tells those two apart.
+
+    Never raises: an observer exception or a page the observer cannot recognise as a wizard is
+    itself reported (observer_error / is_wizard: False), not swallowed -- a diagnostic must
+    never become the thing that fails.
+    """
+    try:
+        observer = _reach_form_observer()
+        report = observer.observe_page(page)
+    except Exception as error:
+        return {
+            "observer_error": f"{type(error).__name__}: {error}",
+            "is_wizard": None,
+            "wrapper_class": None,
+            "current_step": None,
+        }
+    steps = report.get("steps") or {}
+    is_wizard = bool(steps.get("is_wizard"))
+    current_step = _create_current_step_name(steps, report.get("fields", [])) if is_wizard else None
+    return {
+        "observer_error": None,
+        "is_wizard": is_wizard,
+        "wrapper_class": steps.get("wrapper_class"),
+        "current_step": current_step,
+    }
+
+
+def _create_arrival_field_state(arrival: Any, arrival_field: str | None) -> dict[str, Any]:
+    """Visibility of the exact locator `_advance_create_step` was waiting for when it gave up --
+    the single fact the task naming this report's hole says settles the question on its own:
+    still invisible means the click did nothing; visible (on a page that has otherwise advanced)
+    means the wizard moved and this specific field is what is lagging."""
+    if arrival is None:
+        return {"field": arrival_field, "visible": None}
+    try:
+        visible = arrival().is_visible()
+    except Exception:
+        visible = None
+    return {"field": arrival_field, "visible": visible}
+
+
+def _create_step_evidence(page: Any, step_name: str, arrival: Any = None, arrival_field: str | None = None) -> str:
+    """Everything create_step_stalled can report about why `step_name` did not advance: every
+    field that step owns (state 1 above), the best real validation message found (state 2), the
+    page URL (state 3, so a silent navigation reads differently from a refusal to advance), the
+    advance control's own found/text state (state 4), which step the observer says is actually
+    showing plus its inferred wrapper class (state 5 -- see _create_observer_step_state), and the
+    visibility of the field `_advance_create_step` was itself waiting for (state 6 -- see
+    _create_arrival_field_state). Nothing here is inferred -- every value is read straight off
+    the page (or, for state 5/6, off form_observer's own read of the page)."""
+    fields = [_create_field_state(page, name, selector) for name, selector in _CREATE_STEP_FIELDS.get(step_name, ())]
+    payload: dict[str, Any] = {
+        "step": step_name,
+        "url": str(getattr(page, "url", None)),
+        "fields": fields,
+        "validation_messages": _create_validation_messages(page),
+        "advance_control": _create_advance_control_state(page),
+    }
+    if step_name == "基本情報":
+        payload["tag_widget"] = _create_tag_widget_state(page)
+    payload.update(_create_observer_step_state(page))
+    payload["arrival_field"] = _create_arrival_field_state(arrival, arrival_field)
+    return _bounded_create_stall_payload(payload)
 
 
 def _click_create_next_button(page: Any, step_name: str) -> None:
@@ -513,20 +847,21 @@ def _click_create_next_button(page: Any, step_name: str) -> None:
         raise OfferError(f"create_step_stalled: {step_name}: next_button_missing") from None
 
 
-def _advance_create_step(page: Any, step_name: str, arrival: Any) -> None:
+def _advance_create_step(page: Any, step_name: str, arrival: Any, arrival_field: str) -> None:
     """Click 次へ from `step_name` and confirm the next step actually became current.
 
     `arrival` is a zero-arg callable returning a Locator whose visibility proves the next step
-    now shows. A step whose click does not produce that visibility -- most likely a validation
-    failure on the step just filled -- raises create_step_stalled naming the step and any
-    validation text the page is showing, instead of letting the next .fill() time out
-    anonymously against a field with a zero-size bounding box (the bug this shipped from).
+    now shows; `arrival_field` names it for the stall report (see _create_arrival_field_state).
+    A step whose click does not produce that visibility -- most likely a validation failure on
+    the step just filled -- raises create_step_stalled naming the step and any validation text
+    the page is showing, instead of letting the next .fill() time out anonymously against a
+    field with a zero-size bounding box (the bug this shipped from).
     """
     _click_create_next_button(page, step_name)
     try:
         arrival().wait_for(state="visible", timeout=10_000)
     except Exception:
-        raise OfferError(f"create_step_stalled: {step_name}: {_create_step_validation_text(page)}") from None
+        raise OfferError(f"create_step_stalled: {step_name}: {_create_step_evidence(page, step_name, arrival, arrival_field)}") from None
 
 
 def _create_business_textarea(page: Any) -> Any:
@@ -569,7 +904,10 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
     tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]')
     for tag in product["tags"]:
         tag_field.fill(tag); tag_field.press("Enter")
-    _advance_create_step(page, "基本情報", lambda: page.locator('[name="ProjectPlanMenuForm[0].description"]'))
+    _advance_create_step(
+        page, "基本情報", lambda: page.locator('[name="ProjectPlanMenuForm[0].description"]'),
+        "ProjectPlanMenuForm[0].description",
+    )
 
     # 2/6 料金表 -- 「料金は必ず3プラン必要です」, exactly 3 plans (ベーシック/スタンダード/プレミアム).
     for index, plan in enumerate(product["plans"]):
@@ -577,16 +915,22 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
         _field(page, f'[name="{prefix}.description"]').fill(plan["description"])
         _select_delivery_time(page, f'[name="{prefix}.delivery_time"]', plan["delivery_days"])
         _field(page, f'[name="{prefix}.price"]').fill(str(plan["price_jpy"]))
-    _advance_create_step(page, "料金表", lambda: _create_business_textarea(page))
+    _advance_create_step(page, "料金表", lambda: _create_business_textarea(page), "業務内容 textarea (unnamed)")
 
     # 3/6 業務内容 -- the single unnamed textarea, max 2000 chars (already enforced against
     # `product["description"]` by _require_create_fields before this function ever ran).
     _create_business_textarea(page).fill(product["description"])
-    _advance_create_step(page, "業務内容", lambda: page.locator('[name="ProjectPlanForm.notice_for_sale"]'))
+    _advance_create_step(
+        page, "業務内容", lambda: page.locator('[name="ProjectPlanForm.notice_for_sale"]'),
+        "ProjectPlanForm.notice_for_sale",
+    )
 
     # 4/6 確認事項 -- 注文時のお願い (必須); 注文時の質問 is optional and unused here.
     _field(page, '[name="ProjectPlanForm.notice_for_sale"]').fill(product["notice"])
-    _advance_create_step(page, "確認事項", lambda: page.get_by_text(_CREATE_IMAGE_STEP_MARKER_TEXT, exact=False))
+    _advance_create_step(
+        page, "確認事項", lambda: page.get_by_text(_CREATE_IMAGE_STEP_MARKER_TEXT, exact=False),
+        _CREATE_IMAGE_STEP_MARKER_TEXT,
+    )
 
     # 5/6 画像ほか -- 任意. See this function's docstring for why a missing/failed attach only
     # sets a flag rather than raising: every required field already passed _require_create_fields,

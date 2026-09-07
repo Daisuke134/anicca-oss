@@ -55,7 +55,13 @@ def test_reply_semantic_route_uses_bounded_luna_candidate():
         "provider": "codex", "model": "gpt-5.6-luna", "effort": "medium",
         "timeout_seconds": 120, "profile_alias": "acct2",
     }
-    assert len(route["candidates"]) == 1
+    # 2026-09-04 1604f332cc "fix(runner): give every task class a working Claude fallback" added
+    # a claude-direct candidate to reply-semantic-agent (and 13 other task classes) because a
+    # codex quota outage was silently idling them -- for this lane specifically, that meant new
+    # buyer messages went unclassified and unanswered. The bounded primary candidate above is
+    # unchanged; only a same-pattern-as-composition-agent fallback was appended.
+    assert route["candidates"][1] == {"provider": "claude-direct", "model": "claude-sonnet-5"}
+    assert len(route["candidates"]) == 2
     assert "reply-semantic-agent" in runner.TOOLLESS_TASK_CLASSES
 
 
@@ -817,10 +823,22 @@ def test_negotiate_runs_every_30_seconds_without_changing_other_job_intervals():
     assert by_lane["negotiate"]["ThrottleInterval"] == 30
     assert (by_lane["apply"]["StartInterval"], by_lane["apply"]["ThrottleInterval"]) == (60, 60)
     assert (by_lane["storefront"]["StartInterval"], by_lane["storefront"]["ThrottleInterval"]) == (60, 60)
-    assert (by_lane["paid"]["StartInterval"], by_lane["paid"]["ThrottleInterval"]) == (300, 60)
-    assert (by_lane["release"]["StartInterval"], by_lane["release"]["ThrottleInterval"]) == (300, 60)
     assert by_lane["browser"].get("StartInterval") is None
     assert by_lane["browser"]["ThrottleInterval"] == 30
+    # `paid` (2026-09-07 2ecb2c8c9) and the old `release` watcher (2026-08-28 93d6720ee, retired
+    # outright) are no longer jobs in this legacy manifest at all -- see
+    # test_manifest_wraps_only_four_business_lanes for the paid migration and
+    # test_release_watch_is_retired_in_favor_of_the_shared_reconciler in test_gig_release.py for
+    # the watcher retirement. `paid` is still on the same 300-second cadence, just rendered by the
+    # shared loop-registry pipeline (runtime/loop/lm_loop_apply.py) instead of gig_release.py; that
+    # renderer only sets ThrottleInterval for sub-10-second cadences, so a 300-second StartInterval
+    # alone is the real, current contract for this lane.
+    assert "paid" not in by_lane
+    assert "release" not in by_lane
+    registry = json.loads(
+        (GIG_ROOT.parents[2] / "config" / "loop-registry.json").read_text(encoding="utf-8")
+    )
+    assert registry["loops"]["hf-gig-paid-direct"]["cadence"] == {"start_interval_seconds": 300}
 
 
 def test_semantic_prompt_v28_is_proactive_and_stops_blackwave():

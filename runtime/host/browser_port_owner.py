@@ -14,6 +14,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 
@@ -56,6 +58,52 @@ def _terminate_process_group(pgid: int, grace_seconds: float = 2.0) -> None:
             return
         time.sleep(0.02)
     raise RuntimeError(f"owned process group {pgid} survived SIGKILL")
+
+
+def _port_answers(port: int, timeout: float = 3.0) -> bool:
+    """True when something is serving CDP on the port right now."""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def _reclaim_wedged_owner(receipt_path: Path, *, owner: str, port: int) -> bool:
+    """Take the lock back from our own supervisor when it is alive but serving nothing.
+
+    Measured 2026-09-07: a Chromium stayed up for two and a half hours without ever binding its
+    debugging port, after the volume filled underneath it. Its supervisor therefore stayed up too,
+    holding the flock, so every relaunch returned EX_TEMPFAIL -- five runs, then indefinitely. The
+    locks are correct: flock releases when a process dies, and this process had not died. Nothing
+    in the chain asked whether it was doing its job, so launchd retried forever and the lane it
+    serves applied to nothing until a human killed the browser by hand.
+
+    Only our own owner is reclaimed. A different owner holding the profile is a real conflict and
+    is left alone, because killing another lane's browser to start ours is not recovery.
+    """
+    if _port_answers(port):
+        return False
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return False
+    if str(receipt.get("owner") or "") != owner or int(receipt.get("port") or 0) != port:
+        return False
+    reclaimed = False
+    for key in ("browser_root_pid", "supervisor_pid"):
+        pid = receipt.get(key)
+        if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 1:
+            continue
+        try:
+            _terminate_process_group(pid)
+            reclaimed = True
+        except Exception:
+            continue
+    if reclaimed:
+        print(json.dumps({"ok": False, "reason": "reclaimed_wedged_browser",
+                          "owner": owner, "port": port}, sort_keys=True), file=sys.stderr)
+    return reclaimed
 
 
 def _default_state_dir() -> Path:
@@ -115,6 +163,9 @@ def run(args: argparse.Namespace) -> int:
                     current_owner = str(current["owner"])
             except (OSError, ValueError, TypeError):
                 pass
+            if _reclaim_wedged_owner(profile_receipt_path, owner=args.owner, port=args.port):
+                # launchd relaunches in a moment; the lock is free by then.
+                return 75
             print(json.dumps({
                 "ok": False,
                 "reason": "browser_profile_owned",
@@ -133,6 +184,8 @@ def run(args: argparse.Namespace) -> int:
                         current_owner = str(current["owner"])
                 except (OSError, ValueError, TypeError):
                     pass
+                if _reclaim_wedged_owner(receipt_path, owner=args.owner, port=args.port):
+                    return 75
                 print(json.dumps({
                     "ok": False,
                     "reason": "browser_port_owned",

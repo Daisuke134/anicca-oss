@@ -13,7 +13,14 @@ from pathlib import Path
 from typing import Sequence
 
 
-REQUIRED_KIB = int(os.environ.get("GIG_DISK_HEADROOM_KIB", "0"))
+# skills/earn/gig/TODO.md documents 524,288 KiB (512 MiB) as the last-resort disk-headroom
+# floor every gig lane is meant to run under. A guard whose default is "no floor" is not a
+# guard: a lane whose plist never carries GIG_DISK_HEADROOM_KIB -- because it migrated onto
+# lm-loop's registry (config/loop-registry.json), whose rendered plist never sets this key --
+# gets exactly this fallback and nothing else. It must be the same 512 MiB every launchd-jobs.json
+# lane sets explicitly, not zero.
+DEFAULT_REQUIRED_KIB = 524288
+REQUIRED_KIB = int(os.environ.get("GIG_DISK_HEADROOM_KIB", str(DEFAULT_REQUIRED_KIB)))
 REQUIRED_BYTES = REQUIRED_KIB * 1024
 RECEIPT_PATH = Path("state") / "disk-headroom.json"
 

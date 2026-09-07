@@ -1339,6 +1339,47 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
         self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
 
+    def test_gig_apply_direct_target_retires_stale_disk_headroom_kib(self):
+        # hf-gig-apply-direct's plist was installed while it was still rendered from
+        # skills/earn/gig/config/launchd-jobs.json's legacy manifest, which explicitly set
+        # GIG_DISK_HEADROOM_KIB="0" for this lane. Now that it is an lm-loop registry loop,
+        # build_apply_plan's _plist() never mentions this key, so without retiring it the stale
+        # "0" would be preserved forever across every future merge, release and label repoint.
+        release = self._release("release-gig-apply").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.hf-gig-apply-direct"
+        registry_value["loops"]["hf-gig-apply-direct"] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-gig-apply"
+        current.symlink_to(release)
+        expected_arguments = [
+            str(release / "bin/lm-loop-run"), "hf-gig-apply-direct", str(release),
+        ]
+        values = self._apply_kwargs(
+            current, self.root / "apply-gig-apply.lock", expected_arguments,
+            label="ai.anicca.hf-gig-apply-direct",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.hf-gig-apply-direct.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "GIG_DISK_HEADROOM_KIB": "0",
+            "GIG_OPERATOR_BRAKE_FILE": "kept",
+        })
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target="hf-gig-apply-direct", current=current,
+            lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("GIG_DISK_HEADROOM_KIB", environment)
+        self.assertEqual(environment["GIG_OPERATOR_BRAKE_FILE"], "kept")
+
     def test_launchctl_recorder_rejects_wrong_service(self):
         launchctl_safe, _ = self._launchctl_recorder(["/release/bin/lm-loop-run", "example", "/release"])
 

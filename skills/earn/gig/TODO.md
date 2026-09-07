@@ -132,7 +132,7 @@ acceptance receipt changes a cell.
 | Coconala | **Broken.** Installed every 60 seconds, but no verified application since 2026-09-02. `APPLY-REPORT-9` records that live listings reach the offer page but the form readback fails. | **Implemented, not currently accepted healthy.** The installed continuous owner has real reply capability, but the audit observed recent fail terminals and it is still Coconala-specific. | **Implemented, not currently accepted healthy.** It has one historical public publish/readback/replay-zero chain, but the audit observed a latest fail terminal and it remains provider-specific. | **Working reference only.** `COCONALA-PAID-1` through `3C` prove official readback, five-room classification, durable pending ownership, failed zero, formal delivery off and replay-zero. It is still a Coconala-specific orchestrator. |
 | Lancers | **Running but not producing current contracts.** The owner has a historical verified application/replay-zero receipt (`27861812`), while the current official snapshot has 86 proposal receipts, 31 open proposals, zero contracts and zero working projects; recent wakes submit nothing. | **Not implemented.** The registered `lancers-revenue-negotiate` command only runs `lane_report.py`; it does not observe and reply/estimate through a provider mutation adapter. | **Running without revenue proof.** The owner can apply `storefront_offer.py`, but the current official snapshot has zero storefront contract candidates and no attributed order or payment. | **Not implemented.** The registered Paid command only runs `lane_report.py`; current official state has zero working projects, zero payment history and JPY 0 received. |
 | CrowdWorks | **Application effects are proven, but no current contract/revenue.** The durable ledger contains 14 verified application receipts, most recently `304626890` on 2026-09-05. The latest completed owner snapshot inspected 40 jobs, found eligible zero and produced effect zero; the audit also observed a later fail followed by a new running cycle. | **Not implemented.** The only active companion is a Telegram report owner; the former negotiation label is disabled. | **Not implemented.** The former storefront label is disabled. | **Code-ready inventory boundary, not live-accepted.** A repo-owned thin adapter and owner enter the shared Paid kernel and prove the authenticated official active-contract zero state with effect/failed zero. Positive contract normalization, delivery/readback and replay-zero remain open; the former repo-external fulfillment label stays retired. |
-| Mercor | **Submitted once; replay acceptance remains.** The dedicated 30-minute owner is authenticated and scans official opportunities through an owner-scoped shared-browser context. Wake `mercor-20260907-175136-15633` submitted `General business strategy / management Evaluator`, read official success back, advanced the application ledger 19→20 and delivered the per-application Telegram receipt. Its enclosing model pass timed out afterward, so a clean natural terminal and following replay-zero are still required. | **Partial code, no active lane.** Calendar/Gmail and human-gate components exist, but there is no installed Mercor Reply owner with official message readback. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Code-ready and monitoring, not live-accepted.** A thin adapter enters the shared Paid kernel and preserves missing official work inventory as durable pending with failed zero. It refuses non-`work.mercor.com` evidence and keeps human-required submission as an explicit wait. The installed owner has one natural pending terminal with no external effect, but no real submission or settled payout receipt proves positive operation yet. |
+| Mercor | **Working.** The dedicated 30-minute owner is authenticated and scans official opportunities through an owner-scoped shared-browser context. Consecutive natural wakes submitted two distinct ready listings, read both official success surfaces back, advanced the durable ledger 22→23→24, delivered Telegram receipts `66448` and `66514`, and never resubmitted the first listing. Existing incomplete human-interview applications were recorded and skipped without entering their ceremonies; media permissions are denied before model work. | **Partial code, no active lane.** Calendar/Gmail and human-gate components exist, but there is no installed Mercor Reply owner with official message readback. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Code-ready and monitoring, not live-accepted.** A thin adapter enters the shared Paid kernel and preserves missing official work inventory as durable pending with failed zero. It refuses non-`work.mercor.com` evidence and keeps human-required submission as an explicit wait. The installed owner has one natural pending terminal with no external effect, but no real submission or settled payout receipt proves positive operation yet. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
@@ -404,7 +404,7 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Paid owner under apply receipt `2ed176d67addebd77ae86fef`; its first natural wake ended `pass`
    at `2026-09-07T02:52:05Z` with the persisted aggregate observed `0`, actionable `0`, effect `0`,
    readback `0`, failed `0`, pending `0`. Production monitoring is therefore live and safely idle.
-7. [ ] `MERCOR-APPLY-1` Restore Mercor as an independent revenue-marketplace Apply owner, not as a
+7. [x] `MERCOR-APPLY-1` Restore Mercor as an independent revenue-marketplace Apply owner, not as a
    Job Hunter subfeature. PASS = one bounded owner observes current official opportunities, lets the
    model judge truthful fit, submits only through an identity-bound effect fence, reads the official
    application back, persists its receipt, sends one real-time `Codex:::` Telegram report, and the next
@@ -741,11 +741,56 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    prefers visible `1-click apply`, submits only candidates whose live detail exposes no person-bound
    requirement, and continues after a human-gate report. Keep the currently running guarded wake
    alive to its natural terminal, then target the next release while idle; do not stop the loop again.
+   That guarded wake ended naturally `pass` at `2026-09-07 20:33 JST` and produced a second fresh
+   verified application: `Product management / roadmap / PRD Evaluator`. It inspected twelve
+   distinct listings, claimed the provider-effect fence, read the official submitted result back,
+   advanced the durable application ledger to 23 rows and sent the realtime Telegram receipt as
+   message `66448`; blocked is empty. The next targeted apply receipt
+   `2d2217d04fbfe2afdcf4bf74` loads release `0ef13b86358fea87fe20ec172c826c449315b20d`,
+   a descendant containing both the media deny and incomplete-card skip repairs. Its replay wake
+   retained the 23-row ledger, reconciled the prior success without duplicate submission, returned
+   to Explore, and did not enter the Bilingual application ceremony or request an OS media permission.
+   That replay wake `mercor-20260907-203413-54337` ended naturally `pass` at `2026-09-07 20:47
+   JST`. It classified the prior Product Management listing as
+   `observed_existing_submitted_application_no_resubmit`, both Japanese human-interview applications
+   as `incomplete_existing_application_do_not_continue`, and submitted the distinct `Privacy /
+   regulatory compliance Evaluator` after a fresh claimed fence. Same-session official readback
+   shows `3 of 3 steps done`, `100%`, and `Your application has been submitted!`; the ledger advanced
+   23→24 and Telegram delivered message `66514`. `needs_human=[]`, `blocked=[]`, no duplicate
+   provider or Telegram effect occurred, and no camera, microphone or screen-sharing permission was
+   requested. A third scheduled wake `mercor-20260907-211711-29264` began exactly thirty minutes
+   later and ended naturally at `2026-09-07 21:24 JST`: it skipped the same two incomplete Japanese
+   interview applications without entering either ceremony, submitted the distinct `FP&A / corporate
+   finance Evaluator`, read back `3 of 3 steps done`, `100%` and `Your application has been
+   submitted!`, advanced the ledger 24→25 and delivered Telegram message `66682` with no human gate.
+   This closes the independent Mercor Apply owner and advances the active cursor to
+   `SHARED-REPLY-1` without changing the fixed order.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
    `skills/_shared/marketplace-core/`. Coconala and Lancers keep only auth, selectors, provider state
    and actual mutation in adapters; neither provider gets a copied Reply loop.
+   In progress: the provider-neutral `reply_kernel.py` now owns per-thread identity and locking,
+   cumulative-context dispatch, intent-before-effect, official reconciliation, durable exponential
+   retry, receipt persistence, independent thread failure and replay-zero. Nine focused kernel,
+   Lancers-adapter and wrapper checks pass. Lancers has a thin adapter for authenticated message
+   inventory, its provider POST and exact official message readback; `negotiate-owner` enters the
+   shared kernel with one owner-scoped browser page. The read-only `work-sync` path no longer owns
+   or contains a reply mutation, eliminating the prior double-owner risk. Coconala still needs to
+   enter this same shared entrypoint, and a natural installed-owner terminal still needs official
+   inventory readback, so this atom remains unchecked.
+   Fresh authenticated Lancers readback now observes five message threads and one real buyer-last,
+   reply-required event: board `9061883`, event `59141523`, for the English corporate-disclosure
+   coding selection. The former adapter discarded the entire wake because this historical proposal
+   was absent from the verified application ledger (`proposal_receipt_unverified`). The adapter now
+   withholds only that unverified proposal as grounding while preserving the official cumulative
+   buyer conversation; all five contexts load independently. The buyer asks for Dais's personal
+   daily availability for September 8–13 and a personal attestation that the work will be performed
+   without AI, machine translation, external search or third-party help. Those facts are not in the
+   private profile, so one Telegram human handoff was sent instead of fabricating a customer reply;
+   the other four seller-last threads remain non-actionable. Forty-four focused Reply/Lancers checks
+   plus eight subtests pass. The shared owner still needs an immutable-release natural terminal and
+   Coconala adapter before this atom can close.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
