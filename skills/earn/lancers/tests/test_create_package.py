@@ -643,8 +643,21 @@ class _FakeCreatePage:
             raise TimeoutError(f"condition never became true: {arg!r} not in {labels}")
 
     def wait_for_url(self, pattern, timeout=None) -> None:
+        # Mirrors real Playwright: a URL that already matches resolves immediately, regardless of
+        # `_after_submit_url` -- this is what lets a test model "the just-clicked control already
+        # produced the listing URL directly" via a per-button `.click` override (the established
+        # convention below) without also configuring `_after_submit_url`. When it does not yet
+        # match, `_after_submit_url` (if set) models the in-flight navigation finally landing --
+        # unchanged from every pre-existing test's expectation. Neither raises TimeoutError,
+        # modelling a wait that genuinely never resolves -- the short "did it already land"
+        # probe `_await_create_listing_id` uses relies on exactly this to mean "not yet", not
+        # "failed".
+        if pattern.match(self.url):
+            return
         if self._after_submit_url is not None:
             self.url = self._after_submit_url
+            return
+        raise TimeoutError(f"url never matched pattern: {self.url}")
 
 
 def _complete_product(**overrides) -> dict:
@@ -732,7 +745,9 @@ def test_complete_product_fills_every_observed_field_exactly_once():
 
     # The wizard walked all the way to 公開 (step 5) and attached the avatar on 画像ほか.
     assert page.current_step == 5
-    assert result == {"image_attached": True}
+    # A 次へ is visible on every step in this default fixture, including 画像ほか -- so the final
+    # content step advances via 次へ here, exactly like every earlier step, and says so.
+    assert result == {"image_attached": True, "advanced_via": "next_button"}
     assert page._file_inputs.nth(0).set_files_calls == ["/tmp/irrelevant.png"]
 
 
@@ -877,6 +892,26 @@ def test_click_next_still_clicks_a_real_button_directly_unchanged():
 
     assert page._next_button.clicks == 1
     assert page.current_step == 1
+
+
+def test_next_button_missing_lists_the_visible_controls_it_saw():
+    """next_button_missing must say what it saw, not just that 次へ was absent -- the same
+    discarding-what-you-saw defect _step()/_field() were fixed for. A live wake that hit this
+    path (create_step_stalled: 画像ほか: next_button_missing) had nothing to work from until a
+    human manually dumped the page's visible buttons; this is that dump, built into the report
+    itself."""
+    module = _module()
+    buttons = [_Field(text="戻る"), _Field(text="下書き保存"), _Field(text="キャンセル")]
+    page = _FakeCreatePage(fields={}, buttons=buttons, manual_button_lands_on=None, next_button_visible=False)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._click_create_next_button(page, "基本情報")
+
+    message = str(excinfo.value)
+    assert "create_step_stalled: 基本情報: next_button_missing" in message
+    assert "戻る" in message
+    assert "下書き保存" in message
+    assert "キャンセル" in message
 
 
 # 3b. Stall evidence -- what create_step_stalled now reports beyond the bare validation text ----
@@ -1580,7 +1615,7 @@ def test_missing_file_inputs_yield_image_attached_false_without_raising():
 
     result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
-    assert result == {"image_attached": False}
+    assert result == {"image_attached": False, "advanced_via": "next_button"}
     assert page.current_step == 5  # the wizard still reached 公開
 
 
@@ -1592,7 +1627,7 @@ def test_file_upload_failure_yields_image_attached_false_without_raising():
 
     result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
-    assert result == {"image_attached": False}
+    assert result == {"image_attached": False, "advanced_via": "next_button"}
 
 
 # 2 (legacy numbering). A delivery_days with no matching option raises, naming the value and
@@ -1788,6 +1823,186 @@ def test_create_listing_id_unresolved_when_the_post_submit_url_carries_no_id():
         after_submit_url=unresolvable_url,
     )
     submit_button.click = lambda **_kwargs: setattr(page, "url", unresolvable_url)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module.create_package(page, product, Path("/tmp/irrelevant.png"))
+
+    assert "create_listing_id_unresolved" in str(excinfo.value)
+
+
+# 6b. The final content step (画像ほか) accepts either a 次へ or the discovered submit control ---
+#
+# A live wake stalled here with create_step_stalled: 画像ほか: next_button_missing -- the live DOM
+# read that shipped from this task's incident found the wizard is 基本情報 -> 料金表 -> 業務内容 ->
+# 確認事項 -> 画像ほか -> 公開, and 画像ほか has no 次へ. _advance_from_final_content_step (see its
+# own docstring) tries 次へ first and falls back to the submit control _create_submit_control
+# discovers only when no unambiguous 次へ is present, recording which one fired as
+# `advanced_via`. Every earlier step is untouched -- still driven only by
+# _click_create_next_button, which never falls back to a submit control (the safety property
+# below).
+#
+# _hide_next_button_only_at models "every step but this one still carries a 次へ": the fake's
+# single shared 次へ field otherwise has one page-wide visible/hidden flag
+# (`next_button_visible`), which cannot express "hidden at 画像ほか but present everywhere else"
+# on its own.
+
+
+def _hide_next_button_only_at(page: "_FakeCreatePage", step: int) -> None:
+    page._next_button.is_visible = lambda: page.current_step != step
+
+
+def test_earlier_step_never_falls_back_to_a_submit_control_when_its_next_button_is_missing():
+    """The safety property: an earlier step (基本情報) with no 次へ but a visible submit-labeled
+    control must still fail, never click that control -- clicking a submit control on an earlier
+    step would publish a half-filled listing. Proven not vacuous manually, per the task:
+    temporarily letting _click_create_next_button fall back to _create_submit_control on any step
+    makes this test fail (the submit button gets clicked instead of the expected error being
+    raised); reverting that change makes it pass again."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    submit_button = _Field(text="公開する")
+    page = _FakeCreatePage(fields=fields, buttons=[submit_button], manual_button_lands_on=None)
+    _hide_next_button_only_at(page, 0)  # 基本情報 itself has no 次へ
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
+    assert submit_button.clicks == 0  # never clicked as a fallback
+    assert page.current_step == 0  # never advanced
+
+
+def test_final_content_step_advances_via_next_button_when_present():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)  # 次へ visible everywhere
+
+    result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert result["advanced_via"] == "next_button"
+    assert page.current_step == 5  # actually advanced to 公開
+
+
+def test_final_content_step_advances_via_submit_control_when_next_button_absent():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    submit_button = _Field(text="公開する")
+    page = _FakeCreatePage(fields=fields, buttons=[submit_button], manual_button_lands_on=None)
+    _hide_next_button_only_at(page, 4)  # 画像ほか itself has no 次へ -- the live incident's shape
+
+    result = module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    assert result["advanced_via"] == "submit_control"
+    assert submit_button.clicks == 1
+    # Whether this control leads to 公開 or straight to a created listing is exactly what
+    # create_package() itself must determine (see its own docstring) -- _fill_create_form makes
+    # no assumption and therefore checks no structural arrival here.
+    assert page.current_step == 4
+
+
+def test_create_submit_labels_accepts_送信_observed_on_the_live_form():
+    """送信 was observed live in a button dump of this exact form while diagnosing the
+    next_button_missing stall (戻る/下書き保存/次へ/閉じる/キャンセル/送信 were all visible) --
+    not a guess."""
+    module = _module()
+    button = _Field(text="送信")
+    page = _FakeCreatePage(buttons=[button], manual_button_lands_on=None)
+
+    control = module._create_submit_control(page)
+
+    assert control is button
+
+
+def test_final_content_step_neither_next_button_nor_submit_control_fails_closed_listing_controls():
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    buttons = [_Field(text="プレビュー"), _Field(text="タイトルのコツ")]
+    page = _FakeCreatePage(fields=fields, buttons=buttons, manual_button_lands_on=None)
+    _hide_next_button_only_at(page, 4)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
+
+    message = str(excinfo.value)
+    assert "create_step_stalled: 画像ほか" in message
+    assert "プレビュー" in message
+    assert "タイトルのコツ" in message
+
+
+def test_create_package_final_submit_that_lands_on_listing_url_needs_no_second_submit():
+    """The submit control discovered on 画像ほか may create the listing directly -- when it does,
+    create_package() must not go looking for (or clicking) a second submit control."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    manual_url = module.ORIGIN + "/myplan/add?type=manual"
+    created_url = module.ORIGIN + "/myplan/999999/edit"
+    submit_button = _Field(text="公開する")
+    page = _FakeCreatePage(fields=fields, buttons=[submit_button], manual_button_lands_on=manual_url)
+    _hide_next_button_only_at(page, 4)
+    submit_button.click = lambda **_kwargs: (setattr(page, "url", created_url), setattr(submit_button, "clicks", submit_button.clicks + 1))[-1]
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module.create_package(page, product, Path("/tmp/irrelevant.png"))
+
+    # _public() cannot succeed against this minimal fake (no canonical/og markup modelled) --
+    # exactly the pre-existing publication_uncertain shape every other successful-submit test in
+    # this file already exercises. What this test proves is which path got there.
+    assert str(excinfo.value) == "publication_uncertain"
+    assert submit_button.clicks == 1  # the 画像ほか submit alone created the listing
+    assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
+
+
+def test_create_package_final_submit_that_lands_on_another_step_continues_and_submits_there():
+    """The submit control discovered on 画像ほか may instead only advance to a further 公開 step
+    (the URL does not become a listing URL) -- create_package() must treat that as a step
+    transition, not a failed creation, and submit again on whatever step is now showing."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    manual_url = module.ORIGIN + "/myplan/add?type=manual"
+    created_url = module.ORIGIN + "/myplan/999999/edit"
+    submit_button = _Field(text="公開する")
+    page = _FakeCreatePage(fields=fields, buttons=[submit_button], manual_button_lands_on=manual_url)
+    _hide_next_button_only_at(page, 4)
+
+    # The first click (画像ほか's own discovered control) only advances to 公開 -- the URL does
+    # not change. The same physical control is what 公開 itself then offers; only its second
+    # click actually creates the listing.
+    def _click(**_kwargs) -> None:
+        submit_button.clicks += 1
+        if submit_button.clicks >= 2:
+            page.url = created_url
+    submit_button.click = _click
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module.create_package(page, product, Path("/tmp/irrelevant.png"))
+
+    assert str(excinfo.value) == "publication_uncertain"
+    assert submit_button.clicks == 2  # 画像ほか's own submit did not create it; 公開's did
+    assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
+
+
+def test_create_listing_id_unresolved_when_final_submit_never_resolves_via_submit_control_path():
+    """create_listing_id_unresolved still fires when the URL never becomes a listing URL, even
+    when 画像ほか itself advanced via the submit-control fallback rather than 次へ (item 8's
+    submit_control-path counterpart to the pre-existing next_button-path test above)."""
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    manual_url = module.ORIGIN + "/myplan/add?type=manual"
+    unresolvable_url = module.ORIGIN + "/myplan/add/complete"
+    submit_button = _Field(text="公開する")
+    page = _FakeCreatePage(
+        fields=fields, buttons=[submit_button], manual_button_lands_on=manual_url,
+        after_submit_url=unresolvable_url,
+    )
+    _hide_next_button_only_at(page, 4)
+    submit_button.click = lambda **_kwargs: setattr(submit_button, "clicks", submit_button.clicks + 1)
 
     with pytest.raises(module.OfferError) as excinfo:
         module.create_package(page, product, Path("/tmp/irrelevant.png"))

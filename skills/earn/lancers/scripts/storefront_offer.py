@@ -583,7 +583,10 @@ _CREATE_MANUAL_BUTTON_TEXT = "手動でパッケージを作成する"
 # in this file (_apply uses "保存"/"保存する"; the create chooser flow is known to use
 # "確認画面へ"/"公開する"/"公開" for its multi-step forms). _create_submit_control fails loudly,
 # naming every button text actually present, if zero or more than one match.
-_CREATE_SUBMIT_LABELS = ("確認画面へ", "公開する", "公開", "保存する", "保存")
+# "送信" was added after a live wake dumped this exact form's visible buttons (戻る/下書き保存/
+# 次へ/閉じる/キャンセル/送信) while diagnosing 画像ほか's missing 次へ -- observed on this form,
+# not guessed. Every other label above predates that dump and remains unobserved on this form.
+_CREATE_SUBMIT_LABELS = ("確認画面へ", "公開する", "公開", "保存する", "保存", "送信")
 # Wherever Lancers lands after a successful create, its path carries the new listing's numeric
 # id under /myplan/<id>/... or /menu/detail/<id> -- every other Lancers route this file already
 # reads (_apply's edit_url, _public's public_url, _setting_status's setting path) uses one of
@@ -1070,14 +1073,38 @@ def _resolve_create_advance_control(page: Any, label: str) -> Any:
     return control
 
 
+def _create_visible_button_texts(page: Any) -> list[str]:
+    """Every visible <button>'s own text -- the same enumeration _create_submit_control already
+    uses to name what it saw when nothing matched (see that function's own
+    create_submit_control_missing message). Reused by every "nothing matched" refusal in the
+    create wizard (next_button_missing here, advance_control_missing on the final content step)
+    so a stall reports what was actually on the page instead of only what wasn't there -- the
+    same discarding-what-you-saw defect _step()/_field() were fixed for."""
+    try:
+        buttons = [button for button in page.locator("button").all() if button.is_visible()]
+    except Exception:
+        return []
+    texts: list[str] = []
+    for button in buttons:
+        try:
+            texts.append(" ".join(str(button.inner_text() or "").split()))
+        except Exception:
+            texts.append("")
+    return texts
+
+
 def _click_create_next_button(page: Any, step_name: str) -> None:
     """Click 次へ by resolving it to its enclosing interactive element first (see
     _resolve_create_advance_control above). A missing/ambiguous/non-interactive match is named
-    against the step that could not advance, not as a bare "form_changed"."""
+    against the step that could not advance, not as a bare "form_changed" -- and now also names
+    every visible button-like control actually present (see _create_visible_button_texts), so a
+    live stall answers "what was there instead" in the same wake it happened, rather than needing
+    a second wake with a manual button dump (exactly what 画像ほか's own next_button_missing
+    stall needed before this)."""
     try:
         control = _resolve_create_advance_control(page, _CREATE_NEXT_BUTTON_TEXT)
     except OfferError:
-        raise OfferError(f"create_step_stalled: {step_name}: next_button_missing") from None
+        raise OfferError(f"create_step_stalled: {step_name}: next_button_missing: buttons={_create_visible_button_texts(page)}") from None
     control.click()
 
 
@@ -1178,12 +1205,12 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
             image_attached = True
         except Exception:
             image_attached = False
-    _click_create_next_button(page, "画像ほか")
+    advance = _advance_from_final_content_step(page, _CREATE_FINAL_CONTENT_STEP)
 
-    # 6/6 公開 -- the publish control's label was never observed live; create_package() discovers
-    # and clicks it via _create_submit_control, which already fails loudly by naming every
-    # visible button if it cannot find exactly one match.
-    return {"image_attached": image_attached}
+    # 6/6 公開 (if the transition above landed there) -- create_package() still owns discovering
+    # and clicking a submit control on whatever step is now showing; see create_package()'s own
+    # docstring for how it decides whether that step is even reached.
+    return {"image_attached": image_attached} | advance
 
 
 def _create_submit_control(page: Any) -> Any:
@@ -1192,6 +1219,88 @@ def _create_submit_control(page: Any) -> Any:
     matches = [button for button, text in zip(buttons, texts) if text in _CREATE_SUBMIT_LABELS]
     if len(matches) != 1: raise OfferError(f"create_submit_control_missing: buttons={texts}")
     return matches[0]
+
+
+# The wizard's last content step (画像ほか) is the one a live wake found with no 次へ at all --
+# create_step_stalled: 画像ほか: next_button_missing (see the task this shipped from). Every
+# earlier step (基本情報 through 確認事項) is still driven only by _click_create_next_button, via
+# _advance_create_step, which never falls back to anything else: clicking a submit control on one
+# of those would publish a half-filled listing. _CREATE_FINAL_CONTENT_STEP names the one step
+# allowed to use the dual accept-either path below; _advance_from_final_content_step asserts it is
+# only ever called with this step name, so that boundary is enforced in code, not only by
+# convention.
+_CREATE_FINAL_CONTENT_STEP = "画像ほか"
+
+
+def _advance_from_final_content_step(page: Any, step_name: str) -> dict[str, Any]:
+    """Advance out of the wizard's final content step (画像ほか), accepting either shape the live
+    DOM might carry rather than assuming one: a 次へ (exactly like every earlier step), or --
+    when no unambiguous 次へ is present -- the submit control _create_submit_control discovers.
+    Records which one actually fired as `advanced_via` ("next_button" or "submit_control") rather
+    than silently preferring one: if a future build of this form regains a 次へ here, this still
+    uses it and says so.
+
+    Only valid for `step_name == _CREATE_FINAL_CONTENT_STEP` -- asserted, not just documented,
+    since this dual path is exactly what every earlier step must never get (see the module
+    comment above _CREATE_FINAL_CONTENT_STEP): a submit fallback on an earlier step would publish
+    a half-filled listing.
+
+    Neither present raises create_step_stalled naming every visible button-like control actually
+    seen (see _create_visible_button_texts) -- the same discipline next_button_missing itself now
+    carries, never a bare "nothing found".
+    """
+    assert step_name == _CREATE_FINAL_CONTENT_STEP, f"submit fallback is only valid on {_CREATE_FINAL_CONTENT_STEP!r}, got {step_name!r}"
+    try:
+        control = _resolve_create_advance_control(page, _CREATE_NEXT_BUTTON_TEXT)
+    except OfferError:
+        control = None
+    if control is not None:
+        control.click()
+        return {"advanced_via": "next_button"}
+    try:
+        submit = _create_submit_control(page)
+    except OfferError:
+        raise OfferError(f"create_step_stalled: {step_name}: advance_control_missing: buttons={_create_visible_button_texts(page)}") from None
+    submit.click(timeout=20_000)
+    return {"advanced_via": "submit_control"}
+
+
+# The submit control _create_submit_control discovers on 画像ほか was never established live to
+# either create the listing directly or only advance to a further 公開 step -- see
+# _advance_from_final_content_step's own docstring. _await_create_listing_id checks which one
+# actually happened without assuming; _require_create_listing_id is the unchanged, full-timeout
+# readback contract create_package() always ended on before this task (page.wait_for_url +
+# create_listing_id_unresolved), now factored out so both the "submit created it directly" and
+# the "submit only advanced to 公開" callers of create_package() share the identical fail-closed
+# tail.
+_CREATE_LISTING_URL_SETTLE_TIMEOUT_MS = 5_000
+
+
+def _await_create_listing_id(page: Any) -> str | None:
+    """Whether the page has already landed on a created listing's URL, without deciding *how* it
+    got there. A short wait_for_url lets an in-flight navigation from the just-clicked submit
+    control settle; a timeout here means "not this URL (yet)", not "failed" -- the caller falls
+    back to submitting again on whatever step is now showing (see create_package()), which still
+    owns the full 30s wait and the fail-closed create_listing_id_unresolved raise via
+    _require_create_listing_id."""
+    try:
+        page.wait_for_url(_CREATE_LISTING_ID_IN_URL, timeout=_CREATE_LISTING_URL_SETTLE_TIMEOUT_MS)
+    except Exception:
+        pass
+    match = _CREATE_LISTING_ID_IN_URL.match(str(page.url))
+    return match.group(1) if match is not None else None
+
+
+def _require_create_listing_id(page: Any) -> str:
+    """The full-timeout readback contract: wait up to 30s for the URL to become a created
+    listing's, and fail closed -- create_listing_id_unresolved, naming the URL -- if it never
+    does. Unchanged from what create_package() always did before this task; only pulled out into
+    its own function so both paths that can reach it (submit led straight to a listing vs. submit
+    only advanced to 公開 and a second submit was needed) share it verbatim."""
+    page.wait_for_url(_CREATE_LISTING_ID_IN_URL, timeout=30_000)
+    match = _CREATE_LISTING_ID_IN_URL.match(str(page.url))
+    if match is None: raise OfferError(f"create_listing_id_unresolved: url={page.url}")
+    return match.group(1)
 
 
 def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]:
@@ -1217,6 +1326,15 @@ def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[s
     create_step_stalled naming the step; no single matching submit button raises, naming the
     buttons actually present; and a successful submission whose public page cannot be read back
     is reported as publication_uncertain, never as success.
+
+    The final content step's own exit (see _advance_from_final_content_step) may have already
+    been the submission -- whether the discovered control there creates the listing directly or
+    only advances to a further 公開 step was never established live, so this never assumes
+    either shape. When that step advanced via its submit control, `_await_create_listing_id`
+    checks whether the URL already became a listing URL; if it has not, the walk continues to
+    whatever step is now showing and submits there instead -- a step transition, not a failed
+    creation. When that step advanced via 次へ instead, the submit control is always still ahead
+    (on 公開), exactly as before this task.
     """
     _require_create_fields(product)
     page.goto(_CREATE_ADD_URL, wait_until="domcontentloaded", timeout=30_000)
@@ -1224,12 +1342,11 @@ def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[s
     if page.url != _CREATE_MANUAL_URL: raise OfferError(f"create_route_invalid: url={page.url}")
     page.wait_for_selector('[name="ProjectPlanForm.title"]', state="visible", timeout=5_000)
     fill_result = _fill_create_form(page, product, image)
-    submit = _create_submit_control(page)
-    submit.click(timeout=20_000)
-    page.wait_for_url(_CREATE_LISTING_ID_IN_URL, timeout=30_000)
-    match = _CREATE_LISTING_ID_IN_URL.match(str(page.url))
-    if match is None: raise OfferError(f"create_listing_id_unresolved: url={page.url}")
-    listing_id = match.group(1)
+    listing_id = _await_create_listing_id(page) if fill_result.get("advanced_via") == "submit_control" else None
+    if listing_id is None:
+        submit = _create_submit_control(page)
+        submit.click(timeout=20_000)
+        listing_id = _require_create_listing_id(page)
     published = dict(product) | {"listing_external_id": listing_id, "public_title": product["title_stem"] + "ます"}
     try: return _public(page, published) | {"action": "created", "listing_external_id": listing_id} | fill_result
     except OfferError: raise OfferError("publication_uncertain") from None
