@@ -809,13 +809,22 @@ def run_loop(*, exhaustive: bool = False, state_path: Path = DEFAULT_STATE_PATH,
         pending_result = _reconcile_pending(pending, Path(state_path))
         if pending_result.error != "submission_uncertain":
             if pending_result.application_verified and pending_result.project_id:
+                # The pending descriptor already carries the title and the amount that were
+                # submitted, and this path -- reconciling a submission_uncertain on the next wake
+                # -- is how most successful Lancers applications are confirmed. Substituting
+                # 「案件<id>」 for the title, and dropping the amount, meant the report Dais reads
+                # for a real application said less than the report for a refusal. CrowdWorks has
+                # printed both since it started applying; measured 2026-09-07 by reading the chat.
+                pending_title = pending.get("title") if isinstance(pending, Mapping) else None
+                pending_amount = pending.get("amount_minor") if isinstance(pending, Mapping) else None
                 pending_result = replace(pending_result, decision_reports=({
                     "project_id": pending_result.project_id,
-                    "title": f"案件{pending_result.project_id}",
+                    "title": str(pending_title).strip() if isinstance(pending_title, str) and pending_title.strip() else f"案件{pending_result.project_id}",
                     "business_class": "submit_required",
                     "reason_codes": [],
                     "outcome": "application_verified",
                     "provider_proposal_id": pending_result.provider_proposal_id,
+                    **({"price_jpy": int(pending_amount)} if isinstance(pending_amount, int) and not isinstance(pending_amount, bool) and pending_amount > 0 else {}),
                 },))
             if output_stream is not None: _emit(pending_result, output_stream)
             return pending_result.to_dict()
