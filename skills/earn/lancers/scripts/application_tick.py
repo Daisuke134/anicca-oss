@@ -491,7 +491,29 @@ def _production_prepare(
             timeout=5_000,
         )
     except Exception:
-        raise _form_changed("_production_prepare:479") from None
+        # Naming the line was enough to find the step; it was not enough to find the posting or to
+        # say which of the five ANDed conditions failed, so two more wakes were spent guessing at
+        # the type of the work. Record what the page actually had.
+        observed: dict[str, Any] = {"project_id": str(project_id), "url": str(getattr(page, "url", ""))[:200]}
+        try:
+            observed.update(page.evaluate(
+                f"""() => {{
+                    const fee = document.querySelector({fee_selector_js});
+                    return {{
+                        fee_present: fee !== null,
+                        fee_work_ids: [...document.querySelectorAll('[id="FeeApp"]')].map(e => e.getAttribute('data-work-id')),
+                        numbers: fee ? fee.querySelectorAll('input[type="number"]').length : null,
+                        numbers_strict: fee ? fee.querySelectorAll('input[type=\"number\"][step=\"1000\"][max=\"100000000\"]').length : null,
+                        number_attrs: fee ? [...fee.querySelectorAll('input[type="number"]')].map(e => e.getAttribute('step') + '/' + e.getAttribute('max')) : null,
+                        texts: fee ? fee.querySelectorAll('input[type="text"]').length : null,
+                        visible_fields: [...document.querySelectorAll('input,textarea,select')]
+                            .filter(e => e.type !== 'hidden')
+                            .map(e => e.tagName + ':' + e.type + ':' + (e.name || e.id)).slice(0, 12),
+                    }};
+                }}"""))
+        except Exception:
+            observed["probe"] = "failed"
+        raise _form_changed("_production_prepare:479", **observed) from None
     form = _one(page.locator("form#ProposalProposeForm"))
     if (
         str(form.get_attribute("method") or "").upper() != "POST"
