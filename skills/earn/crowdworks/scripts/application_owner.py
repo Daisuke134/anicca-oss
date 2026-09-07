@@ -174,8 +174,11 @@ def _candidate(page, listings, rotation):
             verdict = _work_fit_verdict(job_id, title, detail or text)
             if verdict is not None:
                 rejected["not_workable"]+=1
-                reason, quote = verdict
-                _decline(declined,job_id,title,f"募集文の「{quote}」が対応できない条件（{reason}）に当たります" if quote else f"対応できない条件（{reason}）に当たります")
+                # Not `quote`: that is urllib.parse.quote, used a few lines above to build the
+                # search URL, and binding it here made it local to the whole function and took
+                # the lane down with UnboundLocalError on the next wake.
+                reason, evidence_quote = verdict
+                _decline(declined,job_id,title,f"募集文の「{evidence_quote}」が対応できない条件（{reason}）に当たります" if evidence_quote else f"対応できない条件（{reason}）に当たります")
                 continue
             return {"external_id":job_id,"title":re.sub(r"\s+"," ",title).strip()},listing,tier,{"inspected":len(seen)-already,**rejected,"declined":declined}
     return None,None,None,{"inspected":len(seen)-already,**rejected,"declined":declined}
