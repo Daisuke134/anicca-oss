@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Daisuke134/life-manager/runtime/contracts/common-record.schema.json",
+  "title": "Life Manager common records",
+  "oneOf": [
+    {"$ref": "#/$defs/Job"},
+    {"$ref": "#/$defs/RuntimeEvent"},
+    {"$ref": "#/$defs/Effect"},
+    {"$ref": "#/$defs/Receipt"},
+    {"$ref": "#/$defs/OutboxItem"},
+    {"$ref": "#/$defs/FinancialRecord"}
+  ],
+  "$defs": {
+    "Id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "Timestamp": {"type": "string", "format": "date-time"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "EvidenceRefs": {
+      "type": "array", "maxItems": 32,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[A-Za-z0-9._:/-]{1,512}$"}
+    },
+    "Job": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "record_type", "job_id", "tenant_id", "loop_id", "capability", "effect_class", "effect_key", "input_refs", "max_attempts"],
+      "properties": {
+        "schema_version": {"const": 1}, "record_type": {"const": "job"},
+        "job_id": {"$ref": "#/$defs/Id"}, "tenant_id": {"$ref": "#/$defs/Id"}, "loop_id": {"$ref": "#/$defs/Id"}, "capability": {"$ref": "#/$defs/Id"},
+        "effect_class": {"enum": ["none", "publish", "message", "money", "application", "trade", "account_mutation"]},
+        "effect_key": {"type": ["string", "null"], "maxLength": 500},
+        "input_refs": {"type": "object", "propertyNames": {"pattern": "_refs?$"}, "additionalProperties": {"oneOf": [{"type": "string", "minLength": 1, "maxLength": 1000}, {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1, "maxLength": 1000}}]}},
+        "max_attempts": {"type": "integer", "minimum": 1, "maximum": 20}
+      },
+      "allOf": [
+        {"if": {"properties": {"effect_class": {"const": "none"}}}, "then": {"properties": {"effect_key": {"type": "null"}}}},
+        {"if": {"properties": {"effect_class": {"not": {"const": "none"}}}}, "then": {"properties": {"effect_key": {"type": "string", "minLength": 1}}}}
+      ]
+    },
+    "RuntimeEvent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "event_id", "timestamp", "loop_id", "domain", "run_id", "phase", "status", "release_sha", "provider", "profile_alias", "effect_class", "effect_status", "blocker", "evidence_refs"],
+      "properties": {
+        "version": {"const": 1},
+        "event_id": {"type": "string", "pattern": "^[a-f0-9]{24,64}$"},
+        "timestamp": {"$ref": "#/$defs/Timestamp"},
+        "loop_id": {"$ref": "#/$defs/Id"},
+        "domain": {"enum": ["physical", "mental", "financial", "earn", "growth", "system"]},
+        "run_id": {"$ref": "#/$defs/Id"},
+        "phase": {"enum": ["plan", "execute", "reconcile", "verify", "report"]},
+        "status": {"enum": ["running", "pass", "fail", "blocked"]},
+        "release_sha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "provider": {"$ref": "#/$defs/Id"},
+        "profile_alias": {"oneOf": [{"$ref": "#/$defs/Id"}, {"type": "null"}]},
+        "effect_class": {"enum": ["none", "publish", "message", "money", "application", "trade", "account_mutation"]},
+        "effect_status": {"enum": ["not_applicable", "unknown", "planned", "started", "verified", "failed", "reconciled"]},
+        "blocker": {"oneOf": [{"$ref": "#/$defs/Id"}, {"type": "null"}]},
+        "evidence_refs": {"$ref": "#/$defs/EvidenceRefs"}
+      }
+    },
+    "Effect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "record_type", "effect_id", "loop_id", "run_id", "effect_class", "idempotency_key", "status", "provider", "attempted_at", "evidence_refs"],
+      "properties": {
+        "schema_version": {"const": 1}, "record_type": {"const": "effect"},
+        "effect_id": {"$ref": "#/$defs/Id"}, "loop_id": {"$ref": "#/$defs/Id"}, "run_id": {"$ref": "#/$defs/Id"},
+        "effect_class": {"enum": ["publish", "message", "money", "application", "trade", "account_mutation"]},
+        "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "status": {"enum": ["planned", "started", "verified", "failed", "reconciled"]},
+        "provider": {"$ref": "#/$defs/Id"}, "attempted_at": {"$ref": "#/$defs/Timestamp"},
+        "evidence_refs": {"$ref": "#/$defs/EvidenceRefs"}
+      }
+    },
+    "Receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "record_type", "receipt_id", "effect_id", "loop_id", "run_id", "outcome", "provider", "recorded_at", "external_ref", "payload_sha256", "evidence_refs"],
+      "properties": {
+        "schema_version": {"const": 1}, "record_type": {"const": "receipt"},
+        "receipt_id": {"$ref": "#/$defs/Id"}, "effect_id": {"$ref": "#/$defs/Id"}, "loop_id": {"$ref": "#/$defs/Id"}, "run_id": {"$ref": "#/$defs/Id"},
+        "outcome": {"enum": ["verified", "failed", "uncertain", "reconciled"]}, "provider": {"$ref": "#/$defs/Id"},
+        "recorded_at": {"$ref": "#/$defs/Timestamp"}, "external_ref": {"type": ["string", "null"], "maxLength": 1024},
+        "payload_sha256": {"$ref": "#/$defs/Sha256"}, "evidence_refs": {"$ref": "#/$defs/EvidenceRefs"}
+      },
+      "allOf": [{"if": {"properties": {"outcome": {"const": "verified"}}}, "then": {"properties": {"external_ref": {"type": "string", "minLength": 1}, "evidence_refs": {"minItems": 1}}}}]
+    },
+    "OutboxItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "record_type", "message_key", "tenant_id", "job_id", "effect_id", "loop_id", "status", "attempt_count", "payload_sha256", "provider", "created_at", "claimed_at", "delivered_at", "provider_message_ids"],
+      "properties": {
+        "schema_version": {"const": 1}, "record_type": {"const": "outbox_item"},
+        "message_key": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "tenant_id": {"oneOf": [{"$ref": "#/$defs/Id"}, {"type": "null"}]}, "job_id": {"oneOf": [{"$ref": "#/$defs/Id"}, {"type": "null"}]}, "effect_id": {"oneOf": [{"$ref": "#/$defs/Id"}, {"type": "null"}]}, "loop_id": {"$ref": "#/$defs/Id"},
+        "status": {"enum": ["pending", "sending", "delivered", "delivery_uncertain"]}, "attempt_count": {"type": "integer", "minimum": 0},
+        "payload_sha256": {"$ref": "#/$defs/Sha256"}, "provider": {"$ref": "#/$defs/Id"}, "created_at": {"$ref": "#/$defs/Timestamp"},
+        "claimed_at": {"type": ["string", "null"], "format": "date-time"}, "delivered_at": {"type": ["string", "null"], "format": "date-time"},
+        "provider_message_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "pending"}}}, "then": {"properties": {"claimed_at": {"type": "null"}, "delivered_at": {"type": "null"}, "provider_message_ids": {"maxItems": 0}}}},
+        {"if": {"properties": {"status": {"const": "sending"}}}, "then": {"properties": {"attempt_count": {"minimum": 1}, "claimed_at": {"type": "string", "format": "date-time"}, "delivered_at": {"type": "null"}, "provider_message_ids": {"maxItems": 0}}}},
+        {"if": {"properties": {"status": {"const": "delivered"}}}, "then": {"properties": {"attempt_count": {"minimum": 1}, "claimed_at": {"type": "string", "format": "date-time"}, "delivered_at": {"type": "string", "format": "date-time"}, "provider_message_ids": {"minItems": 1}}}},
+        {"if": {"properties": {"status": {"const": "delivery_uncertain"}}}, "then": {"properties": {"attempt_count": {"minimum": 1}, "claimed_at": {"type": "string", "format": "date-time"}, "delivered_at": {"type": "null"}, "provider_message_ids": {"maxItems": 0}}}}
+      ]
+    },
+    "FinancialRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "record_type", "record_id", "subject_id", "scope", "kind", "direction", "amount_minor", "currency", "occurred_at", "recorded_at", "idempotency_key", "source", "verification"],
+      "properties": {
+        "schema_version": {"const": 1}, "record_type": {"const": "financial_record"}, "record_id": {"$ref": "#/$defs/Id"}, "subject_id": {"$ref": "#/$defs/Id"},
+        "scope": {"enum": ["personal", "business"]},
+        "kind": {"enum": ["asset_balance", "liability_balance", "personal_income", "personal_expense", "business_revenue", "business_cost", "payout", "fee", "tax", "transfer"]},
+        "direction": {"enum": ["credit", "debit", "snapshot"]}, "amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "occurred_at": {"$ref": "#/$defs/Timestamp"}, "recorded_at": {"$ref": "#/$defs/Timestamp"},
+        "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "source": {
+          "type": "object", "additionalProperties": false, "required": ["provider", "source_type", "external_ref"],
+          "properties": {"provider": {"$ref": "#/$defs/Id"}, "source_type": {"enum": ["moneytree", "marketplace", "payment_processor", "app_store", "wallet", "manual"]}, "external_ref": {"type": ["string", "null"], "maxLength": 1024}}
+        },
+        "verification": {
+          "type": "object", "additionalProperties": false, "required": ["status", "observed_at", "evidence_refs"],
+          "properties": {"status": {"enum": ["verified", "unverified", "stale"]}, "observed_at": {"$ref": "#/$defs/Timestamp"}, "evidence_refs": {"$ref": "#/$defs/EvidenceRefs"}},
+          "allOf": [{"if": {"properties": {"status": {"const": "verified"}}}, "then": {"properties": {"evidence_refs": {"minItems": 1}}}}]
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"enum": ["asset_balance", "liability_balance", "personal_income", "personal_expense"]}}}, "then": {"properties": {"scope": {"const": "personal"}}}},
+        {"if": {"properties": {"kind": {"enum": ["business_revenue", "business_cost", "payout"]}}}, "then": {"properties": {"scope": {"const": "business"}}}},
+        {"if": {"properties": {"source": {"properties": {"source_type": {"const": "moneytree"}}}}}, "then": {"properties": {"scope": {"const": "personal"}}}},
+        {"if": {"properties": {"kind": {"enum": ["asset_balance", "liability_balance"]}}}, "then": {"properties": {"direction": {"const": "snapshot"}}}},
+        {"if": {"properties": {"kind": {"enum": ["personal_income", "business_revenue", "payout"]}}}, "then": {"properties": {"direction": {"const": "credit"}}}},
+        {"if": {"properties": {"kind": {"enum": ["personal_expense", "business_cost", "fee", "tax"]}}}, "then": {"properties": {"direction": {"const": "debit"}}}},
+        {"if": {"properties": {"kind": {"const": "transfer"}}}, "then": {"properties": {"direction": {"enum": ["credit", "debit"]}}}}
+      ]
+    }
+  }
+}

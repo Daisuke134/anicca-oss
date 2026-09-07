@@ -1,0 +1,101 @@
+import json
+import unittest
+from pathlib import Path
+
+from jsonschema import Draft202012Validator, FormatChecker
+
+from runtime.loop import runtime_event
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SCHEMA = json.loads((ROOT / "runtime/contracts/common-record.schema.json").read_text())
+VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
+
+
+def validate(value):
+    errors = sorted(VALIDATOR.iter_errors(value), key=lambda error: list(error.path))
+    if errors:
+        raise AssertionError(errors[0].message)
+
+
+class CommonContractTests(unittest.TestCase):
+    def test_runtime_event_schema_matches_runtime_vocabulary(self):
+        definition = SCHEMA["$defs"]["RuntimeEvent"]["properties"]
+        self.assertEqual(set(definition["domain"]["enum"]), runtime_event.DOMAINS)
+        self.assertEqual(set(definition["phase"]["enum"]), runtime_event.PHASES)
+        self.assertEqual(set(definition["status"]["enum"]), runtime_event.STATUSES)
+        self.assertEqual(set(definition["effect_class"]["enum"]), runtime_event.EFFECTS)
+        self.assertEqual(set(definition["effect_status"]["enum"]), runtime_event.EFFECT_STATUSES)
+        event = {"version": 1, "event_id": "a" * 24, "timestamp": "2026-09-07T00:00:00Z", "loop_id": "example", "domain": "earn", "run_id": "run-1", "phase": "report", "status": "pass", "release_sha": "b" * 40, "provider": "deterministic", "profile_alias": None, "effect_class": "none", "effect_status": "not_applicable", "blocker": None, "evidence_refs": ["lm-loop://example/run-1/summary.json"]}
+        validate(event)
+        runtime_event.validate_runtime_event(event)
+        event["evidence_refs"] = ["lm-loop://example/run-1/summary.json?query=1"]
+        with self.assertRaises(AssertionError):
+            validate(event)
+        with self.assertRaises(ValueError):
+            runtime_event.validate_runtime_event(event)
+        long_scheme_ref = f"{'a' * 200}://example/run-1/summary.json"
+        event["evidence_refs"] = [long_scheme_ref, long_scheme_ref]
+        validate(event)
+        runtime_event.validate_runtime_event(event)
+
+    def test_verified_business_revenue_requires_evidence(self):
+        record = {
+            "schema_version": 1, "record_type": "financial_record", "record_id": "stripe-1",
+            "subject_id": "user-1", "scope": "business", "kind": "business_revenue",
+            "direction": "credit", "amount_minor": 12500, "currency": "JPY",
+            "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z",
+            "idempotency_key": "stripe:payment:1",
+            "source": {"provider": "stripe", "source_type": "payment_processor", "external_ref": "payment-1"},
+            "verification": {"status": "verified", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": ["stripe://payment/payment-1"]}
+        }
+        validate(record)
+        record["verification"]["evidence_refs"] = []
+        with self.assertRaises(AssertionError):
+            validate(record)
+
+    def test_personal_balance_cannot_be_booked_as_business_revenue(self):
+        record = {
+            "schema_version": 1, "record_type": "financial_record", "record_id": "moneytree-1",
+            "subject_id": "user-1", "scope": "business", "kind": "business_revenue",
+            "direction": "credit", "amount_minor": 500000, "currency": "JPY",
+            "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z",
+            "idempotency_key": "moneytree:account:1:2026-09-07",
+            "source": {"provider": "moneytree", "source_type": "moneytree", "external_ref": "account-1"},
+            "verification": {"status": "stale", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": []}
+        }
+        with self.assertRaises(AssertionError):
+            validate(record)
+
+    def test_financial_kind_requires_its_direction(self):
+        record = {"schema_version": 1, "record_type": "financial_record", "record_id": "cost-1", "subject_id": "user-1", "scope": "business", "kind": "business_cost", "direction": "credit", "amount_minor": 500, "currency": "JPY", "occurred_at": "2026-09-07T00:00:00Z", "recorded_at": "2026-09-07T00:01:00Z", "idempotency_key": "cost:1", "source": {"provider": "stripe", "source_type": "payment_processor", "external_ref": "fee-1"}, "verification": {"status": "verified", "observed_at": "2026-09-07T00:01:00Z", "evidence_refs": ["stripe://fee/fee-1"]}}
+        with self.assertRaises(AssertionError):
+            validate(record)
+
+    def test_effect_receipt_and_outbox_have_distinct_truth(self):
+        job = {"schema_version": 1, "record_type": "job", "job_id": "j-1", "tenant_id": "user-1", "loop_id": "writer", "capability": "marketplace.apply", "effect_class": "application", "effect_key": "writer:1", "input_refs": {"opportunity_ref": "writer://job/1"}, "max_attempts": 3}
+        effect = {"schema_version": 1, "record_type": "effect", "effect_id": "e-1", "loop_id": "writer", "run_id": "r-1", "effect_class": "application", "idempotency_key": "writer:1", "status": "started", "provider": "writer", "attempted_at": "2026-09-07T00:00:00Z", "evidence_refs": []}
+        receipt = {"schema_version": 1, "record_type": "receipt", "receipt_id": "p-1", "effect_id": "e-1", "loop_id": "writer", "run_id": "r-1", "outcome": "verified", "provider": "writer", "recorded_at": "2026-09-07T00:01:00Z", "external_ref": "job-1", "payload_sha256": "a" * 64, "evidence_refs": ["writer://job/job-1"]}
+        outbox = {"schema_version": 1, "record_type": "outbox_item", "message_key": "writer:report:1", "tenant_id": "user-1", "job_id": "j-1", "effect_id": "e-1", "loop_id": "writer", "status": "delivered", "attempt_count": 1, "payload_sha256": "b" * 64, "provider": "telegram", "created_at": "2026-09-07T00:01:00Z", "claimed_at": "2026-09-07T00:01:01Z", "delivered_at": "2026-09-07T00:01:02Z", "provider_message_ids": ["123"]}
+        for value in (job, effect, receipt, outbox):
+            validate(value)
+
+    def test_verified_receipt_and_delivered_outbox_require_provider_proof(self):
+        receipt = {"schema_version": 1, "record_type": "receipt", "receipt_id": "p-1", "effect_id": "e-1", "loop_id": "writer", "run_id": "r-1", "outcome": "verified", "provider": "writer", "recorded_at": "2026-09-07T00:01:00Z", "external_ref": None, "payload_sha256": "a" * 64, "evidence_refs": []}
+        outbox = {"schema_version": 1, "record_type": "outbox_item", "message_key": "writer:1", "tenant_id": None, "job_id": None, "effect_id": None, "loop_id": "writer", "status": "delivered", "attempt_count": 0, "payload_sha256": "b" * 64, "provider": "telegram", "created_at": "2026-09-07T00:00:00Z", "claimed_at": None, "delivered_at": None, "provider_message_ids": []}
+        for value in (receipt, outbox):
+            with self.assertRaises(AssertionError):
+                validate(value)
+
+    def test_pending_outbox_keeps_attempt_count_after_safe_pre_send_retry(self):
+        outbox = {"schema_version": 1, "record_type": "outbox_item", "message_key": "writer:1", "tenant_id": None, "job_id": None, "effect_id": None, "loop_id": "writer", "status": "pending", "attempt_count": 2, "payload_sha256": "b" * 64, "provider": "telegram", "created_at": "2026-09-07T00:00:00Z", "claimed_at": None, "delivered_at": None, "provider_message_ids": []}
+        validate(outbox)
+
+    def test_effectful_job_requires_effect_key(self):
+        job = {"schema_version": 1, "record_type": "job", "job_id": "j-1", "tenant_id": "user-1", "loop_id": "writer", "capability": "marketplace.apply", "effect_class": "application", "effect_key": None, "input_refs": {"opportunity_ref": "writer://job/1"}, "max_attempts": 3}
+        with self.assertRaises(AssertionError):
+            validate(job)
+
+
+if __name__ == "__main__":
+    unittest.main()
