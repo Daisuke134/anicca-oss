@@ -17,7 +17,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 GUARD_RELATIVE = Path(
-    "gig/releases/life-manager/current/skills/earn/gig/scripts/gig_disk_guard.py"
+    "gig/releases/life-manager/current/runtime/host/disk_admission.py"
 )
 STUB = """\
 import json
@@ -27,15 +27,18 @@ from pathlib import Path
 
 capture = Path(os.environ["STUB_CAPTURE"])
 keys = (
-    "HOME", "GIG_DISK_HEADROOM_KIB", "GIG_HOST_STATE_DIR", "GIG_STATE_DIR",
-    "GIG_IGNORE_DISK_PRESSURE_BLOCK", "GIG_IGNORE_DISK_WRITERS_STOP",
+    "HOME", "LIFE_MANAGER_DISK_HEADROOM_KIB", "LIFE_MANAGER_HOST_STATE_DIR",
+    "LIFE_MANAGER_PRODUCER_STATE_DIR", "LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK",
+    "LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP", "GIG_DISK_HEADROOM_KIB",
+    "GIG_HOST_STATE_DIR", "GIG_STATE_DIR", "GIG_IGNORE_DISK_PRESSURE_BLOCK",
+    "GIG_IGNORE_DISK_WRITERS_STOP",
     "DISK_CONTROL_STATE_DIR", "OPENCLAW_STATE_DIR", "LIFE_MANAGER_HOST_STATE_DIR",
 )
-host_state = Path(os.environ["GIG_HOST_STATE_DIR"])
+host_state = Path(os.environ["LIFE_MANAGER_HOST_STATE_DIR"])
 reason = None
 for filename, candidate in (("disk-writers.stop", "disk_writers_stop"),
                             ("disk-pressure.block", "disk_pressure_block")):
-    ignored = filename == "disk-pressure.block" and os.environ.get("GIG_IGNORE_DISK_PRESSURE_BLOCK") == "1"
+    ignored = filename == "disk-pressure.block" and os.environ.get("LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK") == "1"
     if (host_state / filename).is_file() and not ignored:
         reason = candidate
         break
@@ -43,11 +46,11 @@ record = {"argv": sys.argv, "isolated": sys.flags.isolated,
           "env": {key: os.environ[key] for key in keys if key in os.environ}}
 capture.write_text(json.dumps(record), encoding="utf-8")
 if reason:
-    receipt = Path(os.environ["GIG_STATE_DIR"]) / "state/disk-headroom.json"
+    receipt = Path(os.environ["LIFE_MANAGER_PRODUCER_STATE_DIR"]) / "state/disk-headroom.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps({"status": "failed", "failed": 1, "effect": 0,
                                    "readback": 0, "reason": reason,
-                                   "required_bytes": int(os.environ["GIG_DISK_HEADROOM_KIB"]) * 1024}),
+                                   "required_bytes": int(os.environ["LIFE_MANAGER_DISK_HEADROOM_KIB"]) * 1024}),
                        encoding="utf-8")
 raise SystemExit(1 if reason else 0)
 """
@@ -118,15 +121,16 @@ class CdpPersistentContextPreflightTests(unittest.TestCase):
             self.assertFalse(marker.exists())
             child_env = record["env"]
             self.assertEqual(child_env["HOME"], str(home))
-            self.assertEqual(child_env["GIG_DISK_HEADROOM_KIB"], "524288")
-            self.assertEqual(child_env["GIG_HOST_STATE_DIR"], str(home / ".openclaw/state"))
-            self.assertEqual(child_env["GIG_STATE_DIR"],
+            self.assertEqual(child_env["LIFE_MANAGER_DISK_HEADROOM_KIB"], "524288")
+            self.assertEqual(child_env["LIFE_MANAGER_HOST_STATE_DIR"],
+                             str(home / ".local/state/life-manager/state"))
+            self.assertEqual(child_env["LIFE_MANAGER_PRODUCER_STATE_DIR"],
                              str(home / ".local/state/life-manager/browser-provision"))
-            self.assertEqual(child_env["GIG_IGNORE_DISK_PRESSURE_BLOCK"], "1")
+            self.assertEqual(child_env["LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK"], "1")
             for key in (
                 "GIG_IGNORE_DISK_WRITERS_STOP",
                 "DISK_CONTROL_STATE_DIR", "OPENCLAW_STATE_DIR",
-                "LIFE_MANAGER_HOST_STATE_DIR",
+                "GIG_DISK_HEADROOM_KIB", "GIG_HOST_STATE_DIR", "GIG_STATE_DIR",
             ):
                 self.assertNotIn(key, child_env)
 
@@ -134,7 +138,7 @@ class CdpPersistentContextPreflightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             home = root / "home"
-            host_state = home / ".openclaw/state"
+            host_state = home / ".local/state/life-manager/state"
             host_state.mkdir(parents=True)
             guard = self.install_guard(home)
             capture = root / "capture.json"
@@ -163,7 +167,7 @@ class CdpPersistentContextPreflightTests(unittest.TestCase):
             }, clear=False):
                 self.assertTrue(MODULE._disk_preflight(home, guard))
             record = json.loads(capture.read_text(encoding="utf-8"))
-            self.assertEqual(record["env"]["GIG_DISK_HEADROOM_KIB"], "262144")
+            self.assertEqual(record["env"]["LIFE_MANAGER_DISK_HEADROOM_KIB"], "262144")
 
     def test_with_browser_starts_unreachable_identity_and_owns_one_lease(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

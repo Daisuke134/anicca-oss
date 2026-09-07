@@ -17,7 +17,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 GUARD_RELATIVE = Path(
-    "gig/releases/life-manager/current/skills/earn/gig/scripts/gig_disk_guard.py"
+    "gig/releases/life-manager/current/runtime/host/disk_admission.py"
 )
 STUB = """\
 import json
@@ -27,11 +27,14 @@ from pathlib import Path
 
 capture = Path(os.environ["STUB_CAPTURE"])
 keys = (
-    "HOME", "GIG_DISK_HEADROOM_KIB", "GIG_HOST_STATE_DIR", "GIG_STATE_DIR",
-    "GIG_IGNORE_DISK_PRESSURE_BLOCK", "GIG_IGNORE_DISK_WRITERS_STOP",
+    "HOME", "LIFE_MANAGER_DISK_HEADROOM_KIB", "LIFE_MANAGER_HOST_STATE_DIR",
+    "LIFE_MANAGER_PRODUCER_STATE_DIR", "LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK",
+    "LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP", "GIG_DISK_HEADROOM_KIB",
+    "GIG_HOST_STATE_DIR", "GIG_STATE_DIR", "GIG_IGNORE_DISK_PRESSURE_BLOCK",
+    "GIG_IGNORE_DISK_WRITERS_STOP",
     "DISK_CONTROL_STATE_DIR", "OPENCLAW_STATE_DIR", "LIFE_MANAGER_HOST_STATE_DIR",
 )
-host_state = Path(os.environ["GIG_HOST_STATE_DIR"])
+host_state = Path(os.environ["LIFE_MANAGER_HOST_STATE_DIR"])
 reason = None
 for filename, candidate in (("disk-writers.stop", "disk_writers_stop"),
                             ("disk-pressure.block", "disk_pressure_block")):
@@ -42,11 +45,11 @@ record = {"argv": sys.argv, "isolated": sys.flags.isolated,
           "env": {key: os.environ[key] for key in keys if key in os.environ}}
 capture.write_text(json.dumps(record), encoding="utf-8")
 if reason:
-    receipt = Path(os.environ["GIG_STATE_DIR"]) / "state/disk-headroom.json"
+    receipt = Path(os.environ["LIFE_MANAGER_PRODUCER_STATE_DIR"]) / "state/disk-headroom.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps({"status": "failed", "failed": 1, "effect": 0,
                                    "readback": 0, "reason": reason,
-                                   "required_bytes": int(os.environ["GIG_DISK_HEADROOM_KIB"]) * 1024}),
+                                   "required_bytes": int(os.environ["LIFE_MANAGER_DISK_HEADROOM_KIB"]) * 1024}),
                        encoding="utf-8")
 raise SystemExit(1 if reason or os.environ.get("STUB_RESULT") == "1" else 0)
 """
@@ -129,14 +132,15 @@ class LocalBrowserPreflightTest(unittest.TestCase):
             self.assertEqual(record["isolated"], 1)
             child_env = record["env"]
             self.assertEqual(child_env["HOME"], str(home))
-            self.assertEqual(child_env["GIG_DISK_HEADROOM_KIB"], "524288")
-            self.assertEqual(child_env["GIG_HOST_STATE_DIR"], str(home / ".openclaw/state"))
-            self.assertEqual(child_env["GIG_STATE_DIR"],
+            self.assertEqual(child_env["LIFE_MANAGER_DISK_HEADROOM_KIB"], "524288")
+            self.assertEqual(child_env["LIFE_MANAGER_HOST_STATE_DIR"],
+                             str(home / ".local/state/life-manager/state"))
+            self.assertEqual(child_env["LIFE_MANAGER_PRODUCER_STATE_DIR"],
                              str(home / ".local/state/life-manager/affiliate"))
             for key in (
                 "GIG_IGNORE_DISK_PRESSURE_BLOCK", "GIG_IGNORE_DISK_WRITERS_STOP",
                 "DISK_CONTROL_STATE_DIR", "OPENCLAW_STATE_DIR",
-                "LIFE_MANAGER_HOST_STATE_DIR",
+                "GIG_DISK_HEADROOM_KIB", "GIG_HOST_STATE_DIR", "GIG_STATE_DIR",
             ):
                 self.assertNotIn(key, child_env)
 
@@ -155,8 +159,8 @@ class LocalBrowserPreflightTest(unittest.TestCase):
             ):
                 self.assertTrue(MODULE._disk_preflight(guard=home / GUARD_RELATIVE))
             record = json.loads(capture.read_text(encoding="utf-8"))
-            self.assertEqual(record["env"]["GIG_HOST_STATE_DIR"],
-                             str(home / ".openclaw/state"))
+            self.assertEqual(record["env"]["LIFE_MANAGER_HOST_STATE_DIR"],
+                             str(home / ".local/state/life-manager/state"))
 
     def test_consumer_passes_each_flag_path_to_guard_boundary(self) -> None:
         # Policy semantics belong to Life Manager's guard suite; this stub only
@@ -165,7 +169,7 @@ class LocalBrowserPreflightTest(unittest.TestCase):
                               ("disk-pressure.block", "disk_pressure_block")):
             with self.subTest(flag=flag), tempfile.TemporaryDirectory() as temporary:
                 home = Path(temporary) / "home"
-                host_state = home / ".openclaw/state"
+                host_state = home / ".local/state/life-manager/state"
                 lane_state = home / ".local/state/life-manager/affiliate"
                 host_state.mkdir(parents=True)
                 lane_state.mkdir(parents=True)
@@ -203,6 +207,7 @@ class LocalBrowserPreflightTest(unittest.TestCase):
 
                 with (
                     patch.object(MODULE, "_canonical_home", return_value=home),
+                    patch.object(MODULE, "_GUARD", home / GUARD_RELATIVE),
                     patch.dict(os.environ, {"AFFILIATE_BROWSER_PROFILE": str(profile),
                                             "HOME": "/hostile/home"}, clear=False),
                     patch("builtins.__import__", side_effect=reject_browser_import),

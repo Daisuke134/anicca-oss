@@ -62,6 +62,11 @@
   },
 
   "writer_env": {
+    "LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK": "1",
+    "LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP": "1",
+    "LIFE_MANAGER_DISK_HEADROOM_KIB": "524288",
+    "LIFE_MANAGER_HOST_STATE_DIR": "{{LIFE_MANAGER_HOME}}/state",
+    "LIFE_MANAGER_PRODUCER_STATE_DIR": "{{WRITER_STATE_DIR}}",
     "GIG_IGNORE_DISK_PRESSURE_BLOCK": "1",
     "GIG_IGNORE_DISK_WRITERS_STOP": "1",
     "GIG_DISK_HEADROOM_KIB": "524288",
@@ -259,7 +264,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/article-daily.sh"
       ],
@@ -275,7 +280,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/scripts/article-resume-pending.sh"
       ],
@@ -290,7 +295,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/scripts/zenn-deferred-worker.sh"
       ],
@@ -305,7 +310,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/article-healthcheck.sh"
       ],
@@ -324,7 +329,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/scripts/writer-sales-measure-worker.sh"
       ],
@@ -340,7 +345,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "-c",
         "{{RELEASE}}/skills/writer-agent/scripts/craft-train.sh; {{RELEASE}}/skills/writer-agent/scripts/craft-train-notify.sh"
@@ -362,7 +367,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/scripts/self-improve.sh"
       ],
@@ -377,7 +382,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/scripts/audit-7day.sh"
       ],
@@ -392,7 +397,7 @@
       "env_profile": "writer",
       "program": [
         "{{PYTHON}}",
-        "{{RELEASE}}/skills/earn/gig/scripts/gig_disk_guard.py",
+        "{{RELEASE}}/runtime/host/disk_admission.py",
         "/bin/bash",
         "{{RELEASE}}/skills/writer-agent/scripts/learn-whitelist.sh"
       ],

@@ -19,7 +19,7 @@ INCLUDED_ROOTS = (
     "apps/job-search-loop",
     "runtime/agent-runner",
     "skills/browser/scripts/cdp_context_lease.py",
-    "skills/earn/gig/scripts/gig_disk_guard.py",
+    "runtime/host/disk_admission.py",
 )
 VERSION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 BLOCKED_NAMES = {".env", "profile.json"}

@@ -72,8 +72,8 @@ fi
 
 # A publisher must not create an irreversible external effect when its durable
 # receipt, circuit, or outbox cannot be persisted. Resume has no cleanup rights;
-# Coconala's canonical gig_disk_guard.py defaults to 524288 KiB. Keep direct
-# owner wakes identical to the launchd guard instead of inventing a second
+# Life Manager's shared disk admission defaults to 524288 KiB. Keep direct
+# owner wakes identical to the supervised guard instead of inventing a second
 # Writer-only threshold.
 CANONICAL_DISK_HEADROOM_KIB=524288
 GIG_DISK_HEADROOM_KIB="${GIG_DISK_HEADROOM_KIB:-$CANONICAL_DISK_HEADROOM_KIB}"

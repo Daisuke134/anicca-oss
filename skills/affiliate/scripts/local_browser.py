@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_GUARD = _REPO_ROOT / "skills/earn/gig/scripts/gig_disk_guard.py"
+_GUARD = _REPO_ROOT / "runtime/host/disk_admission.py"
 _START_URLS = {
     "affiliate-browser": "https://elevenlabs.io/app/home",
     "affiliate-impact-browser": "https://app.impact.com/login.user",
@@ -21,8 +21,12 @@ _START_URLS = {
 }
 _READABLE = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
 _REMOVED_ENV = (
+    "LIFE_MANAGER_DISK_HEADROOM_KIB", "LIFE_MANAGER_HOST_STATE_DIR",
+    "LIFE_MANAGER_PRODUCER_STATE_DIR", "LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK",
+    "LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP",
+    "GIG_DISK_HEADROOM_KIB", "GIG_HOST_STATE_DIR", "GIG_STATE_DIR",
     "GIG_IGNORE_DISK_PRESSURE_BLOCK", "GIG_IGNORE_DISK_WRITERS_STOP",
-    "DISK_CONTROL_STATE_DIR", "OPENCLAW_STATE_DIR", "LIFE_MANAGER_HOST_STATE_DIR",
+    "DISK_CONTROL_STATE_DIR", "OPENCLAW_STATE_DIR",
 )
 
 
@@ -61,16 +65,16 @@ def _disk_preflight(home: Path | None = None, guard: Path | None = None) -> bool
         ):
             return False
         child_env = os.environ.copy()
+        for key in _REMOVED_ENV:
+            child_env.pop(key, None)
         child_env.update(
             {
                 "HOME": str(home),
-                "GIG_DISK_HEADROOM_KIB": "524288",
-                "GIG_HOST_STATE_DIR": str(home / ".openclaw/state"),
-                "GIG_STATE_DIR": str(home / ".local/state/life-manager/affiliate"),
+                "LIFE_MANAGER_DISK_HEADROOM_KIB": "524288",
+                "LIFE_MANAGER_HOST_STATE_DIR": str(home / ".local/state/life-manager/state"),
+                "LIFE_MANAGER_PRODUCER_STATE_DIR": str(home / ".local/state/life-manager/affiliate"),
             }
         )
-        for key in _REMOVED_ENV:
-            child_env.pop(key, None)
         result = subprocess.run(
             ["/usr/bin/python3", "-I", str(guard), "/usr/bin/true"],
             env=child_env,

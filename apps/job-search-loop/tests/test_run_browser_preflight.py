@@ -48,7 +48,7 @@ class RunBrowserPreflightTests(unittest.TestCase):
                 + script[end:],
                 encoding="utf-8",
             )
-            guard = root / "skills" / "earn" / "gig" / "scripts" / "gig_disk_guard.py"
+            guard = root / "runtime" / "host" / "disk_admission.py"
             guard.parent.mkdir(parents=True)
             guard.write_text("raise SystemExit(0)\n", encoding="utf-8")
             chromium = (
@@ -132,7 +132,7 @@ class RunBrowserPreflightTests(unittest.TestCase):
                 encoding="utf-8",
             )
             guard_marker = root / "guard-ran"
-            guard = root / "skills" / "earn" / "gig" / "scripts" / "gig_disk_guard.py"
+            guard = root / "runtime" / "host" / "disk_admission.py"
             guard.parent.mkdir(parents=True)
             guard.write_text(
                 "from pathlib import Path\n"
@@ -207,7 +207,7 @@ class RunBrowserPreflightTests(unittest.TestCase):
                 + script[end:],
                 encoding="utf-8",
             )
-            guard = root / "skills" / "earn" / "gig" / "scripts" / "gig_disk_guard.py"
+            guard = root / "runtime" / "host" / "disk_admission.py"
             guard.parent.mkdir(parents=True)
             guard_capture = root / "guard.json"
             guard.write_text(
@@ -218,9 +218,9 @@ from pathlib import Path
 
 Path(os.environ["GUARD_CAPTURE"]).write_text(
     json.dumps({
-        "state": os.environ.get("GIG_STATE_DIR"),
-        "pressure": os.environ.get("GIG_IGNORE_DISK_PRESSURE_BLOCK"),
-        "headroom": os.environ.get("GIG_DISK_HEADROOM_KIB"),
+        "state": os.environ.get("LIFE_MANAGER_PRODUCER_STATE_DIR"),
+        "pressure": os.environ.get("LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK"),
+        "headroom": os.environ.get("LIFE_MANAGER_DISK_HEADROOM_KIB"),
     }),
     encoding="utf-8",
 )
@@ -294,9 +294,9 @@ from pathlib import Path
 
 Path(os.environ["GUARD_CAPTURE"]).write_text(
     json.dumps({
-        "pressure": os.environ.get("GIG_IGNORE_DISK_PRESSURE_BLOCK"),
-        "writers": os.environ.get("GIG_IGNORE_DISK_WRITERS_STOP"),
-        "headroom": os.environ.get("GIG_DISK_HEADROOM_KIB"),
+        "pressure": os.environ.get("LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK"),
+        "writers": os.environ.get("LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP"),
+        "headroom": os.environ.get("LIFE_MANAGER_DISK_HEADROOM_KIB"),
     }),
     encoding="utf-8",
 )
@@ -307,7 +307,7 @@ raise SystemExit(1)
             wrapper = root / "apps" / "job-search-loop" / "scripts" / "run-browser.sh"
             wrapper.parent.mkdir(parents=True)
             shutil.copy2(SCRIPT, wrapper)
-            guard = root / "skills" / "earn" / "gig" / "scripts" / "gig_disk_guard.py"
+            guard = root / "runtime" / "host" / "disk_admission.py"
             guard.parent.mkdir(parents=True)
             guard.write_text(fake_guard, encoding="utf-8")
 
@@ -341,25 +341,26 @@ raise SystemExit(1)
 
     def test_uses_canonical_guard_and_fenced_child_environment(self) -> None:
         self.assertIn(
-            '${SCRIPT_DIR:h:h:h}/skills/earn/gig/scripts/gig_disk_guard.py',
+            '${SCRIPT_DIR:h:h:h}/runtime/host/disk_admission.py',
             TEXT,
         )
         self.assertNotIn('$CANONICAL_HOME/gig/releases/', TEXT)
         self.assertIn("/usr/bin/python3 -I", TEXT)
         self.assertIn("pwd.getpwuid", TEXT)
-        self.assertIn("GIG_DISK_HEADROOM_KIB=524288", TEXT)
-        self.assertIn('GIG_HOST_STATE_DIR="$CANONICAL_HOME/.openclaw/state"', TEXT)
+        self.assertIn("LIFE_MANAGER_DISK_HEADROOM_KIB=524288", TEXT)
+        self.assertIn('LIFE_MANAGER_HOST_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/state"', TEXT)
         self.assertIn(
-            'GIG_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/job-search-browser"',
+            'LIFE_MANAGER_PRODUCER_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/job-search-browser"',
             TEXT,
         )
-        unset_block = TEXT[TEXT.index("unset "):TEXT.index("\nGIG_DISK", TEXT.index("unset "))]
+        unset_block = TEXT[TEXT.index("unset "):TEXT.index("\nif [[", TEXT.index("unset "))]
         for name in (
             "GIG_IGNORE_DISK_PRESSURE_BLOCK",
             "GIG_IGNORE_DISK_WRITERS_STOP",
+            "LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK",
+            "LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP",
             "DISK_CONTROL_STATE_DIR",
             "OPENCLAW_STATE_DIR",
-            "LIFE_MANAGER_HOST_STATE_DIR",
         ):
             self.assertIn(name, TEXT)
             self.assertIn(name, unset_block)
