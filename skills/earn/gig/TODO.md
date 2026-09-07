@@ -83,6 +83,23 @@ skills/
 | Submission, acceptance, payment and payout receipt contracts | Provider receipt IDs/URLs and normalized money fields |
 | Cross-provider reporting, conversion, latency, cost and net-cash attribution | Provider fee/tax vocabulary before normalization |
 
+### Reply sharing boundary
+
+| Shared forever | Provider-specific thin adapter |
+|---|---|
+| Stable buyer-event identity, cumulative context and attachment manifest | Login, session recovery, inbox URLs and pagination |
+| Model judgment for whether and how to reply, clarify, estimate or wait | Provider message/thread/estimate IDs and state vocabulary |
+| Durable intent-before-effect, retry/backoff and process-exit resume | Message/estimate mutation and provider capability declaration |
+| Same-event fencing, official reconciliation, receipts and replay-zero | Same-session official message/estimate readback parsing |
+| Human-handoff contract with exact action, deadline and work-item identity | Provider ceremonies that require identity, interview or assessment |
+| One deduplicated operator report and response ingestion contract | Provider-specific limits, attachment transport and allowed actions |
+
+Reply never becomes a hardcoded stage between Apply and Paid. It continuously owns every official
+buyer or selection event. The model decides whether the event needs an autonomous reply, estimate,
+clarification, durable wait or human handoff; deterministic code owns identity, fencing, receipts and
+retries. Mercor interviews, assessments, voice and video tasks use this same Reply contract to request
+the exact human action through Telegram and resume the same work item after the response arrives.
+
 Mercor, Freelancer.com, Upwork, Fiverr and future marketplaces use this same Paid kernel. They do not
 receive a copied owner or lifecycle. A provider adapter declares typed capabilities such as
 `can_message`, `can_upload`, `can_formally_deliver`, `can_cancel`, `can_read_acceptance` and
@@ -119,10 +136,13 @@ acceptance receipt changes a cell.
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
-The immediate Paid order therefore remains exactly `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
-`CROWDWORKS-PAID-1` -> `NEXT-MARKETPLACE-PAID-1`. `NEXT-MARKETPLACE-PAID-1` must choose among
-Mercor, Freelancer.com, Fiverr, Upwork or another authorized marketplace from live contract
-availability and adapter feasibility; the name does not imply that any of them already works.
+The completed extraction order remains exactly `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
+`CROWDWORKS-PAID-1`. Mercor is the selected next marketplace, but its revenue path begins with a
+dedicated Apply owner because no current application, contract or buyer event exists. The controlling
+engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `MERCOR-REPLY-1` ->
+`NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change: produce upstream work,
+install the shared Reply lifecycle before a Mercor-specific Reply adapter, then prove the existing
+Mercor Paid adapter on a real accepted work item.
 An adapter that is code-ready and running but lacks a real external contract stays unchecked and
 continues monitoring; external inventory waiting does not block implementation of the next adapter.
 This preserves acceptance truth without leaving the engineering lane idle while Apply, Reply and
@@ -139,14 +159,18 @@ Why this order is fixed:
    extraction against a different provider vocabulary, even while its live contract inventory is zero.
 4. Add CrowdWorks only after that boundary is proven; it contributes selectors, auth, provider state,
    mutation and readback only, never another lifecycle.
-5. Add one further marketplace to prove that onboarding a provider is repeatable rather than a
-   three-platform special case. Human-required steps become durable human waits, not provider forks.
-6. After Paid is closed, perform `PANIC-3` through `PANIC-6` in their unchanged internal order.
-   The macOS update/reboot is not a Paid repair and runs only while Dais is physically available to
-   recover loginwindow; until then no Mac, loginwindow or Aqua restart is authorized.
-7. Build shared Reply after that maintenance proof because Paid is the revenue-critical terminal lane and
-   its work-item, receipt, replay-zero and retry contracts are the proven primitives Reply should reuse.
-8. Canonicalize `loop-development/SKILL.md` last from measured Paid and Reply behavior; writing the
+5. Restore Mercor Apply before claiming more Mercor Paid progress. It must produce identity-bound
+   application receipts and real-time Telegram reports; a running observer or empty inventory is not PASS.
+6. Build shared Reply next, then add Mercor only as a thin adapter. This prevents a temporary Mercor
+   message path from becoming a second Reply lifecycle.
+7. Prove Mercor Paid only after Apply and Reply create a real accepted work item. Human-required
+   steps become durable Telegram handoffs and waits, not fabricated autonomous success.
+8. Complete the Lancers and CrowdWorks real Reply acceptances through that shared kernel while their
+   Paid adapters continue monitoring for real contracts.
+9. Perform `PANIC-3` through `PANIC-6` last in their unchanged internal order. The macOS
+   update/reboot runs only while Dais is physically available; until then no Mac, loginwindow or Aqua
+   restart is authorized.
+10. Canonicalize `loop-development/SKILL.md` last from measured Paid and Reply behavior; writing the
    canon earlier would preserve guesses rather than the implementation that actually passed.
 
 Zero live contracts never permits skipping an adapter atom or checking it complete. It proves only
@@ -155,10 +179,10 @@ same-session official readback and a following replay with effect zero.
 
 ## Host safety track and its explicit pause
 
-`PANIC-1` and `PANIC-2` are complete. Dais explicitly changes the controlling order: repair and
-complete every Paid adapter before the restart-dependent host atoms. `PANIC-3` through `PANIC-6`
-remain required and retain their internal order, but they resume only after
-`NEXT-MARKETPLACE-PAID-1`. The measured WindowServer panic remains a real availability risk; this
+`PANIC-1` and `PANIC-2` are complete. Dais explicitly changes the controlling order: complete the
+Mercor Apply -> shared Reply -> Mercor Reply -> Mercor Paid revenue path, then the Lancers and
+CrowdWorks Reply acceptances, before the restart-dependent host atoms. `PANIC-3` through `PANIC-6`
+remain required and retain their internal order. The measured WindowServer panic remains a real availability risk; this
 reorder states that an OS restart is not a repair for the current Coconala authentication,
 targeted-readback or remote-builder failures. Do not restart Mac, loginwindow or Aqua while Dais is
 away from the machine.
@@ -186,6 +210,9 @@ This is the only executable cursor for this owner. Older unchecked Coconala inci
 case lists below are historical evidence and do not reopen completed work or reorder this list.
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
+Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
+contract inventories are empty; they do not block the next implementable atom. The active engineering
+atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parallel owner covers Mercor.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -377,8 +404,23 @@ own worktrees and resource scopes; “top to bottom” orders only this owner's 
    Paid owner under apply receipt `2ed176d67addebd77ae86fef`; its first natural wake ended `pass`
    at `2026-09-07T02:52:05Z` with the persisted aggregate observed `0`, actionable `0`, effect `0`,
    readback `0`, failed `0`, pending `0`. Production monitoring is therefore live and safely idle.
-7. [ ] `NEXT-MARKETPLACE-PAID-1` Repeat adapter conformance for Fiverr or the next authorized
-   marketplace without changing the shared Paid lifecycle. PASS = provider-only config/transport/
+7. [ ] `MERCOR-APPLY-1` Restore Mercor as an independent revenue-marketplace Apply owner, not as a
+   Job Hunter subfeature. PASS = one bounded owner observes current official opportunities, lets the
+   model judge truthful fit, submits only through an identity-bound effect fence, reads the official
+   application back, persists its receipt, sends one real-time `Codex:::` Telegram report, and the next
+   natural wake performs no duplicate application. Reuse the shared Apply lifecycle and reporting
+   contracts; do not modify the Coconala/Lancers/CrowdWorks Apply-owner files currently owned by Claude.
+8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
+   PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
+   intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
+   `skills/_shared/marketplace-core/`. Coconala and Lancers keep only auth, selectors, provider state
+   and actual mutation in adapters; neither provider gets a copied Reply loop.
+9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
+   owner observes every official selection, buyer message, assessment and interview event; replies
+   autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
+   exact human action, deadline and work-item identity; then persists official readback and replay-zero.
+10. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
+   the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.
    Mercor is selected as this adapter. It is an independent gig marketplace, not a Job Hunter lane:
    the existing repo-owned human gates, work-state transitions and earnings readback are reusable,
@@ -400,31 +442,26 @@ own worktrees and resource scopes; “top to bottom” orders only this owner's 
    `__provider_inventory__` durably owns `official_work_inventory_unavailable`. Production wiring is
    therefore live and honestly waiting, but the real official receipt/readback/replay chain remains
    absent and the atom stays unchecked.
-8. [ ] `PANIC-3` In an explicitly approved maintenance window with Dais physically available,
+11. [ ] `LANCERS-REPLY-1` Complete one real Lancers buyer-message or estimate lifecycle through the
+    shared Reply entrypoint. PASS = official event observation, one buyer-visible effect, same-session
+    official readback and a following natural replay with effect zero are receipt-bound.
+12. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
+    PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
+    shared event, decision, receipt or retry lifecycle.
+13. [ ] `PANIC-3` In an explicitly approved maintenance window with Dais physically available,
    install macOS 15.7.9 rather than Tahoe and read back the exact build after restart. This is an
    availability proof, not a fix for Paid authentication or delivery.
    Read-only preflight confirms the host remains on macOS `15.6` build `24G84`, while Apple's
    updater offers `macOS Sequoia 15.7.9` build `24G830` as a restart-required update alongside
    Tahoe. Dais explicitly says not to restart now, so no download, install or restart occurs and this
    atom remains unchecked for the later approved maintenance window.
-9. [ ] `PANIC-4` From that controlled restart, prove automatic Aqua login, immutable-release owner
+14. [ ] `PANIC-4` From that controlled restart, prove automatic Aqua login, immutable-release owner
    recovery, green doctor and representative natural replay-zero terminals. PID existence is not PASS.
-10. [ ] `PANIC-5` Detect a pre-login boot gap through a credential-safe external path and send one
+15. [ ] `PANIC-5` Detect a pre-login boot gap through a credential-safe external path and send one
     deduplicated failure alert plus one recovery receipt without storing or typing the Mac password.
-11. [ ] `PANIC-6` Observe seven days of normal concurrent load with bounded browser/memory counts,
+16. [ ] `PANIC-6` Observe seven days of normal concurrent load with bounded browser/memory counts,
     no new WindowServer/tccd/sandboxd watchdog panic, no unowned boot gap and no duplicate effect.
-12. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
-   PASS = one provider-neutral Reply entrypoint owns event identity, durable intent, reply/estimate
-   selection, receipt persistence, retry/backoff and replay-zero in `skills/_shared/marketplace-core/`.
-   Coconala and Lancers keep only auth, selectors, provider state and actual mutation in adapters;
-   neither provider gets a copied Reply loop.
-13. [ ] `LANCERS-REPLY-1` Complete one real Lancers buyer-message or estimate lifecycle through the
-   shared Reply entrypoint. PASS = official event observation, one buyer-visible effect, same-session
-   official readback and a following natural replay with effect zero are receipt-bound.
-14. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
-    PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
-    shared event, decision, receipt or retry lifecycle.
-15. [ ] `LOOP-DEVELOPMENT-CANON-1` Make `skills/loop-development/SKILL.md` the concise canonical
+17. [ ] `LOOP-DEVELOPMENT-CANON-1` Make `skills/loop-development/SKILL.md` the concise canonical
     rule set for building and operating these marketplace loops. PASS = it points to the shared Paid
     and Reply contracts, defines the provider-adapter boundary and natural terminal/official readback
     gates once, removes duplicate or stale instructions, and the final three-provider runtime table
