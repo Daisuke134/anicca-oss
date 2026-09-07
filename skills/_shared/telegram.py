@@ -2,7 +2,7 @@
 """Direct Telegram Bot API sender with truthful delivery receipts.
 
 This module deliberately has no OpenClaw or third-party Python dependency.
-Configuration comes from the process environment and ~/anicca/.env by default.
+Configuration comes from the process environment and the private Life Manager state env.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 
-DEFAULT_ENV_FILE = Path.home() / "anicca" / ".env"
+DEFAULT_ENV_FILE = Path.home() / ".local" / "state" / "life-manager" / ".env"
 DEFAULT_API_BASE = "https://api.telegram.org"
 TEXT_CHUNK_LIMIT = 4000
 CAPTION_LIMIT = 1024
@@ -78,7 +78,7 @@ def load_config(
     process_env = dict(os.environ if environ is None else environ)
     selected_file = env_file
     if selected_file is None:
-        selected_file = Path(process_env.get("ANICCA_ENV_FILE", DEFAULT_ENV_FILE))
+        selected_file = Path(process_env.get("LIFE_MANAGER_ENV_FILE", DEFAULT_ENV_FILE))
     file_env = _parse_env_file(selected_file)
     token = process_env.get("TELEGRAM_BOT_TOKEN") or file_env.get("TELEGRAM_BOT_TOKEN")
     chat_id = process_env.get("TELEGRAM_CHAT_ID") or file_env.get("TELEGRAM_CHAT_ID")
