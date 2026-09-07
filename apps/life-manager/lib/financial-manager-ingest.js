@@ -1,0 +1,114 @@
+"use strict";
+
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+const moneytree = require("./moneytree-local-adapter.js");
+
+async function readJsonl(file) {
+  if (!file) return [];
+  const text = await fs.readFile(file, "utf8");
+  return text.split("\n").filter(Boolean).map((line, index) => {
+    try { return JSON.parse(line); }
+    catch { throw new Error(`financial source JSONL invalid at ${file}:${index + 1}`); }
+  });
+}
+
+function splitPaths(value) {
+  return String(value || "").split(path.delimiter).map((item) => item.trim()).filter(Boolean);
+}
+
+function projectMarketplace(receipts, { subjectId, pythonBin, script }) {
+  if (receipts.length === 0) return [];
+  const result = spawnSync(pythonBin, [script, "--subject-id", subjectId], {
+    input: JSON.stringify(receipts), encoding: "utf8", timeout: 30_000,
+  });
+  if (result.status !== 0) throw new Error("marketplace FinancialRecord projection failed");
+  const projected = JSON.parse(String(result.stdout || ""));
+  if (!Array.isArray(projected)) throw new Error("marketplace FinancialRecord projection invalid");
+  return projected;
+}
+
+async function ingestFinancialRecords(options) {
+  const {
+    store, subjectId, now, agentReceiptPaths = [], marketplaceReceiptPaths = [],
+    pythonBin = "python3",
+  } = options;
+  if (!store || typeof store.append !== "function") throw new Error("FinancialRecord store required");
+  const recordedAt = now.toISOString();
+  const records = [];
+  const sources = {};
+
+  try {
+    const readAccounts = options.readMoneytreeAccounts || moneytree.readAccounts;
+    const readTransactions = options.readMoneytreeTransactions || moneytree.readTransactions;
+    const startDate = `${new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit",
+    }).format(now)}-01`;
+    const endDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(now);
+    const [accounts, transactions] = await Promise.all([
+      readAccounts(), readTransactions({ startDate, endDate, limit: 1000 }),
+    ]);
+    records.push(
+      ...accounts.map((row) => moneytree.accountToFinancialRecord(
+        row, { subjectId, recordedAt },
+      )),
+      ...transactions.map((row) => moneytree.transactionToFinancialRecord(
+        row, { subjectId, recordedAt },
+      )),
+    );
+    sources.moneytree = "observed_unverified";
+  } catch {
+    sources.moneytree = "unavailable";
+  }
+
+  try {
+    const readAgentReceipts = options.readAgentReceipts
+      || (agentReceiptPaths.length
+        ? async () => (await Promise.all(agentReceiptPaths.map(readJsonl))).flat()
+        : null);
+    if (!readAgentReceipts) {
+      sources.agentEconomy = "not_configured";
+    } else {
+    const receipts = await readAgentReceipts();
+    const adapter = await import("../../../skills/agent-economy/lib/financial-record-adapter.mjs");
+    records.push(...receipts.flatMap((receipt) => (
+        adapter.revenueReceiptToFinancialRecords(receipt, { subjectId })
+      )));
+      sources.agentEconomy = receipts.length ? "observed_verified" : "empty";
+    }
+  } catch {
+    sources.agentEconomy = "unavailable";
+  }
+
+  try {
+    const readMarketplaceReceipts = options.readMarketplaceReceipts
+      || (marketplaceReceiptPaths.length
+        ? async () => (await Promise.all(marketplaceReceiptPaths.map(readJsonl))).flat()
+        : null);
+    if (!readMarketplaceReceipts) {
+      sources.marketplace = "not_configured";
+    } else {
+      const receipts = await readMarketplaceReceipts();
+      const projector = options.projectMarketplaceReceipts || ((rows) => projectMarketplace(rows, {
+        subjectId, pythonBin,
+        script: path.resolve(__dirname, "../../../skills/_shared/marketplace-core/scripts/financial_record.py"),
+      }));
+      records.push(...await projector(receipts));
+      sources.marketplace = receipts.length ? "observed_verified" : "empty";
+    }
+  } catch {
+    sources.marketplace = "unavailable";
+  }
+
+  let created = 0;
+  for (const record of records) {
+    const result = await store.append(record);
+    if (result.created) created += 1;
+  }
+  return { observed: records.length, created, sources };
+}
+
+module.exports = { ingestFinancialRecords, readJsonl, splitPaths };

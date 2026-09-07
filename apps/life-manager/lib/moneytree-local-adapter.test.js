@@ -41,6 +41,12 @@ test("Moneytree balances and transactions project to distinct personal Financial
     assert.deepEqual(record.verification.evidence_refs, []);
   }
   assert.deepEqual(accountToFinancialRecord(account, options), accountToFinancialRecord(account, options));
+  assert.deepEqual(
+    transactionToFinancialRecord(expense, options),
+    transactionToFinancialRecord(expense, {
+      ...options, recordedAt: "2026-09-07T07:00:00.000Z",
+    }),
+  );
   const otherSubject = accountToFinancialRecord(account, { ...options, subjectId: "user-2" });
   assert.notEqual(otherSubject.record_id, accountToFinancialRecord(account, options).record_id);
   assert.notEqual(otherSubject.source.external_ref, accountToFinancialRecord(account, options).source.external_ref);

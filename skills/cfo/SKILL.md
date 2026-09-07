@@ -6,16 +6,20 @@ This skill runs one repository-owned CFO pass and exits. It is the operator-faci
 ## Contract
 
 - Invoke `skills/cfo/run.sh` from the canonical Life Manager checkout.
-- `LIFE_MANAGER_APP_DIR` points at the staged stable release (`~/.local/share/life-manager/cfo-hourly/current/apps/life-manager`)
-  when installed; a checked-out canonical app directory may be used for verification before staging.
+- Code is resolved from the same immutable repository release as this wrapper. No second CFO app copy
+  or `LIFE_MANAGER_APP_DIR` override is used.
 - Credentials are read from `LIFE_MANAGER_ENV_FILE` (default:
   `~/.local/state/life-manager/.env`) and are never printed or written to loop state.
-- `LM_CFO_UID`, `TELEGRAM_ALERT_CHAT_ID`, `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL`,
-  `SUPABASE_SERVICE_ROLE_KEY`, and `LM_UID_SECRET` are the shared-loop contract. The legacy
-  `LM_CFO_TELEGRAM_CHAT_ID` and `LM_TELEGRAM_BOT_TOKEN` names remain accepted as fallbacks for
-  standalone Life Manager installations; when both token families exist, the shared-loop bot is used.
-- State is outside the code release at `CFO_STATE_DIR` (default: `~/loops/cfo-hourly`). The wrapper
-  records only the runner's redacted status envelope in `last-result.json`.
+- `LM_CFO_UID`, `TELEGRAM_ALERT_CHAT_ID`, and `TELEGRAM_BOT_TOKEN` are the shared-loop contract.
+  `LM_CFO_TELEGRAM_CHAT_ID` remains accepted as a standalone chat-ID fallback; token ownership has one
+  canonical name, `TELEGRAM_BOT_TOKEN`.
+- State is outside the code release at `CFO_STATE_DIR` (default:
+  `~/.local/state/life-manager/life-manager-cfo-hourly`). The wrapper and Node process use this exact
+  same directory. Agent Economy revenue defaults to its repository-managed local state under
+  `~/loops/agent-economy`; `LM_AGENT_ECONOMY_HOME` or `REVENUE_RECEIPT_JOURNAL` may select another
+  self-hosted instance. Marketplace receipt journals are optional and explicitly configured with
+  `LM_CFO_MARKETPLACE_RECEIPTS`. The wrapper records only the runner's redacted status envelope in
+  `last-result.json`.
 - A failure produces a fixed redacted status envelope and a non-zero exit. It never invents a
   financial amount, retries out of band, or logs raw provider/error payloads.
 
