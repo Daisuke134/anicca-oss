@@ -33,6 +33,17 @@ def load_module():
     return module
 
 
+def test_acquire_cli_preserves_exact_requested_url():
+    module = load_module()
+    assert module._acquire_url([
+        "cdp_context_lease.py", "acquire", "mercor-task",
+        "https://work.mercor.com/explore",
+    ]) == "https://work.mercor.com/explore"
+    assert module._acquire_url([
+        "cdp_context_lease.py", "acquire", "mercor-task", "--no-seed",
+    ]) == "about:blank"
+
+
 class NeverAnsweringSocket:
     async def __aenter__(self):
         return self

@@ -70,6 +70,12 @@ def _max_contexts():
     return limit
 
 
+def _acquire_url(argv):
+    if len(argv) > 3 and isinstance(argv[3], str) and not argv[3].startswith("--"):
+        return argv[3]
+    return "about:blank"
+
+
 def _operation_lock_path(target_id):
     leases_dir = os.path.dirname(_leases_path())
     return os.path.join(leases_dir, "operations", f"{target_id}.lock")
@@ -768,7 +774,11 @@ if __name__ == "__main__":
         token = sys.argv[sys.argv.index("--token") + 1] if "--token" in sys.argv else None
         generation = int(sys.argv[sys.argv.index("--generation") + 1]) if "--generation" in sys.argv else None
         if cmd == "acquire":
-            out = acquire(arg or "unnamed", no_seed="--no-seed" in sys.argv)
+            out = acquire(
+                arg or "unnamed",
+                url=_acquire_url(sys.argv),
+                no_seed="--no-seed" in sys.argv,
+            )
         elif cmd == "heartbeat":
             out = heartbeat(arg or "unnamed", token=token, generation=generation)
         elif cmd == "release":
