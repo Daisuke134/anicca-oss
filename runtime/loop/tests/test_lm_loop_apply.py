@@ -76,7 +76,8 @@ class LmLoopApplyTest(unittest.TestCase):
         (release / "RELEASE.json").write_text(json.dumps({"sha": SHA}))
         return release
 
-    def _launchctl_recorder(self, expected_arguments: list[str] | None = None) -> tuple[Path, Path]:
+    def _launchctl_recorder(self, expected_arguments: list[str] | None = None,
+                            label: str = "ai.anicca.example") -> tuple[Path, Path]:
         calls = self.root / "launchctl.calls"
         state = self.root / "launchctl.state"
         executable = self.root / "launchctl-safe"
@@ -86,8 +87,8 @@ class LmLoopApplyTest(unittest.TestCase):
         )
         if expected_arguments is not None:
             domain = f"gui/{os.getuid()}"
-            service = f"{domain}/ai.anicca.example"
-            plist = self.root / "LaunchAgents/ai.anicca.example.plist"
+            service = f"{domain}/{label}"
+            plist = self.root / f"LaunchAgents/{label}.plist"
             script += "if [ \"$1\" = preflight ]; then\n"
             script += "[ \"$#\" -eq 1 ] || exit 90\n"
             script += "elif [ \"$1\" = print ]; then\n"
@@ -117,8 +118,9 @@ class LmLoopApplyTest(unittest.TestCase):
         return executable, calls
 
     def _apply_kwargs(self, current: Path, lock_path: Path,
-                      expected_arguments: list[str] | None = None) -> dict:
-        launchctl_safe, calls = self._launchctl_recorder(expected_arguments)
+                      expected_arguments: list[str] | None = None,
+                      label: str = "ai.anicca.example") -> dict:
+        launchctl_safe, calls = self._launchctl_recorder(expected_arguments, label)
         agents_dir = self.root / "LaunchAgents"
         agents_dir.mkdir()
         return {
@@ -1244,6 +1246,44 @@ class LmLoopApplyTest(unittest.TestCase):
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
         self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+
+    def test_cfo_target_retires_only_obsolete_cfo_environment(self):
+        release = self._release("release-cfo").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.life-manager-cfo-hourly"
+        registry_value["loops"]["life-manager-cfo-hourly"] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-cfo"
+        current.symlink_to(release)
+        expected_arguments = [
+            str(release / "bin/lm-loop-run"), "life-manager-cfo-hourly", str(release),
+        ]
+        values = self._apply_kwargs(
+            current, self.root / "apply-cfo.lock", expected_arguments,
+            label="ai.anicca.life-manager-cfo-hourly",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.life-manager-cfo-hourly.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "LIFE_MANAGER_APP_DIR": "/obsolete/app",
+            "CFO_STATE_DIR": "/obsolete/state",
+            "TELEGRAM_ALERT_CHAT_ID": "kept",
+        })
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target="life-manager-cfo-hourly", current=current,
+            lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("LIFE_MANAGER_APP_DIR", environment)
+        self.assertNotIn("CFO_STATE_DIR", environment)
+        self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
 
     def test_launchctl_recorder_rejects_wrong_service(self):
         launchctl_safe, _ = self._launchctl_recorder(["/release/bin/lm-loop-run", "example", "/release"])
