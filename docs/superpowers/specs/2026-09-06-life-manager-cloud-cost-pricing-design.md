@@ -282,7 +282,9 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    (`skills/tools/telegram-user/tg_user.py`, Telethon 1.44.0)でDaisのTelegram actorを読み書きする。
    2026-09-07にCloud Life Managerを会話一覧から特定し、履歴8件のread、`/start lp`のsend
    (message_id 67421)、4秒後のBot応答readback (message_id 67422)までPASS。Bot tokenの
-   webhook/getUpdates ownershipは変更していない。残りは新規開始相当の状態遷移、最初のTravel block・
+   webhook/getUpdates ownershipは変更していない。さらに既存データを消さない`/reset` (67432)から
+   `/start lp` (67433)、reset確認 (67434)、準備完了 (67436)までTelegram user readbackでPASSし、
+   完了状態へ復帰した。残りは新規開始相当の状態遷移、最初のTravel block・
    乗換案内・Telegram provider receipt・replay追加送信0を本番でE2Eする。
 6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
 
