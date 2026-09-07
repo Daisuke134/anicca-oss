@@ -12,7 +12,6 @@ const CATCH_UP_MS = 15 * 60 * 1000;
 const REMINDER_LOOKBACK_MS = CATCH_UP_MS - T5_MS;
 const PREVIOUS_EVENT_WINDOW_MS = 90 * 60 * 1000;
 const DEFAULT_TIMEZONE = "Asia/Tokyo";
-const ALLOWANCE_COPY = "今月の無料利用分を使い切りました。設定とこれまでの情報はそのまま残っています。翌月に無料利用分が戻ります。";
 
 function toMs(value) {
   if (value instanceof Date) value = value.getTime();
@@ -344,7 +343,7 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
       if (!allowance || allowance.allowed !== true) {
         return { event, key, route: null, routeAttempted: false,
           departureMs: startMs(event), dueAt: computeReminderDueAt(event, { departureMs: startMs(event) }),
-          allowanceBlocked: true, allowanceNotify: Boolean(allowance && allowance.notify === true) };
+          allowanceBlocked: true };
       }
     }
     let targetGoClaimed = false;
@@ -409,12 +408,12 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   }
   if (!selected) return { status: "suppressed", reason: "duplicate" };
   const { event, key, route, routeAttempted, departureMs } = selected;
-  if (selected.allowanceBlocked === true && selected.allowanceNotify !== true) {
+  if (selected.allowanceBlocked === true) {
     await (deps.unclaimTravel || unclaimTravel)(user.uid, key, "telegram-t5", supaUrl, supaKey);
     return { status: "suppressed", reason: "allowance-exhausted" };
   }
   let response = null;
-  const message = selected.allowanceBlocked === true ? ALLOWANCE_COPY : formatTravelReminder(event, route, {
+  const message = formatTravelReminder(event, route, {
     departureMs, timezone: deps.timezone || user.call_time_zone || DEFAULT_TIMEZONE, routeAttempted,
   });
   try { response = await (deps.sendMessage || sendMessage)(token, chatId, message); }
@@ -463,5 +462,4 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
 module.exports = {
   T5_MS, CATCH_UP_MS, isReminderDue, nextReminderEvent, resolveReminderOrigin,
   resolveReminderDestination, computeDepartureMs, computeReminderDueAt, formatTravelReminder, travelReminderOnce, escapeHtml,
-  ALLOWANCE_COPY,
 };

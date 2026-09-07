@@ -46,6 +46,7 @@ const { travelReminderOnce } = require("./lib/travel-reminder.js");
 const {
   reserveManagedAction, completeManagedAction, releaseManagedAction,
 } = require("./lib/managed-allowance.js");
+const { deliverAllowanceNotice } = require("./lib/allowance-notice.js");
 const {
   DISCOVERY_WEEK_MS, listDiscoveryUsers, runDiscoveryForUser,
 } = require("./lib/feature-discovery.js");
@@ -611,7 +612,7 @@ async function reminderUserOnce(u, nowMs, deps = {}) {
   const reminderTimeoutMs = deps.reminderTimeoutMs !== undefined
     ? deps.reminderTimeoutMs
     : (deps.travelReminderTimeoutMs !== undefined ? deps.travelReminderTimeoutMs : REMINDER_TIMEOUT_MS);
-  return runOrgan({
+  const reminderResult = await runOrgan({
     label: "organ:travel-reminder", uid: u.uid, log,
     run: () => withTimeout(async () => {
       const configuredSupa = SUPA();
@@ -642,6 +643,19 @@ async function reminderUserOnce(u, nowMs, deps = {}) {
       });
     }, reminderTimeoutMs, "travel reminder"),
   });
+  const noticeFn = deps.allowanceNotice || (deps.travelReminder ? null : deliverAllowanceNotice);
+  if (typeof noticeFn === "function") {
+    try {
+      await noticeFn(u, {
+        supaUrl: deps.supaUrl !== undefined ? deps.supaUrl : SUPA().url,
+        supaKey: deps.supaKey !== undefined ? deps.supaKey : SUPA().key,
+        telegramToken: deps.telegramToken !== undefined ? deps.telegramToken : process.env.LM_TELEGRAM_BOT_TOKEN,
+        sendMessage: deps.sendMessage || sendMessage,
+        fetchImpl: deps.fetchImpl,
+      });
+    } catch { /* notice failure must not change the deadline-critical reminder result */ }
+  }
+  return reminderResult;
 }
 
 // organsUserOnce — everything that is NOT the wake call or deadline-critical Telegram reminder.

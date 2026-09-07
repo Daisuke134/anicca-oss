@@ -668,28 +668,25 @@ test("travelReminderOnce sends an event-only reminder when origin is unavailable
   assert.doesNotMatch(sent[0], /経路を取得できませんでした/);
 });
 
-test("monthly allowance blocks new route effects and emits its notice at most when authorized", async () => {
-  for (const notify of [true, false]) {
+test("monthly allowance blocks new route effects; the separate receipt-safe notifier owns the notice", async () => {
     let routes = 0, sends = 0, releases = 0;
-    const due = event({ id: `allowance-${notify}`, startMs: NOW + T5_MS });
+    const due = event({ id: "allowance-event", startMs: NOW + T5_MS });
     const result = await travelReminderOnce({ uid: "allowance-user", telegram_chat_id: "chat", notifications_enabled: true }, NOW, {
       events: [due], home: HOME, telegramToken: "token", supaUrl: "supa", supaKey: "key",
-      reserveManagedAction: async () => ({ allowed: false, notify }),
+      reserveManagedAction: async () => ({ allowed: false }),
       directionsRoute: async () => { routes += 1; return routeFixture(); },
       claimTravel: async () => true,
       unclaimTravel: async () => { releases += 1; return true; },
       sendMessage: async (_token, _chat, text) => {
-        sends += 1;
-        assert.match(text, /今月の無料利用分を使い切りました/);
+        sends += 1; void text;
         return { ok: true, result: { message_id: 799 } };
       },
       recordTravelTelegramReceipt: successfulReceipt,
     });
     assert.equal(routes, 0, "no paid route call after allowance exhaustion");
-    assert.equal(sends, notify ? 1 : 0);
-    assert.equal(result.status, notify ? "sent" : "suppressed");
-    assert.equal(releases, notify ? 0 : 1);
-  }
+    assert.equal(sends, 0);
+    assert.equal(result.status, "suppressed");
+    assert.equal(releases, 1);
 });
 
 test("travelReminderOnce does not send before threshold", async () => {
