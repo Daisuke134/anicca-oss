@@ -271,22 +271,6 @@
       "provider_route": "shared-agent-runner",
       "state_root": "~/.openclaw"
     },
-    "agents-skills-sync": {
-      "cadence": {
-        "start_interval_seconds": 1800
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "system",
-      "effect_class": "none",
-      "entrypoint": "skills/self-sync/sync.sh",
-      "label": "ai.anicca.agents-skills-sync",
-      "log_root": "~/.openclaw/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
-    },
     "article-audit-7day": {
       "cadence": {
         "calendar_interval": {
@@ -3216,6 +3200,7 @@
     }
   },
   "retired_labels": [
+    "ai.anicca.agents-skills-sync",
     "ai.anicca.autohedge",
     "ai.anicca.bounty-proactive",
     "ai.anicca.cfo-daily",
