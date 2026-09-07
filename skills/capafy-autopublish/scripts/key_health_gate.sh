@@ -41,8 +41,9 @@ alert_user() {
   local marker="$STATE_DIR/.capafy-funding-alert-$(date +%Y-%m-%d)"
   [ -f "$marker" ] && return 0   # already alerted today
   local msg="⚠️ Capafy host LLM key funding ${reason}: OpenRouter remaining \$${remain} (block threshold \$${MIN}, warn <\$${ALERT_CUSHION}). Publishing will stall until topped up. Top up (user only, no auto-charge): https://openrouter.ai/settings/credits"
-  if command -v openclaw >/dev/null 2>&1 && [ -n "${TELEGRAM_ALERT_CHAT_ID:-}" ]; then
-    openclaw message send --channel telegram --target "$TELEGRAM_ALERT_CHAT_ID" --message "$msg" --json >/dev/null 2>&1 \
+  local sender="$(cd -- "$(dirname -- "$0")/../.." && pwd)/_shared/send-telegram.sh"
+  if [ -x "$sender" ] && [ -n "${TELEGRAM_ALERT_CHAT_ID:-}" ]; then
+    "$sender" "$msg" "$TELEGRAM_ALERT_CHAT_ID" >/dev/null 2>&1 \
       && touch "$marker"
   fi
 }

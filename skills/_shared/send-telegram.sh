@@ -14,5 +14,9 @@ export LIFE_MANAGER_ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$LIFE_MANAGER_STATE_HOME/
 [ -f "$LIFE_MANAGER_ENV_FILE" ] && set -a && source "$LIFE_MANAGER_ENV_FILE" && set +a
 CHAT_ID="${2:-${TELEGRAM_ALERT_CHAT_ID:?chat_id argument or TELEGRAM_ALERT_CHAT_ID is required}}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
-"${PYTHON:-python3}" "$SCRIPT_DIR/telegram.py" --chat-id "$CHAT_ID" text "$MSG" >/dev/null
-echo "TELEGRAM_SENT=true"
+RESPONSE="$("${PYTHON:-python3}" "$SCRIPT_DIR/telegram.py" --chat-id "$CHAT_ID" text "$MSG")"
+MSG_ID="$(printf '%s' "$RESPONSE" | "${PYTHON:-python3}" -c 'import json,sys
+value=json.load(sys.stdin).get("message_ids", [])
+print(value[-1] if isinstance(value, list) and value else "")')"
+[ -n "$MSG_ID" ] || { echo "TELEGRAM_SENT=false"; exit 1; }
+echo "TELEGRAM_SENT=true MSGID=$MSG_ID"
