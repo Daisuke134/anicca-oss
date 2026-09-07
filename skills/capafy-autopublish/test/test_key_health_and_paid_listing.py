@@ -23,7 +23,7 @@ CANONICAL_PAID_ONLY_FILES = (
 
 
 class KeyHealthGateTest(unittest.TestCase):
-    def run_gate(self, key_response, enable_alert=False):
+    def run_gate(self, key_response, enable_alert=False, credits_remaining=9):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             fake_bin = root / "bin"
@@ -35,7 +35,7 @@ class KeyHealthGateTest(unittest.TestCase):
 printf '%s\\n' "$*" >> "$FAKE_CURL_CALLS"
 case "$*" in
   *https://openrouter.ai/api/v1/key*) printf '%s\\n' "$FAKE_KEY_RESPONSE" ;;
-  *https://openrouter.ai/api/v1/credits*) printf '%s\\n' '{"data":{"total_credits":10,"total_usage":1}}' ;;
+  *https://openrouter.ai/api/v1/credits*) printf '%s\\n' "$FAKE_CREDITS_RESPONSE" ;;
   *https://openrouter.ai/api/v1/chat/completions*) printf '%s\\n' '{"choices":[{"message":{"content":"ok"}}]}' ;;
   *) exit 1 ;;
 esac
@@ -60,6 +60,9 @@ exit 0
                     "PATH": f"{fake_bin}:{env['PATH']}",
                     "CAPAFY_HOST_OPENROUTER_KEY": "key-must-not-print",
                     "FAKE_KEY_RESPONSE": json.dumps(key_response),
+                    "FAKE_CREDITS_RESPONSE": json.dumps(
+                        {"data": {"total_credits": credits_remaining, "total_usage": 0}}
+                    ),
                     "FAKE_CURL_CALLS": str(calls),
                     "FAKE_OPENCLAW_CALLS": str(alert_calls),
                     "LIFE_MANAGER_STATE_HOME": str(root / "state"),
@@ -70,7 +73,7 @@ exit 0
             else:
                 env.pop("TELEGRAM_ALERT_CHAT_ID", None)
             result = subprocess.run(
-                ["bash", str(KEY_GATE), "2.00"],
+                ["bash", str(KEY_GATE)],
                 env=env,
                 text=True,
                 capture_output=True,
@@ -100,6 +103,22 @@ exit 0
         self.assertIn("https://openrouter.ai/api/v1/key", call_text)
         self.assertIn("https://openrouter.ai/api/v1/credits", call_text)
         self.assertIn("https://openrouter.ai/api/v1/chat/completions", call_text)
+
+    def test_positive_key_limit_below_one_capafy_request_blocks_before_probe(self):
+        result, call_text, _, _ = self.run_gate(
+            {"data": {"limit_remaining": 1.50}}, credits_remaining=20
+        )
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("key_limit_below_request_headroom", output)
+        self.assertNotIn("https://openrouter.ai/api/v1/chat/completions", call_text)
+
+    def test_balance_below_default_safety_floor_blocks(self):
+        result, _, _, _ = self.run_gate(
+            {"data": {"limit_remaining": 10}}, credits_remaining=4.99
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("balance_too_low", result.stdout + result.stderr)
 
     def test_exhausted_key_calls_deduped_alert_without_printing_key(self):
         result, _, alert_text, marker_count = self.run_gate(

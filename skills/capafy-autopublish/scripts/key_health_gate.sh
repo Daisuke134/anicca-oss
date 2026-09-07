@@ -14,7 +14,7 @@
 #   3. POST /chat/completions anthropic/claude-sonnet-4.6 max_tokens=5 -> must return 200 + content
 # NEVER prints the key. Exits 0 = healthy (publish may proceed), 1 = block (fail-closed).
 #
-# Usage: key_health_gate.sh [min_remaining_usd]   (default 2.00)
+# Usage: key_health_gate.sh [min_remaining_usd]   (default 5.00)
 #
 # FUNDING ALERT (#21, 2026-07-19): the gate is fail-closed but was SILENT — when the balance
 # ran low the loop just stopped publishing and user never knew a top-up was needed. This gate now
@@ -24,7 +24,11 @@
 # at-most-once-per-calendar-day so a daily loop can't spam. Never prints the key.
 set -uo pipefail
 
-MIN="${1:-2.00}"
+MIN="${1:-5.00}"
+# Capafy currently asks OpenRouter to admit up to 128k completion tokens. At
+# Sonnet 4.6's $15/M completion price that is $1.92 before prompt cost. Require
+# enough per-key daily headroom for one worst-case admission, not merely > $0.
+REQUEST_HEADROOM="${CAPAFY_REQUEST_HEADROOM_USD:-2.25}"
 # Warn while still passing but getting low, so user tops up BEFORE an outage.
 ALERT_CUSHION="${CAPAFY_FUNDING_ALERT_USD:-5.00}"
 LIFE_MANAGER_STATE_HOME="${LIFE_MANAGER_STATE_HOME:-$HOME/.local/state/life-manager}"
@@ -50,7 +54,7 @@ if [ -z "$KEY" ]; then
   echo "KEY_HEALTH=FAIL reason=CAPAFY_HOST_OPENROUTER_KEY missing"; exit 1
 fi
 
-KEY_LIMIT_STATUS="$(curl -s --max-time 20 https://openrouter.ai/api/v1/key \
+KEY_LIMIT_REMAINING="$(curl -s --max-time 20 https://openrouter.ai/api/v1/key \
   -H "Authorization: Bearer $KEY" | python3 -c '
 import json, math, sys
 try:
@@ -65,19 +69,26 @@ try:
                 or not math.isfinite(remaining):
             print("ERR")
         elif remaining <= 0:
-            print("EXHAUSTED")
+            print("0")
         else:
-            print("AVAILABLE")
+            print(remaining)
 except Exception:
     print("ERR")
 ' 2>/dev/null)"
 
-case "$KEY_LIMIT_STATUS" in
-  EXHAUSTED)
+case "$KEY_LIMIT_REMAINING" in
+  0)
     alert_user "unknown" "BLOCKED (per-key limit exhausted)"
     echo "KEY_HEALTH=FAIL reason=key_limit_exhausted"; exit 1 ;;
-  AVAILABLE|UNLIMITED) ;;
-  *) echo "KEY_HEALTH=FAIL reason=key_read_failed"; exit 1 ;;
+  UNLIMITED) ;;
+  ''|ERR) echo "KEY_HEALTH=FAIL reason=key_read_failed"; exit 1 ;;
+  *)
+    HEADROOM_OK="$(python3 -c "print('1' if float('$KEY_LIMIT_REMAINING')>=float('$REQUEST_HEADROOM') else '0')" 2>/dev/null)"
+    if [ "$HEADROOM_OK" != "1" ]; then
+      alert_user "$KEY_LIMIT_REMAINING" "BLOCKED (per-key limit below one request)"
+      echo "KEY_HEALTH=FAIL reason=key_limit_below_request_headroom remaining=\$$KEY_LIMIT_REMAINING required=\$$REQUEST_HEADROOM"
+      exit 1
+    fi ;;
 esac
 
 REMAIN="$(curl -s --max-time 20 https://openrouter.ai/api/v1/credits \
