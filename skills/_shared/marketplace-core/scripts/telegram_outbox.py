@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 from pathlib import Path
+import re
 import sqlite3
 from typing import Iterator, Optional
 
@@ -20,11 +21,9 @@ class IdempotencyConflict(OutboxError):
 class StaleClaim(OutboxError):
     """The claim this worker holds was reclaimed and re-issued, so its result is not authoritative.
 
-    reclaim_stale returns an abandoned 'sending' row to pending, and claim_next hands it to a second
-    worker. Without this check the first worker — merely slow, not dead — can still resolve the row,
-    overwriting the live worker's record with a result from a send nobody is tracking. The Coconala
-    outbox has fenced this since it was written; the shared one did not, which is why nothing should
-    have migrated onto it yet.
+    A resolver must still match the claim identity it was handed. This protects explicit pre-send
+    retries and any future ownership transfer. Abandoned claims are quarantined as
+    delivery_uncertain and are never transferred to another sender.
     """
 
 
@@ -47,6 +46,8 @@ class OutboxItem:
 
 
 _TABLE = "telegram_outbox"
+_COMMON_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_SHA256 = re.compile(r"^[a-f0-9]{64}$")
 _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS {_TABLE} (
     event_key TEXT PRIMARY KEY,
@@ -315,28 +316,99 @@ def mark_delivery_uncertain(
 
 
 def reclaim_stale(database: Path, *, older_than_seconds: int = 900) -> int:
-    """Return claims abandoned by a dead sender to pending.
+    """Quarantine claims abandoned after a provider call may have started.
 
     A claim moves to 'sending' before the provider call and is resolved after it. If the process
-    dies in between — killed by a supervisor, a host restart — nothing resolves it, and because
-    claim_next only looks at 'pending' the queue stops delivering entirely and silently. Measured
-    2026-09-05: three abandoned claims blocked every later CrowdWorks report.
-
-    A reclaimed message may already have reached the provider, so this is deliberately conservative:
-    only claims older than the window are returned, and only when no provider id was recorded.
+    dies in between, the message may already have reached Telegram. Returning it to pending would
+    blindly resend it. Keep its claim evidence and move it to delivery_uncertain instead; provider
+    readback may later reconcile it with mark_delivered.
     """
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max(1, int(older_than_seconds)))).isoformat()
     with _write_connection(database) as connection:
         cursor = connection.execute(
             f"""
             UPDATE {_TABLE}
-            SET status = 'pending', claimed_at = NULL, last_error_code = 'sender_abandoned'
+            SET status = 'delivery_uncertain', last_error_code = 'sender_abandoned'
             WHERE status = 'sending' AND provider_message_id IS NULL AND claimed_at IS NOT NULL
               AND claimed_at < ?
             """,
             (cutoff,),
         )
         return int(cursor.rowcount or 0)
+
+
+def to_common_outbox(
+    item: OutboxItem,
+    *,
+    loop_id: str,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+    effect_id: Optional[str] = None,
+) -> dict[str, object]:
+    """Project the existing SQLite row to the common OutboxItem wire contract."""
+
+    loop_id = _require_text("loop_id", loop_id)
+    if not _COMMON_ID.fullmatch(loop_id):
+        raise ValueError("loop_id is not a common ID")
+    for name, value in (("tenant_id", tenant_id), ("job_id", job_id), ("effect_id", effect_id)):
+        if value is not None and (not isinstance(value, str) or not _COMMON_ID.fullmatch(value)):
+            raise ValueError(f"{name} is not a common ID")
+    if not 1 <= len(item.event_key) <= 1024:
+        raise ValueError("event_key is outside the common message_key bounds")
+    if not _SHA256.fullmatch(item.message_sha256):
+        raise ValueError("message_sha256 is invalid")
+    if item.status not in {"pending", "sending", "delivered", "delivery_uncertain"}:
+        raise ValueError("outbox status is invalid")
+    if item.attempt_count < 0:
+        raise ValueError("outbox attempt_count is invalid")
+
+    def timestamp(name: str, value: Optional[str], *, required: bool = False) -> None:
+        if value is None:
+            if required:
+                raise ValueError(f"{name} is invalid")
+            return
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (AttributeError, TypeError, ValueError) as error:
+            raise ValueError(f"{name} is invalid") from error
+        if parsed.utcoffset() is None:
+            raise ValueError(f"{name} is invalid")
+
+    timestamp("created_at", item.created_at, required=True)
+    timestamp("claimed_at", item.claimed_at)
+    timestamp("delivered_at", item.delivered_at)
+    if item.status == "pending" and (
+        item.claimed_at is not None or item.delivered_at is not None or item.provider_message_id is not None
+    ):
+        raise ValueError("pending outbox evidence is invalid")
+    if item.status in {"sending", "delivery_uncertain"} and (
+        item.attempt_count < 1 or item.claimed_at is None
+        or item.delivered_at is not None or item.provider_message_id is not None
+    ):
+        raise ValueError(f"{item.status} outbox evidence is invalid")
+    if item.status == "delivered" and (
+        item.attempt_count < 1 or item.claimed_at is None
+        or item.delivered_at is None or not item.provider_message_id
+    ):
+        raise ValueError("delivered outbox evidence is invalid")
+    provider_ids = [] if item.provider_message_id is None else [item.provider_message_id]
+    return {
+        "schema_version": 1,
+        "record_type": "outbox_item",
+        "message_key": item.event_key,
+        "tenant_id": tenant_id,
+        "job_id": job_id,
+        "effect_id": effect_id,
+        "loop_id": loop_id,
+        "status": item.status,
+        "attempt_count": item.attempt_count,
+        "payload_sha256": item.message_sha256,
+        "provider": "telegram",
+        "created_at": item.created_at,
+        "claimed_at": item.claimed_at,
+        "delivered_at": item.delivered_at,
+        "provider_message_ids": provider_ids,
+    }
 
 
 def list_items(database: Path) -> list[OutboxItem]:
@@ -362,4 +434,5 @@ __all__ = [
     "mark_delivery_uncertain",
     "mark_pre_send_failed",
     "reclaim_stale",
+    "to_common_outbox",
 ]

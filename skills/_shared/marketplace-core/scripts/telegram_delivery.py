@@ -1,7 +1,7 @@
 """One delivery loop and one Telegram sender for every marketplace lane.
 
 Each lane decides *what* to say. Nothing about *how* it is sent is per-platform: claim, send,
-record the receipt, return an abandoned claim. Lancers and CrowdWorks had grown separate copies of
+record the receipt, quarantine an abandoned claim. Lancers and CrowdWorks had grown separate copies of
 that loop, and the CrowdWorks copy shipped a different transport — the openclaw CLI, which launchd
 cannot find because it gives a job no PATH — so it reported nothing for a day while exiting 0.
 """
@@ -57,7 +57,7 @@ def send_via_shared_client(message: str, *, chat_id: str, env_file: Optional[Pat
 
 
 def deliver_pending(outbox: Any, database: Path, notifier: Callable[[str], SendResult], now: str, *, limit: int = 20) -> Delivery:
-    """Drain the outbox once: reclaim abandoned claims, then send what is pending."""
+    """Drain the outbox once: quarantine abandoned claims, then send what is pending."""
     attempted = delivered = uncertain = pre_send = 0
     try: outbox.reclaim_stale(Path(database))
     except Exception: pass
@@ -66,9 +66,8 @@ def deliver_pending(outbox: Any, database: Path, notifier: Callable[[str], SendR
         if item is None: break
         try: result = notifier(item.message)
         except Exception: result = SendResult(True, None, "provider_error")
-        # Resolve under the claim this iteration was handed. If reclaim_stale returned the row and
-        # another worker took it while the provider call was in flight, this raises StaleClaim
-        # rather than overwriting the live worker's record.
+        # Resolve under the claim this iteration was handed. Abandoned claims are never handed to
+        # another sender; the fence also protects explicit pre-send retries and future transfers.
         fence = {"claimed_at": item.claimed_at}
         try:
             if not result.started:
