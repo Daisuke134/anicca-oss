@@ -12,6 +12,7 @@ const CATCH_UP_MS = 15 * 60 * 1000;
 const REMINDER_LOOKBACK_MS = CATCH_UP_MS - T5_MS;
 const PREVIOUS_EVENT_WINDOW_MS = 90 * 60 * 1000;
 const DEFAULT_TIMEZONE = "Asia/Tokyo";
+const ALLOWANCE_COPY = "今月の無料利用分を使い切りました。設定とこれまでの情報はそのまま残っています。翌月に無料利用分が戻ります。";
 
 function toMs(value) {
   if (value instanceof Date) value = value.getTime();
@@ -337,6 +338,15 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   const home = deps.home !== undefined ? deps.home : user.home_address;
   const prepareCandidate = async (event) => {
     const key = eventKey(event);
+    let allowance = { allowed: true };
+    if (physical(event) && typeof deps.reserveManagedAction === "function") {
+      allowance = await deps.reserveManagedAction(user.uid, key, supaUrl, supaKey);
+      if (!allowance || allowance.allowed !== true) {
+        return { event, key, route: null, routeAttempted: false,
+          departureMs: startMs(event), dueAt: computeReminderDueAt(event, { departureMs: startMs(event) }),
+          allowanceBlocked: true, allowanceNotify: Boolean(allowance && allowance.notify === true) };
+      }
+    }
     let targetGoClaimed = false;
     const previousReturnClaims = new Map();
     if (physical(event)) {
@@ -399,10 +409,16 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   }
   if (!selected) return { status: "suppressed", reason: "duplicate" };
   const { event, key, route, routeAttempted, departureMs } = selected;
+  if (selected.allowanceBlocked === true && selected.allowanceNotify !== true) {
+    await (deps.unclaimTravel || unclaimTravel)(user.uid, key, "telegram-t5", supaUrl, supaKey);
+    return { status: "suppressed", reason: "allowance-exhausted" };
+  }
   let response = null;
-  try { response = await (deps.sendMessage || sendMessage)(token, chatId, formatTravelReminder(event, route, {
+  const message = selected.allowanceBlocked === true ? ALLOWANCE_COPY : formatTravelReminder(event, route, {
     departureMs, timezone: deps.timezone || user.call_time_zone || DEFAULT_TIMEZONE, routeAttempted,
-  })); } catch { response = { ok: false, delivery_unknown: true }; }
+  });
+  try { response = await (deps.sendMessage || sendMessage)(token, chatId, message); }
+  catch { response = { ok: false, delivery_unknown: true }; }
   const deliveryUnknown = !response || response.delivery_unknown === true || response.deliveryUnknown === true
     || typeof response.ok !== "boolean" || (response.ok === true && !(response.result && typeof response.result === "object"
       && !Array.isArray(response.result) && Number.isInteger(response.result.message_id) && response.result.message_id > 0));
@@ -416,6 +432,9 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     let released = false;
     try { released = await (deps.unclaimTravel || unclaimTravel)(user.uid, key, "telegram-t5", supaUrl, supaKey); } catch { /* retry next tick */ }
     if (released !== true) logReconciliation(deps, "[travel-reminder] reconciliation required");
+    if (typeof deps.releaseManagedAction === "function") {
+      await deps.releaseManagedAction(user.uid, key, supaUrl, supaKey);
+    }
     return { status: "send_failed", eventKey: key };
   }
   let receipt;
@@ -430,6 +449,12 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     logReconciliation(deps, "[travel-reminder] delivery receipt reconciliation required");
     return { status: "delivery_unknown" };
   }
+  if (selected.allowanceBlocked !== true && typeof deps.completeManagedAction === "function") {
+    const completed = await deps.completeManagedAction(user.uid, key, supaUrl, supaKey);
+    if (!completed || completed.allowed !== true) {
+      logReconciliation(deps, "[travel-reminder] allowance receipt reconciliation required");
+    }
+  }
   const provider = route && route.provider ? String(route.provider) : "none";
   (deps.log || console.log)(`[travel-reminder] uid=${String(user.uid).slice(0, 12)} event_key_hash=${crypto.createHash("sha256").update(key).digest("hex")} provider=${provider} tg_message_id=${messageId}`);
   return { status: "sent", eventKey: key, provider, telegramMessageId: messageId };
@@ -438,4 +463,5 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
 module.exports = {
   T5_MS, CATCH_UP_MS, isReminderDue, nextReminderEvent, resolveReminderOrigin,
   resolveReminderDestination, computeDepartureMs, computeReminderDueAt, formatTravelReminder, travelReminderOnce, escapeHtml,
+  ALLOWANCE_COPY,
 };

@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS public.lm_managed_action_ledger (
 
 ALTER TABLE public.lm_managed_action_ledger ENABLE ROW LEVEL SECURITY;
 
+CREATE TABLE IF NOT EXISTS public.lm_managed_allowance_notice (
+  uid text NOT NULL,
+  period_start date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY (uid, period_start)
+);
+
+ALTER TABLE public.lm_managed_allowance_notice ENABLE ROW LEVEL SECURITY;
+
 CREATE OR REPLACE FUNCTION public.lm_managed_allowance_result(
   p_uid text,
   p_period_start date,
@@ -52,6 +61,7 @@ DECLARE
   active_count integer;
   existing_status text;
   allowed boolean := false;
+  notify boolean := false;
 BEGIN
   IF p_uid IS NULL OR btrim(p_uid) = '' OR char_length(p_uid) > 256
      OR p_action_key IS NULL OR btrim(p_action_key) = '' OR char_length(p_action_key) > 512 THEN
@@ -74,9 +84,15 @@ BEGIN
       INSERT INTO public.lm_managed_action_ledger(uid, period_start, action_key, status)
       VALUES (p_uid, period, p_action_key, 'pending');
       allowed := true;
+    ELSE
+      INSERT INTO public.lm_managed_allowance_notice(uid, period_start)
+      VALUES (p_uid, period) ON CONFLICT DO NOTHING;
+      GET DIAGNOSTICS active_count = ROW_COUNT;
+      notify := active_count = 1;
     END IF;
   END IF;
-  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, allowed);
+  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, allowed)
+    || jsonb_build_object('notify', notify);
 END;
 $function$;
 
@@ -86,7 +102,8 @@ DECLARE period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')
 BEGIN
   UPDATE public.lm_managed_action_ledger SET status = 'succeeded', completed_at = COALESCE(completed_at, clock_timestamp())
    WHERE uid = p_uid AND period_start = period AND action_key = p_action_key;
-  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, FOUND);
+  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, FOUND)
+    || jsonb_build_object('notify', false);
 END;
 $function$;
 
@@ -96,11 +113,13 @@ DECLARE period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')
 BEGIN
   DELETE FROM public.lm_managed_action_ledger
    WHERE uid = p_uid AND period_start = period AND action_key = p_action_key AND status = 'pending';
-  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, true);
+  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, true)
+    || jsonb_build_object('notify', false);
 END;
 $function$;
 
 REVOKE ALL ON TABLE public.lm_managed_action_ledger FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.lm_managed_allowance_notice FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.lm_managed_allowance_result(text,date,text,boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.reserve_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.complete_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;

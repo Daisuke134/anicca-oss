@@ -152,6 +152,25 @@ test("[INTEGRATION][FIND-001] two same-startMs events with DIFFERENT ids BOTH ge
   s.restore();
 });
 
+test("[ALLOWANCE] exhausted tenant keeps Calendar read but performs zero route or Calendar write", async () => {
+  const start = "2026-06-20T14:00:00+09:00", end = "2026-06-20T15:00:00+09:00";
+  const cal = makeFakeCalendar([rawEvId("allowance-event", "Dentist", "Shibuya, Tokyo", start, end)]);
+  let routes = 0, reserves = 0, completes = 0;
+  const result = await fillTravel("allowance-user", {
+    apiKey: "x", mapsKey: "x", home: "Setagaya, Tokyo",
+    nowMs: Date.parse("2026-06-20T08:00:00+09:00"), calendar: cal,
+    supaUrl: "http://s", supaKey: "k",
+    _reserveManagedAction: async () => { reserves += 1; return { allowed: false }; },
+    _completeManagedAction: async () => { completes += 1; return { allowed: true }; },
+    _directionsMinutes: async () => { routes += 1; return 30; },
+  });
+  assert.equal(result.checked, 1, "Calendar event was still read");
+  assert.equal(reserves, 1);
+  assert.equal(routes, 0);
+  assert.equal(completes, 0);
+  assert.equal(cal._created.length, 0);
+});
+
 test("[INTEGRATION] re-running fillTravel does NOT double-create — 2nd run's claims all 409", async () => {
   const s = stubClaimLedger();
   const start = "2026-06-20T14:00:00+09:00", end = "2026-06-20T15:00:00+09:00";

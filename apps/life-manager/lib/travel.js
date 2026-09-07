@@ -605,7 +605,7 @@ async function recordTravelTelegramReceipt(uid, eventKey, leg, messageId, supaUr
   return { ok: true, matched };
 }
 
-async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, gmailAccountId } = {}) {
+async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, _reserveManagedAction, _completeManagedAction, gmailAccountId } = {}) {
   const directionsFn = _directionsMinutes || directionsMinutes;
   const routeFn = _directionsRoute || (!_directionsMinutes ? directionsRoute : null);
   const cal = calendar || getCalendar({ apiKey, gmailAccountId });
@@ -623,6 +623,13 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
     // C-H1: atomic claim key per (event, leg). Prefer the gcal event id (stable + unique). Fallback to
     // startMs:summary (NOT startMs alone — two different same-user events can share a start time, FIND-001).
     const evKey = String(ev.id || `${ev.startMs}:${ev.summary || ""}`);
+
+    // Reserve once per tenant/event before any paid route or model effect. The scheduler injects the
+    // durable RPC client; direct callers without it preserve the pure legacy/test contract.
+    if (typeof _reserveManagedAction === "function") {
+      const allowance = await _reserveManagedAction(uid, evKey, supaUrl, supaKey);
+      if (!allowance || allowance.allowed !== true) { skipped++; continue; }
+    }
 
     // ── OUTBOUND LEG ──────────────────────────────────────────────────────────────────────────────
     // Single source of truth for the skip/insert decision (home→home, no-origin, online, etc.).
@@ -690,6 +697,9 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
               if (await createTravelBlock(uid, apiKey, leaveMs, arriveMs, origin, dest, dest, cal, gmailAccountId)) {
                 inserted++;
                 outboundInserted = true;
+                if (typeof _completeManagedAction === "function") {
+                  await _completeManagedAction(uid, evKey, supaUrl, supaKey);
+                }
                 const sameAsHome = home && String(origin).replace(/\s+/g, "").toLowerCase() ===
                   String(home).replace(/\s+/g, "").toLowerCase();
                 outboundReports.push({
@@ -752,7 +762,12 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
     const retArriveMs = retLeaveMs + retMins * 60000;
     // C-H1: atomically CLAIM the RETURN leg before creating.
     if (await claimTravel(uid, evKey, "return", supaUrl, supaKey)) {
-      if (await createTravelBlock(uid, apiKey, retLeaveMs, retArriveMs, venue, home, home, cal, gmailAccountId)) inserted++;
+      if (await createTravelBlock(uid, apiKey, retLeaveMs, retArriveMs, venue, home, home, cal, gmailAccountId)) {
+        inserted++;
+        if (typeof _completeManagedAction === "function") {
+          await _completeManagedAction(uid, evKey, supaUrl, supaKey);
+        }
+      }
       else { skipped++; await unclaimTravel(uid, evKey, "return", supaUrl, supaKey); } // create failed → release
     } else {
       skipped++; // another writer already claimed the RETURN block (race-safe)

@@ -44,6 +44,9 @@ const {
 } = require("./lib/late-notice.js");
 const { travelReminderOnce } = require("./lib/travel-reminder.js");
 const {
+  reserveManagedAction, completeManagedAction, releaseManagedAction,
+} = require("./lib/managed-allowance.js");
+const {
   DISCOVERY_WEEK_MS, listDiscoveryUsers, runDiscoveryForUser,
 } = require("./lib/feature-discovery.js");
 
@@ -605,6 +608,9 @@ async function reminderUserOnce(u, nowMs, deps = {}) {
         directionsRoute: deps.directionsRoute,
         claimTravel: deps.claimTravel,
         unclaimTravel: deps.unclaimTravel,
+        reserveManagedAction: deps.reserveManagedAction || (deps.travelReminder ? undefined : reserveManagedAction),
+        completeManagedAction: deps.completeManagedAction || (deps.travelReminder ? undefined : completeManagedAction),
+        releaseManagedAction: deps.releaseManagedAction || (deps.travelReminder ? undefined : releaseManagedAction),
         sendMessage: deps.sendMessage || sendMessage,
         log,
       });
@@ -984,6 +990,8 @@ async function travelUserOnce(u, deps = {}) {
       nowMs: deps.nowMs === undefined ? Date.now() : deps.nowMs,
       calendar: deps.calendar, supaUrl, supaKey,
       _directionsMinutes: deps.directionsMinutes,
+      _reserveManagedAction: deps.reserveManagedAction || (deps.fillTravel ? undefined : reserveManagedAction),
+      _completeManagedAction: deps.completeManagedAction || (deps.fillTravel ? undefined : completeManagedAction),
       gmailAccountId: u.gmail_account_id,
     });
     if (r.inserted) console.log(`[travel] uid=${u.uid.slice(0, 12)} inserted=${r.inserted} checked=${r.checked}`);

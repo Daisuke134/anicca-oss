@@ -32,6 +32,8 @@ test("migration is tenant-scoped, race-safe, success-only, and service-role-only
   assert.match(sql, /status = 'succeeded'/);
   assert.match(sql, /status = 'pending'/);
   assert.match(sql, /INTERVAL '15 minutes'/);
+  assert.match(sql, /lm_managed_allowance_notice/);
+  assert.match(sql, /ON CONFLICT DO NOTHING/);
   assert.match(sql, /THEN 500 ELSE 30/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.reserve_lm_managed_action.*PUBLIC, anon, authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.reserve_lm_managed_action.*service_role/);
