@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+LOOP_ID="${1:-}"
+ENV_FILE="${LIFE_MANAGER_MARKETING_ENV_FILE:-${HOME}/.local/state/life-manager/private/marketing.env}"
+NODE_BIN="${LIFE_MANAGER_NODE_BIN:-/opt/homebrew/bin/node}"
+TIMEOUT_BIN="${LIFE_MANAGER_TIMEOUT_BIN:-/opt/homebrew/bin/timeout}"
+
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/load-env-file.sh"
+lm_load_env_file "$ENV_FILE"
+
+IFS=$'\t' read -r RUNNER ACTION PRODUCT_ID < <("$NODE_BIN" "$SCRIPT_DIR/mobile-app-command.js" "$LOOP_ID")
+[ -n "$RUNNER" ] && [ -n "$ACTION" ] && [ -n "$PRODUCT_ID" ] || {
+  printf 'mobile app loop resolution failed: %s\n' "$LOOP_ID" >&2
+  exit 2
+}
+export LIFE_MANAGER_MOBILE_PRODUCT_ID="$PRODUCT_ID"
+exec "$TIMEOUT_BIN" 1200 "$NODE_BIN" "$RUNNER" "$ACTION"
