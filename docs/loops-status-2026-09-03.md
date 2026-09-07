@@ -122,6 +122,11 @@
 10. **LM Cloud 出荷** — QR onboarding → X 配布 → Stripe 初 charge。 DONE: `new charges: 1`。
 11. **Alpaca 修復 + hackathon 提出** — DONE: 提出受領。
 12. **Capafy 販売再開** — postiz self-host 含む marketing 接続。 DONE: 新規注文 1 件。
+13'. **ランサーズにカタログを売らせる残作業（2026-09-07 実測）** — 配線は #4466 で完了、納期の写像は #4500 で完了（18日→21日、25日→30日。カタログ本体は無変更なのでココナラ側は不変）。
+    **残る本当の障害はティア数**: カタログ20 family のうち **18 family がティア2つ**で、ランサーズの product validator は**ちょうど3プラン**を要求する。3ティアを持つのは `mvp_web_app_build` と `ai_agent_integration` の2つだけ。
+    つまりランサーズで売れるのは現状この2 family だけで、残り18を売るにはカタログに3つ目のティアを足す必要がある。これは価格設計の判断であってコードの問題ではない。
+    ついでの記録: 私はこの修正で `test_catalog_projection_that_fails_product_validation_names_the_catalog` を壊し、**赤いまま出荷した**。18日納期を実例に使っていたテストが、18日が通るようになって前提を失った。実例を2ティア family へ差し替えて復旧（#4500 の後続）。テストが赤いまま merge しないこと。
+
 13. **共有 component / 「金を刷る loop を作る skill」化** — 実測: 共有 profile を読むのは Lancers のみ（`storefront_offer.py:20`）。Coconala/CrowdWorks は未接続。
     3 platform の実測（2026-09-06）:
 
