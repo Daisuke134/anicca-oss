@@ -44,6 +44,12 @@ TICK_TIMEOUT_SECONDS = 120
 class SourceFailure(RuntimeError): pass
 
 
+class ReplySemanticUncertain(SourceFailure):
+    def __init__(self, remaining_work: Sequence[str]):
+        self.remaining_work = [str(item).strip() for item in remaining_work if str(item).strip()]
+        super().__init__("reply_semantic_uncertain")
+
+
 def _id(value: Any) -> str:
     if isinstance(value, bool) or not isinstance(value, (str, int)) or not str(value).strip():
         raise SourceFailure("provider_response_invalid")
@@ -104,7 +110,7 @@ def _compose_reply(board: Mapping[str, Any], messages: Sequence[Mapping[str, Any
             result = json.loads(result_path.read_text(encoding="utf-8"))
         except (OSError, KeyError, TypeError, ValueError): raise SourceFailure("reply_composer_failed") from None
     if not isinstance(result, Mapping) or result.get("next_action") not in {"reply", "wait", "stop"} or not isinstance(result.get("uncertainty"), list): raise SourceFailure("reply_contract_invalid")
-    if result["uncertainty"]: raise SourceFailure("reply_semantic_uncertain")
+    if result["uncertainty"]: raise ReplySemanticUncertain(result["uncertainty"])
     body = result.get("reply_body")
     if result["next_action"] != "reply":
         if body is not None: raise SourceFailure("reply_contract_invalid")

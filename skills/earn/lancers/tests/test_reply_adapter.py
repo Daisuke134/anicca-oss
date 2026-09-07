@@ -45,6 +45,33 @@ def test_buyer_event_uses_existing_natural_language_composer(monkeypatch):
     assert calls[0][3]["verified_proposal"]["proposal_id"] == "7"
 
 
+def test_semantic_uncertainty_becomes_durable_human_wait(monkeypatch):
+    def uncertain(*_args, **_kwargs):
+        raise adapter_module.work_sync.ReplySemanticUncertain([
+            "9月8日から13日までの日別稼働時間",
+            "本人がAIを使わず作業するという確約",
+        ])
+
+    monkeypatch.setattr(adapter_module.work_sync, "_compose_reply", uncertain)
+    result = adapter_module.decide({
+        "context": {
+            "reply_required": True,
+            "board": {"title": "選考", "description": "詳細"},
+            "conversation": [{"role": "buyer", "event_id": "9", "body": "回答してください"}],
+            "verified_proposal": None,
+        },
+        "state_path": "/tmp/reply/state.json",
+    })
+    assert result == {
+        "action": "human",
+        "reason": "reply_facts_required",
+        "remaining_work": [
+            "9月8日から13日までの日別稼働時間",
+            "本人がAIを使わず作業するという確約",
+        ],
+    }
+
+
 def test_adapter_mutation_is_only_lancers_reply(monkeypatch, tmp_path):
     adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
     class Page:
