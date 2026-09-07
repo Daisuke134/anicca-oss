@@ -35,7 +35,11 @@ async function txPost(path, body, opts = {}) {
     throw error;
   }
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`telnyx ${path} ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
+  if (!r.ok) {
+    const error = new Error(`telnyx ${path} ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
+    error.deliveryUnknown = Number(r.status) >= 500;
+    throw error;
+  }
   return j;
 }
 
@@ -92,7 +96,7 @@ async function placeCall({ to, streamUrl, clientState, timeLimitSeconds = 120 })
     return { ok: false, error: String(e.message || e), deliveryUnknown: e && e.deliveryUnknown === true };
   }
   const ccid = normalizeProviderId(call && call.data && call.data.call_control_id);
-  if (!ccid) return { ok: false, error: "no call_control_id" };
+  if (!ccid) return { ok: false, error: "no call_control_id", deliveryUnknown: true };
 
   // NOTE: do NOT record_start here — the call is still RINGING (not answered), so Telnyx rejects
   // record_start ("call is not in a valid state"). Recording is started by the bridge the moment the

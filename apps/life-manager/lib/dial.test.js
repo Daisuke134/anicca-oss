@@ -10,8 +10,8 @@ const TEST_URL = "wss://life-call-production.up.railway.app/ws?summary=x&wakeUid
 
 const CALL_URL = "wss://life-call-production.up.railway.app/ws?summary=x";
 
-function jsonResponse(payload, ok = true) {
-  return { ok, async json() { return payload; } };
+function jsonResponse(payload, ok = true, status = ok ? 200 : 500) {
+  return { ok, status, async json() { return payload; } };
 }
 
 async function withDialTransport(callPayload, run) {
@@ -30,6 +30,7 @@ async function withDialTransport(callPayload, run) {
     if (url.endsWith("/balance")) return jsonResponse({ data: { balance: "1.00" } });
     assert.equal(url, "https://api.telnyx.com/v2/calls");
     if (callPayload instanceof Error) throw callPayload;
+    if (callPayload && callPayload.__status) return jsonResponse(callPayload.body || {}, false, callPayload.__status);
     return jsonResponse(callPayload);
   };
   try {
@@ -57,6 +58,14 @@ test("placeCall distinguishes response loss from an explicit provider rejection"
   }));
   assert.equal(unknown.ok, false);
   assert.equal(unknown.deliveryUnknown, true);
+  const serverError = await withDialTransport({ __status: 503 }, () => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL,
+  }));
+  assert.equal(serverError.deliveryUnknown, true);
+  const rejection = await withDialTransport({ __status: 422 }, () => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL,
+  }));
+  assert.equal(rejection.deliveryUnknown, false);
 });
 
 test("an explicit client_state wins over the url", () => {
@@ -132,5 +141,6 @@ test("placeCall rejects blank, non-string, and oversized mandatory call-control 
     assert.equal(result.ok, false, `accepted ${String(call_control_id)}`);
     assert.equal("ccid" in result, false);
     assert.equal(result.error, "no call_control_id");
+    assert.equal(result.deliveryUnknown, true);
   }
 });
