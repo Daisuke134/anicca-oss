@@ -203,7 +203,9 @@ test("Supabase route store persists and reads a scoped negative entry without ex
     return { ok: true, json: async () => [] };
   };
   const store = makeSupabaseRouteStore({ supaUrl: "https://db.example", supaKey: "service-secret", fetchImpl });
-  const key = cacheKey("tenant", G(35.68, 139.76), G(35.69, 139.70), 42, { provider: "google" });
+  const key = cacheKey("tenant", G(35.68, 139.76), G(35.69, 139.70), 42, {
+    provider: "google", eventVersion: "event-version-1", purpose: "go",
+  });
   await store.set(key, { value: null, computedAt: 1000, ttlMs: 1800000, negative: true,
     failureClass: "provider_4xx" });
   const hit = await store.get(key);
@@ -214,6 +216,9 @@ test("Supabase route store persists and reads a scoped negative entry without ex
   assert.equal(body.cache_state, "negative");
   assert.equal(body.ttl_secs, 1800);
   assert.equal(body.duration_secs, 0);
+  assert.equal(body.time_bucket, 42);
+  assert.equal(body.event_version, "event-version-1");
+  assert.equal(body.purpose, "go");
   assert.equal(calls[0].url.includes("service-secret"), false);
 });
 

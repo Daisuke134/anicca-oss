@@ -441,6 +441,7 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
   const uid = options.uid ?? options.tenantId ?? options.userId ?? "anonymous";
   const purpose = options.purpose || (call.departureMode ? "return" : "go");
   const eventVersion = routeEventVersion({ eventId: options.eventId, anchorAtMs: call.anchorAtMs, src, dst, purpose });
+  const allowanceState = options._allowanceState;
   const usage = { tenantId: uid, options };
   const routeUsage = { tenantId: uid, options, failureClasses: [] };
   const timeoutOption = options._transitTimeoutMs ?? options.transitTimeoutMs;
@@ -455,10 +456,12 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
       failureClass: entry.failureClass, cacheHit: true, providerUnits: 0,
       providerUnit: "request", estimatedCostUsd: 0,
     }));
-    if (cached && cached.hit === true) return cached.value;
+    if (cached && cached.hit === true) {
+      if (allowanceState && cached.value == null) allowanceState.negativeCacheHit = true;
+      return cached.value;
+    }
   }
-  const allowanceState = options._allowanceState;
-  if (allowanceState && typeof options._reserveManagedAction === "function") {
+  if (allowanceState && !allowanceState.receipt && typeof options._reserveManagedAction === "function") {
     const receipt = await options._reserveManagedAction(uid, String(options.eventId), options.supaUrl, options.supaKey);
     allowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
     allowanceState.blocked = !receipt || receipt.allowed !== true;
@@ -528,7 +531,8 @@ async function directionsRoute(src, dst, mapsKey, anchorAtMs = null, nowMs = Dat
       cacheHit: true,
       providerUnits: 0, providerUnit: "request", estimatedCostUsd: 0,
     }));
-  if (result == null && allowanceState && allowanceState.receipt
+  if (result == null && allowanceState) allowanceState.providerFailure = true;
+  if (result == null && options._deferAllowanceRelease !== true && allowanceState && allowanceState.receipt
       && typeof options._releaseManagedAction === "function") {
     await options._releaseManagedAction(uid, String(options.eventId), options.supaUrl, options.supaKey,
       { reservation: allowanceState.receipt });
@@ -625,7 +629,7 @@ async function recordTravelTelegramReceipt(uid, eventKey, leg, messageId, supaUr
   return { ok: true, matched };
 }
 
-async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, _reserveManagedAction, _completeManagedAction, _releaseManagedAction, _agentResolveLocation, gmailAccountId } = {}) {
+async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, nowMs = Date.now(), bufferMin = 5, calendar, supaUrl, supaKey, _directionsRoute, _directionsMinutes, _routeCache, _reserveManagedAction, _completeManagedAction, _releaseManagedAction, _agentResolveLocation, gmailAccountId } = {}) {
   const directionsFn = _directionsMinutes || directionsMinutes;
   const routeFn = _directionsRoute || (!_directionsMinutes ? directionsRoute : null);
   const cal = calendar || getCalendar({ apiKey, gmailAccountId });
@@ -674,7 +678,8 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
         let dest = ev.location;
         const allowanceState = {};
         const routeOpts = { uid, timezone: routeTimezone, supaUrl, supaKey, eventId: evKey, purpose: "go",
-          _allowanceState: allowanceState, _reserveManagedAction, _releaseManagedAction };
+          _allowanceState: allowanceState, _reserveManagedAction, _releaseManagedAction,
+          _deferAllowanceRelease: true, _routeCache };
         if ((_directionsRoute || _directionsMinutes) && typeof _reserveManagedAction === "function") {
           const receipt = await _reserveManagedAction(uid, evKey, supaUrl, supaKey);
           allowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
@@ -689,7 +694,8 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
         }
         let mins = routeFn || allowanceState.blocked ? null
           : await directionsFn(origin, dest, mapsKey, ev.startMs, nowMs, false, routeOpts);
-        if (route == null && mins == null && geminiKey && !allowanceState.blocked) {
+        if (route == null && mins == null && geminiKey && !allowanceState.blocked
+            && !allowanceState.negativeCacheHit) {
           // The location is a room name / unroutable string (e.g. "情報科学大講義室[L1]（IS）"). Let the
           // agent web-search the REAL venue address so a must-travel event still gets a block instead of a
           // silent skip — never-late beats clean code. (Lazy require avoids any load-order coupling.)
@@ -804,6 +810,7 @@ async function fillTravel(uid, { apiKey, mapsKey, geminiKey, home, timezone, now
       : await directionsFn(venue, home, mapsKey, ev.endMs, nowMs, /* departureMode= */ true, {
       uid, timezone: routeTimezone, supaUrl, supaKey, eventId: evKey, purpose: "return",
       _allowanceState: returnAllowanceState, _reserveManagedAction, _releaseManagedAction,
+      _routeCache,
     });
     if (retMins == null) {
       skipped++;

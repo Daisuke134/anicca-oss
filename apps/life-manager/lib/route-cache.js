@@ -143,7 +143,7 @@ function makeSupabaseRouteStore({ supaUrl, supaKey, fetchImpl = global.fetch } =
       let parts;
       try { parts = JSON.parse(key); } catch { return false; }
       if (!Array.isArray(parts) || parts.length < 10) return false;
-      const [uid, fromLat, fromLon, toLat, toLon, provider, , , , bucket, , , eventVersion, purpose] = parts;
+      const [uid, fromLat, fromLon, toLat, toLon, provider, , , , , bucket, , , eventVersion, purpose] = parts;
       const seconds = Number(entry && entry.value && (entry.value.durationSeconds
         ?? entry.value.durationSecs ?? entry.value.duration_seconds));
       const body = {

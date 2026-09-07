@@ -173,6 +173,23 @@ test("[ALLOWANCE] exhausted tenant keeps Calendar read but performs zero route o
   assert.equal(cal._created.length, 0);
 });
 
+test("[ALLOWANCE] negative route cache suppresses Gemini/Search fallback during its TTL", async () => {
+  const start = "2026-06-20T14:00:00+09:00", end = "2026-06-20T15:00:00+09:00";
+  const cal = makeFakeCalendar([rawEvId("negative-event", "Unknown room", "Room L1", start, end)]);
+  let geminiCalls = 0, reserves = 0;
+  await fillTravel("negative-user", {
+    apiKey: "x", mapsKey: "x", geminiKey: "gemini", home: "Setagaya, Tokyo",
+    nowMs: Date.parse("2026-06-20T08:00:00+09:00"), calendar: cal,
+    supaUrl: "http://s", supaKey: "k",
+    _routeCache: { getByEvent: async () => ({ hit: true, value: null, failureClass: "no_route" }) },
+    _reserveManagedAction: async () => { reserves += 1; return { allowed: true }; },
+    _agentResolveLocation: async () => { geminiCalls += 1; return null; },
+  });
+  assert.equal(reserves, 0, "negative cache is read before allowance/provider work");
+  assert.equal(geminiCalls, 0, "negative TTL also fences Gemini/Search grounding");
+  assert.equal(cal._created.length, 0);
+});
+
 test("[INTEGRATION] re-running fillTravel does NOT double-create — 2nd run's claims all 409", async () => {
   const s = stubClaimLedger();
   const start = "2026-06-20T14:00:00+09:00", end = "2026-06-20T15:00:00+09:00";
