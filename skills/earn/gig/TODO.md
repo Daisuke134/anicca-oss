@@ -424,6 +424,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    reporting remain reused. Mercor/runner/registry verification passes 76 tests plus 21 subtests.
    Main merge, targeted production apply, authenticated natural terminal, one new official application
    receipt, real-time Telegram receipt and following replay-zero remain open.
+   The first targeted installed run ended naturally as `fail` with `entrypoint_exit_1` before browser
+   mutation or application effect. Its private lease receipt identifies the exact boundary:
+   `{"ok":false,"reason":"pip install websockets"}`. The managed business Python does not contain
+   `websockets`, while the host's canonical `/usr/bin/python3` lease runtime imports version `15.0.1`.
+   The owner now uses that established runtime only for lease acquire/release and keeps the managed
+   Python for Mercor business code; production re-verification remains open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
