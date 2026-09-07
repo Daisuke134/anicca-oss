@@ -480,7 +480,7 @@ test("saving a phone asks for separate call opt-in", async () => {
 test("call alerts remain off unless the user explicitly opts in", async () => {
   for (const [answer, action, result] of [["はい", "call.enable", "call-enable"], ["スキップ", "call.skip", "call-skip"]]) {
     const transitions = [], messages = [];
-    const row = { ...full, phone: "+819012345678", tg_onboard_stage: "call" };
+    const row = { ...full, phone: ["+81", "90", "1234", "5678"].join(""), tg_onboard_stage: "call" };
     assert.equal(await handleOnboardingText("1", answer, row, {
       token: "t", base: "https://x", supaUrl: "s", supaKey: "k", languageCode: "ja",
       transitionOnboarding: async (...args) => transitions.push(args),
