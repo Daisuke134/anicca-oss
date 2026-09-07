@@ -2191,6 +2191,7 @@
       "state_root": "~/.local/state/life-manager/marketing-owner-events"
     },
     "marketing-owner-weekly": {
+      "adapter": "exec",
       "cadence": {
         "calendar_interval": {
           "Hour": 21,
@@ -2204,7 +2205,8 @@
       },
       "domain": "growth",
       "effect_class": "publish",
-      "entrypoint": "runtime/loop/entry_dispatch.py",
+      "command": [],
+      "entrypoint": "skills/earn/marketing-engine/report/owner-weekly",
       "label": "ai.anicca.marketing-owner-weekly",
       "log_root": "~/.local/state/life-manager/marketing-owner-weekly/logs",
       "provider_route": "shared-agent-runner",
