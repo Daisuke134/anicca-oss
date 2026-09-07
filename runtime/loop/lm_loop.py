@@ -418,10 +418,20 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 target_path = agents_dir / f"{item['label']}.plist"
                 result = None
                 existing_bytes = target_path.read_bytes() if target_path.is_file() else None
-                retired_environment_keys = (
-                    ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR")
-                    if item["loop_id"] == "life-manager-cfo-hourly" else ()
-                )
+                retired_environment_keys = {
+                    "life-manager-cfo-hourly": ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR"),
+                    # These two lanes' plists were installed while they were still rendered
+                    # from skills/earn/gig/config/launchd-jobs.json's legacy manifest, which
+                    # explicitly set GIG_DISK_HEADROOM_KIB="0" for them (see gig_disk_guard.py's
+                    # module comment). Now that they are lm-loop registry loops, _plist() never
+                    # sets this key, so _preserve_operational_attributes carries that "0" forward
+                    # forever unless it is named here. Dropping it lets the safe code default
+                    # (524288 KiB) take over. hf-gig-storefront-direct is deliberately excluded:
+                    # its frozen value was already 524288, so retiring it has no effect and only
+                    # widens the blast radius of this change.
+                    "hf-gig-apply-direct": ("GIG_DISK_HEADROOM_KIB",),
+                    "hf-gig-reply-detector": ("GIG_DISK_HEADROOM_KIB",),
+                }.get(item["loop_id"], ())
                 retired_operational_keys = (
                     ("WorkingDirectory",)
                     if item["loop_id"] == "life-manager-cfo-hourly" else ()
