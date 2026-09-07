@@ -19,6 +19,34 @@ class ReplyPlanner:
     @staticmethod
     def _structured(value: Mapping[str, Any]) -> dict[str, Any]:
         action = value.get("action")
+        if action is None:
+            action = value.get("next_action")
+        if action == "send_estimate":
+            terms = value.get("estimate_terms")
+            if not isinstance(terms, Mapping) or not terms:
+                raise ValueError("reply_payload_invalid")
+            return {"action": "estimate", "payload": dict(terms)}
+        if action == "clarify":
+            body = value.get("reply_body")
+            if not isinstance(body, str) or not body.strip():
+                raise ValueError("reply_payload_invalid")
+            return {"action": "reply", "payload": {"body": body.strip()}}
+        if action == "stop":
+            return {"action": "noop", "classification": "closed"}
+        if action == "reply" and "payload" not in value and "reply_body" in value:
+            body = value.get("reply_body")
+            if not isinstance(body, str) or not body.strip():
+                raise ValueError("reply_payload_invalid")
+            return {"action": "reply", "payload": {"body": body.strip()}}
+        if action == "wait" and "reason" not in value:
+            remaining = value.get("uncertainty")
+            if not isinstance(remaining, list) or not remaining:
+                return {"action": "noop", "classification": "no_reply"}
+            return {
+                "action": "wait",
+                "reason": "official_context_required",
+                "remaining_work": remaining,
+            }
         if action in {"reply", "estimate"}:
             payload = value.get("payload")
             if not isinstance(payload, Mapping) or not payload:

@@ -873,6 +873,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    step is to project Coconala's already-proven semantic receipt into this contract and extract its
    existing category/two-submit/readback ceremony as the adapter mutation, without nesting the old
    connector-outbox lifecycle inside the shared kernel.
+   The shared planner now directly projects the proven semantic vocabulary—`reply`, `clarify`,
+   `send_estimate`, `wait`, and `stop`—onto the shared effect contract. Structured estimate terms
+   remain intact as the intent payload, clarification becomes a normal reply, an evidence-bearing
+   wait stays durable, and stop becomes a closed no-effect state. Reply-focused regression is now
+   141 passed. The remaining implementation is the Coconala semantic-runner binding and extraction
+   of its existing official estimate form ceremony into adapter mutation/readback.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

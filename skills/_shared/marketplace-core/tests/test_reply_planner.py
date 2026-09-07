@@ -84,3 +84,35 @@ def test_structured_wait_is_normalized_and_invalid_effect_is_rejected():
         assert str(error) == "reply_payload_invalid"
     else:
         raise AssertionError("empty estimate payload was accepted")
+
+
+def test_validated_semantic_judgement_projects_to_shared_actions():
+    planner = planner_module.ReplyPlanner(lambda _context: {
+        "next_action": "send_estimate",
+        "estimate_terms": {"title": "開発", "price_jpy": 10000},
+    })
+    assert planner(row()) == {
+        "action": "estimate", "payload": {"title": "開発", "price_jpy": 10000},
+    }
+    clarify = planner_module.ReplyPlanner(lambda _context: {
+        "next_action": "clarify", "reply_body": "納期をご指定ください。",
+    })
+    assert clarify(row()) == {
+        "action": "reply", "payload": {"body": "納期をご指定ください。"},
+    }
+    stop = planner_module.ReplyPlanner(lambda _context: {"next_action": "stop"})
+    assert stop(row()) == {"action": "noop", "classification": "closed"}
+
+
+def test_semantic_wait_uses_uncertainty_or_becomes_no_reply():
+    blocked = planner_module.ReplyPlanner(lambda _context: {
+        "next_action": "wait", "uncertainty": ["公式応募条件"],
+    })
+    assert blocked(row()) == {
+        "action": "wait", "reason": "official_context_required",
+        "remaining_work": ["公式応募条件"],
+    }
+    idle = planner_module.ReplyPlanner(lambda _context: {
+        "next_action": "wait", "uncertainty": [],
+    })
+    assert idle(row()) == {"action": "noop", "classification": "no_reply"}
