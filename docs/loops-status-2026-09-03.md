@@ -93,7 +93,10 @@
    DONE: paid lane の wake summary に unanswered_clients=0、未提出 0、かつ実際の返信 receipt ≥1。
 2. **Lancers 応募復旧 + 完全プロフィール応募** — `application_loop.py:320-350` `_validate()` が 1 行不正で batch 全滅（`planner_contract_invalid`、9/4 も継続、今日 fresh 判断 0）。不正 row は skip、健全 row だけで判断へ。profile は 9/4 に avatar 登録で 90%（残り電話認証のみ、blocker にしない）。
    DONE: 次 wake で `error` 消滅・`eligible_count > 0`、`application_verified` 60 → 61 以上。
-3. **CrowdWorks 復旧** — 実測: `account.json` が 8/11 から `status: input_required`（credential 待ち）で application lane exit 1。9/3 に書いた `hours_limit` 文字列説は repo/state に該当ファイル無し（**誤りとして取り消し**）。credentials.json SSOT から再ログイン → 4 lane を launchd に bootstrap。
+3. **CrowdWorks 復旧** — **実態を訂正（2026-09-07 実測）**: 認証は通っている（`status` が `authenticated`/`role: employee` を返す）。8/11 からの `input_required` は state ファイルが古いだけだった。停止の真因は5段で、いずれも今日剥がした: ①`security find-generic-password -w` が GUI 解錠待ちで永久ハング（手元で2分ハングを再現）。launchd では誰も応答できない ②vault モジュールのパスが repo 外前提で `~/.local/_shared/...` を指す（実際は `skills/browser/scripts/`）③`spec_from_file_location` で同階層が sys.path に入らず `target_ownership` の import 失敗 ④クッキー120個中16個が旧 Chrome 形式の文字列 `partitionKey`。`setCookies` は全か無かなので全体が復元不能（**#4318、repo・全レーン共通**）⑤`session_vault` が実行中イベントループ内で `asyncio.run()`（**#4359、repo・全レーン共通**）。
+   **アーキテクチャが二重（未解決）**: `ai.anicca.crowdworks.{acquisition,negotiation,fulfillment,storefront}` は repo 外 `~/.local/share/anicca/crowdworks-revenue-skill/lane_runtime.py` の旧方式で、storefront は 8/15 凍結・`fixed_service_listing_not_supported`（プロフィール確認のみで出品しない）。`ai.anicca.crowdworks-revenue-{application,paid,report}` は repo 内の新方式だが **storefront が存在しない**。つまり現行アーキテクチャにクラウドワークスの出品機能は無い。CrowdWorks 側にはパッケージ（固定価格出品）があるのでプラットフォームの制約ではない。
+   repo の `account.py` は既に SSOT を読む新版で、動いている repo 外の版が古い。**repo 外の版を repo へコピーしてはいけない**（退行する）。正しい順序は repo 版へ label を差し替え、`lane_runtime.py` の storefront 相当を新方式で作ること。
+   旧記載: — 実測: `account.json` が 8/11 から `status: input_required`（credential 待ち）で application lane exit 1。9/3 に書いた `hours_limit` 文字列説は repo/state に該当ファイル無し（**誤りとして取り消し**）。credentials.json SSOT から再ログイン → 4 lane を launchd に bootstrap。
    DONE: `application-receipts.jsonl` に 8/11 以降初の receipt 1 件。
 4. **profile readback を loop 化** — 3 platform の公開プロフィールを定期 readback し完成度を state に記録（Lancers storefront lane は 9/4 から `profile_completion_percent` を返す。Coconala/CrowdWorks は未）。
    DONE: `~/.local/state/anicca/*/profile-readback.json` が 2 回目 wake でも更新。
