@@ -659,6 +659,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    after 45 minutes. GC now exempts a healthy parked context from age/PID reaping; the next acquire
    remains responsible for detecting and rebuilding a genuinely dead target. This preserves one owner,
    one context and bounded cleanup without inventing a Mercor browser or allowing idle delay to log out.
+   The apparent browser crash at `2026-09-07 17:45:16 JST` was an ownership violation outside Mercor:
+   an Apply-owner session ran untargeted `lm-loop apply`, which rewrote and booted out every registry job,
+   including the shared `life-manager-daily-driver`. The control plane now rejects plain `lm-loop apply`;
+   ordinary deployment requires `LIFE_MANAGER_APPLY_TARGET=<loop-id>`, while an intentional fleet-wide
+   operation must be explicit as `lm-loop apply --all`. This prevents one lane deployment from silently
+   restarting sibling browsers and destroying their authenticated contexts.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
