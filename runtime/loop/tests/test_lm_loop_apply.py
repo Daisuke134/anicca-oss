@@ -61,6 +61,20 @@ class LmLoopApplyTest(unittest.TestCase):
         (self.root / "bin/lm-loop-run").chmod(0o755)
         (self.root / "RELEASE.json").write_text(json.dumps({"sha": SHA}))
 
+    def test_apply_requires_explicit_target_or_all(self):
+        with patch.dict(os.environ, {}, clear=True), \
+                patch.object(lm_loop, "apply_live", side_effect=AssertionError("apply called")), \
+                redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(lm_loop.main(["apply"]), 2)
+        self.assertIn("LIFE_MANAGER_APPLY_TARGET", json.loads(output.getvalue())["error"])
+
+    def test_apply_all_is_explicit(self):
+        with patch.dict(os.environ, {}, clear=True), \
+                patch.object(lm_loop, "apply_live", return_value=[]) as apply, \
+                redirect_stdout(io.StringIO()):
+            self.assertEqual(lm_loop.main(["apply", "--all"]), 0)
+        self.assertIsNone(apply.call_args.kwargs["target"])
+
     def tearDown(self):
         self.temp.cleanup()
 

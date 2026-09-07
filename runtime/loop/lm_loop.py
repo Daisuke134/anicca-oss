@@ -456,12 +456,22 @@ def main(argv: list[str] | None = None) -> int:
     args = argv or sys.argv[1:]
     commands = {"apply", "doctor", "reconcile", "start", "stop", "restart", "status", "watch"}
     if not args or args[0] not in commands:
-        print("usage: lm-loop apply|doctor|reconcile <provider-route> [--loaded-idle-only] [--loop-id <loop-id>]...|start|stop|restart <loop-id|all>|status|watch [<loop-id|all>]", file=sys.stderr)
+        print("usage: lm-loop apply [--all]|doctor|reconcile <provider-route> [--loaded-idle-only] [--loop-id <loop-id>]...|start|stop|restart <loop-id|all>|status|watch [<loop-id|all>]", file=sys.stderr)
         return 2
     command = args[0]
     if command == "apply":
-        if len(args) != 1:
-            print(json.dumps({"ok": False, "error": "apply takes no arguments"}))
+        if args[1:] not in ([], ["--all"]):
+            print(json.dumps({"ok": False, "error": "apply accepts only --all"}))
+            return 2
+        target = os.environ.get("LIFE_MANAGER_APPLY_TARGET")
+        if not target and args[1:] != ["--all"]:
+            print(json.dumps({
+                "ok": False,
+                "error": "apply requires LIFE_MANAGER_APPLY_TARGET; use --all only for an intentional fleet-wide reload",
+            }, sort_keys=True))
+            return 2
+        if target and args[1:] == ["--all"]:
+            print(json.dumps({"ok": False, "error": "--all conflicts with LIFE_MANAGER_APPLY_TARGET"}))
             return 2
         release_root = Path(os.environ.get("LIFE_MANAGER_RELEASE_ROOT", "~/loops/current")).expanduser()
         agents_dir = Path(os.environ.get(
@@ -471,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             results = apply_live(
                 release_root, agents_dir, launchctl_safe,
-                target=os.environ.get("LIFE_MANAGER_APPLY_TARGET"))
+                target=target)
         except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
             print(json.dumps({"ok": False, "error": str(exc)}, sort_keys=True))
             return 1
