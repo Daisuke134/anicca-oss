@@ -561,6 +561,18 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Mercor prompt uses only the private account email and forbids Google/Okta/signup. Session writeback must
    additionally require authenticated official readback so a logged-out wake cannot overwrite a good
    provider vault; normal wakes reuse the vault and do not log in every time.
+   Main release `caefdf7313ecc7c3df331e330bf09e9c48a03b4a` then used the permitted email magic-link
+   path and an official authenticated readback to bank four Mercor cookies plus `mercor-auth-store`.
+   Its following natural wake `mercor-20260907-155940-99436` nevertheless began logged out, progressed
+   Japanese Writer reversible fields after `Start application`, and submitted zero when Mercor's email
+   endpoint returned its official `Something went wrong` screen. The logged-out readback correctly
+   refused to overwrite the prior provider vault. A fresh authenticated storage probe proves the missing
+   state is not IndexedDB: the origin has zero IndexedDB databases and additionally requires tab-scoped
+   `mercor-session-id` and `mercor-user-ip` in `sessionStorage`. The shared context lease now persists
+   and seeds adapter-declared session-storage keys alongside cookies/local storage; Mercor declares only
+   those two keys. Focused verification passes 35 tests plus 2 subtests. Merge/install, authenticated
+   next-wake readback, official application or correct nonblocking human gate, immediate Telegram receipt,
+   and replay-zero remain open; this atom stays active.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

@@ -375,7 +375,7 @@ def acquire(task, url="about:blank", no_seed=False):
         results = asyncio.run(_calls(calls))
         target_id = results[-1]["targetId"]
         try:
-            storage_origins_seeded = _seed_local_storage(
+            storage_origins_seeded = _seed_web_storage(
                 _page_ws(target_id), url, overlay_origins
             )
         except Exception:
@@ -462,45 +462,55 @@ def _normalized_origin(value):
     return f"{parsed.scheme}://{netloc}"
 
 
-def _seed_local_storage(ws_url, target_url, origins):
+def _seed_web_storage(ws_url, target_url, origins):
     target_origin = _normalized_origin(target_url)
-    matching = []
+    matching_local = []
+    matching_session = []
     for row in origins if isinstance(origins, list) else []:
         if not isinstance(row, dict) or _normalized_origin(row.get("origin")) != target_origin:
             continue
-        items = row.get("localStorage", [])
-        matching = [
+        matching_local = [
             {"name": item.get("name"), "value": item.get("value")}
-            for item in items if isinstance(item, dict)
+            for item in row.get("localStorage", []) if isinstance(item, dict)
+            and isinstance(item.get("name"), str)
+            and isinstance(item.get("value"), str)
+        ]
+        matching_session = [
+            {"name": item.get("name"), "value": item.get("value")}
+            for item in row.get("sessionStorage", []) if isinstance(item, dict)
             and isinstance(item.get("name"), str)
             and isinstance(item.get("value"), str)
         ]
         break
-    if not target_origin or not matching:
+    if not target_origin or not (matching_local or matching_session):
         return 0
 
     expression = """(async()=>{
-      const expected=%s, entries=%s;
+      const expected=%s, localEntries=%s, sessionEntries=%s;
       const deadline=Date.now()+10000;
       while(location.origin!==expected && Date.now()<deadline) {
         await new Promise(resolve=>setTimeout(resolve,100));
       }
       if(location.origin!==expected) throw new Error('storage_origin_not_ready');
-      for(const item of entries) localStorage.setItem(item.name,item.value);
+      for(const item of localEntries) localStorage.setItem(item.name,item.value);
+      for(const item of sessionEntries) sessionStorage.setItem(item.name,item.value);
       setTimeout(()=>location.reload(),50);
-      return entries.length;
-    })()""" % (json.dumps(target_origin), json.dumps(matching))
+      return localEntries.length+sessionEntries.length;
+    })()""" % (
+        json.dumps(target_origin), json.dumps(matching_local), json.dumps(matching_session)
+    )
     (result,) = asyncio.run(_page_calls(ws_url, [(
         "Runtime.evaluate",
         {"expression": expression, "awaitPromise": True, "returnByValue": True},
     )], timeout=15.0))
     if result.get("exceptionDetails"):
-        raise RuntimeError("local_storage_seed_failed")
-    return len(matching)
+        raise RuntimeError("web_storage_seed_failed")
+    return len(matching_local) + len(matching_session)
 
 
 def commit_cookies(
-    task, domains, token=None, generation=None, origin=None, local_storage_keys=None
+    task, domains, token=None, generation=None, origin=None, local_storage_keys=None,
+    session_storage_keys=None,
 ):
     """Merge one leased context's provider cookies into its seed vault.
 
@@ -517,7 +527,13 @@ def commit_cookies(
         key for key in (local_storage_keys or [])
         if isinstance(key, str) and key and len(key) <= 256
     })
-    if (origin or storage_keys) and (not normalized_storage_origin or not storage_keys):
+    session_keys = sorted({
+        key for key in (session_storage_keys or [])
+        if isinstance(key, str) and key and len(key) <= 256
+    })
+    if (origin or storage_keys or session_keys) and (
+        not normalized_storage_origin or not (storage_keys or session_keys)
+    ):
         return {"ok": False, "reason": "invalid_local_storage_scope"}
 
     with _ledger_lock():
@@ -538,8 +554,13 @@ def commit_cookies(
                 {"browserContextId": held["context_id"]},
             )]))
             storage_items = []
-            if storage_keys:
-                expression = "JSON.stringify(Object.fromEntries(%s.map(k=>[k,localStorage.getItem(k)])))" % json.dumps(storage_keys)
+            session_items = []
+            if storage_keys or session_keys:
+                expression = (
+                    "JSON.stringify({local:Object.fromEntries(%s.map(k=>[k,localStorage.getItem(k)])),"
+                    "session:Object.fromEntries(%s.map(k=>[k,sessionStorage.getItem(k)]))})"
+                    % (json.dumps(storage_keys), json.dumps(session_keys))
+                )
                 (storage_result,) = asyncio.run(_page_calls(
                     held["ws"],
                     [("Runtime.evaluate", {"expression": expression, "returnByValue": True})],
@@ -548,9 +569,17 @@ def commit_cookies(
                     return {"ok": False, "reason": "local_storage_read_failed"}
                 raw = storage_result.get("result", {}).get("value")
                 values = json.loads(raw) if isinstance(raw, str) else {}
+                local_values = values.get("local", {}) if isinstance(values, dict) else {}
+                session_values = values.get("session", {}) if isinstance(values, dict) else {}
                 storage_items = [
-                    {"name": key, "value": values[key]}
-                    for key in storage_keys if isinstance(values.get(key), str) and values[key]
+                    {"name": key, "value": local_values[key]}
+                    for key in storage_keys
+                    if isinstance(local_values.get(key), str) and local_values[key]
+                ]
+                session_items = [
+                    {"name": key, "value": session_values[key]}
+                    for key in session_keys
+                    if isinstance(session_values.get(key), str) and session_values[key]
                 ]
         finally:
             fcntl.flock(operation_lock.fileno(), fcntl.LOCK_UN)
@@ -564,6 +593,8 @@ def commit_cookies(
         return {"ok": False, "reason": "no_matching_context_cookies"}
     if storage_keys and not storage_items:
         return {"ok": False, "reason": "no_matching_local_storage"}
+    if session_keys and not session_items:
+        return {"ok": False, "reason": "no_matching_session_storage"}
 
     vault_path = _vault_writeback_path()
     with _vault_lock():
@@ -579,7 +610,7 @@ def commit_cookies(
         payload = dict(prior) if isinstance(prior, dict) else {}
         payload["ts"] = int(time.time())
         payload["cookies"] = preserved + matching
-        if storage_keys:
+        if storage_keys or session_keys:
             prior_origins = payload.get("origins", [])
             payload["origins"] = [
                 row for row in prior_origins
@@ -588,6 +619,7 @@ def commit_cookies(
             ] + [{
                 "origin": normalized_storage_origin,
                 "localStorage": storage_items,
+                "sessionStorage": session_items,
             }]
         os.makedirs(os.path.dirname(vault_path), mode=0o700, exist_ok=True)
         temporary = f"{vault_path}.{os.getpid()}.tmp"
@@ -604,6 +636,7 @@ def commit_cookies(
         "cookies_committed": len(matching),
         "cookies_preserved": len(preserved),
         "local_storage_committed": len(storage_items),
+        "session_storage_committed": len(session_items),
     }
 
 
@@ -753,6 +786,11 @@ if __name__ == "__main__":
                     sys.argv[index + 1]
                     for index, value in enumerate(sys.argv[:-1])
                     if value == "--local-storage-key"
+                ],
+                session_storage_keys=[
+                    sys.argv[index + 1]
+                    for index, value in enumerate(sys.argv[:-1])
+                    if value == "--session-storage-key"
                 ],
             )
         elif cmd == "gc":
