@@ -37,12 +37,12 @@ async function readMoneytreeSnapshot(readAccounts, readTransactions, range) {
       const [accountResult, transactionResult] = await Promise.all([
         readAccounts(), readTransactions({ ...range, limit: 1000 }),
       ]);
-      return {
-        accounts: accountResult,
-        transactions: transactionResult,
-        accountRead: accountResult[moneytree.MONEYTREE_OBSERVATION] || null,
-        transactionRead: transactionResult[moneytree.MONEYTREE_OBSERVATION] || null,
-      };
+      const pair = [accountResult, transactionResult];
+      Object.defineProperties(pair, {
+        accountRead: { value: accountResult[moneytree.MONEYTREE_OBSERVATION] || null },
+        transactionRead: { value: transactionResult[moneytree.MONEYTREE_OBSERVATION] || null },
+      });
+      return pair;
     } catch (error) {
       lastError = error;
     }
@@ -72,7 +72,7 @@ async function ingestFinancialRecords(options) {
     const snapshot = await readMoneytreeSnapshot(
       readAccounts, readTransactions, { startDate, endDate },
     );
-    const { accounts, transactions } = snapshot;
+    const [accounts, transactions] = snapshot;
     let evidenceRef = null;
     if (snapshot.accountRead && snapshot.transactionRead && options.moneytreeEvidenceStore) {
       const observation = buildMoneytreeObservation({
@@ -89,7 +89,7 @@ async function ingestFinancialRecords(options) {
         row, { subjectId, recordedAt, evidenceRef, evidenceObservedAt: snapshot.evidenceObservedAt },
       )),
       ...transactions.map((row) => moneytree.transactionToFinancialRecord(
-        row, { subjectId, recordedAt, evidenceRef, evidenceObservedAt: snapshot.evidenceObservedAt },
+        row, { subjectId, recordedAt },
       )),
     );
     sources.moneytree = evidenceRef ? "observed_verified" : "observed_unverified";
