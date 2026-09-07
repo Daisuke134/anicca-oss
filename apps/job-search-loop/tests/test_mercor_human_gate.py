@@ -64,6 +64,22 @@ class MercorHumanGateTests(unittest.TestCase):
             self.assertEqual(first["gate_id"], second["gate_id"])
             self.assertEqual(len(store.pending()), 1)
 
+    def test_bilingual_competency_collapses_legacy_listing_specific_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = HumanGateStore(Path(directory) / "human-gates.jsonl")
+            first = store.record(
+                run_id="run-1",
+                reason="list-japanese: Complete the required Bilingual Competency AI interview",
+                evidence_ref="run:run-1/japanese",
+            )
+            second = store.record(
+                run_id="run-2",
+                reason="list-pdf: Bilingual Competency remains not done; camera is required",
+                evidence_ref="run:run-2/pdf",
+            )
+            self.assertEqual(first["gate_id"], second["gate_id"])
+            self.assertEqual(len(store.pending()), 1)
+
     def test_named_ceremony_wording_and_run_evidence_drift_collapses(self):
         with tempfile.TemporaryDirectory() as directory:
             store = HumanGateStore(Path(directory) / "human-gates.jsonl")
