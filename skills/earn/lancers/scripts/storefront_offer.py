@@ -313,9 +313,37 @@ def _profile(page: Any, product: Mapping[str, Any], avatar: Path, apply: bool) -
     return observed | {"profile_effect_count": 1}
 
 
-def _field(page: Any, selector: str) -> Any:
+def _field(page: Any, selector: str, *, context: str | None = None) -> Any:
+    """Return the single element `selector` resolves to, or fail loudly about which one.
+
+    Sibling of _step() -- same defect, same fix. _step() said only "form_changed" until its own
+    fix routed it through dom_contract.exactly_one (see _step's docstring); this function sat
+    right next to it raising the identical bare "form_changed" for every one of _apply()'s,
+    the profile flow's, the settings flow's, the portfolio flow's and _fill_create_form()'s field
+    lookups, discarding the selector, the match count and the page every single time. A wake that
+    hit this path had nothing to repair from but "some field somewhere stopped matching once."
+
+    Now routed through the same dom_contract.exactly_one (see _reach_dom_contract) _step() uses,
+    with the same page-identity observer (_page_identity), so a refusal here leaves the same
+    selector/count/page evidence in dom-contract-failures.jsonl instead of nothing.
+
+    `context` names which call site is asking, exactly as _step()'s own `context` does -- e.g.
+    _fill_create_form() passes one per field so a create-path failure both names the field that
+    broke and reads differently from a bare (context-less) _apply()/profile/settings/portfolio
+    failure. Every existing call site omits it, so their behaviour -- what they select, what they
+    raise -- is unchanged; only the message a refusal carries is richer than the bare
+    "form_changed" they always raised.
+    """
+    dom_contract = _reach_dom_contract()
     field = page.locator(selector)
-    if field.count() != 1: raise OfferError("form_changed")
+    try:
+        dom_contract.exactly_one(
+            field, platform="lancers", evidence_dir=_EVIDENCE_DIR,
+            selector=selector, observe=lambda: _page_identity(page),
+        )
+    except dom_contract.DomContractError as error:
+        suffix = f": {context}" if context else ""
+        raise OfferError(f"form_changed{suffix}: selector={selector!r} found={error.found}") from None
     return field
 
 
@@ -548,7 +576,7 @@ def _require_create_fields(product: Mapping[str, Any]) -> None:
 _CREATE_SERVICE_TYPE_SELECTOR = '[name="ProjectPlanCategoryForm.service_type[0]"]'
 
 
-def _select_create_service_type(page: Any, service_type: str) -> None:
+def _select_create_service_type(page: Any, service_type: str, *, context: str | None = None) -> None:
     """Select 業務 (`ProjectPlanCategoryForm.service_type[0]`) by label -- a select that is itself
     a *dependent* of subcategory exactly the way subcategory is a dependent of category: it does
     not exist in the DOM until subcategory has been chosen, and its option list is specific to
@@ -558,8 +586,11 @@ def _select_create_service_type(page: Any, service_type: str) -> None:
     observed among the live options raises a named error listing every option this actually saw
     -- that listing is what teaches this file each remaining subcategory's service_type vocabulary
     without anyone opening a browser, so it must never be swallowed into a generic timeout.
+
+    `context` is forwarded to `_field()` unchanged (see that function's own docstring) so a
+    _fill_create_form() caller's field name survives into this selector's own ambiguity refusal.
     """
-    field = _field(page, _CREATE_SERVICE_TYPE_SELECTOR)
+    field = _field(page, _CREATE_SERVICE_TYPE_SELECTOR, context=context)
     try:
         page.wait_for_function(
             "label => [...document.querySelectorAll('[name=\"ProjectPlanCategoryForm.service_type[0]\"] option')].some(o => o.textContent.trim() === label)",
@@ -571,15 +602,19 @@ def _select_create_service_type(page: Any, service_type: str) -> None:
     field.select_option(label=service_type)
 
 
-def _select_delivery_time(page: Any, selector: str, delivery_days: int) -> None:
+def _select_delivery_time(page: Any, selector: str, delivery_days: int, *, context: str | None = None) -> None:
     """Select the option whose *label* names `delivery_days`, never a neighbouring value.
 
     The Lancers projection (listing_catalog.project_lancers) already rounds every catalogue
     tier up to a day count Lancers is known to offer, so a real mismatch here means the form
     itself changed shape -- that must stop the wake loudly, not silently pick the closest
     option.
+
+    `context` is forwarded to `_field()` unchanged (see that function's own docstring) so a
+    _fill_create_form() caller's field name (e.g. which plan index) survives into this
+    selector's own ambiguity refusal.
     """
-    field = _field(page, selector)
+    field = _field(page, selector, context=context)
     seen: list[tuple[str, str]] = []
     for option in field.locator("option").all():
         label = " ".join(str(option.inner_text() or "").split())
@@ -1075,17 +1110,17 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
     # 1/6 基本情報 -- visible on load. `ProjectPlanForm.project_category_id` (the subcategory)
     # is not in the initial DOM either -- exactly as in _apply(), it appears only once the main
     # category is chosen, so it is waited for by option label the same way _apply() already does.
-    _field(page, '[name="ProjectPlanForm.title"]').fill(product["title_stem"])
-    _field(page, '[name="ProjectPlanForm.subtitle"]').fill(product["subtitle"])
-    _field(page, '[name="___main_category_id"]').select_option(label=product["category"])
+    _field(page, '[name="ProjectPlanForm.title"]', context="create:title").fill(product["title_stem"])
+    _field(page, '[name="ProjectPlanForm.subtitle"]', context="create:subtitle").fill(product["subtitle"])
+    _field(page, '[name="___main_category_id"]', context="create:category").select_option(label=product["category"])
     page.wait_for_function(
         "label => [...document.querySelectorAll('[name=\"ProjectPlanForm.project_category_id\"] option')].some(o => o.textContent.trim() === label)",
         arg=product["subcategory"], timeout=5_000,
     )
-    _field(page, '[name="ProjectPlanForm.project_category_id"]').select_option(label=product["subcategory"])
-    _select_create_service_type(page, product["service_type"])
-    _field(page, '[name="ProjectPlanForm.industry_type_id"]').select_option(label=product["industry"])
-    tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]')
+    _field(page, '[name="ProjectPlanForm.project_category_id"]', context="create:subcategory").select_option(label=product["subcategory"])
+    _select_create_service_type(page, product["service_type"], context="create:service_type")
+    _field(page, '[name="ProjectPlanForm.industry_type_id"]', context="create:industry_type").select_option(label=product["industry"])
+    tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]', context="create:tags")
     for tag in product["tags"]:
         tag_field.fill(tag); tag_field.press("Enter")
     _advance_create_step(
@@ -1096,9 +1131,9 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
     # 2/6 料金表 -- 「料金は必ず3プラン必要です」, exactly 3 plans (ベーシック/スタンダード/プレミアム).
     for index, plan in enumerate(product["plans"]):
         prefix = f"ProjectPlanMenuForm[{index}]"
-        _field(page, f'[name="{prefix}.description"]').fill(plan["description"])
-        _select_delivery_time(page, f'[name="{prefix}.delivery_time"]', plan["delivery_days"])
-        _field(page, f'[name="{prefix}.price"]').fill(str(plan["price_jpy"]))
+        _field(page, f'[name="{prefix}.description"]', context=f"create:plan[{index}].description").fill(plan["description"])
+        _select_delivery_time(page, f'[name="{prefix}.delivery_time"]', plan["delivery_days"], context=f"create:plan[{index}].delivery_time")
+        _field(page, f'[name="{prefix}.price"]', context=f"create:plan[{index}].price").fill(str(plan["price_jpy"]))
     _advance_create_step(page, "料金表", lambda: _create_business_textarea(page), "業務内容 textarea (unnamed)")
 
     # 3/6 業務内容 -- the single unnamed textarea, max 2000 chars (already enforced against
@@ -1110,7 +1145,7 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
     )
 
     # 4/6 確認事項 -- 注文時のお願い (必須); 注文時の質問 is optional and unused here.
-    _field(page, '[name="ProjectPlanForm.notice_for_sale"]').fill(product["notice"])
+    _field(page, '[name="ProjectPlanForm.notice_for_sale"]', context="create:notice_for_sale").fill(product["notice"])
     _advance_create_step(
         page, "確認事項", lambda: page.get_by_text(_CREATE_IMAGE_STEP_MARKER_TEXT, exact=False),
         _CREATE_IMAGE_STEP_MARKER_TEXT,
