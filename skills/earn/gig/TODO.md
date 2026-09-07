@@ -474,6 +474,10 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    origin, navigates only `about:blank` to the official Explore URL, and emits a private readiness receipt
    before the model starts. Targeted verification passes 21 tests plus 2 subtests. Installed-release
    readiness, twelve-candidate scan, human-gate/application immediate receipt and replay-zero remain open.
+   Dais-provided official Mercor email confirms the pre-regression baseline: the application for
+   `Data analysis / quantitative readouts Evaluator` was submitted successfully on August 22. Therefore
+   current zero-application runs are an owner-path regression, not proof that the account or platform
+   cannot apply; acceptance must restore at least that official-submit behavior plus the shared receipt.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
