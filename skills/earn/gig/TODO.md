@@ -947,6 +947,73 @@ that names nothing — the third time today the same shape has hidden a root cau
    stop dropping it), then Coconala's 23 in-page `querySelector` calls, which are a larger change.
 
 
+### Apply-owner cursor 2 — stop refusing, start applying
+
+Dais 2026-09-07, in his own words: *"we need them not skipping but actually applying ... They
+should go search jobs they can and apply maximally"*, and *"they prefer 開発 but it's not the only
+thing they can work on ... buyma not good and sns posting itself and physical shit but all others
+they could do"*.
+
+The measurement that opens this cursor, taken 2026-09-07 across all three lanes:
+
+| | applications | what the lane was doing instead |
+|---|---|---|
+| Lancers | **0 in the last 120 wakes** | `planner_contract_invalid` 1235, more than every other failure combined |
+| CrowdWorks | 0 today, 14 all time, last 2026-09-05 | rejecting 59 of 98 open postings as `wrong_category` |
+| Coconala | 0 since 2026-09-02 | `APPLY-REPORT-9`, unchanged and still the open question |
+
+None of the three was throttled, logged out or short of jobs. All three were refusing work they
+can do, for three different reasons, in three separately written filters. That is the same root
+as `APPLY-REPORT-4`: three adapters, three answers, and the strictest one silently wins.
+
+1. [x] `APPLY-FIT-1` A short planner reply must not discard the rows it did judge. PASS = the
+   length-equality check is gone from `application_loop.py`, the row-matching loop below it books
+   missing ids into `invalid_ids` as before, and a test asserts that a planner returning one
+   decision for two rows submits the judged row and reports the other as failed.
+   `planner_contract_invalid` was measured 1235 times on 2026-09-07 and every occurrence threw
+   away decisions the planner had already made. Same mistake as `_filter_claimed_rows` before it,
+   one row later — which the suite already had a test for.
+
+2. [x] `APPLY-FIT-2` Drop `explicit_ai_prohibition`. Dais 2026-09-07: the work is built and
+   reviewed by an AI that is good at it, so a blanket "no AI" line in a posting is not a reason to
+   refuse. PASS = the class is absent from `HARD_PROHIBITION_CLASSES` and a test pins its absence
+   rather than leaving it to drift back in.
+
+3. [x] `APPLY-FIT-3` One refusal list, read by three adapters.
+   PASS = `skills/_shared/marketplace-core/scripts/work_fit.py` holds `HARD_PROHIBITION_CLASSES`
+   for adapters that show the posting text to a model and `category_refusal()` for adapters that
+   only have a category label; Lancers reads it instead of defining its own; CrowdWorks'
+   `BUILD_CATEGORIES` allow-list is deleted; `test_work_fit.py` pins the ten category labels the
+   CrowdWorks lane really printed on 2026-09-07.
+   The allow-list is the mistake worth naming. It had already been widened once, for
+   「AI・チャットボット開発」, and a week later was refusing that same category again along with
+   「HTML・CSSコーディング」. Enumerating what the fleet may take on has to be wrong every time a
+   marketplace invents a category name, so the refusals — a short, stable list — are what belongs
+   in code. An unknown label is workable on purpose: wrongly refusing one costs every posting
+   under it, silently, while wrongly bidding costs one proposal.
+
+4. [ ] `APPLY-FIT-4` ★ Confirm the three lanes actually apply. PASS = one natural wake per
+   platform, after the releases are cut and the labels repointed, in which Lancers submits at
+   least one proposal with `verified_count >= 1`, CrowdWorks writes a new row to
+   `application-receipts.jsonl`, and each submission appears in Telegram with title, price and
+   reason. Nothing here is PASS on a test run: `cut-loop-release.sh` does not repoint labels, so a
+   merged fix that is not applied per label stays dormant.
+
+5. [ ] `APPLY-FIT-5` Widen what the lanes look at, once `APPLY-FIT-4` proves the ones they already
+   find get applied to. Lancers' twelve `DISCOVERY_QUERIES` are all development nouns and Coconala
+   searches the single keyword `AI`, so both lanes only ever *see* the work the old allow-list
+   would have admitted. CrowdWorks already derives its search terms from the shared catalogue and
+   is the implementation to promote — `search_terms()` into `listing_catalog.py`, which is the
+   Storefront owner's file and needs their agreement first. Deliberately after `APPLY-FIT-4`:
+   widening discovery before submission is proven only produces more skips to read.
+
+6. [ ] `APPLY-FIT-6` Releases are 1.2 GB each because every one carries its own `node_modules`, 27
+   were cut on 2026-09-07 alone, and the volume reached 96% full. On 2026-09-01 that surfaced
+   inside this lane as `OSError: [Errno 28]` thrown from the planner's own result write, reported
+   as `planner_runner_failed` — a disk fault wearing a planner's name. Not this cursor's to fix,
+   but it is this cursor's to have measured, and it belongs to whoever owns release cutting.
+
+
 ## Historical Coconala atomic cursor — evidence only
 
 One checkbox was one bounded change or one bounded

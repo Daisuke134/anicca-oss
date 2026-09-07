@@ -68,6 +68,9 @@ def test_both_classes_reach_the_planner():
 def test_the_earlier_guards_are_still_there():
     """Fixing scope must not quietly loosen anything already decided."""
     for key in ("video_or_animation", "physical_or_onsite", "mandatory_human_presence",
-                "explicit_ai_prohibition", "mandatory_attribute_fabrication"):
+                "mandatory_attribute_fabrication"):
         assert key in loop.HARD_PROHIBITION_CLASSES
+    # Dais 2026-09-07 withdrew explicit_ai_prohibition: the work is built and checked by an AI that
+    # is good at it, so a blanket "no AI" line in a posting is not a reason to refuse.
+    assert "explicit_ai_prohibition" not in loop.HARD_PROHIBITION_CLASSES
     assert "応募者の確認済み属性" in loop.PLANNER_RULES

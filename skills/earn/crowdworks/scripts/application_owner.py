@@ -36,13 +36,13 @@ def _listings():
         if terms and tiers: out.append({**item, "terms": terms, "tiers": tiers})
     return out
 
-# Measured against the categories CrowdWorks actually prints, not guessed: the first list rejected
-# 「AI・チャットボット開発」「ChatGPT開発」「Webサイト更新・保守」, all of which the catalogue sells.
-BUILD_CATEGORIES = (
-    "システム開発", "ソフトウェア", "アプリ", "ホームページ", "Web制作", "Webサイト",
-    "プログラミング", "スクレイピング", "データベース", "運用・保守", "保守",
-    "チャットボット", "ChatGPT", "自動化", "開発",
-)
+# There used to be a BUILD_CATEGORIES allow-list here, and it had already been widened once for
+# 「AI・チャットボット開発」「ChatGPT開発」「Webサイト更新・保守」. On 2026-09-07 it was still
+# rejecting 59 of 98 open postings, among them 「HTML・CSSコーディング」 and, again,
+# 「AI・チャットボット開発」. An allow-list has to be wrong every time CrowdWorks names a new
+# category, and development is what the fleet is best at rather than all it can deliver, so the
+# refusals -- not the acceptances -- are what belongs in a list. That list is now shared with
+# Lancers and Coconala instead of being spelled a third way here.
 
 _CATEGORY = re.compile(r"([^ ]{2,40})の仕事の依頼")
 
@@ -73,6 +73,8 @@ def _module(name: str, path: Path):
 account = _module("crowdworks_account", Path(__file__).with_name("account.py"))
 profile = _module("crowdworks_profile", Path(__file__).with_name("profile.py"))
 application = _module("crowdworks_application", Path(__file__).with_name("application_tick.py"))
+work_fit = _module("marketplace_work_fit",
+                   Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts" / "work_fit.py")
 
 def _applied():
     """Projects this account already applied to. Without it the search keeps returning its own
@@ -128,11 +130,13 @@ def _candidate(page, listings, rotation):
             # 医療事務 job because unrelated navigation text mentioned our nouns.
             detail=text[text.find("仕事の詳細"):text.find("クライアント情報")] if "仕事の詳細" in text and "クライアント情報" in text else ""
             if not any(term in title or term in detail for term in listing["terms"]):rejected["off_topic"]+=1;continue
-            # The catalog only sells build work. Without this a 医療事務 staffing post matched on the
-            # word AI機能 alone and would have received a 240,000円 web-app proposal.
-            if not any(word in _category(text) for word in BUILD_CATEGORIES):
+            # The 医療事務 staffing post that matched on the word AI機能 alone, and would have
+            # received a 240,000円 web-app proposal, is still refused here -- by what it is rather
+            # than by not being on a list of approved category names.
+            refusal = work_fit.category_refusal(_category(text))
+            if refusal is not None:
                 rejected["wrong_category"]+=1
-                _decline(declined,job_id,title,f"募集カテゴリ「{_category(text) or '不明'}」は開発の受注範囲外です")
+                _decline(declined,job_id,title,f"募集カテゴリ「{_category(text)}」は受注できない区分（{refusal[0]}）です")
                 continue
             tier=_priced(listing,text)
             if tier is None:

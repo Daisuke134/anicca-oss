@@ -77,24 +77,18 @@ def _persona_facts() -> dict[str, str]:
 
 
 PERSONA_FACTS = _persona_facts()
-HARD_PROHIBITION_CLASSES = {
-    "video_or_animation": "video editing/production, live-action filming, AI video, animation, or MV",
-    "physical_or_onsite": "on-site work or physical making/assembly/cleaning/repair/cooking/sewing/woodwork/model making/packing/shipping/delivery/receipt",
-    "mandatory_human_presence": "human face appearance/performance/voice recording/phone support/mandatory live call or mandatory video interview",
-    "explicit_ai_prohibition": "explicit prohibition on AI use",
-    "illegal_or_unsafe": "illegal or unsafe work",
-    # 2026-09-07: applied to 整理収納アドバイザー監修 and 防災士監修. Both name a certification the
-    # persona does not hold, and both were read as allowed because the wording said "legally
-    # required" and a 監修 credential is not a licence. Supervising under a credential you lack is
-    # lending a name, which is the thing the honesty rules exist to prevent.
-    "missing_legal_qualification": "a named qualification, certification, licence or 監修者 credential that Kosuke does not hold, whether or not the law requires it",
-    # 2026-09-07: applied to 「バイマで出品作業」 at roughly ¥50 per item. The catalogue sells built
-    # software and automation; this is the buyer's own account operated by hand, forever. The
-    # capability list already says web/browser operation, which is true of a tool we build and not
-    # of standing in for staff. maintenance_retainer is unaffected: it operates systems we built.
-    "manual_marketplace_operation": "ongoing manual work inside the buyer's own account or marketplace (出品代行, 受発注, 在庫更新, 投稿代行, 反復データ入力) where the deliverable is worked hours rather than software, automation or a built artifact",
-    "mandatory_attribute_fabrication": "mandatory personal attribute that cannot be answered truthfully without fabrication",
-}
+def _work_fit():
+    """The refusals are shared with Coconala and CrowdWorks. Lancers wrote them first; keeping a
+    second copy here is how CrowdWorks ended up refusing work this list allows."""
+    path = Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts" / "work_fit.py"
+    spec = importlib.util.spec_from_file_location("marketplace_work_fit", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+HARD_PROHIBITION_CLASSES = _work_fit().HARD_PROHIBITION_CLASSES
 PUBLIC_FIELDS = ("schema_version", "record_type", "platform", "external_id", "title", "description", "url", "category", "budget_type", "budget_min_minor", "budget_max_minor", "currency", "buyer_external_id", "observed_at")
 DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 ID_RE = re.compile(r"^[0-9]+$")
@@ -644,7 +638,13 @@ def _plan_and_submit(rows: Sequence[Mapping[str, object]], today: date, evidence
     returned = len(planned.get("decisions")) if isinstance(planned, Mapping) and isinstance(planned.get("decisions"), list) else None
     try:
         items = planned.get("decisions") if isinstance(planned, Mapping) and set(planned) == {"decisions"} else None
-        if not isinstance(items, list) or len(items) != len(rows): raise ValueError
+        # Measured 2026-09-07: planner_contract_invalid 1235 times, more than every other
+        # failure combined, and every one of them threw away decisions the planner had
+        # actually made.  A model that returns 19 judgements for 20 rows has judged 19
+        # rows; the loop below already matches on request_id and books whatever is missing
+        # or unrecognised into invalid_ids.  Requiring the counts to match on top of that
+        # converts a partial answer into a total loss, and a lane that applies to nothing.
+        if not isinstance(items, list): raise ValueError
         rows_by_id = {str(row["external_id"]): row for row in rows}
         decisions = {}; invalid_ids = []
         for item in items:

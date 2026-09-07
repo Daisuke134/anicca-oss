@@ -469,12 +469,19 @@ class ApplicationLoopHolTests(unittest.TestCase):
                 safety_verifier=lambda *_args: self.fail("safety_called"), submitter=submitter,
                 clock=lambda: datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc),
             )
-        # A planner handed two rows must decide two rows. Returning one is not a partial success to
-        # be quietly accepted -- the loop names the mismatch with both counts, so a planner that
-        # silently drops work is visible instead of looking like a thin day.
-        self.assertEqual(partial["error"], "planner_contract_invalid")
-        self.assertEqual(partial["planner_expected_count"], 2)
-        self.assertEqual(partial["planner_returned_count"], 1)
+        # A planner handed two rows and returning one has judged one row, and that judgement is
+        # worth acting on. Discarding both was measured on 2026-09-07 as planner_contract_invalid
+        # 1235 times -- more than every other lane failure combined -- and is the same mistake as
+        # test_one_bad_budget_row_does_not_discard_two_good_rows below, one row later.
+        # The mismatch still has to be visible, so it is reported per row rather than as a count:
+        # the judged row submits, the unjudged one is named as failed.
+        self.assertNotIn("error", partial)
+        self.assertEqual(partial["eligible_count"], 1)
+        self.assertEqual(partial["verified_count"], 1)
+        by_id = {report["project_id"]: report for report in partial["decision_reports"]}
+        self.assertEqual(by_id["6000001"]["outcome"], "application_verified")
+        self.assertEqual(by_id["6000002"]["outcome"], "failed")
+        self.assertEqual(by_id["6000002"]["error"], "planner_contract_invalid")
 
     def test_one_bad_budget_row_does_not_discard_two_good_rows(self):
         # skills/earn/lancers/scripts/application_loop.py::_filter_claimed_rows used to
