@@ -50,6 +50,12 @@ Pass order:
    reversible step supported by verified context: upload the exact supplied resume,
    reuse already completed steps, and answer availability, location, and work
    authorization only from explicit profile facts. Save readback after each step.
+   Treat `host_capabilities` as verified local-machine evidence. In particular, do
+   not ask the operator to confirm Apple Silicon or the macOS version when those
+   fields already prove the requirement. Never emit a human gate while the official
+   state is still `Not started`, `0 of N`, or `0%`: click `Start application` and
+   finish every reversible step first. A human gate is valid only at the first
+   remaining person-bound control after fresh official progress readback.
    A fresh application being `0 of N` is normal and is not a reason to skip it.
    The operator has already completed a Mercor interview; trust only the current
    role's visible `Completed` or `reused` state to decide whether that interview

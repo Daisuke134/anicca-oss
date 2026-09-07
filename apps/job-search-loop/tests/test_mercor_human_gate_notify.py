@@ -15,7 +15,7 @@ class MercorHumanGateNotifyTests(unittest.TestCase):
             calls = []
             notification = type("Notification", (), {})()
             def notify_effect(**kwargs):
-                calls.append(kwargs["event_key"])
+                calls.append(kwargs)
                 return {"delivery": "delivered", "provider_message_id": "tg-1", "attempted": 1}
             notification.notify_effect = notify_effect
             with patch(
@@ -31,7 +31,9 @@ class MercorHumanGateNotifyTests(unittest.TestCase):
                 first = record_and_notify(run_id="run-1", **arguments)
                 second = record_and_notify(run_id="run-2", **arguments)
             self.assertEqual(first["gate_id"], second["gate_id"])
-            self.assertEqual(calls[0], calls[1])
+            self.assertEqual(calls[0]["event_key"], calls[1]["event_key"])
+            self.assertIn("人間操作の直前まで進行済み", calls[0]["message"])
+            self.assertNotIn("applicationは保存済み", calls[0]["message"])
 
 
 if __name__ == "__main__":

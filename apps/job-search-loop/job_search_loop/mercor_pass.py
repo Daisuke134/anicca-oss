@@ -4,6 +4,7 @@ import argparse
 import fcntl
 import json
 import os
+import platform
 import re
 import sys
 from datetime import datetime, timezone
@@ -13,6 +14,21 @@ from typing import Any
 from .agent_runner import AgentRunner, PassAlreadyRunning
 from .mercor_provider import run_pass
 from .mercor_submit_guard import fenced_listing_ids
+
+
+def _host_capabilities() -> dict[str, Any]:
+    architecture = platform.machine()
+    macos_version = platform.mac_ver()[0]
+    try:
+        macos_major = int(macos_version.split(".", 1)[0])
+    except (ValueError, IndexError):
+        macos_major = 0
+    return {
+        "architecture": architecture,
+        "macos_version": macos_version,
+        "apple_silicon": architecture == "arm64",
+        "macos_sequoia_or_newer": macos_major >= 15,
+    }
 
 
 def _ledger_listing_ids(path: Path) -> list[str]:
@@ -101,6 +117,7 @@ def build_context(
         "pending_human_gate_listing_ids": _pending_human_gate_listing_ids(
             state_root / "human-gates.jsonl"
         ),
+        "host_capabilities": _host_capabilities(),
         "run_id": run_id,
         "cdp_url": cdp_url,
         "cdp_page_ws": cdp_page_ws,
@@ -262,6 +279,21 @@ def validate_priority_scan(
         raise ValueError(f"priority_scan_incomplete:{','.join(missing)}")
 
 
+def validate_human_gate_progress(result: dict[str, Any]) -> None:
+    """A human request is valid only after reversible application work began."""
+    if not result.get("needs_human") or result.get("status") == "blocked":
+        return
+    premature = []
+    for item in result.get("inspected_listings", []):
+        if not isinstance(item, dict) or "human gate" not in str(item.get("decision", "")).casefold():
+            continue
+        state = str(item.get("application_state") or "")
+        if re.search(r"\bnot started\b|\b0\s+of\s+\d+\b|\b0%\b", state, re.IGNORECASE):
+            premature.append(str(item.get("listing_id") or "unknown"))
+    if premature:
+        raise ValueError(f"human_gate_before_reversible_progress:{','.join(premature)}")
+
+
 def _blocked_for_evidence_violation(
     result: dict[str, Any], evidence_dir: Path, error: ValueError
 ) -> dict[str, Any]:
@@ -338,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
             args.evidence_dir.parent,
             context["pending_human_gate_listing_ids"],
         )
+        validate_human_gate_progress(result)
     except ValueError as error:
         result = _blocked_for_evidence_violation(result, args.evidence_dir, error)
     record_verified_submissions(args.state_root, result, run_id=args.run_id)

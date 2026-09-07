@@ -14,6 +14,7 @@ from job_search_loop.mercor_pass import (
     record_verified_submissions,
     validate_bounded_scan,
     validate_evidence_paths,
+    validate_human_gate_progress,
     validate_priority_scan,
 )
 
@@ -50,6 +51,22 @@ class MercorPassContractTests(unittest.TestCase):
                 cdp_url="http://127.0.0.1:9222",
             )
             self.assertEqual(context["pending_human_gate_listing_ids"], ["list_gate"])
+
+    @patch("job_search_loop.mercor_pass.platform.mac_ver", return_value=("15.6", ("", "", ""), ""))
+    @patch("job_search_loop.mercor_pass.platform.machine", return_value="arm64")
+    def test_context_proves_local_mac_eligibility(self, _machine, _mac_ver):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            context = build_context(
+                state_root=state,
+                profile_path=state / "profile.json",
+                resume_path=state / "resume.pdf",
+                cdp_url="http://127.0.0.1:9222",
+            )
+            self.assertEqual(context["host_capabilities"], {
+                "architecture": "arm64", "macos_version": "15.6",
+                "apple_silicon": True, "macos_sequoia_or_newer": True,
+            })
 
     def test_mercor_is_retired_locally_but_keeps_portable_thirty_minute_cadence(self):
         registry = json.loads((ROOT.parents[1] / "config" / "loop-registry.json").read_text())
@@ -134,6 +151,8 @@ class MercorPassContractTests(unittest.TestCase):
             "capability_catalog_path",
             "Japan-eligible Japanese-language",
             "pending_human_gate_listing_ids",
+            "host_capabilities",
+            "Never emit a human gate while the official",
             "mercor_human_gate_notify",
         ):
             self.assertIn(required, prompt)
@@ -185,6 +204,20 @@ class MercorPassContractTests(unittest.TestCase):
                 {"listing_id": "list_jp"}, {"listing_id": "list_gate"}
             ]
             validate_priority_scan(result, root, ["list_gate"])
+
+    def test_human_gate_is_rejected_before_reversible_progress(self):
+        result = {
+            "status": "needs_human",
+            "needs_human": ["Japanese interview"],
+            "inspected_listings": [{
+                "listing_id": "list_jp", "decision": "Human gate: interview",
+                "application_state": "Not started; 0 of 4 steps completed; 0%",
+            }],
+        }
+        with self.assertRaisesRegex(ValueError, "human_gate_before_reversible_progress"):
+            validate_human_gate_progress(result)
+        result["inspected_listings"][0]["application_state"] = "2 of 4 steps completed; 50%"
+        validate_human_gate_progress(result)
 
     def test_current_skill_and_spec_match_continuous_application_policy(self):
         skill = (ROOT.parents[1] / "skills" / "mercor" / "SKILL.md").read_text()

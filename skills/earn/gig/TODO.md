@@ -488,6 +488,15 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    mandatory resume queue, and a nonblocked pass must inspect every observed Japanese/Japan card before
    accepting a lower-priority bounded scan. Fresh installed-release application/human-gate receipt and
    replay-zero remain open.
+   Release `8f6ef907ccce6c93a6839a7ddff7887e1fb41aeb` enforced that queue and naturally
+   inspected twelve candidates including `Bilingual Writer - Japanese (Japan)`. It produced no
+   application, because it emitted human-gate Telegram message `65165` while the official application
+   was still `Not started / 0 of 4 / 0%`; terminal summary message was `65179`. This is an acceptance
+   failure, not completion: the loop asked Dais to confirm facts the host can prove and had not completed
+   reversible application work. Host architecture/macOS are now explicit verified context; a human gate
+   is rejected until `Start application` and all reversible steps advance beyond zero, and the notification
+   no longer claims an unverified saved application. Fresh official progress, correct human gate or final
+   application receipt, and replay-zero remain open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
