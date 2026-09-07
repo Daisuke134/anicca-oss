@@ -264,7 +264,13 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    公式`call_duration`を取得してのみ精算するため、bridge crash、response loss、`LM_AMD=off`でもreplay-safe。
    関連test 236/236、migration二重適用、実PostgreSQLの3,480秒時並行reserve 1/2件、誤token拒否、37秒精算後
    残83秒、stale accepted保持をPASS。fresh read-only reviewはSHA `999755fe0`を`ship`判定。
-4. **IN PROGRESS — merge/production:** 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
+4. **IN PROGRESS — production:** 1〜3はPR #4524としてmainへmerge済み（merge SHA
+   `58347e26f107cd6a8f4a103a5fbc0e48f456748a`）。本番はRailway `life-manager / production /
+   life-call`とSupabase project `cycgdwndgfgdbnndithc`。read-only schema probeでmonthly allowance table、
+   voice ledger、Telegram OAuth claim RPCがHTTP 404、route-cache新columnがHTTP 400となり、3 migrationが
+   未適用と確認した。Supabase dashboardの既存sessionは対象projectを持たない別accountで、対象GitHub accountの
+   通常loginは2FAで停止し、GitHub Mobile確認もproviderがidentity確認不能として拒否した。次の一手はDaisが
+   GitHub 2FAを1回完了することだけ。その直後に3 migration適用、main由来Railway deploy、health/schema/readbackを行う。
 5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
    最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
 6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。
