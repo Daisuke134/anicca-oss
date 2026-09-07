@@ -245,8 +245,10 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    WebApp非使用、cookie不要のone-time OAuth callback、Calendar ACTIVE同期、Telegram復帰と自宅住所質問を
    branch `feat/lm-telegram-native-start-20260907`で実装。ローカルcontractはPASS済み。
    ローカルcontract 153/153とfresh read-only reviewがPASS。本番反映は項目4でまとめて行う。
-2. **IN PROGRESS — optional phone:** 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
-3. 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
+2. **DONE (local/review) — optional phone:** 電話の用途、任意性、番号保存とcall opt-inの分離をTelegramで実装する。
+   電話skip、番号保存時call OFF、別質問での明示opt-in、日英copy、onboarding paywall削除を実装し、
+   関連test 160/160とfresh read-only reviewがPASS。
+3. **IN PROGRESS — monthly free allowance:** 3日trial表示とonboarding内の料金CTAをmonthly free allowance表示へ置き換える。
 4. 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
 5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
    最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
