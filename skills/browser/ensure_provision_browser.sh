@@ -23,9 +23,10 @@ set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 IDENTITY="${1:?identity is required (see ~/.config/ai/registry/browsers.toml)}"
-GUARD="${AI_BROWSER_GUARD:-$HOME/.config/ai/bin/browser-guard.sh}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GUARD="${AI_BROWSER_GUARD:-$HERE/browser-guard.sh}"
 REGISTRY="${AI_BROWSER_REGISTRY:-$HOME/.config/ai/registry/browsers.toml}"
-KEEPALIVE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cdp_persistent_context.py"
+KEEPALIVE="$HERE/cdp_persistent_context.py"
 CLOAK_PY="${CLOAK_PYTHON:-$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3}"
 LOG="${PROVISION_BROWSER_LOG:-$HOME/.openclaw/logs/provision-browser.log}"
 LAUNCH_WAIT="${PROVISION_BROWSER_WAIT:-120}"

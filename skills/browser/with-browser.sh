@@ -11,8 +11,9 @@ if [ -z "$IDENTITY" ] || [ "$#" -eq 0 ]; then
   exit 64
 fi
 
-GUARD="${AI_BROWSER_GUARD:-$HOME/.config/ai/bin/browser-guard.sh}"
-ENSURE="${AI_ENSURE_PROVISION_BROWSER:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ensure_provision_browser.sh}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GUARD="${AI_BROWSER_GUARD:-$HERE/browser-guard.sh}"
+ENSURE="${AI_ENSURE_PROVISION_BROWSER:-$HERE/ensure_provision_browser.sh}"
 WAIT_SECONDS="${BROWSER_WAIT_SECONDS:-300}"
 CDP=""
 deadline=$(( $(date +%s) + WAIT_SECONDS ))
