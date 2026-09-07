@@ -62,6 +62,7 @@ if PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
   --ws "$MERCOR_CDP_PAGE_WS" --output "$AUTH_READBACK_JSON"; then
   "$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
     --origin https://work.mercor.com --local-storage-key mercor-auth-store \
+    --session-storage-key mercor-session-id --session-storage-key mercor-user-ip \
     --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >"$WRITEBACK_JSON"
   writeback_rc=$?
 else
