@@ -184,7 +184,10 @@ async function completeTelegramHome(uid, chatId, homeAddress, supaUrl, supaKey) 
     body: JSON.stringify({ p_uid: uid, p_chat_id: String(chatId), p_home_address: homeAddress }),
   });
   if (!response.ok) throw new Error("onboarding_transition_failed");
-  return response.json().catch(() => ({}));
+  const value = await response.json().catch(() => false);
+  const completed = Array.isArray(value) ? value[0] === true : value === true;
+  if (!completed) throw new Error("onboarding_transition_failed");
+  return true;
 }
 
 async function backfillIfCalendarCompleted(row, opts = {}) {

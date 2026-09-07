@@ -6,7 +6,7 @@ const assert = require("node:assert");
 const {
   computeStage, stageMessage, isNativeStage, normalizePhone, telegramProfileName,
   applyTelegramProfileName, handleOnboardingText, handleGmailCallback, onboardNudgeAll, backfillIfCalendarCompleted,
-  linkedRows,
+  linkedRows, completeTelegramHome,
   NUDGE_COOLDOWN_MS,
 } = require("./telegram-onboard.js");
 const { startReply, tgCall } = require("./telegram.js");
@@ -670,6 +670,28 @@ test("blank or overlong home text performs no mutation", async () => {
     }), "bad-home");
     assert.deepEqual(completions, []);
     assert.equal(messages.length, 1);
+  }
+});
+
+test("home completion rejects a tenant/stage conflict returned as RPC false", async () => {
+  const originalFetch = global.fetch;
+  let sends = 0;
+  global.fetch = async () => ({ ok: true, json: async () => false });
+  try {
+    await assert.rejects(
+      completeTelegramHome("u1", "1", "東京都千代田区1-1", "https://supa.example", "service"),
+      /onboarding_transition_failed/,
+    );
+    await assert.rejects(handleOnboardingText("1", "東京都千代田区1-1", {
+      ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar",
+    }, {
+      token: "t", base: "https://x", supaUrl: "https://supa.example", supaKey: "service",
+      backfillCalendarContext: async () => {}, completeTelegramHome,
+      sendMessage: async () => { sends++; },
+    }), /onboarding_transition_failed/);
+    assert.equal(sends, 0);
+  } finally {
+    global.fetch = originalFetch;
   }
 });
 
