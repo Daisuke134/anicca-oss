@@ -467,6 +467,57 @@ def _step(page: Any, label: str, *, context: str | None = None) -> None:
     values[0].click()
 
 
+_SERVICE_TYPE_SELECTOR = '[name="ProjectPlanCategoryForm.service_type[0]"]'
+
+
+def _select_service_type(page: Any, service_type: str, *, context: str | None = None) -> None:
+    """Select 業務 (`_SERVICE_TYPE_SELECTOR`) -- a *radio group*, not a `<select>`: many elements
+    share this one `name`, one per option, each identified by its own grandparent element's
+    innerText rather than by an `<option>` label (unlike every other dependent field this file
+    fills via `select_option(label=...)`). It is also a *dependent* of subcategory exactly the way
+    subcategory is a dependent of category: it does not mount into the DOM until subcategory has
+    been chosen, so it must be waited for with `state="attached"`, never assumed present at page
+    load.
+
+    Shared by _apply() (this selection proved correct against the live listing) and
+    _fill_create_form() (create_package()'s wizard) -- there is exactly one implementation of
+    "select this control" in this file. The create path used to carry its own `<select>`-shaped
+    version (`_select_create_service_type`); treating a radio group as a `<select>` is exactly why
+    it drifted from what the live DOM actually is and raised `found=0` against a control that was
+    never a `<select>` to begin with.
+
+    Selection is four steps, each checked before the next is attempted -- the same order _apply()
+    already proved live: (1) wait for the radio group to attach, then keep exactly the one radio
+    whose grandparent's text equals `service_type`; (2) confirm its `value` is Lancers' own
+    numeric category id, not a placeholder; (3) click the matching `label[for=<value>]` -- the
+    radio's own input is not the real click target -- and wait for the live category API this
+    selection triggers (`/v1/project_store_api/project_category/<id>`); (4) confirm that response
+    was 200 and the radio actually ended up checked. Any refusal names `service_type`, what was
+    actually seen, and `context` (see _field()'s own docstring for the convention) rather than a
+    bare "form_changed".
+    """
+    suffix = f": {context}" if context else ""
+    page.wait_for_selector(_SERVICE_TYPE_SELECTOR, state="attached", timeout=5_000)
+    radios = page.locator(_SERVICE_TYPE_SELECTOR)
+    labelled = [(radio, " ".join(radio.evaluate("e => e.parentElement.parentElement.innerText").split())) for radio in radios.all()]
+    matches = [radio for radio, label in labelled if label == service_type]
+    if not matches:
+        seen = [label for _, label in labelled]
+        raise OfferError(f"form_changed{suffix}: service_type={service_type!r} found=0 options={seen}")
+    if len(matches) > 1:
+        raise OfferError(f"form_changed{suffix}: service_type={service_type!r} found={len(matches)}")
+    radio = matches[0]
+    value = radio.get_attribute("value")
+    if re.fullmatch(r"[0-9]+", value or "") is None:
+        raise OfferError(f"form_changed{suffix}: service_type={service_type!r} value={value!r}")
+    with page.expect_response(lambda response: urlsplit(response.url).path == f"/v1/project_store_api/project_category/{value}", timeout=10_000) as service_loaded:
+        page.locator(f'label[for="{value}"]').click()
+    if service_loaded.value.status != 200:
+        raise OfferError(f"form_changed{suffix}: service_type={service_type!r} api_status={service_loaded.value.status}")
+    if not radio.is_checked():
+        raise OfferError(f"form_changed{suffix}: service_type={service_type!r} checked=False")
+
+
 def _apply(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]:
     before = _public(page, product)
     reconciliation = _reconcile_superseded(page, product["superseded_listing_ids"])
@@ -486,14 +537,7 @@ def _apply(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]
     _field(page, '[name="___main_category_id"]').select_option(label=product["category"])
     page.wait_for_function("label => [...document.querySelectorAll('[name=\"ProjectPlanForm.project_category_id\"] option')].some(o => o.textContent.trim() === label)", arg=product["subcategory"], timeout=5_000)
     _field(page, '[name="ProjectPlanForm.project_category_id"]').select_option(label=product["subcategory"])
-    page.wait_for_selector('[name="ProjectPlanCategoryForm.service_type[0]"]', state="attached", timeout=5_000)
-    services = page.locator('[name="ProjectPlanCategoryForm.service_type[0]"]')
-    matches = [field for field in services.all() if " ".join(field.evaluate("e => e.parentElement.parentElement.innerText").split()) == product["service_type"]]
-    if len(matches) != 1 or re.fullmatch(r"[0-9]+", matches[0].get_attribute("value") or "") is None: raise OfferError("form_changed")
-    service_id = matches[0].get_attribute("value")
-    with page.expect_response(lambda response: urlsplit(response.url).path == f"/v1/project_store_api/project_category/{service_id}", timeout=10_000) as service_loaded:
-        page.locator(f'label[for="{service_id}"]').click()
-    if service_loaded.value.status != 200 or not matches[0].is_checked(): raise OfferError("form_changed")
+    _select_service_type(page, product["service_type"])
     _field(page, '[name="ProjectPlanForm.industry_type_id"]').select_option(label=product["industry"])
     while page.locator('[aria-label="削除"]').count(): page.locator('[aria-label="削除"]').first.click()
     tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]')
@@ -554,8 +598,9 @@ _CREATE_LISTING_ID_IN_URL = re.compile(r"^https://www\.lancers\.jp/(?:myplan|men
 # textarea enforces is checked here too, not discovered live as a submission failure.
 # "service_type" (業務, ProjectPlanCategoryForm.service_type[0]) is the seventh required control a
 # DOM-outward requirement enumeration found and five earlier rounds did not: it is a *dependent*
-# select that only appears once subcategory is chosen, exactly like subcategory itself is a
-# dependent of category -- see _fill_create_form's own wait/select for it below.
+# radio group that only mounts once subcategory is chosen, exactly like subcategory itself is a
+# dependent of category -- see _select_service_type (shared with _apply(), which proved this
+# selection live) for how _fill_create_form selects it below.
 _CREATE_REQUIRED_FIELDS = ("title_stem", "subtitle", "category", "subcategory", "service_type", "industry", "tags", "notice", "plans", "description")
 _CREATE_DESCRIPTION_MAX_LENGTH = 2000
 
@@ -571,35 +616,6 @@ def _require_create_fields(product: Mapping[str, Any]) -> None:
     description = product["description"]
     if len(description) > _CREATE_DESCRIPTION_MAX_LENGTH:
         raise OfferError(f"create_field_invalid: description: length={len(description)} max={_CREATE_DESCRIPTION_MAX_LENGTH}")
-
-
-_CREATE_SERVICE_TYPE_SELECTOR = '[name="ProjectPlanCategoryForm.service_type[0]"]'
-
-
-def _select_create_service_type(page: Any, service_type: str, *, context: str | None = None) -> None:
-    """Select 業務 (`ProjectPlanCategoryForm.service_type[0]`) by label -- a select that is itself
-    a *dependent* of subcategory exactly the way subcategory is a dependent of category: it does
-    not exist in the DOM until subcategory has been chosen, and its option list is specific to
-    whichever subcategory that was (see the module comment on _CREATE_REQUIRED_FIELDS). Treated
-    exactly like subcategory's own wait-then-select immediately above: wait for `service_type`'s
-    own label to actually be among the live options, then select it by label. A label never
-    observed among the live options raises a named error listing every option this actually saw
-    -- that listing is what teaches this file each remaining subcategory's service_type vocabulary
-    without anyone opening a browser, so it must never be swallowed into a generic timeout.
-
-    `context` is forwarded to `_field()` unchanged (see that function's own docstring) so a
-    _fill_create_form() caller's field name survives into this selector's own ambiguity refusal.
-    """
-    field = _field(page, _CREATE_SERVICE_TYPE_SELECTOR, context=context)
-    try:
-        page.wait_for_function(
-            "label => [...document.querySelectorAll('[name=\"ProjectPlanCategoryForm.service_type[0]\"] option')].some(o => o.textContent.trim() === label)",
-            arg=service_type, timeout=5_000,
-        )
-    except Exception:
-        seen = [" ".join(str(option.inner_text() or "").split()) for option in field.locator("option").all()]
-        raise OfferError(f"create_service_type_unmatched: service_type={service_type}: options={seen}") from None
-    field.select_option(label=service_type)
 
 
 def _select_delivery_time(page: Any, selector: str, delivery_days: int, *, context: str | None = None) -> None:
@@ -1118,7 +1134,7 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
         arg=product["subcategory"], timeout=5_000,
     )
     _field(page, '[name="ProjectPlanForm.project_category_id"]', context="create:subcategory").select_option(label=product["subcategory"])
-    _select_create_service_type(page, product["service_type"], context="create:service_type")
+    _select_service_type(page, product["service_type"], context="create:service_type")
     _field(page, '[name="ProjectPlanForm.industry_type_id"]', context="create:industry_type").select_option(label=product["industry"])
     tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]', context="create:tags")
     for tag in product["tags"]:

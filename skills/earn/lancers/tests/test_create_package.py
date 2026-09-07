@@ -74,6 +74,7 @@ _OBSERVER = _load_form_observer()
 # day count Lancers' project_lancers()/LANCERS_DELIVERY_DAYS actually offers.
 _DELIVERY_DAYS = (1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 30, 45, 60, 75, 90)
 _IMAGE_STEP_MARKER_TEXT = "受注率が約10倍になります"  # mirrors storefront_offer._CREATE_IMAGE_STEP_MARKER_TEXT
+_SERVICE_TYPE_SELECTOR = '[name="ProjectPlanCategoryForm.service_type[0]"]'  # mirrors storefront_offer._SERVICE_TYPE_SELECTOR
 
 
 class _Option:
@@ -363,6 +364,86 @@ class _Response:
         self.status = status
 
 
+# --- service_type (業務) fakes ------------------------------------------------------------------
+#
+# service_type is a *radio group*, not a `<select>` -- see storefront_offer._select_service_type,
+# shared by both _apply() and _fill_create_form(). These fakes model exactly the subset of
+# Playwright surface that helper actually touches: `page.locator(_SERVICE_TYPE_SELECTOR).all()`
+# (a plain list, each item's grandparent innerText read via `.evaluate()`), `page.locator(f'label
+# [for="{value}"]').click()`, and `page.expect_response(...)` around that click.
+
+
+class _ServiceTypeRadio:
+    """One radio in the group. `grandparent_text` models
+    `e.parentElement.parentElement.innerText`; `value` models the radio's own `value` attribute,
+    the id `label[for=<value>]` is keyed on in production. `checked` only ever flips true via a
+    label click that `_FakeCreatePage` accepts (see `_click_service_type_label`) -- never merely
+    because it was the one _select_service_type happened to match."""
+
+    def __init__(self, *, grandparent_text: str, value: str):
+        self.grandparent_text = grandparent_text
+        self.value = value
+        self.checked = False
+
+    def evaluate(self, _script: str) -> str:
+        return self.grandparent_text
+
+    def get_attribute(self, name: str) -> str | None:
+        return self.value if name == "value" else None
+
+    def is_checked(self) -> bool:
+        return self.checked
+
+
+class _ServiceTypeRadioGroup:
+    """What `page.locator(_SERVICE_TYPE_SELECTOR)` resolves to -- `.all()` only, the one method
+    _select_service_type actually calls on it."""
+
+    def __init__(self, radios: list[_ServiceTypeRadio]):
+        self._radios = radios
+
+    def all(self) -> list[_ServiceTypeRadio]:
+        return list(self._radios)
+
+
+class _ServiceTypeLabel:
+    """What `page.locator(f'label[for="{value}"]')` resolves to. `radio` is `None` when `value`
+    matches no known radio -- clicking it is a no-op, mirroring a real click on an empty locator
+    resolving to nothing rather than raising here (production's own strict-mode Locator would
+    raise instead, but nothing in this file exercises that shape)."""
+
+    def __init__(self, page: "_FakeCreatePage", radio: _ServiceTypeRadio | None):
+        self._page = page
+        self._radio = radio
+
+    def click(self, **_kwargs) -> None:
+        self._page._click_service_type_label(self._radio)
+
+
+class _NetworkResponse:
+    def __init__(self, url: str, status: int):
+        self.url = url
+        self.status = status
+
+
+class _ExpectResponse:
+    """Models `page.expect_response(predicate)`: `.value` becomes the response produced by
+    whatever ran inside the `with` block (here, the label click via
+    `_FakeCreatePage._click_service_type_label`) once the block exits -- mirroring real
+    Playwright's own "resolved on __exit__" contract closely enough for this fake."""
+
+    def __init__(self, page: "_FakeCreatePage"):
+        self._page = page
+        self.value: _NetworkResponse | None = None
+
+    def __enter__(self) -> "_ExpectResponse":
+        return self
+
+    def __exit__(self, *_exc) -> bool:
+        self.value = self._page._last_service_type_response
+        return False
+
+
 class _FakeCreatePage:
     """A minimal stand-in for the Playwright page create_package() drives.
 
@@ -384,6 +465,14 @@ class _FakeCreatePage:
     the tag widget's own committed-chip delete buttons (see _apply's tag-clearing loop in
     production). `described_nodes`: id -> text, resolved via `page.locator(f"#{id}")`, for an
     aria-invalid node's `aria-describedby` target.
+
+    `service_type_radios`: explicit radios for the 業務 group (see the fakes immediately above
+    this class). When omitted, `fields` may still carry a plain *string* (not a `_Field`) under
+    `_SERVICE_TYPE_SELECTOR` -- `_fields_for()` does exactly this -- and this constructor turns
+    that into a single default radio matching it, value `"1"`, so every test that does not care
+    about service_type selection specifically still gets a working one without wiring it through
+    by hand. `service_type_api_status`/`service_type_click_checks` model the category API the
+    label click triggers (see `_click_service_type_label`).
     """
 
     def __init__(
@@ -404,13 +493,27 @@ class _FakeCreatePage:
         committed_tag_count: int = 0,
         described_nodes: dict[str, str] | None = None,
         last_step: int = 5,
+        service_type_radios: list[_ServiceTypeRadio] | None = None,
+        service_type_api_status: int = 200,
+        service_type_click_checks: bool = True,
     ):
         self.url = "https://www.lancers.jp/myplan"
         self.goto_log: list[str] = []
         self.event_log: list[tuple[str, str, int]] = []
-        self._fields = fields or {}
+        fields = dict(fields or {})
+        default_service_type_label = fields.pop(_SERVICE_TYPE_SELECTOR, None)
+        self._fields = fields
         for field in self._fields.values():
             field.page = self
+        if service_type_radios is not None:
+            self._service_type_radios = list(service_type_radios)
+        elif isinstance(default_service_type_label, str):
+            self._service_type_radios = [_ServiceTypeRadio(grandparent_text=default_service_type_label, value="1")]
+        else:
+            self._service_type_radios = []
+        self._service_type_api_status = service_type_api_status
+        self._service_type_click_checks = service_type_click_checks
+        self._last_service_type_response: _NetworkResponse | None = None
         self._buttons = buttons if buttons is not None else []
         self._manual_button_lands_on = manual_button_lands_on
         self._after_submit_url = after_submit_url
@@ -471,6 +574,12 @@ class _FakeCreatePage:
             return self._file_inputs
         if selector.startswith("#") and selector[1:] in self._described_nodes:
             return _LocatorList([_Field(text=self._described_nodes[selector[1:]])])
+        if selector == _SERVICE_TYPE_SELECTOR:
+            return _ServiceTypeRadioGroup(self._service_type_radios)
+        if selector.startswith('label[for="') and selector.endswith('"]'):
+            value = selector[len('label[for="'):-2]
+            radio = next((r for r in self._service_type_radios if r.value == value), None)
+            return _ServiceTypeLabel(self, radio)
         return self._fields.get(selector, _EmptyField())
 
     def get_by_text(self, label: str, exact: bool = True):
@@ -485,17 +594,43 @@ class _FakeCreatePage:
     def wait_for_selector(self, *_args, **_kwargs) -> None:
         pass
 
+    def expect_response(self, predicate, timeout=None) -> _ExpectResponse:
+        """Models `page.expect_response(predicate)` -- see `_ExpectResponse`'s own docstring.
+        `predicate` is accepted but not consulted: in this fake, whatever runs inside the `with`
+        block (a service_type label click) already determines the one response that fires, so
+        there is nothing else for the predicate to filter."""
+        return _ExpectResponse(self)
+
+    def _click_service_type_label(self, radio: _ServiceTypeRadio | None) -> None:
+        """What a real `label[for=<value>]` click does: fire the live category lookup
+        (`/v1/project_store_api/project_category/<value>`) storefront_offer._select_service_type
+        awaits via `expect_response`, and -- only when that response is 200 and
+        `service_type_click_checks` allows it -- actually mark the radio checked. Logged into
+        `event_log` the same way every other field's fill/select_option is, so ordering
+        assertions (service_type selected after subcategory) work the same way they do for every
+        other field in this file.
+        """
+        self.event_log.append(("click", "service_type", self.current_step))
+        if radio is None:
+            self._last_service_type_response = None
+            return
+        self._last_service_type_response = _NetworkResponse(
+            f"https://www.lancers.jp/v1/project_store_api/project_category/{radio.value}",
+            self._service_type_api_status,
+        )
+        if self._service_type_api_status == 200 and self._service_type_click_checks:
+            radio.checked = True
+
     def wait_for_function(self, script: str, *, arg: str | None = None, timeout=None) -> None:
         """Models Playwright's real wait_for_function: production only ever calls this to wait
-        for a dependent select's own option label (subcategory waiting on category; service_type
-        waiting on subcategory, see storefront_offer.py) to actually be among that select's live
-        options. The selector is read straight out of the script string (both production call
-        sites embed it as `[name="..."] option`), so this stays a faithful re-check against
-        whatever `_fields_for()` actually gave that field -- never a second, hardcoded notion of
-        which fields are dependent selects. No match in the script, or a field this page was never
-        told about, is a no-op (mirrors every other selector this fake does not model); a field
-        that *is* known but whose options never carry `arg` raises TimeoutError, exactly as a real
-        page would when the condition never becomes true.
+        for subcategory's own option label to actually be among category's live options (see
+        storefront_offer.py). The selector is read straight out of the script string (the
+        production call site embeds it as `[name="..."] option`), so this stays a faithful
+        re-check against whatever `_fields_for()` actually gave that field -- never a second,
+        hardcoded notion of which fields are dependent selects. No match in the script, or a field
+        this page was never told about, is a no-op (mirrors every other selector this fake does
+        not model); a field that *is* known but whose options never carry `arg` raises
+        TimeoutError, exactly as a real page would when the condition never becomes true.
         """
         match = re.search(r'name="([^"]+)"', script)
         if match is None:
@@ -541,13 +676,16 @@ def _select_options_for(*labels: str) -> list[_Option]:
     return options
 
 
-def _fields_for(product: dict) -> dict[str, _Field]:
+def _fields_for(product: dict) -> dict[str, _Field | str]:
     fields = {
         '[name="ProjectPlanForm.title"]': _Field(step=0, name="title"),
         '[name="ProjectPlanForm.subtitle"]': _Field(step=0, name="subtitle"),
         '[name="___main_category_id"]': _Field(options=_select_options_for(product["category"]), step=0, name="category"),
         '[name="ProjectPlanForm.project_category_id"]': _Field(options=_select_options_for(product["subcategory"]), step=0, name="subcategory"),
-        '[name="ProjectPlanCategoryForm.service_type[0]"]': _Field(options=_select_options_for(product["service_type"]), step=0, name="service_type"),
+        # Not a _Field: service_type is a radio group, not a select (see _ServiceTypeRadio and
+        # friends above). This plain string is consumed by _FakeCreatePage.__init__ to build one
+        # default matching radio -- see that constructor's own docstring.
+        _SERVICE_TYPE_SELECTOR: product["service_type"],
         '[name="ProjectPlanForm.industry_type_id"]': _Field(options=_select_options_for(product["industry"]), step=0, name="industry"),
         '[name="MultiSelectTagSearch_ProjectPlanTagForm"]': _Field(step=0, name="tags"),
         '[name="ProjectPlanForm.notice_for_sale"]': _Field(step=3, name="notice"),
@@ -575,7 +713,11 @@ def test_complete_product_fills_every_observed_field_exactly_once():
     assert fields['[name="ProjectPlanForm.subtitle"]'].fills == [product["subtitle"]]
     assert fields['[name="___main_category_id"]'].selected == [{"label": product["category"]}]
     assert fields['[name="ProjectPlanForm.project_category_id"]'].selected == [{"label": product["subcategory"]}]
-    assert fields['[name="ProjectPlanCategoryForm.service_type[0]"]'].selected == [{"label": product["service_type"]}]
+    # service_type is a radio group, not a select (see _ServiceTypeRadio) -- the one default
+    # radio _FakeCreatePage built from _fields_for()'s label must have ended up checked.
+    [service_type_radio] = page._service_type_radios
+    assert service_type_radio.grandparent_text == product["service_type"]
+    assert service_type_radio.checked is True
     assert fields['[name="ProjectPlanForm.industry_type_id"]'].selected == [{"label": product["industry"]}]
     assert fields['[name="MultiSelectTagSearch_ProjectPlanTagForm"]'].fills == product["tags"]
     assert fields['[name="ProjectPlanForm.notice_for_sale"]'].fills == [product["notice"]]
@@ -1479,8 +1621,9 @@ def test_unmatched_delivery_days_raises_and_selects_nothing():
     assert fields['[name="ProjectPlanMenuForm[2].description"]'].fills == []
 
 
-# 2b. service_type (業務, the seventh required control) is selected right after subcategory, by
-#     label; a label absent from the live options raises a named error listing every option seen -
+# 2b. service_type (業務, the seventh required control) is a radio group selected right after
+#     subcategory, by grandparent text (see storefront_offer._select_service_type, shared with
+#     _apply()); a label matching no radio raises a named error listing every option seen --------
 
 def test_service_type_is_selected_after_subcategory_by_label():
     module = _module()
@@ -1491,9 +1634,10 @@ def test_service_type_is_selected_after_subcategory_by_label():
     module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
     subcategory_step = fields['[name="ProjectPlanForm.project_category_id"]'].selected
-    service_type_step = fields['[name="ProjectPlanCategoryForm.service_type[0]"]'].selected
     assert subcategory_step == [{"label": product["subcategory"]}]
-    assert service_type_step == [{"label": product["service_type"]}]
+    [service_type_radio] = page._service_type_radios
+    assert service_type_radio.grandparent_text == product["service_type"]
+    assert service_type_radio.checked is True
     # service_type was chosen after subcategory in the event log (fill order matters: it is a
     # dependent of subcategory, exactly like subcategory is a dependent of category).
     subcategory_index = next(i for i, e in enumerate(page.event_log) if e[1] == "subcategory")
@@ -1503,9 +1647,9 @@ def test_service_type_is_selected_after_subcategory_by_label():
 
 def test_unmatched_service_type_raises_and_lists_every_option_seen():
     module = _module()
-    # The live field only ever offers the default product's own service_type label; asking for a
-    # different one models a catalogue overlay whose service_type Lancers' subcategory does not
-    # actually offer.
+    # The live radio group only ever offers the default product's own service_type label; asking
+    # for a different one models a catalogue overlay whose service_type Lancers' subcategory does
+    # not actually offer.
     fields = _fields_for(_complete_product())
     product = _complete_product(service_type="バグ修正")
     page = _FakeCreatePage(fields=fields, manual_button_lands_on=None)
@@ -1514,13 +1658,16 @@ def test_unmatched_service_type_raises_and_lists_every_option_seen():
         module._fill_create_form(page, product, Path("/tmp/irrelevant.png"))
 
     message = str(excinfo.value)
-    assert "create_service_type_unmatched" in message
+    assert "form_changed: create:service_type" in message
     assert "バグ修正" in message
+    assert "found=0" in message
     assert "Webアプリケーション構築" in message  # the one real option actually seen is named
 
-    # industry (the field immediately after service_type) was never reached.
+    # industry (the field immediately after service_type) was never reached, and the one real
+    # radio was never checked.
     assert fields['[name="ProjectPlanForm.industry_type_id"]'].selected == []
-    assert fields['[name="ProjectPlanCategoryForm.service_type[0]"]'].selected == []
+    [service_type_radio] = page._service_type_radios
+    assert service_type_radio.checked is False
 
 
 # 3. A missing required product field raises, naming the field, before any navigation ----------
