@@ -32,12 +32,13 @@ REAL_IMAGE = REPO_ROOT / "skills/earn/lancers/assets/monthly-sns-content-ops-v1.
 # mvp_web_app_build carries three tiers with delivery_days 14/21/30, all in Lancers' allowed
 # set, and a title/subtitle short enough to pass validation -- it projects clean.
 REAL_FAMILY = "mvp_web_app_build"
-# Eighteen of the catalogue's twenty families carry two tiers. Lancers' product validator
-# requires exactly three plans, so their projections are real catalogue entries that cannot
-# make a legal Lancers listing -- the largest single obstacle to selling the catalogue there.
-# (ai_agent_integration used to serve as this fixture because of its 18-day tier; the Lancers
-# projection now rounds that to 21, so it no longer fails and no longer proves anything.)
-BROKEN_FAMILY = "line_bot_dev"
+# Eighteen of the catalogue's twenty families used to carry two tiers, which Lancers' product
+# validator (exactly three plans) rejects outright -- the largest single obstacle to selling
+# the catalogue there. Every family now carries a third ("プレミアム") tier, so no catalogue
+# family reproduces that defect any more (ai_agent_integration stopped serving as this fixture
+# earlier for the same reason: its 18-day tier used to fail before the Lancers projection
+# started rounding it to 21). test 5 below no longer points at a real family; it corrupts a
+# real, valid projection down to two plans to prove _product still fails loudly on that shape.
 
 
 def _module():
@@ -192,9 +193,23 @@ def test_unknown_catalog_family_names_the_family(tmp_path):
 # 5. A catalogue projection _product() cannot accept fails loudly, naming the catalogue -----
 
 
-def test_catalog_projection_that_fails_product_validation_names_the_catalog(tmp_path):
+def test_catalog_projection_that_fails_product_validation_names_the_catalog(tmp_path, monkeypatch):
     module = _module()
-    overlay = _base_overlay(catalog_family=BROKEN_FAMILY)
+    listing_catalog = module._reach_marketplace_core()
+    catalog = listing_catalog.load(REAL_CATALOG)
+    projection = listing_catalog.project_lancers(catalog, REAL_FAMILY)
+
+    # Every catalogue family now projects to a legal three-plan Lancers listing (see the
+    # BROKEN_FAMILY history above), so this test can no longer point at a real family to prove
+    # _product() fails loudly on an illegal shape. Corrupt a real, otherwise-valid projection
+    # down to two plans instead -- exactly the defect that used to make eighteen families
+    # unsellable on Lancers -- and confirm _product() still rejects it and still names the
+    # family in the error.
+    broken_projection = dict(projection)
+    broken_projection["plans"] = projection["plans"][:2]
+    monkeypatch.setattr(module, "_catalog_projection", lambda *_a, **_k: broken_projection)
+
+    overlay = _base_overlay(catalog_family=REAL_FAMILY)
     path = _write(tmp_path, overlay)
 
     with pytest.raises(module.OfferError) as excinfo:
@@ -202,7 +217,7 @@ def test_catalog_projection_that_fails_product_validation_names_the_catalog(tmp_
 
     message = str(excinfo.value)
     assert "catalog_product_invalid" in message
-    assert BROKEN_FAMILY in message
+    assert REAL_FAMILY in message
 
 
 # 6. The reporting function names the Lancers-required fields for a real family ------------
