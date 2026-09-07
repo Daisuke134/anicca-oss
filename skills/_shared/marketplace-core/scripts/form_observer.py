@@ -150,15 +150,32 @@ def _parse_tree(html: str) -> _Node:
 # Field extraction.
 # ---------------------------------------------------------------------------------
 
+# A second, label-driven placeholder convention alongside the position/empty-value one below: a
+# marketplace observed live carried a select whose currently-selected option had a real,
+# non-empty `value` attribute yet still meant "nothing chosen" -- its label read 未選択, and a
+# sibling select's own placeholder option read 業務を選択してください. Neither word is specific
+# to any one marketplace's build (this module stays platform-neutral, see the test that asserts
+# no platform name ever appears here); both are generic Japanese "please choose"/"unselected"
+# phrasing a <select>'s own placeholder option commonly carries. A label merely containing one of
+# these words -- not just equal to it -- is treated as a placeholder, since a marketplace's own
+# copy sometimes wraps the word in a longer prompt ("業務を選択してください").
+_PLACEHOLDER_LABEL_WORDS = ("未選択", "選択してください")
+
+
+def _is_placeholder_label(label: str) -> bool:
+    return any(word in (label or "") for word in _PLACEHOLDER_LABEL_WORDS)
+
+
 def _select_options(node: _Node) -> tuple[list[dict], int | None]:
     option_nodes = [child for child in node.children if child.tag == "option"]
     options = [{"value": opt.attrs.get("value"), "label": opt.text} for opt in option_nodes]
     # The placeholder convention on every marketplace this has been checked against: an
     # empty or absent value on the first option. A select with real choices in that first
-    # slot (value present and non-empty) has no placeholder to identify.
+    # slot (value present and non-empty) has no placeholder to identify structurally -- but
+    # see _is_placeholder_label above for the second, label-driven convention this still catches.
     placeholder_index = 0 if options and (options[0]["value"] in (None, "")) else None
     for index, option in enumerate(options):
-        option["is_placeholder"] = index == placeholder_index
+        option["is_placeholder"] = index == placeholder_index or _is_placeholder_label(option["label"])
     return options, placeholder_index
 
 
@@ -435,10 +452,16 @@ def _requirement_filled(page: Any, control: _Node | None) -> bool | None:
     from any caller's idea of what the field is named. A <select> counts only a non-placeholder
     `option:checked` as filled (mirrors `_create_selected_option`'s convention elsewhere in this
     house: an unset native <select> still reports its first/placeholder option as checked, which
-    must read as empty, not unreadable). A control this cannot resolve at all -- including "no
-    native control found for this badge" (`control is None`) -- reports None: an unmeasured fact
-    must never look like a negative one, exactly as this module's own module docstring says of
-    `observe_html`'s omitted live-only fields.
+    must read as empty, not unreadable). "Non-placeholder" is decided the same way
+    `_select_options` above decides it: an empty `value` attribute, *or* a label containing one of
+    _PLACEHOLDER_LABEL_WORDS -- a marketplace observed live had a select whose checked option
+    carried a real, non-empty value yet still meant nothing chosen, distinguishable only by its
+    label reading 未選択. Checking the value alone (the original, narrower form of this function)
+    reported that select `filled: true` -- a false negative for exactly the failure this function
+    exists to catch. A control this cannot resolve at all -- including "no native control found
+    for this badge" (`control is None`) -- reports None: an unmeasured fact must never look like a
+    negative one, exactly as this module's own module docstring says of `observe_html`'s omitted
+    live-only fields.
     """
     if control is None:
         return None
@@ -448,7 +471,11 @@ def _requirement_filled(page: Any, control: _Node | None) -> bool | None:
             checked = locator.locator("option:checked")
             if checked.count() != 1:
                 return None
-            value = checked.all()[0].get_attribute("value") or ""
+            option = checked.all()[0]
+            value = option.get_attribute("value") or ""
+            label = " ".join(str(option.inner_text() or "").split())
+            if _is_placeholder_label(label):
+                return False
             return bool(value.strip())
         value = locator.input_value()
         return bool(value and str(value).strip())

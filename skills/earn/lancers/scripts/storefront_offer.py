@@ -440,7 +440,11 @@ _CREATE_LISTING_ID_IN_URL = re.compile(r"^https://www\.lancers\.jp/(?:myplan|men
 # ever opening a page. "description" feeds 業務内容 (the wizard's third step, see below) -- the
 # catalogue's own project_lancers() already returns it, so the shared 2000-char cap that step's
 # textarea enforces is checked here too, not discovered live as a submission failure.
-_CREATE_REQUIRED_FIELDS = ("title_stem", "subtitle", "category", "subcategory", "industry", "tags", "notice", "plans", "description")
+# "service_type" (業務, ProjectPlanCategoryForm.service_type[0]) is the seventh required control a
+# DOM-outward requirement enumeration found and five earlier rounds did not: it is a *dependent*
+# select that only appears once subcategory is chosen, exactly like subcategory itself is a
+# dependent of category -- see _fill_create_form's own wait/select for it below.
+_CREATE_REQUIRED_FIELDS = ("title_stem", "subtitle", "category", "subcategory", "service_type", "industry", "tags", "notice", "plans", "description")
 _CREATE_DESCRIPTION_MAX_LENGTH = 2000
 
 
@@ -455,6 +459,32 @@ def _require_create_fields(product: Mapping[str, Any]) -> None:
     description = product["description"]
     if len(description) > _CREATE_DESCRIPTION_MAX_LENGTH:
         raise OfferError(f"create_field_invalid: description: length={len(description)} max={_CREATE_DESCRIPTION_MAX_LENGTH}")
+
+
+_CREATE_SERVICE_TYPE_SELECTOR = '[name="ProjectPlanCategoryForm.service_type[0]"]'
+
+
+def _select_create_service_type(page: Any, service_type: str) -> None:
+    """Select 業務 (`ProjectPlanCategoryForm.service_type[0]`) by label -- a select that is itself
+    a *dependent* of subcategory exactly the way subcategory is a dependent of category: it does
+    not exist in the DOM until subcategory has been chosen, and its option list is specific to
+    whichever subcategory that was (see the module comment on _CREATE_REQUIRED_FIELDS). Treated
+    exactly like subcategory's own wait-then-select immediately above: wait for `service_type`'s
+    own label to actually be among the live options, then select it by label. A label never
+    observed among the live options raises a named error listing every option this actually saw
+    -- that listing is what teaches this file each remaining subcategory's service_type vocabulary
+    without anyone opening a browser, so it must never be swallowed into a generic timeout.
+    """
+    field = _field(page, _CREATE_SERVICE_TYPE_SELECTOR)
+    try:
+        page.wait_for_function(
+            "label => [...document.querySelectorAll('[name=\"ProjectPlanCategoryForm.service_type[0]\"] option')].some(o => o.textContent.trim() === label)",
+            arg=service_type, timeout=5_000,
+        )
+    except Exception:
+        seen = [" ".join(str(option.inner_text() or "").split()) for option in field.locator("option").all()]
+        raise OfferError(f"create_service_type_unmatched: service_type={service_type}: options={seen}") from None
+    field.select_option(label=service_type)
 
 
 def _select_delivery_time(page: Any, selector: str, delivery_days: int) -> None:
@@ -969,6 +999,7 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
         arg=product["subcategory"], timeout=5_000,
     )
     _field(page, '[name="ProjectPlanForm.project_category_id"]').select_option(label=product["subcategory"])
+    _select_create_service_type(page, product["service_type"])
     _field(page, '[name="ProjectPlanForm.industry_type_id"]').select_option(label=product["industry"])
     tag_field = _field(page, '[name="MultiSelectTagSearch_ProjectPlanTagForm"]')
     for tag in product["tags"]:
@@ -1114,11 +1145,14 @@ def run_create(product_path: Path, state_path: Path) -> dict[str, Any]:
 _CATALOG_LISTINGS_KEY = "catalog_listings"
 # Every product-shape field create_package() actually reads (see _CREATE_REQUIRED_FIELDS) that
 # the catalogue itself cannot supply via project_lancers(): platform_overrides.lancers now
-# carries category/industry/tags/notice (see the catalogue task this shipped from), but never
-# subcategory -- Lancers' subcategory options are a dependent select whose values only appear
-# once the main category is chosen in the live form, and that option list has never been
-# observed. A family missing any of these is named under "skipped", never filled with a guess.
-_CATALOG_OVERLAY_FIELDS = ("subcategory", "industry", "tags", "notice")
+# carries category/industry/tags/notice (see the catalogue task this shipped from), but not every
+# family yet carries subcategory or service_type -- both are dependent selects (subcategory
+# depends on category; service_type depends on subcategory, and its option vocabulary is itself
+# per-subcategory) whose values only appear once their parent is chosen in the live form, and
+# most subcategories' service_type option lists have never been observed. A family missing any of
+# these is named under "skipped", never filled with a guess -- see select_catalog_family_to_create
+# below for why a skip there never blocks a later, complete family.
+_CATALOG_OVERLAY_FIELDS = ("subcategory", "service_type", "industry", "tags", "notice")
 
 
 def _catalog_family_order(catalog: Mapping[str, Any]) -> list[str]:
@@ -1177,7 +1211,7 @@ def _family_create_product(catalog_module: Any, catalog: Mapping[str, Any], fami
     """Build the create_package()-shaped product dict for one catalogue family.
 
     title_stem/subtitle/category/plans/description come from project_lancers() (the catalogue's
-    own Lancers projection); subcategory/industry/tags/notice come straight from that family's
+    own Lancers projection); subcategory/service_type/industry/tags/notice come straight from that family's
     platform_overrides.lancers row when present -- never invented when absent, so a family
     whose overrides do not (yet) carry one of them fails _require_create_fields by name.
     """
@@ -1212,7 +1246,7 @@ def select_catalog_family_to_create(catalog_path: Path, state_path: Path) -> dic
       {"action": "all_published", "skipped": []} -- nothing left to create.
       {"action": "all_pending_incomplete", "skipped": [...]} -- every remaining family named,
         none creatable yet because its lancers overlay is missing one of
-        _CATALOG_OVERLAY_FIELDS (subcategory/industry/tags/notice).
+        _CATALOG_OVERLAY_FIELDS (subcategory/service_type/industry/tags/notice).
       {"action": "candidate_selected", "family": ..., "product": ..., "skipped": [...]} -- the
         one family to attempt, plus every incomplete family skipped before reaching it.
       {"action": "catalog_unavailable", "error": ...} -- the catalogue itself failed to load.
