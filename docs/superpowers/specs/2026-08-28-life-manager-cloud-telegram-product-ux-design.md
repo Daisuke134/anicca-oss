@@ -2,7 +2,32 @@
 
 状態: APPROVED — 2026-09-05 owner scope revision。既存Life Manager Cloudの日常機能を出荷する。新しいagent frameworkへの移行は行わない。
 
-正本範囲: public QR/deep linkからの初回体験、日常のTelegram通知、任意の電話、既存Stripe課金、友達betaと公開までの残作業。
+正本範囲: public QR/deep linkからの初回体験、日常のTelegram通知、任意の電話、既存Stripe課金、正式製品の公開と継続改善。
+
+## 0.1 Product and UX decision — Telegram-native formal product
+
+Life Managerはbetaではなく正式な製品である。製品の約束は、個別機能を並べることではなく、本人に代わって
+生活を継続的に管理すること。Cloudで最初に提供する能力はCalendar、移動時間、乗換案内、Telegram通知、
+任意の電話であり、投資などの後続能力は検証・移植が完了したものから同じ会話へ追加する。未提供の能力を
+現在動作中とは表示しない。
+
+初回設定の主画面はTelegram chatとする。Google本人同意、Stripe Checkout、法的に必要な外部確認だけを
+外部画面で開き、完了後は同じTelegram chatへ戻す。Mini Appは日常dashboardと任意設定に限定し、
+onboardingの質問、進捗、完了、料金案内を所有しない。onboarding中にStripe、card、料金プランを表示しない。
+
+正式な初回体験は次の順序に固定する。
+
+1. `/start`でLife Managerが何を管理するかを短く説明する。
+2. Google Calendar接続ボタンを送る。Google同意だけ外部で行い、完了をserverで確認してTelegramへ戻す。
+3. Telegramでhome/baseを質問し、返信をtenant-scopedに保存する。
+4. Telegram通知を有効化する。
+5. 電話は「物理予定の出発10分前と5分前に知らせる任意機能」と説明し、`使う`と`スキップ`を並べる。
+6. 電話番号の保存とcall opt-inを別の操作にし、番号だけで電話を有効化しない。
+7. 決済操作なしでReadyにし、次予定と最初の通知予定をTelegramで案内する。
+
+activationはWebのReady画面ではない。本人のCalendarから物理予定を読み、Travel blockを作成し、採用した
+乗換案内を出発前にTelegramへ1回届けた時点とする。CalendarやMapsを完全に削除したとは表現せず、
+「予定の確認、移動時間の逆算、乗換案内の検索を毎回自分で行わなくてよい」を現在の価値として伝える。
 
 ## 0. 最新のowner決定と正本の優先順位
 
