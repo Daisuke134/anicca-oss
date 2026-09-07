@@ -52,7 +52,7 @@ export async function think(ctx, config) {
 // ── Proxy brain (HTTP POST) ──────────────────────────────────────────────────
 
 async function thinkProxy(ctx, config) {
-  const baseUrl = config.OPENAI_BASE_URL || 'http://127.0.0.1:8402/v1';
+  const baseUrl = config.OPENAI_BASE_URL || 'http://127.0.0.1:18402/v1';
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
 
   // Policy 2026-06-21 (Dais): use the survival-tier model (ctx.model from tier.mjs). For LEAN

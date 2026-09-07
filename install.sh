@@ -212,7 +212,7 @@ cat <<EOM
   1. Start the self-pay proxy + the Life Manager loop (one command, from the repo root):
        cd "$REPO_ROOT/runtime/compute-proxy" && npm install && cd "$REPO_ROOT"  # one-time
        ./start-local.sh node runtime/loop/index.mjs
-     This starts the self-pay compute proxy on http://127.0.0.1:8402/v1 (signs
+     This starts the self-pay compute proxy on http://127.0.0.1:18402/v1 (signs
      every inference in USDC from a self-owned wallet; empty wallet ⇒ free model,
      \$0) AND the Life Manager loop (runtime/loop/) which, each wake, asks ClawRouter's
      'auto' router, runs a tool (e.g. the earn skill), and appends to
