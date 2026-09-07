@@ -408,8 +408,13 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 target_path = agents_dir / f"{item['label']}.plist"
                 result = None
                 existing_bytes = target_path.read_bytes() if target_path.is_file() else None
+                retired_environment_keys = (
+                    ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR")
+                    if item["loop_id"] == "life-manager-cfo-hourly" else ()
+                )
                 desired_bytes = _preserve_operational_attributes(
-                    item["plist_bytes"], existing_bytes)
+                    item["plist_bytes"], existing_bytes,
+                    retired_environment_keys=retired_environment_keys)
                 if existing_bytes is not None and existing_bytes == desired_bytes:
                     rc, printed = _safe_launchctl(
                         launchctl_safe, ["print", f"gui/{os.getuid()}/{item['label']}"])
@@ -421,7 +426,8 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 if result is None:
                     result = install_one(
                         item, target_path, lambda args: _safe_launchctl(launchctl_safe, args),
-                        preserve_unloaded=preserve_unloaded)
+                        preserve_unloaded=preserve_unloaded,
+                        retired_environment_keys=retired_environment_keys)
                     result["changed"] = True
                 entry = registry["loops"][item["loop_id"]]
                 event = build_install_event(

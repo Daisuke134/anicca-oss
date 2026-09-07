@@ -150,7 +150,8 @@ def _atomic_write(path: Path, data: bytes) -> None:
             temporary.unlink()
 
 
-def _preserve_operational_attributes(new_bytes: bytes, old_bytes: bytes | None) -> bytes:
+def _preserve_operational_attributes(new_bytes: bytes, old_bytes: bytes | None,
+                                     *, retired_environment_keys: tuple[str, ...] = ()) -> bytes:
     if old_bytes is None:
         return new_bytes
     old, new = plistlib.loads(old_bytes), plistlib.loads(new_bytes)
@@ -163,7 +164,7 @@ def _preserve_operational_attributes(new_bytes: bytes, old_bytes: bytes | None) 
     preserved_env = {
         key: value
         for key, value in (old.get("EnvironmentVariables") or {}).items()
-        if key != "CODEX_HOME"
+        if key != "CODEX_HOME" and key not in retired_environment_keys
     }
     new["EnvironmentVariables"] = {
         **preserved_env,
@@ -202,7 +203,8 @@ def _loaded_arguments(text: str) -> list[str]:
 def install_one(item: dict, target: Path,
                 launchctl: Callable[[list[str]], tuple[int, str]], *, attempts: int = 3,
                 sleeper: Callable[[float], None] = time.sleep,
-                preserve_unloaded: bool = False) -> dict:
+                preserve_unloaded: bool = False,
+                retired_environment_keys: tuple[str, ...] = ()) -> dict:
     label = item["label"]
     domain = f"gui/{os.getuid()}"
     service = f"{domain}/{label}"
@@ -211,7 +213,9 @@ def install_one(item: dict, target: Path,
     old_bytes = target.read_bytes() if target.is_file() else None
     initial_rc, _ = launchctl(["print", service])
     was_loaded = initial_rc == 0
-    _atomic_write(target, _preserve_operational_attributes(item["plist_bytes"], old_bytes))
+    _atomic_write(target, _preserve_operational_attributes(
+        item["plist_bytes"], old_bytes,
+        retired_environment_keys=retired_environment_keys))
     if preserve_unloaded and not was_loaded:
         return {
             "ok": True,
