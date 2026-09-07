@@ -30,12 +30,15 @@ const testClientState = encodeTestCallClientState({ testUid: WAKE_UID });
 const CLAIM_UID = "claim-bound-user";
 const CLAIM_EVENT_KEY = "claim-bound-event";
 const CLAIM_TOKEN = "claim-bound-token";
+const MANAGED_PERIOD = "2026-09-01";
+const MANAGED_TOKEN = "11111111-1111-4111-8111-111111111111";
 const claimClientState = encodeWakeClientState({
   wakeUid: CLAIM_UID, wakeEventKey: CLAIM_EVENT_KEY, wakeClaimToken: CLAIM_TOKEN,
 });
 const managedClaimClientState = encodeWakeClientState({
   wakeUid: CLAIM_UID, wakeEventKey: CLAIM_EVENT_KEY, wakeClaimToken: CLAIM_TOKEN,
-  managedActionKey: "calendar-event-1",
+  managedActionKey: "calendar-event-1", managedPeriodStart: MANAGED_PERIOD,
+  managedReservationToken: MANAGED_TOKEN,
 });
 
 function response(status, body) {
@@ -396,7 +399,10 @@ test("a human-confirmed call completes the same managed event allowance after wa
     }
     if (parsed.pathname === "/rest/v1/rpc/complete_lm_managed_action") {
       order.push("allowance");
-      assert.deepEqual(JSON.parse(init.body), { p_uid: CLAIM_UID, p_action_key: "calendar-event-1" });
+      assert.deepEqual(JSON.parse(init.body), {
+        p_uid: CLAIM_UID, p_action_key: "calendar-event-1",
+        p_period_start: MANAGED_PERIOD, p_reservation_token: MANAGED_TOKEN,
+      });
       return response(200, { allowed: true, used: 1, limit: 30, periodStart: "2026-09-01", resetAt: "2026-10-01", notify: false });
     }
     throw new Error(`unexpected supabase write ${init.method} ${parsed.pathname}`);

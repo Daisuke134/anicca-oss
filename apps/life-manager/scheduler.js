@@ -456,12 +456,14 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       const allowanceReserve = deps.reserveManagedAction || (deps.placeCall ? undefined : reserveManagedAction);
       const allowanceRelease = deps.releaseManagedAction || (deps.placeCall ? undefined : releaseManagedAction);
       let allowanceReserved = false;
+      let allowanceReservation = null;
       const hasTravelBlock = departureMs(ev, futureEvents) !== ev.startMs;
       if (!hasTravelBlock && typeof allowanceReserve === "function") {
         const { url: allowanceUrl, key: allowanceKey } = SUPA();
         const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
         if (!allowance || allowance.allowed !== true) continue;
-        allowanceReserved = true;
+        allowanceReservation = allowance.reservationToken ? allowance : null;
+        allowanceReserved = Boolean(allowanceReservation);
       }
       const depMs = await resolveDeparture(ev, futureEvents, {
         home: u.home_address, mapsKey, nowMs: now, bufferMin: 5,
@@ -480,14 +482,17 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
         .sort((a, b) => a.min - b.min);
       if (!due.length && allowanceReserved && typeof allowanceRelease === "function") {
         const { url: allowanceUrl, key: allowanceKey } = SUPA();
-        await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+        await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+          { reservation: allowanceReservation });
         allowanceReserved = false;
+        allowanceReservation = null;
       }
       if (due.length && !allowanceReserved && typeof allowanceReserve === "function") {
         const { url: allowanceUrl, key: allowanceKey } = SUPA();
         const allowance = await allowanceReserve(u.uid, managedActionKey, allowanceUrl, allowanceKey);
         if (!allowance || allowance.allowed !== true) continue;
-        allowanceReserved = true;
+        allowanceReservation = allowance.reservationToken ? allowance : null;
+        allowanceReserved = Boolean(allowanceReservation);
       }
       // 1b: the moment departure crosses the cutoff, this event can never ring again. If the finest
       // level was never even claimed, nothing was ever attempted — the exact failure that looked like
@@ -530,6 +535,8 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
             streamUrl,
             clientState: encodeWakeClientState({
               wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh, managedActionKey,
+              managedPeriodStart: allowanceReservation && allowanceReservation.periodStart,
+              managedReservationToken: allowanceReservation && allowanceReservation.reservationToken,
             }),
           });
         } catch (e) {
@@ -579,7 +586,8 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
           await (deps.releaseWake || releaseWake)(u.uid, eventKey, fresh);
           if (typeof allowanceRelease === "function") {
             const { url: allowanceUrl, key: allowanceKey } = SUPA();
-            await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey);
+            await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+              { reservation: allowanceReservation });
           }
           await (deps.alertLowBalance || maybeAlertLowBalance)(res.error);
         }

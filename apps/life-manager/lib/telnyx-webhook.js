@@ -10,11 +10,17 @@ function isValidOptionalText(value, maxLength) {
   return typeof value === "string" && value.trim() !== "" && value.length <= maxLength;
 }
 
-function encodeWakeClientState({ wakeUid, wakeEventKey, wakeClaimToken, managedActionKey } = {}) {
+function encodeWakeClientState({ wakeUid, wakeEventKey, wakeClaimToken, managedActionKey,
+  managedPeriodStart, managedReservationToken } = {}) {
   if (!wakeUid || !wakeEventKey) return "";
   const state = { wakeUid, wakeEventKey };
   if (isValidOptionalText(wakeClaimToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) state.wakeClaimToken = wakeClaimToken;
   if (isValidOptionalText(managedActionKey, MAX_WAKE_CLAIM_TOKEN_LENGTH)) state.managedActionKey = managedActionKey;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(managedPeriodStart || ""))
+      && isValidOptionalText(managedReservationToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
+    state.managedPeriodStart = managedPeriodStart;
+    state.managedReservationToken = managedReservationToken;
+  }
   return Buffer.from(JSON.stringify(state), "utf8").toString("base64");
 }
 
@@ -33,6 +39,11 @@ function decodeWakeClientState(value) {
     }
     if (isValidOptionalText(parsed.managedActionKey, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
       state.managedActionKey = parsed.managedActionKey;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(parsed.managedPeriodStart || ""))
+        && isValidOptionalText(parsed.managedReservationToken, MAX_WAKE_CLAIM_TOKEN_LENGTH)) {
+      state.managedPeriodStart = parsed.managedPeriodStart;
+      state.managedReservationToken = parsed.managedReservationToken;
     }
     return state;
   } catch {

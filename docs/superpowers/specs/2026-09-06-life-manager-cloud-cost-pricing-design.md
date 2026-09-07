@@ -251,7 +251,14 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
 3. **IN PROGRESS — monthly free allowance:** 3日trial表示とonboarding内の料金CTAを削除済み。
    月30回（paidは500回）のtenant/month/event ledger、15分pending reservation、success確定、月1回の枠到達noticeを追加し、
    Travel blockとTelegram reminderの新規route effect前へ接続。関連test 141/141とTravel wiring 113/113がPASS。
-   任意電話のprovider effectと成功receiptを同じevent allowanceへ接続してからDONEにする。
+   任意電話のprovider effectと成功receiptも同じevent allowanceへ接続済み。ただしfresh reviewで次のcorrectness gateが
+   fix-firstとなったためDONEにしない。(a) reservation tokenを発行し、complete/releaseを予約月と所有tokenで照合する、
+   (b) 同一eventの並行workerは1つだけprovider effectを実行する、(c) not-due・未選択・duplicate・no-route・past・
+   create/send失敗は自分のpendingだけを解放する、(d) route cache/negative cacheをallowanceより先に読み、枠到達後も
+   cached/read/Calendar/Telegram/settingsを維持する、(e) 80%と枯渇noticeをplan-awareなused/limit/reset copyにし、
+   exhausted後の80%逆順送信を禁止する、(f) noticeの曖昧配送を永続reconciliation可能にする。
+   実DBで並行reserve、誤token拒否、月跨ぎcomplete/release、pending残留0、limit後cache hitのprovider call 0、
+   exhausted優先、notice replayを証明し、fresh read-only reviewがPASSしてからDONEにする。
 4. 1〜3をreview・mergeし、必要なmigrationを本番適用してproduction deploy/readbackを行う。
 5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
    最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。

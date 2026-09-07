@@ -655,8 +655,10 @@ const server = http.createServer(async (req, res) => {
           res.end("receipt failed; send it again");
           return;
         }
-        if (wake.managedActionKey) {
-          await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY);
+        if (wake.managedActionKey && wake.managedPeriodStart && wake.managedReservationToken) {
+          await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, {
+            reservation: { periodStart: wake.managedPeriodStart, reservationToken: wake.managedReservationToken },
+          });
         }
         res.writeHead(200);
         res.end(receipt.matched === 1 ? "recorded" : "receipt unmatched");
@@ -714,11 +716,15 @@ const server = http.createServer(async (req, res) => {
       };
       report("amd_result", detection.amd);
       if (detection.answered) report("answered_at", detection.answered);
-      if (wake.managedActionKey) {
+      if (wake.managedActionKey && wake.managedPeriodStart && wake.managedReservationToken) {
+        const reservation = {
+          periodStart: wake.managedPeriodStart,
+          reservationToken: wake.managedReservationToken,
+        };
         const allowanceReceipt = detection.result === "human" && detection.answered
           && detection.answered.ok === true && detection.answered.matched === 1
-          ? await completeManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY)
-          : await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY);
+          ? await completeManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, { reservation })
+          : await releaseManagedAction(wake.wakeUid, wake.managedActionKey, SUPA_URL, SUPA_KEY, { reservation });
         if (!allowanceReceipt || allowanceReceipt.allowed !== true) {
           console.error("[telnyx-events] allowance receipt reconciliation required");
           res.writeHead(503, { "content-type": "text/plain" });

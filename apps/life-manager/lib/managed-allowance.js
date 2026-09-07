@@ -21,7 +21,7 @@ async function allowanceRpc(name, uid, actionKey, supaUrl, supaKey, opts = {}) {
         apikey: String(supaKey), Authorization: `Bearer ${String(supaKey)}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ p_uid: String(uid), p_action_key: String(actionKey) }),
+      body: JSON.stringify({ p_uid: String(uid), p_action_key: String(actionKey), ...(opts.body || {}) }),
     });
     if (!response || response.ok !== true) return null;
     const value = await response.json();
@@ -31,10 +31,23 @@ async function allowanceRpc(name, uid, actionKey, supaUrl, supaKey, opts = {}) {
 
 const reserveManagedAction = (uid, actionKey, supaUrl, supaKey, opts) =>
   allowanceRpc("reserve_lm_managed_action", uid, actionKey, supaUrl, supaKey, opts);
+
+function ownedReservationRpc(name, uid, actionKey, supaUrl, supaKey, opts = {}) {
+  const reservation = opts && opts.reservation;
+  if (!reservation || !reservation.periodStart || !reservation.reservationToken) return null;
+  return allowanceRpc(name, uid, actionKey, supaUrl, supaKey, {
+    ...opts,
+    body: {
+      p_period_start: String(reservation.periodStart),
+      p_reservation_token: String(reservation.reservationToken),
+    },
+  });
+}
+
 const completeManagedAction = (uid, actionKey, supaUrl, supaKey, opts) =>
-  allowanceRpc("complete_lm_managed_action", uid, actionKey, supaUrl, supaKey, opts);
+  ownedReservationRpc("complete_lm_managed_action", uid, actionKey, supaUrl, supaKey, opts);
 const releaseManagedAction = (uid, actionKey, supaUrl, supaKey, opts) =>
-  allowanceRpc("release_lm_managed_action", uid, actionKey, supaUrl, supaKey, opts);
+  ownedReservationRpc("release_lm_managed_action", uid, actionKey, supaUrl, supaKey, opts);
 
 module.exports = {
   FREE_LIMIT, PAID_LIMIT, validResult,

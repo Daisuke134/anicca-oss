@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.lm_managed_action_ledger (
   period_start date NOT NULL,
   action_key text NOT NULL,
   status text NOT NULL CHECK (status IN ('pending', 'succeeded')),
+  reservation_token uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   completed_at timestamptz,
   PRIMARY KEY (uid, period_start, action_key)
@@ -28,11 +29,19 @@ CREATE TABLE IF NOT EXISTS public.lm_managed_allowance_notice (
 
 ALTER TABLE public.lm_managed_allowance_notice ENABLE ROW LEVEL SECURITY;
 
+-- This migration replaced the initial two-argument draft before production rollout. Drop those
+-- overloads explicitly so a partially applied preview database cannot retain an ownerless path.
+DROP FUNCTION IF EXISTS public.complete_lm_managed_action(text, text);
+DROP FUNCTION IF EXISTS public.release_lm_managed_action(text, text);
+DROP FUNCTION IF EXISTS public.lm_managed_allowance_result(text, date, text, boolean);
+
 CREATE OR REPLACE FUNCTION public.lm_managed_allowance_result(
   p_uid text,
   p_period_start date,
   p_action_key text,
-  p_allowed boolean
+  p_allowed boolean,
+  p_reservation_token uuid DEFAULT NULL,
+  p_state text DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE sql
 SECURITY DEFINER
@@ -44,7 +53,10 @@ AS $function$
     'limit', CASE WHEN COALESCE(u.paid, false) THEN 500 ELSE 30 END,
     'periodStart', p_period_start::text,
     'resetAt', (p_period_start + INTERVAL '1 month')::date::text,
-    'actionKey', p_action_key
+    'actionKey', p_action_key,
+    'reservationToken', p_reservation_token,
+    'state', p_state,
+    'alreadyCompleted', p_state = 'succeeded'
   )
   FROM public.lm_users AS u
   LEFT JOIN public.lm_managed_action_ledger AS l
@@ -66,6 +78,7 @@ DECLARE
   cap integer;
   active_count integer;
   existing_status text;
+  reservation uuid;
   allowed boolean := false;
 BEGIN
   IF p_uid IS NULL OR btrim(p_uid) = '' OR char_length(p_uid) > 256
@@ -78,7 +91,10 @@ BEGIN
   SELECT status INTO existing_status FROM public.lm_managed_action_ledger
     WHERE uid = p_uid AND period_start = period AND action_key = p_action_key;
   IF existing_status IS NOT NULL THEN
-    allowed := true;
+    -- A retry may observe the result, but never receives another worker's owner token.
+    -- Only the worker that inserted the pending row may execute or finalize the provider effect.
+    RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key,
+      existing_status = 'succeeded', NULL, existing_status);
   ELSE
     DELETE FROM public.lm_managed_action_ledger
       WHERE uid = p_uid AND period_start = period AND status = 'pending'
@@ -86,49 +102,65 @@ BEGIN
     SELECT count(*) INTO active_count FROM public.lm_managed_action_ledger
       WHERE uid = p_uid AND period_start = period;
     IF active_count < cap THEN
-      INSERT INTO public.lm_managed_action_ledger(uid, period_start, action_key, status)
-      VALUES (p_uid, period, p_action_key, 'pending');
+      reservation := gen_random_uuid();
+      INSERT INTO public.lm_managed_action_ledger(uid, period_start, action_key, status, reservation_token)
+      VALUES (p_uid, period, p_action_key, 'pending', reservation);
       allowed := true;
     ELSE
       INSERT INTO public.lm_managed_allowance_notice(uid, period_start, notice_kind, action_key)
       VALUES (p_uid, period, 'exhausted', p_action_key) ON CONFLICT DO NOTHING;
     END IF;
   END IF;
-  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, allowed);
+  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, allowed, reservation,
+    CASE WHEN allowed THEN 'pending' ELSE 'exhausted' END);
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.complete_lm_managed_action(p_uid text, p_action_key text)
+CREATE OR REPLACE FUNCTION public.complete_lm_managed_action(
+  p_uid text, p_action_key text, p_period_start date, p_reservation_token uuid
+)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
 DECLARE
-  period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
   cap integer;
   succeeded integer;
   completed boolean := false;
 BEGIN
   UPDATE public.lm_managed_action_ledger SET status = 'succeeded', completed_at = COALESCE(completed_at, clock_timestamp())
-   WHERE uid = p_uid AND period_start = period AND action_key = p_action_key;
+   WHERE uid = p_uid AND period_start = p_period_start AND action_key = p_action_key
+     AND reservation_token = p_reservation_token AND status = 'pending';
   IF FOUND THEN
     completed := true;
     SELECT CASE WHEN paid THEN 500 ELSE 30 END INTO cap FROM public.lm_users WHERE uid = p_uid;
     SELECT count(*) INTO succeeded FROM public.lm_managed_action_ledger
-      WHERE uid = p_uid AND period_start = period AND status = 'succeeded';
+      WHERE uid = p_uid AND period_start = p_period_start AND status = 'succeeded';
     IF succeeded >= CEIL(cap * 0.8)::integer THEN
       INSERT INTO public.lm_managed_allowance_notice(uid, period_start, notice_kind, action_key)
-      VALUES (p_uid, period, 'eighty', p_action_key) ON CONFLICT DO NOTHING;
+      VALUES (p_uid, p_period_start, 'eighty', p_action_key) ON CONFLICT DO NOTHING;
     END IF;
+  ELSE
+    -- Provider webhooks replay. The exact owner may acknowledge its already-completed row;
+    -- a different token still fails closed.
+    SELECT EXISTS(
+      SELECT 1 FROM public.lm_managed_action_ledger
+       WHERE uid = p_uid AND period_start = p_period_start AND action_key = p_action_key
+         AND reservation_token = p_reservation_token AND status = 'succeeded'
+    ) INTO completed;
   END IF;
-  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, completed);
+  RETURN public.lm_managed_allowance_result(p_uid, p_period_start, p_action_key, completed, NULL,
+    CASE WHEN completed THEN 'succeeded' ELSE 'owner_mismatch' END);
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.release_lm_managed_action(p_uid text, p_action_key text)
+CREATE OR REPLACE FUNCTION public.release_lm_managed_action(
+  p_uid text, p_action_key text, p_period_start date, p_reservation_token uuid
+)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
-DECLARE period date := date_trunc('month', clock_timestamp() AT TIME ZONE 'UTC')::date;
 BEGIN
   DELETE FROM public.lm_managed_action_ledger
-   WHERE uid = p_uid AND period_start = period AND action_key = p_action_key AND status = 'pending';
-  RETURN public.lm_managed_allowance_result(p_uid, period, p_action_key, true);
+   WHERE uid = p_uid AND period_start = p_period_start AND action_key = p_action_key AND status = 'pending'
+     AND reservation_token = p_reservation_token;
+  RETURN public.lm_managed_allowance_result(p_uid, p_period_start, p_action_key, FOUND, NULL,
+    CASE WHEN FOUND THEN 'released' ELSE 'owner_mismatch' END);
 END;
 $function$;
 
@@ -183,16 +215,16 @@ $function$;
 
 REVOKE ALL ON TABLE public.lm_managed_action_ledger FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.lm_managed_allowance_notice FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.lm_managed_allowance_result(text,date,text,boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.lm_managed_allowance_result(text,date,text,boolean,uuid,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.reserve_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.complete_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.release_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.complete_lm_managed_action(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.release_lm_managed_action(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.claim_lm_managed_allowance_notice(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.record_lm_managed_allowance_notice(text,text,uuid,bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.release_lm_managed_allowance_notice(text,text,uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_lm_managed_action(text,text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.complete_lm_managed_action(text,text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.release_lm_managed_action(text,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.complete_lm_managed_action(text,text,date,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.release_lm_managed_action(text,text,date,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.claim_lm_managed_allowance_notice(text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.record_lm_managed_allowance_notice(text,text,uuid,bigint) TO service_role;
 GRANT EXECUTE ON FUNCTION public.release_lm_managed_allowance_notice(text,text,uuid) TO service_role;

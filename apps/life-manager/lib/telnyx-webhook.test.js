@@ -35,9 +35,12 @@ test("a wake claim token round-trips without changing the legacy fields", () => 
 test("a managed action key round-trips only when explicitly supplied", () => {
   const state = decodeCallClientState(encodeWakeClientState({
     wakeUid: "lm_abc", wakeEventKey: "wake-key", wakeClaimToken: "claim", managedActionKey: "calendar-event-1",
+    managedPeriodStart: "2026-09-01", managedReservationToken: "11111111-1111-4111-8111-111111111111",
   }));
   assert.equal(state.kind, "wake");
   assert.equal(state.managedActionKey, "calendar-event-1");
+  assert.equal(state.managedPeriodStart, "2026-09-01");
+  assert.equal(state.managedReservationToken, "11111111-1111-4111-8111-111111111111");
   assert.equal(decodeCallClientState(encodeWakeClientState({ wakeUid: "lm_abc", wakeEventKey: "wake-key" })).managedActionKey, undefined);
 });
 
