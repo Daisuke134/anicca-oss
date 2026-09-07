@@ -508,6 +508,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    outbox count stayed `2 -> 2`, and provider message ID remained `65232`. Future Apply wakes never call
    that notifier and must instead find a no-human role, obtain official submission readback, send the
    per-application Telegram receipt, and prove application replay-zero.
+   Release `03dd97793cd811f90d8a3138a4333d30a565f0ec` enforces that no-human policy and its
+   installed wake `mercor-20260907-143901-42623` ended naturally blocked with application effect
+   zero because the official Explore surface exposed `Sign in` and no listing cards. The preceding
+   wake had successfully restored the Google/Mercor login inside its isolated leased browser context,
+   but lease release disposed that context without writing its refreshed Mercor cookies back to the
+   Job Search session vault. The next wake therefore seeded stale cookies and lost authentication.
+   Current repair is provider-scoped context-cookie overlay writeback before release; it must leave the
+   shared base vault and every other provider cookie untouched, fail without overwriting prior state
+   when no Mercor cookie is observed, and prove a following natural wake starts authenticated without
+   any browser or Mac restart.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

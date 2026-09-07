@@ -45,6 +45,12 @@ def _vault_path():
     )
 
 
+def _vault_writeback_path():
+    return os.path.expanduser(
+        os.environ.get("CLOAK_SESSION_VAULT_WRITEBACK_FILE", _vault_path())
+    )
+
+
 def _leases_path():
     return os.path.expanduser(
         os.environ.get("CLOAK_CONTEXT_LEASES_FILE", "~/.cloak/vault/leases.json")
@@ -73,11 +79,28 @@ def _ledger_lock_path():
     return _leases_path() + ".lock"
 
 
+def _vault_lock_path():
+    return _vault_writeback_path() + ".lock"
+
+
 @contextlib.contextmanager
 def _ledger_lock():
     lock_path = _ledger_lock_path()
     os.makedirs(os.path.dirname(lock_path), exist_ok=True)
     with open(lock_path, "a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
+def _vault_lock():
+    lock_path = _vault_lock_path()
+    os.makedirs(os.path.dirname(lock_path), mode=0o700, exist_ok=True)
+    with open(lock_path, "a+", encoding="utf-8") as handle:
+        os.chmod(lock_path, 0o600)
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
         try:
             yield
@@ -303,6 +326,18 @@ def acquire(task, url="about:blank", no_seed=False):
         if not no_seed and os.path.exists(vault_path):
             with open(vault_path, encoding="utf-8") as handle:
                 cookies = json.load(handle).get("cookies", [])
+        overlay_path = _vault_writeback_path()
+        if not no_seed and overlay_path != vault_path and os.path.exists(overlay_path):
+            with open(overlay_path, encoding="utf-8") as handle:
+                overlay_cookies = json.load(handle).get("cookies", [])
+            overlay_domains = {
+                _normalized_cookie_domain(cookie.get("domain"))
+                for cookie in overlay_cookies if isinstance(cookie, dict)
+            }
+            cookies = [
+                cookie for cookie in cookies
+                if _normalized_cookie_domain(cookie.get("domain")) not in overlay_domains
+            ] + overlay_cookies
 
         (ctx,) = asyncio.run(_calls([("Target.createBrowserContext", {})]))
         ctx_id = ctx["browserContextId"]
@@ -365,6 +400,89 @@ def heartbeat(task, token=None, generation=None):
             "generation": held.get("generation"),
             "ts": held["ts"],
         }
+
+
+def _normalized_cookie_domain(value):
+    return str(value or "").strip().lower().lstrip(".")
+
+
+def _cookie_matches_domain(cookie, domains):
+    cookie_domain = _normalized_cookie_domain(cookie.get("domain"))
+    return any(
+        cookie_domain == domain or cookie_domain.endswith(f".{domain}")
+        for domain in domains
+    )
+
+
+def commit_cookies(task, domains, token=None, generation=None):
+    """Merge one leased context's provider cookies into its seed vault.
+
+    Isolated contexts are deliberately disposable, but a provider may refresh or mint its
+    authentication cookies inside one. Persist only the caller-declared provider domains;
+    never replace another provider's cookies and never erase a prior session from an empty
+    or inconclusive context read.
+    """
+    normalized_domains = sorted({_normalized_cookie_domain(domain) for domain in domains})
+    if not normalized_domains or any("." not in domain for domain in normalized_domains):
+        return {"ok": False, "reason": "invalid_cookie_domain"}
+
+    with _ledger_lock():
+        held = _leases().get(task)
+        if not held:
+            return {"ok": False, "reason": "lease_not_found"}
+        if not _fence_matches(held, token, generation):
+            return {"ok": False, "reason": "lease_fence_mismatch"}
+        held = dict(held)
+
+    lock_path = _operation_lock_path(held["target_id"])
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+    with open(lock_path, "a+", encoding="utf-8") as operation_lock:
+        fcntl.flock(operation_lock.fileno(), fcntl.LOCK_EX)
+        try:
+            (result,) = asyncio.run(_calls([(
+                "Storage.getCookies",
+                {"browserContextId": held["context_id"]},
+            )]))
+        finally:
+            fcntl.flock(operation_lock.fileno(), fcntl.LOCK_UN)
+
+    context_cookies = result.get("cookies", [])
+    matching = [
+        cookie for cookie in context_cookies
+        if isinstance(cookie, dict) and _cookie_matches_domain(cookie, normalized_domains)
+    ]
+    if not matching:
+        return {"ok": False, "reason": "no_matching_context_cookies"}
+
+    vault_path = _vault_writeback_path()
+    with _vault_lock():
+        prior = {}
+        if os.path.exists(vault_path):
+            with open(vault_path, encoding="utf-8") as handle:
+                prior = json.load(handle)
+        prior_cookies = prior.get("cookies", []) if isinstance(prior, dict) else []
+        preserved = [
+            cookie for cookie in prior_cookies
+            if isinstance(cookie, dict) and not _cookie_matches_domain(cookie, normalized_domains)
+        ]
+        payload = dict(prior) if isinstance(prior, dict) else {}
+        payload["ts"] = int(time.time())
+        payload["cookies"] = preserved + matching
+        os.makedirs(os.path.dirname(vault_path), mode=0o700, exist_ok=True)
+        temporary = f"{vault_path}.{os.getpid()}.tmp"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, vault_path)
+        os.chmod(vault_path, 0o600)
+
+    return {
+        "ok": True,
+        "task": task,
+        "domains": normalized_domains,
+        "cookies_committed": len(matching),
+        "cookies_preserved": len(preserved),
+    }
 
 
 def release(task, token=None, generation=None):
@@ -500,6 +618,15 @@ if __name__ == "__main__":
             out = heartbeat(arg or "unnamed", token=token, generation=generation)
         elif cmd == "release":
             out = release(arg or "unnamed", token=token, generation=generation)
+        elif cmd == "commit-cookies":
+            domains = [
+                sys.argv[index + 1]
+                for index, value in enumerate(sys.argv[:-1])
+                if value == "--domain"
+            ]
+            out = commit_cookies(
+                arg or "unnamed", domains, token=token, generation=generation
+            )
         elif cmd == "gc":
             idle = int(sys.argv[sys.argv.index("--idle-min") + 1]) if "--idle-min" in sys.argv else 45
             out = gc(idle)

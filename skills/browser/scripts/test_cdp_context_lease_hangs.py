@@ -154,3 +154,122 @@ def test_release_with_a_wrong_fence_still_refuses(monkeypatch, tmp_path):
     result = module.release("gig-task", token="b" * 32, generation=2)
     assert result["ok"] is False
     assert json.loads(leases_file.read_text(encoding="utf-8")) != {}
+
+
+def test_commit_cookies_merges_only_requested_domain(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    vault_file = tmp_path / "auth-state.json"
+    overlay_file = tmp_path / "mercor-overlay.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_FILE", str(vault_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_WRITEBACK_FILE", str(overlay_file))
+    leases_file.write_text(json.dumps({
+        "mercor-task": {
+            "context_id": "mercor-context", "target_id": "mercor-target",
+            "ws": "ws://127.0.0.1:9222/devtools/page/mercor-target",
+            "ts": 0, "token": "a" * 32, "generation": 1,
+        }
+    }), encoding="utf-8")
+    vault_file.write_text(json.dumps({
+        "ts": 1,
+        "cookies": [
+            {"name": "old-mercor", "domain": ".mercor.com", "path": "/", "value": "old"},
+            {"name": "coconala", "domain": ".coconala.com", "path": "/", "value": "keep"},
+        ],
+        "localStorage": {"https://coconala.com": {"key": "keep"}},
+    }), encoding="utf-8")
+
+    async def context_cookies(pairs, timeout=None):
+        assert pairs == [("Storage.getCookies", {"browserContextId": "mercor-context"})]
+        return [{"cookies": [
+            {"name": "new-mercor", "domain": "work.mercor.com", "path": "/", "value": "new"},
+            {"name": "google", "domain": ".google.com", "path": "/", "value": "ignore"},
+        ]}]
+
+    monkeypatch.setattr(module, "_calls", context_cookies)
+    result = module.commit_cookies(
+        "mercor-task", ["mercor.com"], token="a" * 32, generation=1
+    )
+
+    assert result["ok"] is True
+    assert result["cookies_committed"] == 1
+    assert json.loads(vault_file.read_text(encoding="utf-8"))["cookies"][0]["name"] == "old-mercor"
+    saved = json.loads(overlay_file.read_text(encoding="utf-8"))
+    assert {(cookie["name"], cookie["domain"]) for cookie in saved["cookies"]} == {
+        ("new-mercor", "work.mercor.com"),
+    }
+    assert overlay_file.stat().st_mode & 0o777 == 0o600
+
+
+def test_commit_cookies_keeps_vault_when_context_has_no_requested_cookie(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    vault_file = tmp_path / "auth-state.json"
+    overlay_file = tmp_path / "mercor-overlay.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_FILE", str(vault_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_WRITEBACK_FILE", str(overlay_file))
+    leases_file.write_text(json.dumps({
+        "mercor-task": {
+            "context_id": "mercor-context", "target_id": "mercor-target",
+            "ws": "ws://127.0.0.1:9222/devtools/page/mercor-target",
+            "ts": 0, "token": "a" * 32, "generation": 1,
+        }
+    }), encoding="utf-8")
+    original = {"ts": 1, "cookies": [
+        {"name": "old-mercor", "domain": ".mercor.com", "path": "/", "value": "old"}
+    ]}
+    vault_file.write_text(json.dumps(original), encoding="utf-8")
+
+    async def no_mercor_cookie(pairs, timeout=None):
+        return [{"cookies": [
+            {"name": "google", "domain": ".google.com", "path": "/", "value": "ignore"}
+        ]}]
+
+    monkeypatch.setattr(module, "_calls", no_mercor_cookie)
+    result = module.commit_cookies(
+        "mercor-task", ["mercor.com"], token="a" * 32, generation=1
+    )
+
+    assert result == {"ok": False, "reason": "no_matching_context_cookies"}
+    assert json.loads(vault_file.read_text(encoding="utf-8")) == original
+    assert not overlay_file.exists()
+
+
+def test_acquire_seeds_provider_overlay_after_shared_base(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    vault_file = tmp_path / "auth-state.json"
+    overlay_file = tmp_path / "mercor-overlay.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_FILE", str(vault_file))
+    monkeypatch.setenv("CLOAK_SESSION_VAULT_WRITEBACK_FILE", str(overlay_file))
+    vault_file.write_text(json.dumps({"cookies": [
+        {"name": "stale", "domain": ".mercor.com", "path": "/", "value": "old"},
+        {"name": "google", "domain": ".google.com", "path": "/", "value": "base"},
+    ]}), encoding="utf-8")
+    overlay_file.write_text(json.dumps({"cookies": [
+        {"name": "fresh", "domain": ".mercor.com", "path": "/", "value": "new"},
+    ]}), encoding="utf-8")
+    calls_seen = []
+
+    async def create_context_and_target(pairs, timeout=None):
+        calls_seen.append(pairs)
+        if pairs == [("Target.createBrowserContext", {})]:
+            return [{"browserContextId": "new-context"}]
+        assert pairs[-1] == (
+            "Target.createTarget",
+            {"url": "https://work.mercor.com/explore", "browserContextId": "new-context"},
+        )
+        return [{}, {"targetId": "new-target"}]
+
+    monkeypatch.setattr(module, "_calls", create_context_and_target)
+    result = module.acquire("mercor-task", url="https://work.mercor.com/explore")
+
+    assert result["ok"] is True
+    seeded = calls_seen[1][0][1]["cookies"]
+    assert {(cookie["name"], cookie["domain"]) for cookie in seeded} == {
+        ("fresh", ".mercor.com"),
+        ("google", ".google.com"),
+    }

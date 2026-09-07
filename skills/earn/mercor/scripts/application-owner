@@ -9,6 +9,9 @@ LEASE_SCRIPT="$ROOT/skills/browser/scripts/cdp_context_lease.py"
 TASK="mercor-revenue-application"
 CDP="http://127.0.0.1:9222"
 LEASE_JSON="$STATE_ROOT/browser-lease.json"
+WRITEBACK_JSON="$STATE_ROOT/session-writeback.json"
+LEASE_TOKEN=""
+LEASE_GENERATION=""
 
 [[ -x "$PYTHON" ]] || { print -u2 "mercor application owner: managed Python unavailable"; exit 69; }
 [[ -x "$LEASE_PYTHON" ]] || { print -u2 "mercor application owner: lease Python unavailable"; exit 69; }
@@ -24,16 +27,24 @@ if [[ ! -f "$STATE_ROOT/resume-state.json" && -f "$LEGACY_ROOT/resume-state.json
 fi
 export CLOAK_CDP_BASE_URL="$CDP"
 export CLOAK_SESSION_VAULT_FILE="$HOME/.cloak/vault/job-search-daily/auth-state.json"
+export CLOAK_SESSION_VAULT_WRITEBACK_FILE="$STATE_ROOT/auth-overlay.json"
 export AI_BROWSER_HOLDER_PID=$$
 
 release_lease() {
-  "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" >/dev/null 2>&1 || true
+  if [[ -n "$LEASE_TOKEN" && -n "$LEASE_GENERATION" ]]; then
+    "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" \
+      --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >/dev/null 2>&1 || true
+  else
+    "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" >/dev/null 2>&1 || true
+  fi
 }
 trap release_lease EXIT
 
 "$LEASE_PYTHON" "$LEASE_SCRIPT" acquire "$TASK" "https://work.mercor.com/explore" >"$LEASE_JSON"
 chmod 600 "$LEASE_JSON"
 MERCOR_CDP_PAGE_WS=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ws"])' "$LEASE_JSON")
+LEASE_TOKEN=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["token"])' "$LEASE_JSON")
+LEASE_GENERATION=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["generation"])' "$LEASE_JSON")
 export MERCOR_CDP_PAGE_WS MERCOR_CDP_BASE_URL="$CDP"
 PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
   -m job_search_loop.mercor_page_ready \
@@ -45,5 +56,12 @@ MERCOR_APPLICATION_STATE_ROOT="$STATE_ROOT" JOB_SEARCH_STATE_ROOT="${STATE_ROOT:
   MERCOR_RUN_EARNINGS_SYNC=0 \
   "$ROOT/apps/job-search-loop/scripts/run-mercor.sh"
 rc=$?
+"$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
+  --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >"$WRITEBACK_JSON"
+writeback_rc=$?
 set -e
+chmod 600 "$WRITEBACK_JSON"
+if (( writeback_rc != 0 && rc == 0 )); then
+  rc=75
+fi
 exit "$rc"
