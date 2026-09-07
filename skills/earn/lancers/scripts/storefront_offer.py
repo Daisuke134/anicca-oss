@@ -555,6 +555,194 @@ def run_create(product_path: Path, state_path: Path) -> dict[str, Any]:
     return result
 
 
+# --- Catalogue-driven creation (the storefront wake's fallback effect) ---------------------
+# create_package() gave this lane a way to reach Lancers with a *new* listing; nothing decided
+# *which* listing yet. The twenty-family shared catalogue (skills/_shared/marketplace-core,
+# skills/gig-work/profile/listings/catalog.json) is the only inventory this owner already trusts
+# for content -- Coconala reads the same rows. select_catalog_family_to_create() below is the
+# decision, kept pure and browser-free so a wake never opens a page for a family it will not
+# attempt; run_catalog_create() is the one browser-touching effect main() reaches for when the
+# existing single-offer chain in run() left nothing to do this wake (result["action"] ==
+# "unchanged" -- no status pause, no title/field alignment, no portfolio, no profile update).
+#
+# Deliberately a second, independent account_lock acquisition rather than something nested
+# inside run()'s own `with tick.account_lock(...)` block: fcntl.flock locks an open file
+# description, not a process, so a second os.open()+flock() on the same lock path from the same
+# process (a different fd) blocks forever waiting for a lock this same process is already
+# holding. main() only reaches run_catalog_create() after run()'s own `with` block has already
+# exited, so the two acquisitions are sequential, never nested.
+_CATALOG_LISTINGS_KEY = "catalog_listings"
+# Every product-shape field create_package() actually reads (see _CREATE_REQUIRED_FIELDS) that
+# the catalogue itself cannot supply via project_lancers(): platform_overrides.lancers now
+# carries category/industry/tags/notice (see the catalogue task this shipped from), but never
+# subcategory -- Lancers' subcategory options are a dependent select whose values only appear
+# once the main category is chosen in the live form, and that option list has never been
+# observed. A family missing any of these is named under "skipped", never filled with a guess.
+_CATALOG_OVERLAY_FIELDS = ("subcategory", "industry", "tags", "notice")
+
+
+def _catalog_family_order(catalog: Mapping[str, Any]) -> list[str]:
+    """The catalogue's own listing order -- never re-sorted, so selection stays deterministic
+    across wakes without depending on dict/set iteration order anywhere else in this file."""
+    return [str(row["family"]) for row in catalog.get("listings") or () if isinstance(row, Mapping) and row.get("family")]
+
+
+def _read_catalog_listings(state_path: Path) -> dict[str, Any]:
+    """Every catalogue family already recorded as created, keyed by family name.
+
+    Reads the same listing.json _write_receipt already owns, under one additional top-level
+    key (_CATALOG_LISTINGS_KEY) -- extending the one file the lane already trusts rather than
+    adding a second, parallel store. A missing/unreadable/malformed file reads as "nothing
+    published yet", never as an error that blocks selection.
+    """
+    path = Path(state_path).with_name("listing.json")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    listings = value.get(_CATALOG_LISTINGS_KEY) if isinstance(value, Mapping) else None
+    return dict(listings) if isinstance(listings, Mapping) else {}
+
+
+def _write_catalog_listing(state_path: Path, family: str, record: Mapping[str, Any]) -> None:
+    """Persist `family`'s new listing under listing.json's catalog_listings map.
+
+    Reads-modifies-writes the whole file (preserving the single-offer listing_receipt fields
+    _write_receipt owns, and every other family already recorded) with the same atomic
+    tempfile-then-replace, 0600-permission pattern _write_receipt uses -- one file, one write
+    discipline, never a half-written listing.json.
+    """
+    path = Path(state_path).with_name("listing.json")
+    path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(existing, dict): existing = {}
+    except (OSError, ValueError):
+        existing = {}
+    catalog_listings = dict(existing.get(_CATALOG_LISTINGS_KEY) or {})
+    catalog_listings[family] = dict(record)
+    existing[_CATALOG_LISTINGS_KEY] = catalog_listings
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(existing, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":")); handle.write("\n")
+        os.replace(temporary, path); path.chmod(0o600)
+    finally:
+        try: os.unlink(temporary)
+        except FileNotFoundError: pass
+
+
+def _family_create_product(catalog_module: Any, catalog: Mapping[str, Any], family: str) -> dict[str, Any]:
+    """Build the create_package()-shaped product dict for one catalogue family.
+
+    title_stem/subtitle/category/plans come from project_lancers() (the catalogue's own
+    Lancers projection); subcategory/industry/tags/notice come straight from that family's
+    platform_overrides.lancers row when present -- never invented when absent, so a family
+    whose overrides do not (yet) carry one of them fails _require_create_fields by name.
+    """
+    projection = catalog_module.project_lancers(catalog, family)
+    row = catalog_module.entries_by_family(catalog)[family]
+    override = (row.get("platform_overrides") or {}).get("lancers")
+    override = override if isinstance(override, Mapping) else {}
+    product: dict[str, Any] = {
+        "title_stem": projection.get("title_stem"),
+        "subtitle": projection.get("subtitle"),
+        "category": projection.get("category"),
+        "plans": projection.get("plans"),
+    }
+    for field in _CATALOG_OVERLAY_FIELDS:
+        if field in override:
+            product[field] = override[field]
+    return product
+
+
+def select_catalog_family_to_create(catalog_path: Path, state_path: Path) -> dict[str, Any]:
+    """Which catalogue family (if any) should this wake attempt to create on Lancers?
+
+    Pure and browser-free: no page is ever opened for a family this function does not select.
+    Walks the catalogue's own listing order, skipping any family _read_catalog_listings already
+    has a record for (so a family is created at most once, ever), and returns the first
+    remaining family whose overlay is complete enough for create_package(). Every family this
+    scan passes over on the way -- already published or overlay-incomplete -- is accounted for
+    so the caller can report exactly what happened, never a silent no-op.
+
+    Returns one of:
+      {"action": "all_published", "skipped": []} -- nothing left to create.
+      {"action": "all_pending_incomplete", "skipped": [...]} -- every remaining family named,
+        none creatable yet (today: every family, until a future task observes Lancers'
+        subcategory options -- see _CATALOG_OVERLAY_FIELDS).
+      {"action": "candidate_selected", "family": ..., "product": ..., "skipped": [...]} -- the
+        one family to attempt, plus every incomplete family skipped before reaching it.
+      {"action": "catalog_unavailable", "error": ...} -- the catalogue itself failed to load.
+    """
+    listing_catalog = _reach_marketplace_core()
+    try:
+        catalog = listing_catalog.load(catalog_path)
+    except listing_catalog.CatalogError as error:
+        return {"action": "catalog_unavailable", "error": str(error), "skipped": []}
+    order = _catalog_family_order(catalog)
+    published = _read_catalog_listings(state_path)
+    pending = [family for family in order if family not in published]
+    if not pending:
+        return {"action": "all_published", "skipped": []}
+    skipped: list[dict[str, str]] = []
+    for family in pending:
+        product = _family_create_product(listing_catalog, catalog, family)
+        try:
+            _require_create_fields(product)
+        except OfferError as error:
+            skipped.append({"family": family, "reason": str(error)})
+            continue
+        return {"action": "candidate_selected", "family": family, "product": product, "skipped": skipped}
+    return {"action": "all_pending_incomplete", "skipped": skipped}
+
+
+def run_catalog_create(state_path: Path, catalog_path: Path = DEFAULT_CATALOG) -> dict[str, Any]:
+    """The storefront wake's fallback effect -- main() calls this only when run()'s own
+    single-offer chain produced no mutation this wake. Selects at most one family
+    (select_catalog_family_to_create), attempts create_package() for it if one was selected,
+    and persists the resulting listing_external_id so the same family is never attempted again.
+    One creation per call, exactly mirroring run()/run_create()'s own one-mutation-per-call
+    discipline; a selection outcome other than "candidate_selected" is returned unchanged --
+    there is nothing to create and nothing to persist.
+    """
+    selection = select_catalog_family_to_create(catalog_path, Path(state_path))
+    if selection["action"] != "candidate_selected":
+        return selection
+    family, product = selection["family"], selection["product"]
+    tick = browser = page = None; logged_in = False; result: dict[str, Any] = {"ok": False, "error": "offer_unavailable"}
+    try:
+        tick = _load("lancers_storefront_create_from_catalog_tick", HERE / "application_tick.py")
+        with tick.account_lock(Path(state_path).with_name("work-sync.json")):
+            browser = tick._default_browser_factory(tick.CDP_URL); page = tick._new_owned_page(browser)
+            if not tick._production_account_ready(page): raise OfferError("account_unavailable")
+            logged_in = True; result = create_package(page, product, DEFAULT_AVATAR)
+    except OfferError as error: result = {"ok": False, "logged_in": logged_in, "error": str(error)}
+    except Exception as error:
+        print(f"storefront_offer_catalog_create:{type(error).__name__}: {str(error)[:400]}", file=sys.stderr)
+        result = {"ok": False, "logged_in": logged_in,
+                  "error": "account_lock_busy" if "LockBusy" in type(error).__name__ else "offer_unavailable",
+                  "failure": f"{type(error).__name__}: {str(error)[:200]}"}
+    finally:
+        try:
+            closed = page is None or bool(tick._close_owned_page(page))
+            if browser is not None: tick._stop_playwright_runtime(getattr(browser, "_anicca_playwright_runtime", None))
+        except Exception: closed = False
+        if not closed: result = {"ok": False, "logged_in": logged_in, "error": "cleanup_failed"}
+    result = dict(result); result["family"] = family; result["skipped"] = selection["skipped"]
+    listing_external_id = result.get("listing_external_id")
+    if result.get("ok") is True and isinstance(listing_external_id, str) and listing_external_id:
+        _write_catalog_listing(Path(state_path), family, {
+            "listing_external_id": listing_external_id,
+            "public_url": result.get("canonical_url"),
+            "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        })
+    elif result.get("ok") is True:
+        result["ok"] = False; result.setdefault("error", "listing_id_missing")
+    return result
+
+
 def _portfolio(page: Any, item: Mapping[str, Any]) -> dict[str, Any] | None:
     title = item["title_stem"] + "ました"
     with page.expect_response(lambda response: response.request.method == "GET" and urlsplit(response.url).path == "/api/v1/me/portfolio", timeout=20_000) as loaded:
@@ -690,6 +878,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")), flush=True)
         return 0 if result.get("ok") is True else 1
     result = run(args.apply, args.product, args.state_path)
+    # The wake's fallback effect: only when the single-offer chain above left nothing to do
+    # (result["action"] == "unchanged" -- no status pause, no field alignment, no portfolio, no
+    # profile update) does the wake get a second, independent chance to create one new listing
+    # from the shared catalogue. See run_catalog_create()'s own docstring for why this must be
+    # a separate account_lock acquisition, never nested inside run()'s.
+    if args.apply and result.get("action") == "unchanged":
+        result["catalog_creation"] = run_catalog_create(args.state_path)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")), flush=True)
     if args.apply:
         reporter = _load("_anicca_lancers_storefront_reporter", HERE / "telegram_report.py")

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import json
 import sys
 from pathlib import Path
 
@@ -477,3 +478,334 @@ def test_create_package_and_apply_are_mutually_exclusive():
     module = _module()
     with pytest.raises(SystemExit):
         module.main(["--apply", "--create-package"])
+
+
+# --- Catalogue-driven creation: select_catalog_family_to_create / run_catalog_create ----------
+#
+# The wake now has a decision, not just a capability: after the existing align/inspect chain in
+# run() leaves nothing to do, pick one catalogue family with no live Lancers listing and create
+# it. select_catalog_family_to_create() is pure (no browser); run_catalog_create() is the one
+# browser-touching wrapper main() reaches for. These fixtures build a small three-family
+# catalogue rather than depending on the real twenty-family one, so "a family is creatable" and
+# "a family is not" can both be exercised directly -- the real catalogue's own grounding (every
+# family's category/industry/tags/notice, and that none carries a subcategory) is covered
+# separately in skills/_shared/marketplace-core/tests/test_listing_catalog.py.
+
+
+def _fixture_tier(name: str, price_jpy: int, delivery_days: int) -> dict:
+    return {"name": name, "price_jpy": price_jpy, "scope": f"{name}スコープ", "delivery_days": delivery_days}
+
+
+def _fixture_family(family: str, *, category: str = "AI・プログラミング・システム開発",
+                     extra_override: dict | None = None, drop_override_fields: tuple[str, ...] = ()) -> dict:
+    override = {
+        "category": category,
+        "subcategory": "システム開発（オーダーメイド）",  # a future, filled-in overlay -- not the real catalog's shape
+        "industry": "IT・通信・インターネット",
+        "tags": [family],
+        "notice": f"{family}のご相談内容を確認してから進めます。",
+    }
+    if extra_override: override.update(extra_override)
+    for field in drop_override_fields: override.pop(field, None)
+    return {
+        "id": family.replace("_", "-"),
+        "family": family,
+        "title_ja": f"{family}を開発します",
+        "value_prop": f"{family}の価値提案。",
+        "tiers": [
+            _fixture_tier("ベーシック", 50000, 14),
+            _fixture_tier("スタンダード", 100000, 21),
+            _fixture_tier("プレミアム", 200000, 30),
+        ],
+        "deliverables": ["納品物"],
+        "required_inputs": ["入力"],
+        "faq": [],
+        "platform_overrides": {
+            "coconala": {"category": "IT相談・システム開発"},
+            "lancers": override,
+            "crowdworks": {"category": "システム開発・運用"},
+        },
+    }
+
+
+def _write_fixture_catalog(tmp_path: Path, families: list[dict]) -> Path:
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps({"version": 1, "listings": families}, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+class _FakeTick:
+    """Stands in for application_tick.py's browser-boundary surface. account_lock is a real
+    contextmanager (not a mock) so nesting/deadlock bugs in the caller would show up as a hang,
+    the same as the real fcntl.flock-backed one would -- it just never contends in tests.
+    """
+
+    CDP_URL = "http://127.0.0.1:0/fake-cdp"
+
+    def __init__(self, *, account_ready: bool = True):
+        self.account_ready = account_ready
+        self.opened_pages = 0
+        self.closed_pages = 0
+
+    def account_lock(self, _path):
+        import contextlib
+
+        @contextlib.contextmanager
+        def _cm():
+            yield
+
+        return _cm()
+
+    def _default_browser_factory(self, _cdp_url):
+        return object()
+
+    def _new_owned_page(self, _browser):
+        self.opened_pages += 1
+        return object()
+
+    def _production_account_ready(self, _page):
+        return self.account_ready
+
+    def _close_owned_page(self, _page):
+        self.closed_pages += 1
+        return True
+
+    def _stop_playwright_runtime(self, _runtime):
+        return None
+
+
+def _patch_browser_layer(module, monkeypatch, *, tick: "_FakeTick | None" = None, create_results=None):
+    """create_results: either a single dict (every create_package() call returns it) or a list
+    consumed in call order (one entry per family, in the order create_package() is invoked)."""
+    tick = tick or _FakeTick()
+    monkeypatch.setattr(module, "_load", lambda _name, _path: tick)
+    calls: list[dict] = []
+
+    def _fake_create_package(_page, product, _image):
+        calls.append(dict(product))
+        if isinstance(create_results, list):
+            result = create_results[len(calls) - 1]
+        else:
+            result = create_results
+        if isinstance(result, Exception):
+            raise result
+        return dict(result)
+
+    monkeypatch.setattr(module, "create_package", _fake_create_package)
+    return tick, calls
+
+
+# 6. Selection picks a family with no live listing, and never one already recorded published ---
+
+
+def test_select_picks_the_first_pending_family_in_catalogue_order(tmp_path):
+    module = _module()
+    catalog_path = _write_fixture_catalog(tmp_path, [_fixture_family("alpha"), _fixture_family("beta")])
+    state_path = tmp_path / "application.json"
+
+    selection = module.select_catalog_family_to_create(catalog_path, state_path)
+
+    assert selection["action"] == "candidate_selected"
+    assert selection["family"] == "alpha"
+    assert selection["skipped"] == []
+
+
+def test_select_never_picks_a_family_already_recorded_as_published(tmp_path):
+    module = _module()
+    catalog_path = _write_fixture_catalog(tmp_path, [_fixture_family("alpha"), _fixture_family("beta")])
+    state_path = tmp_path / "application.json"
+    module._write_catalog_listing(state_path, "alpha", {"listing_external_id": "111111"})
+
+    selection = module.select_catalog_family_to_create(catalog_path, state_path)
+
+    assert selection["action"] == "candidate_selected"
+    assert selection["family"] == "beta"
+
+
+# 7. Two wakes in a row do not create the same family twice ------------------------------------
+
+
+def test_two_consecutive_wakes_create_two_different_families(tmp_path, monkeypatch):
+    module = _module()
+    catalog_path = _write_fixture_catalog(tmp_path, [_fixture_family("alpha"), _fixture_family("beta")])
+    state_path = tmp_path / "application.json"
+    tick, calls = _patch_browser_layer(
+        module, monkeypatch,
+        create_results=[
+            {"ok": True, "listing_external_id": "100001", "canonical_url": "https://www.lancers.jp/menu/detail/100001"},
+            {"ok": True, "listing_external_id": "100002", "canonical_url": "https://www.lancers.jp/menu/detail/100002"},
+        ],
+    )
+
+    first = module.run_catalog_create(state_path, catalog_path)
+    second = module.run_catalog_create(state_path, catalog_path)
+
+    assert first["ok"] is True and first["family"] == "alpha" and first["listing_external_id"] == "100001"
+    assert second["ok"] is True and second["family"] == "beta" and second["listing_external_id"] == "100002"
+    assert len(calls) == 2  # create_package() was reached exactly once per wake, for a different family each time
+
+    listings = module._read_catalog_listings(state_path)
+    assert listings["alpha"]["listing_external_id"] == "100001"
+    assert listings["beta"]["listing_external_id"] == "100002"
+
+    # A third wake, with nothing left pending, must not touch the browser layer at all.
+    third = module.run_catalog_create(state_path, catalog_path)
+    assert third == {"action": "all_published", "skipped": []}
+    assert len(calls) == 2
+
+
+# 8. A family with an incomplete overlay is skipped, named, and does not block the others -------
+
+
+def test_incomplete_overlay_is_skipped_and_named_without_blocking_a_later_family(tmp_path):
+    module = _module()
+    catalog_path = _write_fixture_catalog(
+        tmp_path,
+        [
+            _fixture_family("broken", drop_override_fields=("notice",)),
+            _fixture_family("fine"),
+        ],
+    )
+    state_path = tmp_path / "application.json"
+
+    selection = module.select_catalog_family_to_create(catalog_path, state_path)
+
+    assert selection["action"] == "candidate_selected"
+    assert selection["family"] == "fine"
+    assert selection["skipped"] == [{"family": "broken", "reason": "create_field_missing: notice"}]
+
+
+def test_run_catalog_create_reports_all_pending_incomplete_and_creates_nothing(tmp_path, monkeypatch):
+    module = _module()
+    catalog_path = _write_fixture_catalog(
+        tmp_path,
+        [_fixture_family("broken_a", drop_override_fields=("notice",)), _fixture_family("broken_b", drop_override_fields=("tags",))],
+    )
+    state_path = tmp_path / "application.json"
+    monkeypatch.setattr(module, "_load", lambda *a, **k: (_ for _ in ()).throw(AssertionError("browser layer must not be reached")))
+
+    result = module.run_catalog_create(state_path, catalog_path)
+
+    assert result["action"] == "all_pending_incomplete"
+    assert {item["family"] for item in result["skipped"]} == {"broken_a", "broken_b"}
+    assert module._read_catalog_listings(state_path) == {}
+
+
+def test_real_catalog_is_currently_all_pending_incomplete_because_subcategory_is_unobserved(tmp_path):
+    """Grounds slice 2 against slice 1's actual state: every real family's platform_overrides
+    intentionally omits subcategory (see test_listing_catalog.py's
+    test_no_family_carries_a_subcategory_override), so today's real wake names all twenty
+    families under "skipped" and creates nothing -- it does not silently invent a value."""
+    module = _module()
+    state_path = tmp_path / "application.json"
+
+    selection = module.select_catalog_family_to_create(module.DEFAULT_CATALOG, state_path)
+
+    assert selection["action"] == "all_pending_incomplete"
+    assert len(selection["skipped"]) == 20
+    assert all(item["reason"] == "create_field_missing: subcategory" for item in selection["skipped"])
+
+
+# 9. When every family is published, the wake reports that and creates nothing -----------------
+
+
+def test_select_reports_all_published_when_every_family_has_a_listing(tmp_path):
+    module = _module()
+    catalog_path = _write_fixture_catalog(tmp_path, [_fixture_family("alpha"), _fixture_family("beta")])
+    state_path = tmp_path / "application.json"
+    module._write_catalog_listing(state_path, "alpha", {"listing_external_id": "111111"})
+    module._write_catalog_listing(state_path, "beta", {"listing_external_id": "222222"})
+
+    selection = module.select_catalog_family_to_create(catalog_path, state_path)
+
+    assert selection == {"action": "all_published", "skipped": []}
+
+
+def test_run_catalog_create_never_touches_the_browser_layer_when_all_published(tmp_path, monkeypatch):
+    module = _module()
+    catalog_path = _write_fixture_catalog(tmp_path, [_fixture_family("alpha")])
+    state_path = tmp_path / "application.json"
+    module._write_catalog_listing(state_path, "alpha", {"listing_external_id": "111111"})
+    monkeypatch.setattr(module, "_load", lambda *a, **k: (_ for _ in ()).throw(AssertionError("browser layer must not be reached")))
+
+    result = module.run_catalog_create(state_path, catalog_path)
+
+    assert result == {"action": "all_published", "skipped": []}
+
+
+# 10. --apply's behaviour on the existing listing is unchanged; catalogue creation is additive --
+
+
+def test_main_apply_invokes_catalog_create_only_when_run_left_nothing_to_do(monkeypatch, tmp_path):
+    module = _module()
+    calls: list[Path] = []
+    monkeypatch.setattr(module, "run", lambda apply, product_path, state_path: {"ok": True, "action": "unchanged"})
+    monkeypatch.setattr(module, "run_catalog_create", lambda state_path: calls.append(state_path) or {"action": "all_published", "skipped": []})
+
+    class _Delivery:
+        delivery_uncertain = False
+        pre_send_failed = False
+
+    class _Reporter:
+        @staticmethod
+        def notify_storefront_wake(_result):
+            return _Delivery()
+
+    monkeypatch.setattr(module, "_load", lambda *_a, **_k: _Reporter())
+
+    exit_code = module.main(["--apply"])
+
+    assert exit_code == 0
+    assert len(calls) == 1
+
+
+def test_main_apply_does_not_invoke_catalog_create_when_run_already_had_an_effect(monkeypatch):
+    module = _module()
+    monkeypatch.setattr(module, "run", lambda apply, product_path, state_path: {"ok": True, "action": "updated"})
+    monkeypatch.setattr(
+        module, "run_catalog_create",
+        lambda state_path: (_ for _ in ()).throw(AssertionError("run_catalog_create must not run when run() already had an effect")),
+    )
+
+    class _Delivery:
+        delivery_uncertain = False
+        pre_send_failed = False
+
+    class _Reporter:
+        @staticmethod
+        def notify_storefront_wake(_result):
+            return _Delivery()
+
+    monkeypatch.setattr(module, "_load", lambda *_a, **_k: _Reporter())
+
+    exit_code = module.main(["--apply"])
+
+    assert exit_code == 0
+
+
+def test_apply_flow_result_shape_for_the_existing_listing_is_unaffected_by_catalog_creation(monkeypatch):
+    """--apply's own result dict for the existing single-offer listing keeps every field it had
+    before; catalog_creation is purely additive, not a replacement of any existing key."""
+    module = _module()
+    existing_result = {"ok": True, "action": "unchanged", "aligned": True, "canonical_url": "https://www.lancers.jp/menu/detail/1338228"}
+    monkeypatch.setattr(module, "run", lambda apply, product_path, state_path: dict(existing_result))
+    monkeypatch.setattr(module, "run_catalog_create", lambda state_path: {"action": "all_published", "skipped": []})
+
+    class _Delivery:
+        delivery_uncertain = False
+        pre_send_failed = False
+
+    class _Reporter:
+        @staticmethod
+        def notify_storefront_wake(result):
+            # Every pre-existing field survives untouched; only "catalog_creation" was added.
+            for key, value in existing_result.items():
+                assert result[key] == value
+            assert set(result) == set(existing_result) | {"catalog_creation"}
+            return _Delivery()
+
+    monkeypatch.setattr(module, "_load", lambda *_a, **_k: _Reporter())
+
+    exit_code = module.main(["--apply"])
+
+    assert exit_code == 0

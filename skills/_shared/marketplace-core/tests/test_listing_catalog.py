@@ -100,6 +100,84 @@ class RealCatalogTests(unittest.TestCase):
         )
 
 
+class RealCatalogLancersOverrideGroundingTests(unittest.TestCase):
+    """The catalogue's platform_overrides.lancers block must name values the live Lancers
+    creation form (/myplan/add?type=manual) actually offers, never an invented string. Read
+    live 2026-09-07: nine main-category labels, the fifteen LANCERS_DELIVERY_DAYS values (see
+    listing_catalog.LANCERS_DELIVERY_DAYS), and the first twelve of the industry select's fifty
+    options. subcategory is a dependent select whose options only appear after the main
+    category is chosen and were never observed, so it must stay absent -- a family that starts
+    carrying one again is exactly what test_no_family_carries_a_subcategory_override guards.
+    """
+
+    LANCERS_MAIN_CATEGORIES = {
+        "選択してください", "AI・プログラミング・システム開発", "音楽・ナレーション",
+        "Web集客・マーケティング", "ビジネス・コンサルティング", "デザイン・Webデザイン",
+        "データ分析・作業自動化", "動画制作・アニメーション・写真", "ライティング・翻訳", "その他",
+    }
+    LANCERS_INDUSTRIES_OBSERVED = {
+        "選択してください", "IT・通信・インターネット", "マスコミ・メディア", "新聞・雑誌・出版",
+        "広告・イベント・プロモーション", "芸能・エンターテイメント", "ゲーム・アニメ・玩具",
+        "恋愛・出会い・占い", "婚活・ブライダル", "動物・ペット", "生花・園芸・造園", "美術・工芸・音楽",
+    }
+
+    def test_every_family_lancers_category_is_a_real_form_option(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            category = row["platform_overrides"]["lancers"]["category"]
+            self.assertIn(
+                category, self.LANCERS_MAIN_CATEGORIES,
+                f"{row['family']}: {category!r} is not one of the nine real main-category labels",
+            )
+            self.assertNotEqual(category, "選択してください", row["family"])
+
+    def test_every_family_lancers_industry_is_one_of_the_twelve_observed_labels(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            industry = row["platform_overrides"]["lancers"]["industry"]
+            self.assertIn(
+                industry, self.LANCERS_INDUSTRIES_OBSERVED,
+                f"{row['family']}: {industry!r} was not among the twelve industry options actually read",
+            )
+            self.assertNotEqual(industry, "選択してください", row["family"])
+
+    def test_every_family_has_one_to_five_distinct_nonempty_tags(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            tags = row["platform_overrides"]["lancers"]["tags"]
+            self.assertIsInstance(tags, list, row["family"])
+            self.assertTrue(1 <= len(tags) <= 5, f"{row['family']}: {len(tags)} tags")
+            self.assertEqual(len(tags), len(set(tags)), f"{row['family']}: duplicate tags {tags}")
+            for tag in tags:
+                self.assertIsInstance(tag, str, row["family"])
+                self.assertTrue(tag.strip(), row["family"])
+
+    def test_every_family_has_a_nonempty_notice(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            notice = row["platform_overrides"]["lancers"]["notice"]
+            self.assertIsInstance(notice, str, row["family"])
+            self.assertTrue(notice.strip(), row["family"])
+
+    def test_no_family_carries_a_subcategory_override(self):
+        """subcategory's option list has never been observed on the live form. A future edit
+        that starts guessing one must fail here, not silently ship an invented label."""
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            self.assertNotIn(
+                "subcategory", row["platform_overrides"]["lancers"],
+                f"{row['family']} must not carry an invented lancers.subcategory",
+            )
+
+    def test_lancers_override_carries_no_other_unexpected_keys(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            self.assertEqual(
+                set(row["platform_overrides"]["lancers"]), {"category", "industry", "tags", "notice"},
+                row["family"],
+            )
+
+
 class ValidationErrorTests(unittest.TestCase):
     def test_missing_file_raises_catalog_load_error(self):
         with self.assertRaises(CatalogLoadError):
