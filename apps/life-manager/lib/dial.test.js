@@ -89,6 +89,15 @@ test("placeCall returns all exact Telnyx call identities from one successful res
   });
 });
 
+test("placeCall sends the reserved connected-second ceiling to Telnyx", async () => {
+  await withDialTransport({ data: { call_control_id: "voice-budget-call" } }, (requests) => placeCall({
+    to: "+99900000000", streamUrl: CALL_URL, timeLimitSeconds: 37,
+  }).then((result) => {
+    assert.equal(result.ok, true);
+    assert.equal(JSON.parse(requests[1].options.body).time_limit_secs, 37);
+  }));
+});
+
 test("placeCall maps absent or invalid optional Telnyx identities to null", async () => {
   const responses = [
     { data: { call_control_id: "control-only" } },

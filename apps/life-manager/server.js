@@ -39,7 +39,8 @@ const { functions: inngestFunctions } = require("./inngest/functions.js");
 const inngestHandler = inngestServe({ client: inngest, functions: inngestFunctions });
 const { placeCall, startRecording } = require("./lib/dial.js");
 const { recordTelnyxWakeReceipt } = require("./lib/telnyx-receipt.js");
-const { completeManagedAction, releaseManagedAction } = require("./lib/managed-allowance.js");
+const { completeManagedAction, releaseManagedAction, completeVoiceAllowance,
+  releaseVoiceAllowance } = require("./lib/managed-allowance.js");
 const { amdEnabled, shouldMarkAnswered } = require("./lib/answered.js");
 const { decodeCallClientState, encodeTestCallClientState, verifyTelnyxSignature } = require("./lib/telnyx-webhook.js");
 const { parseUpdate, sendMessage, editMessageText, answerCallbackQuery, isPanelCommand, isPanelDeepLink, routeCallbackData, startReply } = require("./lib/telegram.js");
@@ -411,15 +412,43 @@ function ctxFromReq(req) {
   const name = (q.get("name") || "").slice(0, 60); // who to address on the call (already sanitized when signed)
   const wakeUid = (q.get("wakeUid") || "").slice(0, 100);
   const wakeEventKey = (q.get("wakeEventKey") || "").slice(0, 300);
+  const voicePeriodStart = q.get("voicePeriodStart") || "";
+  const voiceReservationToken = q.get("voiceReservationToken") || "";
+  const voiceAllowedSecondsText = q.get("voiceAllowedSeconds") || "";
   const sig = q.get("sig") || "";
 
   const secret = process.env.LM_CALL_SECRET || "";
-  const expected = crypto.createHmac("sha256", secret).update([summary, dateTime, location, urgency, lang, name, wakeUid, wakeEventKey].join("\n")).digest("base64url");
+  const expected = crypto.createHmac("sha256", secret).update([summary, dateTime, location, urgency, lang, name,
+    wakeUid, wakeEventKey, voicePeriodStart, voiceReservationToken, voiceAllowedSecondsText].join("\n")).digest("base64url");
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (!secret || a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
 
-  return { event: { summary, start: { dateTime }, location }, urgency, lang, name, wakeUid, wakeEventKey };
+  const voiceAllowedSeconds = Number(voiceAllowedSecondsText);
+  const voiceReservation = /^\d{4}-\d{2}-\d{2}$/.test(voicePeriodStart)
+    && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(voiceReservationToken)
+    && Number.isInteger(voiceAllowedSeconds) && voiceAllowedSeconds >= 1 && voiceAllowedSeconds <= 120
+    ? { periodStart: voicePeriodStart, reservationToken: voiceReservationToken, allowedSeconds: voiceAllowedSeconds }
+    : null;
+  return { event: { summary, start: { dateTime }, location }, urgency, lang, name, wakeUid, wakeEventKey,
+    voiceReservation };
+}
+
+function settleVoiceReservation({ wakeUid, wakeEventKey, voiceReservation, callStartedAtMs,
+  nowMs = Date.now() } = {}, deps = {}) {
+  if (!wakeUid || !wakeEventKey || !voiceReservation) return Promise.resolve(null);
+  const complete = deps.complete || completeVoiceAllowance;
+  const release = deps.release || releaseVoiceAllowance;
+  const supaUrl = deps.supaUrl === undefined ? SUPA_URL : deps.supaUrl;
+  const supaKey = deps.supaKey === undefined ? SUPA_KEY : deps.supaKey;
+  if (callStartedAtMs == null) {
+    return Promise.resolve(release(wakeUid, wakeEventKey, supaUrl, supaKey,
+      { reservation: voiceReservation }));
+  }
+  return Promise.resolve(complete(wakeUid, wakeEventKey, supaUrl, supaKey, {
+    reservation: voiceReservation,
+    connectedSeconds: Math.max(0, (nowMs - callStartedAtMs) / 1000),
+  }));
 }
 
 const server = http.createServer(async (req, res) => {
@@ -1351,7 +1380,7 @@ wss.on("connection", (carrierWs, req) => {
     return;
   }
   liveCalls++;
-  const { event, urgency, lang, name, wakeUid, wakeEventKey } = ctx;
+  const { event, urgency, lang, name, wakeUid, wakeEventKey, voiceReservation } = ctx;
   console.log(`[bridge] carrier connected urgency=${urgency} live=${liveCalls}`);
   const state = { streamSid: null, inFrames: 0, outFrames: 0, setupComplete: false };
 
@@ -1470,6 +1499,8 @@ wss.on("connection", (carrierWs, req) => {
       recordCost({ uid: wakeUid || null, kind: "telnyx_call", quantity, unit: "seconds",
         estUsd: quantity / 60 * 0.002, meta: { stream_id: state.streamSid || null } });
     }
+    settleVoiceReservation({ wakeUid, wakeEventKey, voiceReservation, callStartedAtMs })
+      .catch((e) => console.error(`[bridge] voice allowance settle failed: ${e && e.message}`));
     if (gemini) { try { gemini.close(); } catch {} }
   });
   carrierWs.on("error", release);
@@ -1507,4 +1538,4 @@ if (require.main === module) {
 // redeploy trigger 010026
 
 // Export pure helpers for unit tests (FIND-005).
-module.exports = { browserCastPublicUrl, buildTag, createBrowserCastTicket, inngestServeAllowed, panelApiOptions, panelOriginForPath, server, steelCastUrl, testCallAllowed, verifyBrowserCastTicket, TEST_CALL_COOLDOWN_MS, TEST_CALL_DAILY_MAX };
+module.exports = { browserCastPublicUrl, buildTag, createBrowserCastTicket, ctxFromReq, inngestServeAllowed, panelApiOptions, panelOriginForPath, server, settleVoiceReservation, steelCastUrl, testCallAllowed, verifyBrowserCastTicket, TEST_CALL_COOLDOWN_MS, TEST_CALL_DAILY_MAX };

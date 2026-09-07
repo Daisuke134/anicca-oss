@@ -99,6 +99,52 @@ test("monthly allowance exhaustion performs zero inline route and zero Telnyx ca
   assert.equal(h.dialed.length, 0);
 });
 
+test("voice allowance exhaustion performs zero Telnyx call and releases its pending event action", async () => {
+  clearEvents();
+  const h = deps();
+  let actionReleases = 0;
+  h.deps.reserveManagedAction = async () => ({ allowed: true, periodStart: "2026-09-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: false, usedSeconds: 3600, limitSeconds: 3600,
+    allowedSeconds: 0, periodStart: "2026-09-01", resetAt: "2026-10-01" });
+  h.deps.releaseManagedAction = async () => { actionReleases += 1; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(h.dialed.length, 0);
+  assert.equal(actionReleases, 1);
+});
+
+test("a voice reservation becomes the signed stream context and Telnyx time limit", async () => {
+  clearEvents();
+  const h = deps();
+  let dial;
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: true, usedSeconds: 3563, limitSeconds: 3600,
+    allowedSeconds: 37, periodStart: "2026-09-01", resetAt: "2026-10-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.placeCall = async (input) => { dial = input; return { ok: true, ccid: "voice-budget" }; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  const stream = new URL(dial.streamUrl);
+  assert.equal(dial.timeLimitSeconds, 37);
+  assert.equal(stream.searchParams.get("voiceAllowedSeconds"), "37");
+  assert.equal(stream.searchParams.get("voicePeriodStart"), "2026-09-01");
+  assert.equal(stream.searchParams.get("voiceReservationToken"), "11111111-1111-4111-8111-111111111111");
+});
+
+test("a voice reservation that cannot become durable accepted state never dials", async () => {
+  clearEvents();
+  const h = deps();
+  let voiceReleases = 0, wakeReleases = 0;
+  h.deps.reserveVoiceAllowance = async () => ({ allowed: true, usedSeconds: 0, limitSeconds: 3600,
+    allowedSeconds: 120, periodStart: "2026-09-01", resetAt: "2026-10-01",
+    reservationToken: "11111111-1111-4111-8111-111111111111" });
+  h.deps.acceptVoiceAllowance = async () => null;
+  h.deps.releaseVoiceAllowance = async () => { voiceReleases += 1; };
+  h.deps.releaseWake = async () => { wakeReleases += 1; };
+  await wakeCallOnce(USER, DEPARTURE_MS - 5 * MINUTE, h.deps);
+  assert.equal(h.dialed.length, 0);
+  assert.equal(voiceReleases, 1);
+  assert.equal(wakeReleases, 1);
+});
+
 test("a hung bookkeeping write cannot hold the dial — the daily poll ledger is not awaited", async () => {
   // Same failure class as the test above, in miniature and easier to miss: recordDailyComposioPoll
   // is 1-2 Supabase round trips with no timeout and no AbortController, and it sat AWAITED in front

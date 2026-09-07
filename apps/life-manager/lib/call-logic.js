@@ -343,7 +343,8 @@ function parseTelnyxStart(msg) {
  * @param {string} o.streamUrl - public wss:// of the bridge (the /ws path)
  * @returns {object} request body
  */
-function telnyxDialBody({ connectionId, to, from, streamUrl }) {
+function telnyxDialBody({ connectionId, to, from, streamUrl, timeLimitSeconds }) {
+  const limit = Number(timeLimitSeconds);
   return {
     connection_id: connectionId,
     to,
@@ -353,6 +354,7 @@ function telnyxDialBody({ connectionId, to, from, streamUrl }) {
     stream_bidirectional_mode: "rtp",
     stream_bidirectional_codec: "PCMU",
     stream_bidirectional_target_legs: "self",
+    ...(Number.isInteger(limit) && limit >= 1 && limit <= 14400 ? { time_limit_secs: limit } : {}),
   };
 }
 

@@ -272,8 +272,142 @@ BEGIN
 END;
 $function$;
 
+-- Paid phone fair-use allowance. A reservation holds the maximum seconds that one accepted
+-- Telnyx leg may consume; provider time_limit_secs enforces that exact bound after answer.
+CREATE TABLE IF NOT EXISTS public.lm_voice_allowance_ledger (
+  uid text NOT NULL,
+  period_start date NOT NULL,
+  call_key text NOT NULL,
+  status text NOT NULL CHECK (status IN ('pending', 'accepted', 'succeeded')),
+  reservation_token uuid NOT NULL DEFAULT gen_random_uuid(),
+  reserved_seconds integer NOT NULL CHECK (reserved_seconds BETWEEN 1 AND 120),
+  connected_seconds integer CHECK (connected_seconds BETWEEN 0 AND reserved_seconds),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  completed_at timestamptz,
+  PRIMARY KEY (uid, period_start, call_key)
+);
+ALTER TABLE public.lm_voice_allowance_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lm_voice_allowance_ledger
+  DROP CONSTRAINT IF EXISTS lm_voice_allowance_ledger_status_check;
+ALTER TABLE public.lm_voice_allowance_ledger
+  ADD CONSTRAINT lm_voice_allowance_ledger_status_check
+  CHECK (status IN ('pending', 'accepted', 'succeeded'));
+
+CREATE OR REPLACE FUNCTION public.lm_voice_allowance_result(
+  p_uid text, p_period_start date, p_call_key text, p_allowed boolean,
+  p_allowed_seconds integer DEFAULT 0, p_reservation_token uuid DEFAULT NULL
+) RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+  SELECT jsonb_build_object(
+    'allowed', p_allowed,
+    'usedSeconds', COALESCE(sum(connected_seconds) FILTER (WHERE status = 'succeeded'), 0)::integer,
+    'limitSeconds', 3600,
+    'allowedSeconds', COALESCE(p_allowed_seconds, 0),
+    'periodStart', p_period_start::text,
+    'resetAt', (p_period_start + INTERVAL '1 month')::date::text,
+    'callKey', p_call_key,
+    'reservationToken', p_reservation_token
+  ) FROM public.lm_voice_allowance_ledger
+  WHERE uid = p_uid AND period_start = p_period_start;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.reserve_lm_voice_allowance(p_uid text, p_call_key text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE
+  period date;
+  consumed integer;
+  remaining integer;
+  seconds integer;
+  token uuid;
+  is_paid boolean;
+BEGIN
+  IF p_uid IS NULL OR btrim(p_uid) = '' OR char_length(p_uid) > 256
+     OR p_call_key IS NULL OR btrim(p_call_key) = '' OR char_length(p_call_key) > 512 THEN
+    RAISE EXCEPTION 'invalid voice allowance identity';
+  END IF;
+  period := public.lm_managed_period(p_uid);
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_uid || ':' || period::text || ':voice', 0));
+  SELECT paid IS TRUE INTO is_paid FROM public.lm_users WHERE uid = p_uid;
+  IF is_paid IS DISTINCT FROM true THEN
+    RETURN public.lm_voice_allowance_result(p_uid, period, p_call_key, false, 0, NULL);
+  END IF;
+  DELETE FROM public.lm_voice_allowance_ledger
+   WHERE uid = p_uid AND period_start = period AND status = 'pending'
+     AND created_at < clock_timestamp() - INTERVAL '15 minutes';
+  IF EXISTS (SELECT 1 FROM public.lm_voice_allowance_ledger
+      WHERE uid = p_uid AND period_start = period AND call_key = p_call_key) THEN
+    RETURN public.lm_voice_allowance_result(p_uid, period, p_call_key, false, 0, NULL);
+  END IF;
+  SELECT COALESCE(sum(CASE WHEN status IN ('pending', 'accepted') THEN reserved_seconds ELSE connected_seconds END), 0)::integer
+    INTO consumed FROM public.lm_voice_allowance_ledger WHERE uid = p_uid AND period_start = period;
+  remaining := 3600 - consumed;
+  IF remaining <= 0 THEN
+    RETURN public.lm_voice_allowance_result(p_uid, period, p_call_key, false, 0, NULL);
+  END IF;
+  seconds := LEAST(120, remaining);
+  token := gen_random_uuid();
+  INSERT INTO public.lm_voice_allowance_ledger
+    (uid, period_start, call_key, status, reservation_token, reserved_seconds)
+  VALUES (p_uid, period, p_call_key, 'pending', token, seconds);
+  RETURN public.lm_voice_allowance_result(p_uid, period, p_call_key, true, seconds, token);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.accept_lm_voice_allowance(
+  p_uid text, p_call_key text, p_period_start date, p_reservation_token uuid
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE seconds integer;
+BEGIN
+  UPDATE public.lm_voice_allowance_ledger SET status = 'accepted'
+   WHERE uid = p_uid AND period_start = p_period_start AND call_key = p_call_key
+     AND reservation_token = p_reservation_token AND status = 'pending'
+   RETURNING reserved_seconds INTO seconds;
+  IF seconds IS NULL THEN
+    SELECT reserved_seconds INTO seconds FROM public.lm_voice_allowance_ledger
+     WHERE uid = p_uid AND period_start = p_period_start AND call_key = p_call_key
+       AND reservation_token = p_reservation_token AND status = 'accepted';
+  END IF;
+  RETURN public.lm_voice_allowance_result(p_uid, p_period_start, p_call_key, seconds IS NOT NULL,
+    COALESCE(seconds, 0), NULL);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.complete_lm_voice_allowance(
+  p_uid text, p_call_key text, p_period_start date, p_reservation_token uuid, p_connected_seconds integer
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE settled integer;
+BEGIN
+  UPDATE public.lm_voice_allowance_ledger
+     SET status = 'succeeded', connected_seconds = LEAST(reserved_seconds, GREATEST(0, p_connected_seconds)),
+         completed_at = COALESCE(completed_at, clock_timestamp())
+   WHERE uid = p_uid AND period_start = p_period_start AND call_key = p_call_key
+     AND reservation_token = p_reservation_token AND status = 'accepted'
+   RETURNING connected_seconds INTO settled;
+  IF settled IS NULL THEN
+    SELECT connected_seconds INTO settled FROM public.lm_voice_allowance_ledger
+     WHERE uid = p_uid AND period_start = p_period_start AND call_key = p_call_key
+       AND reservation_token = p_reservation_token AND status = 'succeeded';
+  END IF;
+  RETURN public.lm_voice_allowance_result(p_uid, p_period_start, p_call_key, settled IS NOT NULL,
+    COALESCE(settled, 0), NULL);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.release_lm_voice_allowance(
+  p_uid text, p_call_key text, p_period_start date, p_reservation_token uuid
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE released boolean;
+BEGIN
+  DELETE FROM public.lm_voice_allowance_ledger
+   WHERE uid = p_uid AND period_start = p_period_start AND call_key = p_call_key
+     AND reservation_token = p_reservation_token AND status IN ('pending', 'accepted');
+  released := FOUND;
+  RETURN public.lm_voice_allowance_result(p_uid, p_period_start, p_call_key, released, 0, NULL);
+END;
+$function$;
+
 REVOKE ALL ON TABLE public.lm_managed_action_ledger FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.lm_managed_allowance_notice FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.lm_voice_allowance_ledger FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.lm_managed_allowance_result(text,date,text,boolean,uuid,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.lm_managed_period(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.reserve_lm_managed_action(text,text) FROM PUBLIC, anon, authenticated;
@@ -283,6 +417,11 @@ REVOKE ALL ON FUNCTION public.claim_lm_managed_allowance_notice(text) FROM PUBLI
 REVOKE ALL ON FUNCTION public.record_lm_managed_allowance_notice(text,text,date,uuid,bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.release_lm_managed_allowance_notice(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.mark_lm_managed_allowance_notice_unknown(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.lm_voice_allowance_result(text,date,text,boolean,integer,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.reserve_lm_voice_allowance(text,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.accept_lm_voice_allowance(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.complete_lm_voice_allowance(text,text,date,uuid,integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.release_lm_voice_allowance(text,text,date,uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_lm_managed_action(text,text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.complete_lm_managed_action(text,text,date,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.release_lm_managed_action(text,text,date,uuid) TO service_role;
@@ -290,3 +429,7 @@ GRANT EXECUTE ON FUNCTION public.claim_lm_managed_allowance_notice(text) TO serv
 GRANT EXECUTE ON FUNCTION public.record_lm_managed_allowance_notice(text,text,date,uuid,bigint) TO service_role;
 GRANT EXECUTE ON FUNCTION public.release_lm_managed_allowance_notice(text,text,date,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.mark_lm_managed_allowance_notice_unknown(text,text,date,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reserve_lm_voice_allowance(text,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.accept_lm_voice_allowance(text,text,date,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.complete_lm_voice_allowance(text,text,date,uuid,integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.release_lm_voice_allowance(text,text,date,uuid) TO service_role;

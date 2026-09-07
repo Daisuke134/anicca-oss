@@ -45,6 +45,7 @@ const {
 const { travelReminderOnce } = require("./lib/travel-reminder.js");
 const {
   reserveManagedAction, completeManagedAction, releaseManagedAction,
+  reserveVoiceAllowance, acceptVoiceAllowance, releaseVoiceAllowance,
 } = require("./lib/managed-allowance.js");
 const { deliverAllowanceNotice } = require("./lib/allowance-notice.js");
 const {
@@ -277,8 +278,18 @@ function buildStreamUrl(ev, urgency, lang, name) {
   const nm = String(name || "").replace(/[\r\n]/g, " ").slice(0, 60); // address the user by name on the call
   const wakeUid = String(ev.wakeUid || "");
   const wakeEventKey = String(ev.wakeEventKey || "");
-  const sig = signCtx([summary, dateTime, location, urg, lg, nm, wakeUid, wakeEventKey]);
-  const qs = new URLSearchParams({ summary, dateTime, location, urgency: urg, lang: lg, name: nm, wakeUid, wakeEventKey, sig });
+  const voicePeriodStart = String(ev.voicePeriodStart || "");
+  const voiceReservationToken = String(ev.voiceReservationToken || "");
+  const voiceAllowedSeconds = String(ev.voiceAllowedSeconds || "");
+  const sig = signCtx([summary, dateTime, location, urg, lg, nm, wakeUid, wakeEventKey,
+    voicePeriodStart, voiceReservationToken, voiceAllowedSeconds]);
+  const qs = new URLSearchParams({ summary, dateTime, location, urgency: urg, lang: lg, name: nm,
+    wakeUid, wakeEventKey, sig });
+  if (voicePeriodStart && voiceReservationToken && voiceAllowedSeconds) {
+    qs.set("voicePeriodStart", voicePeriodStart);
+    qs.set("voiceReservationToken", voiceReservationToken);
+    qs.set("voiceAllowedSeconds", voiceAllowedSeconds);
+  }
   return `${base}/ws?${qs.toString()}`;
 }
 
@@ -455,6 +466,9 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       const managedActionKey = String(ev.id || `${ev.startMs || ev.startIso}:${ev.summary || ""}`);
       const allowanceReserve = deps.reserveManagedAction || (deps.placeCall ? undefined : reserveManagedAction);
       const allowanceRelease = deps.releaseManagedAction || (deps.placeCall ? undefined : releaseManagedAction);
+      const voiceReserve = deps.reserveVoiceAllowance || (deps.placeCall ? undefined : reserveVoiceAllowance);
+      const voiceAccept = deps.acceptVoiceAllowance || (deps.placeCall ? undefined : acceptVoiceAllowance);
+      const voiceRelease = deps.releaseVoiceAllowance || (deps.placeCall ? undefined : releaseVoiceAllowance);
       let allowanceReserved = false;
       let allowanceReservation = null;
       const allowanceState = {};
@@ -522,20 +536,51 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
       }
       for (const lvl of due) {
         const eventKey = `${u.uid}|${ev.startIso}|${lvl.min}`;
+        if (lvl !== due[0]) {
+          await (deps.claimWake || claimWake)(u.uid, eventKey);
+          continue;
+        }
+        const voice = typeof voiceReserve === "function"
+          ? await voiceReserve(u.uid, eventKey, allowanceUrl, allowanceKey)
+          : { allowed: true, allowedSeconds: 120, periodStart: "test", reservationToken: "test" };
+        if (!voice || voice.allowed !== true || !voice.reservationToken || voice.allowedSeconds < 1) {
+          if (allowanceReserved && typeof allowanceRelease === "function") {
+            await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+              { reservation: allowanceReservation });
+          }
+          continue;
+        }
         // `fresh` is the CLAIM TOKEN (a truthy string) when this tick won the claim — the gate below
         // is unchanged because falsy still means "someone already called". It is carried all the way
         // to releaseWake so a release that arrives late can only delete ITS OWN claim.
         const fresh = await (deps.claimWake || claimWake)(u.uid, eventKey);
-        if (!fresh) continue; // already called for this (event, level)
-        // A coarser level the call above superseded must never ring later, so it is CLAIMED here and
-        // left uncalled — the claim is what stops a future tick from resurrecting it.
-        if (lvl !== due[0]) continue;
-        const streamUrl = buildStreamUrl({ ...ev, wakeUid: u.uid, wakeEventKey: eventKey }, lvl.urgency, langForUser(u), u.name);
+        if (!fresh) {
+          if (typeof voiceRelease === "function") await voiceRelease(u.uid, eventKey, allowanceUrl, allowanceKey,
+            { reservation: voice });
+          continue;
+        }
+        if (typeof voiceAccept === "function") {
+          const accepted = await voiceAccept(u.uid, eventKey, allowanceUrl, allowanceKey, { reservation: voice });
+          if (!accepted || accepted.allowed !== true) {
+            await (deps.releaseWake || releaseWake)(u.uid, eventKey, fresh);
+            if (typeof voiceRelease === "function") await voiceRelease(u.uid, eventKey, allowanceUrl, allowanceKey,
+              { reservation: voice });
+            if (allowanceReserved && typeof allowanceRelease === "function") {
+              await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,
+                { reservation: allowanceReservation });
+            }
+            continue;
+          }
+        }
+        const streamUrl = buildStreamUrl({ ...ev, wakeUid: u.uid, wakeEventKey: eventKey,
+          voicePeriodStart: voice.periodStart, voiceReservationToken: voice.reservationToken,
+          voiceAllowedSeconds: voice.allowedSeconds }, lvl.urgency, langForUser(u), u.name);
         let res;
         try {
           res = await (deps.placeCall || placeCall)({
             to: u.phone,
             streamUrl,
+            timeLimitSeconds: voice.allowedSeconds,
             clientState: encodeWakeClientState({
               wakeUid: u.uid, wakeEventKey: eventKey, wakeClaimToken: fresh,
               managedActionKey: allowanceReservation ? managedActionKey : undefined,
@@ -588,6 +633,9 @@ async function wakeCallOnce(u, nowMs, deps = {}) {
           // tick may have claimed the same key and actually rung the user. An untargeted delete
           // would erase that success and the next tick would ring them a second time.
           await (deps.releaseWake || releaseWake)(u.uid, eventKey, fresh);
+          if (typeof voiceRelease === "function") {
+            await voiceRelease(u.uid, eventKey, allowanceUrl, allowanceKey, { reservation: voice });
+          }
           if (typeof allowanceRelease === "function") {
             const { url: allowanceUrl, key: allowanceKey } = SUPA();
             await allowanceRelease(u.uid, managedActionKey, allowanceUrl, allowanceKey,

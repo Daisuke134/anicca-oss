@@ -62,7 +62,7 @@ function amdDialOptions(streamUrl, env = process.env, opts = {}) {
 // clientState: OPTIONAL, for a caller whose identity is not in the stream URL (/test-call). Omitted,
 // the wake path derives it from the URL exactly as before.
 // Returns the call_control_id so the caller can issue record_start / streaming_start.
-async function placeCall({ to, streamUrl, clientState }) {
+async function placeCall({ to, streamUrl, clientState, timeLimitSeconds = 120 }) {
   const API = process.env.TELNYX_API_KEY;
   const CONN = process.env.TELNYX_CONNECTION_ID;
   const FROM = process.env.TELNYX_PHONE_NUMBER;
@@ -74,7 +74,7 @@ async function placeCall({ to, streamUrl, clientState }) {
   if (!Number.isFinite(usd) || usd < 0.5) return { ok: false, error: `telnyx balance too low ($${usd})` };
 
   const dialBody = {
-    ...telnyxDialBody({ connectionId: CONN, to, from: FROM, streamUrl }),
+    ...telnyxDialBody({ connectionId: CONN, to, from: FROM, streamUrl, timeLimitSeconds }),
     ...amdDialOptions(streamUrl, process.env, { clientState }),
   };
   let call;

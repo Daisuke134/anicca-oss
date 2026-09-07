@@ -5,11 +5,39 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { FREE_LIMIT, PAID_LIMIT, validResult, reserveManagedAction, completeManagedAction,
-  releaseManagedAction } = require("./managed-allowance.js");
+  releaseManagedAction, VOICE_LIMIT_SECONDS, reserveVoiceAllowance, completeVoiceAllowance,
+  releaseVoiceAllowance, acceptVoiceAllowance } = require("./managed-allowance.js");
 
 test("monthly allowance has one free and one paid limit", () => {
   assert.equal(FREE_LIMIT, 30);
   assert.equal(PAID_LIMIT, 500);
+  assert.equal(VOICE_LIMIT_SECONDS, 3600);
+});
+
+test("voice allowance reserves and settles exact seconds with its owner token", async () => {
+  const calls = [];
+  const reservation = { periodStart: "2026-09-01", reservationToken: "11111111-1111-4111-8111-111111111111" };
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ allowed: true, usedSeconds: 90, limitSeconds: 3600,
+      allowedSeconds: 120, periodStart: reservation.periodStart, resetAt: "2026-10-01",
+      reservationToken: reservation.reservationToken }) };
+  };
+  const reserved = await reserveVoiceAllowance("tenant-a", "call-a", "https://db.example", "secret", { fetchImpl });
+  await acceptVoiceAllowance("tenant-a", "call-a", "https://db.example", "secret", { fetchImpl, reservation });
+  await completeVoiceAllowance("tenant-a", "call-a", "https://db.example", "secret",
+    { fetchImpl, reservation, connectedSeconds: 61.2 });
+  await releaseVoiceAllowance("tenant-a", "call-a", "https://db.example", "secret", { fetchImpl, reservation });
+  assert.equal(reserved.allowedSeconds, 120);
+  assert.deepEqual(calls.map((call) => call.body), [
+    { p_uid: "tenant-a", p_call_key: "call-a" },
+    { p_uid: "tenant-a", p_call_key: "call-a", p_period_start: reservation.periodStart,
+      p_reservation_token: reservation.reservationToken },
+    { p_uid: "tenant-a", p_call_key: "call-a", p_period_start: reservation.periodStart,
+      p_reservation_token: reservation.reservationToken, p_connected_seconds: 62 },
+    { p_uid: "tenant-a", p_call_key: "call-a", p_period_start: reservation.periodStart,
+      p_reservation_token: reservation.reservationToken },
+  ]);
 });
 
 test("allowance RPC client rejects ambiguous responses and never leaks credentials", async () => {
@@ -69,4 +97,10 @@ test("migration is tenant-scoped, race-safe, success-only, and service-role-only
   assert.match(sql, /lm_managed_period\(p_uid\)/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.reserve_lm_managed_action.*PUBLIC, anon, authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.reserve_lm_managed_action.*service_role/);
+  assert.match(sql, /lm_voice_allowance_ledger/);
+  assert.match(sql, /3600/);
+  assert.match(sql, /LEAST\(120, remaining\)/);
+  assert.match(sql, /p_connected_seconds/);
+  assert.match(sql, /status IN \('pending', 'accepted', 'succeeded'\)/);
+  assert.match(sql, /accept_lm_voice_allowance/);
 });
