@@ -191,3 +191,83 @@ class BrowserPortOwnerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- a supervisor that serves nothing is not an owner, 2026-09-07 ----------------------------
+
+def _owner_module():
+    import importlib.util
+    import sys
+    from pathlib import Path
+    path = Path(__file__).resolve().parents[1] / "browser_port_owner.py"
+    spec = importlib.util.spec_from_file_location("browser_port_owner_reclaim", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _receipt(tmp_path, **overrides):
+    import json
+    payload = {"owner": "lancers-revenue-browser", "port": 9227,
+               "supervisor_pid": 4242, "browser_root_pid": 4243}
+    payload.update(overrides)
+    path = tmp_path / "9227.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_a_live_port_is_never_reclaimed(tmp_path, monkeypatch):
+    """A healthy owner holding the lock is the lock working, not a wedge."""
+    module = _owner_module()
+    monkeypatch.setattr(module, "_port_answers", lambda port, timeout=3.0: True)
+    monkeypatch.setattr(module, "_terminate_process_group",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not kill")))
+    assert module._reclaim_wedged_owner(_receipt(tmp_path), owner="lancers-revenue-browser", port=9227) is False
+
+
+def test_our_own_wedged_supervisor_is_taken_down(tmp_path, monkeypatch):
+    """Measured: a Chromium up for two and a half hours that never bound its debugging port kept
+    its supervisor alive, so every relaunch returned EX_TEMPFAIL and the lane applied to nothing
+    until a human killed it."""
+    module = _owner_module()
+    killed = []
+    monkeypatch.setattr(module, "_port_answers", lambda port, timeout=3.0: False)
+    monkeypatch.setattr(module, "_terminate_process_group", lambda pgid, **k: killed.append(pgid))
+    assert module._reclaim_wedged_owner(_receipt(tmp_path), owner="lancers-revenue-browser", port=9227) is True
+    assert sorted(killed) == [4242, 4243]
+
+
+def test_another_lane_s_browser_is_left_alone(tmp_path, monkeypatch):
+    """Killing someone else's browser to start ours is not recovery."""
+    module = _owner_module()
+    monkeypatch.setattr(module, "_port_answers", lambda port, timeout=3.0: False)
+    monkeypatch.setattr(module, "_terminate_process_group",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not kill")))
+    receipt = _receipt(tmp_path, owner="crowdworks-revenue-browser")
+    assert module._reclaim_wedged_owner(receipt, owner="lancers-revenue-browser", port=9227) is False
+
+
+def test_a_receipt_for_a_different_port_is_not_acted_on(tmp_path, monkeypatch):
+    module = _owner_module()
+    monkeypatch.setattr(module, "_port_answers", lambda port, timeout=3.0: False)
+    monkeypatch.setattr(module, "_terminate_process_group",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not kill")))
+    assert module._reclaim_wedged_owner(_receipt(tmp_path, port=9228), owner="lancers-revenue-browser", port=9227) is False
+
+
+def test_an_unreadable_or_pidless_receipt_reclaims_nothing(tmp_path, monkeypatch):
+    module = _owner_module()
+    monkeypatch.setattr(module, "_port_answers", lambda port, timeout=3.0: False)
+    monkeypatch.setattr(module, "_terminate_process_group", lambda *a, **k: None)
+    missing = tmp_path / "absent.json"
+    assert module._reclaim_wedged_owner(missing, owner="lancers-revenue-browser", port=9227) is False
+    for bad in (0, 1, True, "4242", None):
+        receipt = _receipt(tmp_path, supervisor_pid=bad, browser_root_pid=bad)
+        assert module._reclaim_wedged_owner(receipt, owner="lancers-revenue-browser", port=9227) is False
+
+
+def test_both_lock_branches_try_to_reclaim_before_giving_up():
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / "browser_port_owner.py").read_text(encoding="utf-8")
+    assert source.count("_reclaim_wedged_owner(") == 3  # definition + profile branch + port branch
