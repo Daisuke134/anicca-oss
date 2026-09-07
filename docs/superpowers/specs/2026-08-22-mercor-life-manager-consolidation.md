@@ -45,7 +45,8 @@ Private runtime state remains outside the repository:
 
 | Responsibility | Canonical owner |
 |---|---|
-| Candidate facts and approved resume variants | `skills/job-hunter/` + private profile SSOT |
+| Candidate facts and approved resume variants | Private profile/material SSOT |
+| Shared Apply selection, human-gate disposition and effect reporting | `skills/_shared/marketplace-core/` |
 | Mercor auth and provider policy | `skills/mercor/SKILL.md` + `skills/job-hunter/references/mercor.md` |
 | Mercor browser, form submission, read-back, locks, evidence | `apps/job-search-loop/` |
 | Hourly/inbox/learning scheduling | `loops/job-hunter/` |
@@ -64,16 +65,16 @@ Do not create `profitable-claude`-style second executors, a second Mercor loop, 
 
 ## 5. Global role and locale scope
 
-Mercor is not a Japanese-only lane. The provider must route every supported locale and role family through the same Job Hunter fact gate: Japanese, English, bilingual, business operations, AI-agent evaluation, research, data/CRM, product, and other roles are eligible when the approved profile and the live listing support them. Locale selects the approved material variant; it does not restrict discovery to Japanese jobs.
+Mercor is not a Japanese-only lane and is not Job Hunter. It prioritizes Japanese/Japan, software, AI and system-development roles, then continues through English, bilingual, business operations, research, data/CRM, product and other work. It consumes the shared marketplace Apply policy and the operator's complete verified profile/resume facts.
 
 ## 6. Loop behavior
 
-The existing 30-minute Job Hunter acquisition loop becomes the single Mercor-capable loop. It must:
+The 30-minute `mercor-revenue-application` owner is the single Mercor Apply loop. It must:
 
 1. Reconcile the oldest in-progress Mercor application before discovering new work.
 2. Deduplicate by stable Mercor listing/application identifier.
-3. Apply only to grounded forms using approved facts and a verified resume artifact.
-4. Route interviews, assessments, CAPTCHA, unsupported free-response questions, and ambiguous attestations to `needs_human`; never impersonate a candidate interview or assessment.
+3. Treat posting qualifications as ranking signals rather than pre-submit rejection gates, answer controls truthfully from the complete verified profile/resume, and let Mercor decide eligibility.
+4. Finish reversible steps before a new person-bound interview/assessment, notify its exact job/link/action once, persist only that candidate as pending, and continue other candidates without waiting. CAPTCHA, authentication failure and ambiguous provider state remain blockers.
 5. Re-open the application list after any submit and store evidence plus the external result.
 6. Record settled earnings only when the Mercor Earnings UI proves payment; views, invitations, offers, and estimates are not earnings.
 

@@ -497,18 +497,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    is rejected until `Start application` and all reversible steps advance beyond zero, and the notification
    no longer claims an unverified saved application. Fresh official progress, correct human gate or final
    application receipt, and replay-zero remain open.
-   Dais explicitly sets Mercor Apply to no-human: prior completed/reused interviews may be reused, but
-   a role requiring a new interview, assessment, camera/screen-share ceremony or unsupported attestation
-   is rejected for Apply and the scan continues; no Apply human-gate Telegram is sent. Human-in-loop is
-   reserved for contracted Work/Paid. The Japanese Writer application reached an official `2 of 4 / 50%`
-   after automatic Google-session recovery, resume and work-authorization completion, proving reversible
-   progress, but its role-specific 33-minute camera/screen-share Bilingual Competency remains `Not done`.
-   It is therefore not a no-human submit candidate. Correct human-gate message `65232` and terminal
-   message `65248` were delivered before this policy clarification; exact replay returned `attempted=0`,
-   outbox count stayed `2 -> 2`, and provider message ID remained `65232`. Future Apply wakes never call
-   that notifier and must instead find a no-human role, obtain official submission readback, send the
-   per-application Telegram receipt, and prove application replay-zero.
-   Release `03dd97793cd811f90d8a3138a4333d30a565f0ec` enforces that no-human policy and its
+   The earlier no-human-only policy is superseded. Mercor Apply has two nonblocking outcomes: submit
+   every application that needs no person-bound action; when a new interview, assessment, camera or
+   screen-share step is required, finish all reversible work, send one Telegram gate containing the
+   exact job, live link and action, persist only that candidate as pending, and continue scanning other
+   candidates without waiting for Dais. Completed/reused interviews continue automatically. The Japanese
+   Writer application reached official `2 of 4 / 50%` after Google-session recovery, resume and
+   work-authorization completion; its role-specific Bilingual Competency remains a valid resumable gate.
+   Human-gate message `65232` and terminal message `65248` were delivered; exact replay attempted zero,
+   outbox stayed `2 -> 2`, and provider message ID stayed `65232`.
+   Release `03dd97793cd811f90d8a3138a4333d30a565f0ec` enforced the now-superseded no-human policy and its
    installed wake `mercor-20260907-143901-42623` ended naturally blocked with application effect
    zero because the official Explore surface exposed `Sign in` and no listing cards. The preceding
    wake had successfully restored the Google/Mercor login inside its isolated leased browser context,
@@ -525,12 +523,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    authenticated, and release committed five `mercor.com` cookies to the provider-only overlay while
    leaving the shared base vault untouched. It inspected twelve official candidates and submitted
    zero. The two Japanese candidates required a new unfinished Bilingual Competency ceremony; the
-   remaining inspected roles required unverified US/Canada residency, degree, certification or
-   five-year specialist history, so a truthful no-human application was unavailable in that bounded
-   scan. The application ledger therefore remains at 19 and no per-application Telegram receipt was
-   emitted. Authentication persistence is fixed, but this atom remains unchecked until a later natural
-   wake finds a truthful no-human candidate, obtains official submission readback, reports it
-   immediately, and the following wake proves application replay-zero.
+   remaining inspected roles were rejected by the executor as missing residency, degree, certification
+   or specialist history. That classification is not accepted: the private profile already contains
+   education and marketing/CRM facts, while the executor assumed the wrong profile shape and read only
+   PDF metadata instead of resume text. Posting qualifications are now ranking signals rather than
+   pre-submit rejection gates; required controls must still be answered truthfully, and Mercor decides
+   eligibility. The application ledger remains at 19 and no application receipt was emitted.
    The immediately following targeted wake `mercor-20260907-151305-7211` disproved cookie-only
    persistence: its initial Explore DOM still showed `Sign in`, although the owner recovered through
    the existing Google session and reached authenticated Home/Applications again without human input.
@@ -542,6 +540,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    action failed to render the listing detail. It inspected one, submitted zero and emitted no
    application receipt. After Web Storage persistence is installed, repair that exact official detail
    transition and continue this same atom; do not call either wake accepted and do not advance order.
+   A provider-neutral `apply_policy.py` now owns maximal truthful submission, complete verified-fact
+   context, candidate-local human gates, nonblocking continuation and candidate-local failure. Mercor
+   consumes it instead of inventing its own pre-rejection policy. Its prompt also makes a failed detail
+   transition candidate-local: retry the exact observed card once, then record and continue. Remaining
+   acceptance is merge/install, one natural authenticated bounded wake, at least one official application
+   receipt when a ready candidate exists, immediate per-application Telegram, and following replay-zero.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

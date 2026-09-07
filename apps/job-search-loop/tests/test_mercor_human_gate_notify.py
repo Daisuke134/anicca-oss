@@ -27,12 +27,16 @@ class MercorHumanGateNotifyTests(unittest.TestCase):
                     telegram_env=env, listing_id="list-jp", title="Japanese Writer",
                     reason="Finance Interview must be completed",
                     evidence_ref="https://work.mercor.com/explore?listingId=list-jp",
+                    url="https://work.mercor.com/explore?listingId=list-jp",
                 )
                 first = record_and_notify(run_id="run-1", **arguments)
                 second = record_and_notify(run_id="run-2", **arguments)
             self.assertEqual(first["gate_id"], second["gate_id"])
             self.assertEqual(calls[0]["event_key"], calls[1]["event_key"])
             self.assertIn("人間操作の直前まで進行済み", calls[0]["message"])
+            self.assertIn("リンク: https://work.mercor.com/explore?listingId=list-jp", calls[0]["message"])
+            self.assertIn("アカウント: Mercorの既存Daisukeアカウント", calls[0]["message"])
+            self.assertIn("期限: 公式期限表示なし", calls[0]["message"])
             self.assertNotIn("applicationは保存済み", calls[0]["message"])
 
 
