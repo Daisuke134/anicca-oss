@@ -1271,6 +1271,7 @@ class LmLoopApplyTest(unittest.TestCase):
             "CFO_STATE_DIR": "/obsolete/state",
             "TELEGRAM_ALERT_CHAT_ID": "kept",
         })
+        installed["WorkingDirectory"] = "/obsolete/partial-release"
         target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
 
         result = apply_live(
@@ -1284,6 +1285,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("LIFE_MANAGER_APP_DIR", environment)
         self.assertNotIn("CFO_STATE_DIR", environment)
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
+        self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
 
     def test_launchctl_recorder_rejects_wrong_service(self):
         launchctl_safe, _ = self._launchctl_recorder(["/release/bin/lm-loop-run", "example", "/release"])
