@@ -1040,6 +1040,7 @@ async function travelUserOnce(u, deps = {}) {
       _directionsMinutes: deps.directionsMinutes,
       _reserveManagedAction: deps.reserveManagedAction || (deps.fillTravel ? undefined : reserveManagedAction),
       _completeManagedAction: deps.completeManagedAction || (deps.fillTravel ? undefined : completeManagedAction),
+      _releaseManagedAction: deps.releaseManagedAction || (deps.fillTravel ? undefined : releaseManagedAction),
       gmailAccountId: u.gmail_account_id,
     });
     if (r.inserted) console.log(`[travel] uid=${u.uid.slice(0, 12)} inserted=${r.inserted} checked=${r.checked}`);

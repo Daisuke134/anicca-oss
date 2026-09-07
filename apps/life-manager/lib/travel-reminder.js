@@ -337,15 +337,7 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
   const home = deps.home !== undefined ? deps.home : user.home_address;
   const prepareCandidate = async (event) => {
     const key = eventKey(event);
-    let allowance = { allowed: true };
-    if (physical(event) && typeof deps.reserveManagedAction === "function") {
-      allowance = await deps.reserveManagedAction(user.uid, key, supaUrl, supaKey);
-      if (!allowance || allowance.allowed !== true) {
-        return { event, key, route: null, routeAttempted: false,
-          departureMs: startMs(event), dueAt: computeReminderDueAt(event, { departureMs: startMs(event) }),
-          allowanceBlocked: true };
-      }
-    }
+    const allowanceState = {};
     let targetGoClaimed = false;
     const previousReturnClaims = new Map();
     if (physical(event)) {
@@ -375,23 +367,39 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     });
     let route = null;
     if (routeAttempted) {
+      if (deps.directionsRoute && typeof deps.reserveManagedAction === "function") {
+        const receipt = await deps.reserveManagedAction(user.uid, key, supaUrl, supaKey);
+        allowanceState.receipt = receipt && receipt.reservationToken ? receipt : null;
+        allowanceState.blocked = !receipt || receipt.allowed !== true;
+      }
       try {
-        route = await (deps.directionsRoute || directionsRoute)(origin.value, destination, deps.mapsKey,
+        route = allowanceState.blocked ? null
+          : await (deps.directionsRoute || directionsRoute)(origin.value, destination, deps.mapsKey,
           startMs(event), now, false, {
             uid: user.uid, timezone: deps.timezone || user.call_time_zone, supaUrl, supaKey,
-            eventId: key, purpose: "go",
+            eventId: key, purpose: "go", _allowanceState: allowanceState,
+            _reserveManagedAction: deps.reserveManagedAction,
+            _releaseManagedAction: deps.releaseManagedAction,
           });
       } catch { route = null; }
     }
     const departureMs = computeDepartureMs(event, route, { bufferMin: deps.bufferMin });
     const dueAt = computeReminderDueAt(event, { departureMs });
-    return { event, key, route, routeAttempted, departureMs, dueAt };
+    return { event, key, route, routeAttempted, departureMs, dueAt, allowanceState,
+      allowanceBlocked: allowanceState.blocked === true };
   };
   const prepared = await Promise.all(candidates.map(prepareCandidate));
+  const releaseCandidate = async (candidate) => {
+    const reservation = candidate && candidate.allowanceState && candidate.allowanceState.receipt;
+    if (!reservation || typeof deps.releaseManagedAction !== "function") return;
+    await deps.releaseManagedAction(user.uid, candidate.key, supaUrl, supaKey, { reservation });
+    candidate.allowanceState.receipt = null;
+  };
   const dueCandidates = prepared
     .filter((candidate) => isReminderDue(now, candidate.dueAt))
     .sort((a, b) => (a.dueAt - b.dueAt) || (startMs(a.event) - startMs(b.event)) || a.key.localeCompare(b.key));
   if (!dueCandidates.length) {
+    await Promise.all(prepared.map(releaseCandidate));
     const nextDueAt = prepared.reduce((earliest, candidate) => candidate.dueAt !== null
       && (earliest === null || candidate.dueAt < earliest) ? candidate.dueAt : earliest, null);
     return { status: "suppressed", reason: "not-due", dueAt: nextDueAt };
@@ -406,6 +414,7 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
       break;
     }
   }
+  await Promise.all(prepared.filter((candidate) => candidate !== selected).map(releaseCandidate));
   if (!selected) return { status: "suppressed", reason: "duplicate" };
   const { event, key, route, routeAttempted, departureMs } = selected;
   if (selected.allowanceBlocked === true) {
@@ -432,7 +441,8 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     try { released = await (deps.unclaimTravel || unclaimTravel)(user.uid, key, "telegram-t5", supaUrl, supaKey); } catch { /* retry next tick */ }
     if (released !== true) logReconciliation(deps, "[travel-reminder] reconciliation required");
     if (typeof deps.releaseManagedAction === "function") {
-      await deps.releaseManagedAction(user.uid, key, supaUrl, supaKey);
+      await deps.releaseManagedAction(user.uid, key, supaUrl, supaKey,
+        { reservation: selected.allowanceState && selected.allowanceState.receipt });
     }
     return { status: "send_failed", eventKey: key };
   }
@@ -449,7 +459,8 @@ async function travelReminderOnce(user, nowMs = Date.now(), deps = {}) {
     return { status: "delivery_unknown" };
   }
   if (selected.allowanceBlocked !== true && typeof deps.completeManagedAction === "function") {
-    const completed = await deps.completeManagedAction(user.uid, key, supaUrl, supaKey);
+    const completed = await deps.completeManagedAction(user.uid, key, supaUrl, supaKey,
+      { reservation: selected.allowanceState && selected.allowanceState.receipt });
     if (!completed || completed.allowed !== true) {
       logReconciliation(deps, "[travel-reminder] allowance receipt reconciliation required");
     }
