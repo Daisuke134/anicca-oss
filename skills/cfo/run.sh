@@ -14,15 +14,17 @@ if [[ -r "$ENV_FILE" ]]; then
   source "$ENV_FILE"
   set +a
 fi
+# The budget/cadence gate always reads the registry bundled with this exact immutable release.
+# A private env file must not redirect governance to a second checkout or state directory.
+unset CEO_STATE_DIR
 STATE_DIR="${CFO_STATE_DIR:-${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/life-manager-cfo-hourly}}"
 export CFO_STATE_DIR="$STATE_DIR"
-export CEO_STATE_DIR="$STATE_DIR"
 # The stable release stages this canonical gate and its small Python/budget/config closure under
 # the same repo root. A paused allocation exits from registry_enforce_or_exit before any provider
 # or ledger work begins.
 # shellcheck disable=SC1090
 source "$REPO_ROOT/lib/registry-enforce.sh"
-registry_enforce_or_exit cfo-hourly
+registry_enforce_or_exit life-manager-cfo-hourly
 
 APP_DIR="$REPO_ROOT/apps/life-manager"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
