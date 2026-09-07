@@ -151,8 +151,8 @@ class MercorPassContractTests(unittest.TestCase):
             "One broken card must not block the whole pass",
             "invoke `.click()` once on that",
             "signals, not pre-application rejection gates",
-            "An ordinary Mercor login screen is not a terminal blocker",
-            "Use only Mercor's email",
+            "owned by the deterministic email-auth adapter",
+            "Never submit or retry login from this model pass",
             "do not use Job Hunter policy",
         ):
             self.assertIn(required, prompt)

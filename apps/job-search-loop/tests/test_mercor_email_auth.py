@@ -1,6 +1,8 @@
+import json
+
 import pytest
 
-from job_search_loop.mercor_email_auth import extract_action_url
+from job_search_loop.mercor_email_auth import application_email, extract_action_url
 
 
 def test_extracts_only_official_mercor_firebase_action_link():
@@ -15,3 +17,9 @@ def test_extracts_only_official_mercor_firebase_action_link():
 def test_rejects_missing_or_unofficial_action_link(body):
     with pytest.raises(ValueError, match="mercor_magic_link_not_found"):
         extract_action_url({"body": body})
+
+
+def test_reads_application_email_from_private_profile(tmp_path):
+    profile = tmp_path / "profile.json"
+    profile.write_text(json.dumps({"candidate": {"application_email": "candidate@example.com"}}))
+    assert application_email(profile) == "candidate@example.com"

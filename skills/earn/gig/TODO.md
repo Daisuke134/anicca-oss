@@ -592,6 +592,17 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    path is production-installed but end-to-end acceptance is still false. The next scheduled wake owns
    the transient provider retry; do not restart Mac/Aqua/browser or advance to `SHARED-REPLY-1` until
    a fresh email, authenticated readback, application/human-gate effect and replay-zero are observed.
+   The provider error exposed one remaining architectural fault: the model still owned the login-form
+   click and retried it before the deterministic email consumer ran. Authentication is now a true thin
+   adapter preflight. Only when official readback says logged out, it reads the private profile email,
+   fills the exact `input[type=email][name=email]`, clicks the exact `Login` button once, consumes only
+   a new `auth@mercor.com` / `Sign in to Mercor` message from the current wake, opens the allowlisted
+   Firebase action on the same leased page, and requires official authenticated readback. The model pass
+   is forbidden from clicking or retrying any login control and proceeds only after this preflight (or
+   records the provider error without another send). Google/Okta/Sign up remain forbidden. Focused
+   verification passes 39 tests plus 2 subtests. Expired Mercor magic-link temp artifacts were moved to
+   Trash; application ledger, evidence, provider vault and releases were preserved. Merge, install and
+   the next natural official application/Telegram/replay-zero proof remain open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
