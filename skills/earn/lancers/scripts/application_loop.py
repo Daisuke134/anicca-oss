@@ -782,7 +782,7 @@ def _plan_and_submit(rows: Sequence[Mapping[str, object]], today: date, evidence
         project_id, proposal = str(row["external_id"]), str(decision["proposal_text"])
         amount, due = int(decision["price_jpy"]), str(decision["deliver_date"])
         try:
-            value = application_tick.run_live_tick(project_id=project_id, proposal_text=proposal, proposed_amount_minor=amount, delivery_due_on=due, state_path=state_path) if submitter is None else _submit(submitter, row, proposal, amount, due, state_path)
+            value = application_tick.run_live_tick(project_id=project_id, proposal_text=proposal, proposed_amount_minor=amount, delivery_due_on=due, state_path=state_path, title=str(row.get("title") or "") or None) if submitter is None else _submit(submitter, row, proposal, amount, due, state_path)
             current = _tick_result(value, project_id)
         except Exception:
             current = ApplicationLoopResult(False, error="submission_uncertain", project_id=project_id)
