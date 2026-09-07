@@ -100,7 +100,9 @@ Pass order:
    `delivered` or `delivery_uncertain`; this is the per-application realtime report
    and receipt. Never call it before official success readback. An exact replay is a
    no-op and must not send a second Telegram message.
-   Then continue to the next distinct listing after each verified submission. If the
+   After the first verified submission and delivered receipt, immediately return a
+   structured `submitted` result. The next bounded wake continues the remaining queue;
+   do not spend the current wake's terminal budget after an accepted provider effect. If the
    outcome is ambiguous after the click, return `blocked` with `submit_unknown`;
    never retry the click or continue to another listing.
 5. Human-gate notification is only for a verified person-bound application step and
