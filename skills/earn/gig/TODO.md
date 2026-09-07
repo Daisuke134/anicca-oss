@@ -478,6 +478,16 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `Data analysis / quantitative readouts Evaluator` was submitted successfully on August 22. Therefore
    current zero-application runs are an owner-path regression, not proof that the account or platform
    cannot apply; acceptance must restore at least that official-submit behavior plus the shared receipt.
+   Release `e9f6a617a81b865fd750ef61264f1fd6efaf49ef` fixed the blank-page regression in production:
+   page readiness was `ok=true` at the official Explore URL, the wake ended naturally, inspected twelve
+   detail pages, released its lease, and sent terminal Telegram message `65128`. It still submitted zero.
+   The run observed `Bilingual Writer - Japanese (Japan)`, `PDF Annotation & Transcription Experts –
+   Japanese`, and `Japanese language / cultural fluency Evaluator` in its bounded pages but spent the
+   detail budget on lower-fit roles and omitted all three, while also omitting existing pending Japanese
+   human gates. This is not accepted as working. Pending human-gate listing IDs are now an explicit
+   mandatory resume queue, and a nonblocked pass must inspect every observed Japanese/Japan card before
+   accepting a lower-priority bounded scan. Fresh installed-release application/human-gate receipt and
+   replay-zero remain open.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
