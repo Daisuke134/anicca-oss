@@ -1132,20 +1132,87 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
     a module in `_shared` that one lane reads is worse than one that lives where it is used,
     because it looks like coverage.
 
-11. [ ] `APPLY-COCONALA-1` ★ Coconala's server refuses this account's applications. Measured
-    2026-09-07 over plain HTTP with the vault's own cookies: `/offers/add/<request_id>` returns
-    **302 to `https://coconala.com/`** for six different live requests, while
-    `/mypage/job_matching/applied/offers` and `/mypage/dashboard_provider` both return 200. Not a
-    session failure, not buyer/seller mode (tested both, `BUYER-HEADER` -> `PROVIDER-HEADER`), not
-    a removed route (`/offers/add/` is still in Coconala's own JS bundle), not throttling (every
-    other page is 200). The 「応募する」 button does nothing for the same reason: it routes there.
-    PASS = evidence of what the server wants, which is not something more DOM work can produce.
-    Two things worth keeping from the investigation, both of which cost hours:
-    - `Page.bringToFront` is required or `Input.dispatchMouseEvent` delivers **zero** events. The
-      lane already does this (`78569ba4d activate Apply tab before submit`); every probe that
-      skipped it measured a page that could not be clicked and blamed the page.
-    - The Coconala header is `<buyer-header>`, a **nested shadow root**. Ordinary
-      `document.querySelector` cannot see it or the 受注モード switch inside it.
+11. [x] `APPLY-COCONALA-1` ★ **Coconala has restricted this account from applying.** Confirmed
+    2026-09-07 on Dais's phone, logged into the same account: the request page shows
+    「現在募集に提案することができません」 in a red banner, on a posting whose 応募人数 is 60 — so
+    other sellers are applying to it and this account cannot. Not something code can fix.
+
+    Everything measured before that, and consistent with it:
+    - `/offers/add/<request_id>` returns **302** for eleven different live requests, over plain
+      HTTP with the vault's own cookies. With a `Referer` the 302 goes back to the request page
+      rather than to the top, so the server is reading where the request came from and refusing
+      deliberately.
+    - `/mypage/dashboard_provider`, `/mypage/job_matching/applied/offers` and
+      `/mypage/services_lists` all return 200; ten services are 公開中 and none is 受付休止中. The
+      session is fine, the storefront is fine.
+    - Buyer and seller mode both refuse (`BUYER-HEADER` -> `PROVIDER-HEADER` via the switch, then
+      302 either way). The live browser context refuses exactly as an isolated one does.
+    - The 応募する button is `window.open("/offers/add/" + id, "_blank")` in Coconala's own JS, so
+      it goes to the same refused route. A real `isTrusted` mouse click lands on it and nothing
+      happens, which is the correct behaviour for a route the server bounces.
+    - The apply path has not changed since 2026-08-23; the only gig commits since 09-01 touch
+      `reply_lane.py` and `storefront_direct.py`. No operator brake, vault fresh, ports correct.
+
+    **Why the restriction landed.** `~/gig/applied.jsonl` is the lane's own ledger:
+
+    ```
+    08-26  31    08-29  22    09-01   2
+    08-27  23    08-30  19    09-02  26   <- last success 15:05:36
+    08-28  28    08-31  20    09-03+  0
+    ```
+
+    About 170 applications in seven days, and indiscriminate: the final day alone covers
+    イラスト作成, ロゴ作成, チラシ作成, 書籍デザイン, ファッション・グッズデザイン, 楽譜制作・耳コピ,
+    イラストレッスン・指導, 受験・学習・留学の相談, SNSアカウント運用・作成代行, SNS広告運用・制作.
+    The lane had no fitness judgement at all, so it bid on work the fleet cannot deliver and on
+    work it is required to refuse, twenty to thirty times a day, until Coconala stopped it.
+
+    Dais said this on 2026-09-07 before any of it was measured -- *"maybe we should slow down on
+    the apply of buttons, I think admin started doing these click since we applying too much in a
+    maximum short time"* -- and the throttling read was dropped because he was thought to be
+    applying from his phone successfully. He had not tried. A hypothesis the owner offers from
+    knowing the platform is evidence; dropping it needs a measurement, not an assumption about
+    what somebody else did.
+
+12. [ ] `APPLY-COCONALA-2` Do not reopen the lane until it can be trusted with the account.
+    Dais 2026-09-07: *"let's wait for coconala and when we open then do a bit slower even though
+    we do more."* PASS, all three before a single application is attempted:
+    - Coconala's own answer on what lifts the restriction. `APPLY-COCONALA-3`.
+    - The lane reads `work_fit.HARD_PROHIBITION_CLASSES` against the posting text. This is
+      `APPLY-SHARE-2`, and it is the substantive one: of the 26 applications on 09-02, the
+      楽譜制作, イラストレッスン, 受験・留学の相談, 住まい・インテリアの相談, SNSアカウント運用代行
+      and SNS広告運用 would all have been refused by rules that already exist and that Coconala
+      never saw this lane apply.
+    - A ceiling the lane cannot exceed, not just a slower wake. 30-minute cadence is shipped
+      (`APPLY-PACE-1`) but cadence alone does not cap a pass that submits twelve.
+
+13. [ ] `APPLY-COCONALA-3` Ask Coconala. Dais to raise it from the account (お問い合わせ), because
+    the restriction is not visible anywhere in the UI this lane can read: no banner on the
+    dashboard, no notice in 通知, nothing in the services list. The only place it appears is the
+    red 「現在募集に提案することができません」 on a request page. Record what they say here.
+
+14. [ ] `APPLY-CROWDWORKS-1` CrowdWorks has no fitness judgement either, and it is now applying.
+    Measured 2026-09-07, the first five applications after the category allow-list was removed:
+
+    ```
+    13:31  【既に顧客をお持ちの方へ】採用支援事業のパートナー募集
+    13:42  【副業・法人どちらもOK】ストック型の新規事業を立ち上げたい方へ
+    13:52  【個人×副業・法人OK】月額2.5万円〜／採用支援サービスのパートナー募集
+    14:02  【Figmaデザイン＋Studio実装】大手企業の採用サイト
+    14:12  【Webデザインのみ】採用サイトのデザイン制作 報酬30万円
+    ```
+
+    The last two are real work worth having. The first three are agency and reseller recruitment
+    -- nothing is delivered, so there is nothing to deliver well. `application_owner.py` contains
+    no LLM call at all (`grep -ci "claude\|anthropic\|refus\|prompt"` = 0), so the shared
+    refusals, which are written to be judged against the posting text, only ever reach it as
+    `category_refusal` on a category label.
+
+    This is the same shape as the Coconala restriction, one platform earlier: a lane applying
+    without judging. PASS = the posting text is judged against
+    `work_fit.HARD_PROHIBITION_CLASSES` before submission, and a wake that would have bid on the
+    three partner-recruitment postings declines them by name.
+
 
 
 
