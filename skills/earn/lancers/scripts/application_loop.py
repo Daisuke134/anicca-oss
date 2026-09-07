@@ -40,11 +40,34 @@ DEFAULT_DISCOVERY_QUERY = "業務自動化"
 # Enough undecided postings for the planner to have a real choice, without paying for all
 # twelve searches on a board that is already busy.
 DISCOVERY_POOL_TARGET = 40
+# Twelve development nouns saw eighteen postings across the whole of Lancers on 2026-09-07, and
+# every judgeable one of them was genuinely unworkable, so the lane reported no_eligible_project
+# every minute while being entirely correct. Development is what the fleet is best at, not the
+# limit of what it can deliver: Dais 2026-09-07, "they prefer 開発 but it's not the only thing
+# they can work on ... buyma not good and sns posting itself and physical shit but all others
+# they could do". The refusals live in marketplace-core/work_fit.py and are judged against the
+# posting text, so discovery does not need to pre-filter -- it needs to find enough to judge.
+#
+# Nothing here searches for video, filming, voice, on-site work, 出品代行 or SNS 投稿代行. Those
+# are refused, so searching for them only manufactures skips, which is what DEFAULT_DISCOVERY_QUERY
+# = "SNS運用" was doing until it was replaced.
 DISCOVERY_QUERIES = (
+    # Build work -- the original twelve, unchanged.
     "業務自動化", "業務システム", "Webアプリ", "システム開発",
     "LINE Bot", "スクレイピング", "Excel VBA", "ダッシュボード",
     "Chrome拡張", "RPA", "ECサイト", "不具合修正",
+    # Build work the original list simply never asked for.
+    "WordPress", "LP制作", "API連携", "GAS", "Shopify", "HTMLコーディング",
+    "ChatGPT", "生成AI", "AIチャットボット", "Notion",
+    # Not development, and squarely within what an agent does well: text, structured data and
+    # research, delivered as a file. None of it is hours of manual operation in a buyer's account.
+    "データ入力", "記事作成", "ブログ記事", "資料作成", "リサーチ", "翻訳", "文字起こし",
 )
+# One wake asks this many of them. The full list would multiply the request rate by the number of
+# queries added, on a board that is polled every 60 seconds; probing a marketplace harder than it
+# expects is how the Coconala session earned a 403 on 2026-09-07. The window rotates, so coverage
+# is the whole vocabulary over time at today's cost per wake.
+DISCOVERY_WINDOW = 12
 PUBLIC_SOFTWARE_PROOF = {
     "source_url": "https://github.com/Daisuke134/life-manager", "title": "Life Manager", "license": "MIT",
     "description": "API、scheduler、worker、Postgres、object store、Telegram reporting、公式readback付き外部action loopを同一repositoryで実装したMIT公開のpersonal managerです。",
@@ -196,7 +219,18 @@ def _observed_after(candidate: Mapping[str, object], incumbent: Mapping[str, obj
     later, earlier = parsed(candidate), parsed(incumbent)
     return later is not None and earlier is not None and later > earlier
 
-def _run_exhaustive_discovery(timeout: float) -> Mapping[str, object]:
+def _discovery_window(tick_value: object) -> tuple[str, ...]:
+    """DISCOVERY_WINDOW queries starting where the slot lands, so every wake reads a different
+    slice of the vocabulary at a constant request rate."""
+    total = len(DISCOVERY_QUERIES)
+    try:
+        start = DISCOVERY_QUERIES.index(_discovery_query(tick_value))
+    except ValueError:
+        start = 0
+    return tuple(DISCOVERY_QUERIES[(start + offset) % total] for offset in range(min(DISCOVERY_WINDOW, total)))
+
+
+def _run_exhaustive_discovery(timeout: float, tick_value: object = None) -> Mapping[str, object]:
     """Union every query so one wake can see the whole reachable board, not one keyword of it.
 
     The default path deliberately stops at the first query that still has unclaimed rows, which
@@ -216,7 +250,7 @@ def _run_exhaustive_discovery(timeout: float) -> Mapping[str, object]:
     merged: dict[str, Mapping[str, object]] = {}
     last: Mapping[str, object] = {"ok": False, "error": "no_normalized_opportunities", "opportunities": []}
     seen_ok = False
-    for query in DISCOVERY_QUERIES:
+    for query in (_discovery_window(tick_value) if tick_value is not None else DISCOVERY_QUERIES):
         last = status.run_discovery(query=query, limit=MAX_OPPORTUNITIES, timeout=timeout)
         if last.get("ok") is not True:
             if last.get("error") != "no_normalized_opportunities":
@@ -779,7 +813,7 @@ def run_loop(*, exhaustive: bool = False, state_path: Path = DEFAULT_STATE_PATH,
                     turn_evidence = evidence / f"turn-{turn + 1}"
                     turn_evidence.mkdir(mode=0o700, exist_ok=False)
                 try:
-                    observed = source(query=query if query is not None else _discovery_query(tick_value), limit=MAX_OPPORTUNITIES, timeout=timeout) if source is not None or query is not None else (_run_exhaustive_discovery(timeout) if exhaustive else _run_default_discovery(tick_value, timeout, Path(state_path), frozenset(wake_seen_ids)))
+                    observed = source(query=query if query is not None else _discovery_query(tick_value), limit=MAX_OPPORTUNITIES, timeout=timeout) if source is not None or query is not None else (_run_exhaustive_discovery(timeout, tick_value) if exhaustive else _run_default_discovery(tick_value, timeout, Path(state_path), frozenset(wake_seen_ids)))
                 except Exception: observed = None
                 if observed is None or not isinstance(observed, Mapping): result = ApplicationLoopResult(False, error="discovery_failed")
                 else:
