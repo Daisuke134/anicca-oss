@@ -159,7 +159,7 @@ def _preserve_operational_attributes(new_bytes: bytes, old_bytes: bytes | None,
     for key in ("WorkingDirectory", "ProcessType", "RunAtLoad", "ThrottleInterval", "Umask", "Nice"):
         if key in old and key not in retired_operational_keys and not (
             key == "WorkingDirectory"
-            and _is_immutable_release_working_directory(old[key])
+            and (key not in new or _is_immutable_release_working_directory(old[key]))
         ):
             new[key] = old[key]
     preserved_env = {

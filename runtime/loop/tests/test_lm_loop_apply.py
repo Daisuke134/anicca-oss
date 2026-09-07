@@ -370,7 +370,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(target.read_bytes(), old)
         self.assertGreaterEqual(sum(call[0] == "bootstrap" for call in calls), 2)
 
-    def test_swap_preserves_existing_operational_attributes(self):
+    def test_swap_preserves_existing_operational_attributes_but_drops_undeclared_working_directory(self):
         target = self.root / "installed.plist"
         target.write_bytes(plistlib.dumps({
             "Label": "ai.anicca.example",
@@ -401,7 +401,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("CODEX_HOME", installed["EnvironmentVariables"])
         self.assertEqual(installed["EnvironmentVariables"]["LIFE_MANAGER_REPO"], str(self.root.resolve()))
         self.assertEqual(installed["EnvironmentVariables"]["LIFE_MANAGER_RELEASE_SHA"], SHA)
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
         self.assertEqual(installed["ProcessType"], "Interactive")
         self.assertTrue(installed["RunAtLoad"])
         self.assertEqual(installed["ThrottleInterval"], 30)
@@ -1199,7 +1199,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertFalse(selected.exists())
         self.assertTrue(other.exists())
 
-    def test_reapply_same_release_with_preserved_attributes_is_noop(self):
+    def test_reapply_same_release_drops_undeclared_working_directory_then_is_noop(self):
         release = self._release("release-a").resolve()
         current = self.root / "current"
         current.symlink_to(release)
@@ -1230,7 +1230,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertTrue(first[0]["changed"])
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
         self.assertEqual(installed["ProgramArguments"], expected_arguments)
         self.assertTrue((self.root / "launchctl.state").is_file())
         self.assertIn(
@@ -1255,7 +1255,7 @@ class LmLoopApplyTest(unittest.TestCase):
         ])
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
 
     def test_equal_effective_plist_still_installs_when_service_is_unloaded(self):
         release = self._release("release-a").resolve()
@@ -1271,7 +1271,6 @@ class LmLoopApplyTest(unittest.TestCase):
         target = values["agents_dir"] / "ai.anicca.example.plist"
         installed = plistlib.loads(rendered["plist_bytes"])
         installed["EnvironmentVariables"]["CUSTOM"] = "kept"
-        installed["WorkingDirectory"] = "/var/tmp/example"
         target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
         existing_bytes = target.read_bytes()
         self.assertEqual(
@@ -1295,7 +1294,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertIn(f"bootstrap gui/{os.getuid()} {target}", calls)
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
 
     def test_cfo_target_retires_only_obsolete_cfo_environment(self):
         release = self._release("release-cfo").resolve()
