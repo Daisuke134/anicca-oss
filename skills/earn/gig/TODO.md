@@ -779,6 +779,18 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    or contains a reply mutation, eliminating the prior double-owner risk. Coconala still needs to
    enter this same shared entrypoint, and a natural installed-owner terminal still needs official
    inventory readback, so this atom remains unchecked.
+   Fresh authenticated Lancers readback now observes five message threads and one real buyer-last,
+   reply-required event: board `9061883`, event `59141523`, for the English corporate-disclosure
+   coding selection. The former adapter discarded the entire wake because this historical proposal
+   was absent from the verified application ledger (`proposal_receipt_unverified`). The adapter now
+   withholds only that unverified proposal as grounding while preserving the official cumulative
+   buyer conversation; all five contexts load independently. The buyer asks for Dais's personal
+   daily availability for September 8–13 and a personal attestation that the work will be performed
+   without AI, machine translation, external search or third-party help. Those facts are not in the
+   private profile, so one Telegram human handoff was sent instead of fabricating a customer reply;
+   the other four seller-last threads remain non-actionable. Forty-four focused Reply/Lancers checks
+   plus eight subtests pass. The shared owner still needs an immutable-release natural terminal and
+   Coconala adapter before this atom can close.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
