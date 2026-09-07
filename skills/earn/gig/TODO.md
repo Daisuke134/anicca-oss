@@ -497,6 +497,17 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    is rejected until `Start application` and all reversible steps advance beyond zero, and the notification
    no longer claims an unverified saved application. Fresh official progress, correct human gate or final
    application receipt, and replay-zero remain open.
+   Dais explicitly sets Mercor Apply to no-human: prior completed/reused interviews may be reused, but
+   a role requiring a new interview, assessment, camera/screen-share ceremony or unsupported attestation
+   is rejected for Apply and the scan continues; no Apply human-gate Telegram is sent. Human-in-loop is
+   reserved for contracted Work/Paid. The Japanese Writer application reached an official `2 of 4 / 50%`
+   after automatic Google-session recovery, resume and work-authorization completion, proving reversible
+   progress, but its role-specific 33-minute camera/screen-share Bilingual Competency remains `Not done`.
+   It is therefore not a no-human submit candidate. Correct human-gate message `65232` and terminal
+   message `65248` were delivered before this policy clarification; exact replay returned `attempted=0`,
+   outbox count stayed `2 -> 2`, and provider message ID remained `65232`. Future Apply wakes never call
+   that notifier and must instead find a no-human role, obtain official submission readback, send the
+   per-application Telegram receipt, and prove application replay-zero.
 8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in

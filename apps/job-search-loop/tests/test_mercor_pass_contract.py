@@ -14,7 +14,7 @@ from job_search_loop.mercor_pass import (
     record_verified_submissions,
     validate_bounded_scan,
     validate_evidence_paths,
-    validate_human_gate_progress,
+    validate_no_human_apply,
     validate_priority_scan,
 )
 
@@ -36,21 +36,6 @@ class MercorPassContractTests(unittest.TestCase):
                 cdp_url="http://127.0.0.1:9222",
             )
             self.assertEqual(context["recently_inspected_listing_ids"], ["list-seen"])
-
-    def test_pending_human_gates_become_a_mandatory_resume_queue(self):
-        with tempfile.TemporaryDirectory() as directory:
-            state = Path(directory)
-            (state / "human-gates.jsonl").write_text(
-                json.dumps({"reason": "list_gate: interview", "status": "pending"}) + "\n",
-                encoding="utf-8",
-            )
-            context = build_context(
-                state_root=state,
-                profile_path=state / "profile.json",
-                resume_path=state / "resume.pdf",
-                cdp_url="http://127.0.0.1:9222",
-            )
-            self.assertEqual(context["pending_human_gate_listing_ids"], ["list_gate"])
 
     @patch("job_search_loop.mercor_pass.platform.mac_ver", return_value=("15.6", ("", "", ""), ""))
     @patch("job_search_loop.mercor_pass.platform.machine", return_value="arm64")
@@ -150,10 +135,9 @@ class MercorPassContractTests(unittest.TestCase):
             '"claimed": false',
             "capability_catalog_path",
             "Japan-eligible Japanese-language",
-            "pending_human_gate_listing_ids",
             "host_capabilities",
-            "Never emit a human gate while the official",
-            "mercor_human_gate_notify",
+            "Never invoke `mercor_human_gate_notify` from Apply",
+            "requires_new_human_application_step",
         ):
             self.assertIn(required, prompt)
         self.assertNotIn("Choose at most one new listing", prompt)
@@ -199,25 +183,22 @@ class MercorPassContractTests(unittest.TestCase):
             )
             result = {"status": "observed_no_action", "inspected_listings": []}
             with self.assertRaisesRegex(ValueError, "priority_scan_incomplete"):
-                validate_priority_scan(result, root, ["list_gate"])
+                validate_priority_scan(result, root)
             result["inspected_listings"] = [
-                {"listing_id": "list_jp"}, {"listing_id": "list_gate"}
+                {"listing_id": "list_jp"}
             ]
-            validate_priority_scan(result, root, ["list_gate"])
+            validate_priority_scan(result, root)
 
-    def test_human_gate_is_rejected_before_reversible_progress(self):
+    def test_apply_rejects_every_human_gate_result(self):
         result = {
             "status": "needs_human",
             "needs_human": ["Japanese interview"],
-            "inspected_listings": [{
-                "listing_id": "list_jp", "decision": "Human gate: interview",
-                "application_state": "Not started; 0 of 4 steps completed; 0%",
-            }],
+            "inspected_listings": [],
         }
-        with self.assertRaisesRegex(ValueError, "human_gate_before_reversible_progress"):
-            validate_human_gate_progress(result)
-        result["inspected_listings"][0]["application_state"] = "2 of 4 steps completed; 50%"
-        validate_human_gate_progress(result)
+        with self.assertRaisesRegex(ValueError, "mercor_apply_must_be_no_human"):
+            validate_no_human_apply(result)
+        result.update(status="observed_no_action", needs_human=[])
+        validate_no_human_apply(result)
 
     def test_current_skill_and_spec_match_continuous_application_policy(self):
         skill = (ROOT.parents[1] / "skills" / "mercor" / "SKILL.md").read_text()

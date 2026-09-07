@@ -63,24 +63,6 @@ def _recent_listing_ids(path: Path, limit: int = 200) -> list[str]:
     return list(dict.fromkeys(identifiers))
 
 
-def _pending_human_gate_listing_ids(path: Path) -> list[str]:
-    if not path.is_file():
-        return []
-    status_by_id: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        try:
-            value = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(value, dict):
-            continue
-        material = " ".join(str(value.get(key) or "") for key in ("listing_id", "reason", "identity_key"))
-        match = re.search(r"list_[A-Za-z0-9_-]+", material, re.IGNORECASE)
-        if match:
-            status_by_id[match.group(0)] = str(value.get("status") or "pending")
-    return sorted(identifier for identifier, status in status_by_id.items() if status == "pending")
-
-
 def build_context(
     *,
     state_root: Path,
@@ -104,7 +86,6 @@ def build_context(
         "applications_ledger": str(ledger.resolve()),
         "submission_fence_ledger": str(fence_ledger.resolve()),
         "application_report_outbox": str((state_root / "telegram.sqlite3").resolve()),
-        "human_gate_store": str((state_root / "human-gates.jsonl").resolve()),
         "application_report_telegram_env": str(
             (Path.home() / ".config/anicca/job-search/telegram.env").resolve()
         ),
@@ -114,9 +95,6 @@ def build_context(
         ),
         "submitted_listing_ids": sorted(submitted_listing_ids),
         "recently_inspected_listing_ids": _recent_listing_ids(inspection_ledger),
-        "pending_human_gate_listing_ids": _pending_human_gate_listing_ids(
-            state_root / "human-gates.jsonl"
-        ),
         "host_capabilities": _host_capabilities(),
         "run_id": run_id,
         "cdp_url": cdp_url,
@@ -249,9 +227,7 @@ def validate_bounded_scan(result: dict[str, Any]) -> None:
         raise ValueError(f"bounded_scan_incomplete:{len(inspected)}_of_{required}")
 
 
-def validate_priority_scan(
-    result: dict[str, Any], evidence_root: Path, pending_human_gate_ids: list[str]
-) -> None:
+def validate_priority_scan(result: dict[str, Any], evidence_root: Path) -> None:
     """Require observed Japanese and resumable candidates before a successful pass."""
     if result.get("status") == "blocked":
         return
@@ -260,7 +236,7 @@ def validate_priority_scan(
         for item in result.get("inspected_listings", [])
         if isinstance(item, dict) and isinstance(item.get("listing_id"), str)
     }
-    required = set(pending_human_gate_ids)
+    required: set[str] = set()
     card = re.compile(
         r'href=["\\]+/explore\?listingId=(list_[A-Za-z0-9_-]+).*?'
         r'data-test=["\\]+listing-title["\\]+[^>]*>([^<]+)',
@@ -279,19 +255,10 @@ def validate_priority_scan(
         raise ValueError(f"priority_scan_incomplete:{','.join(missing)}")
 
 
-def validate_human_gate_progress(result: dict[str, Any]) -> None:
-    """A human request is valid only after reversible application work began."""
-    if not result.get("needs_human") or result.get("status") == "blocked":
-        return
-    premature = []
-    for item in result.get("inspected_listings", []):
-        if not isinstance(item, dict) or "human gate" not in str(item.get("decision", "")).casefold():
-            continue
-        state = str(item.get("application_state") or "")
-        if re.search(r"\bnot started\b|\b0\s+of\s+\d+\b|\b0%\b", state, re.IGNORECASE):
-            premature.append(str(item.get("listing_id") or "unknown"))
-    if premature:
-        raise ValueError(f"human_gate_before_reversible_progress:{','.join(premature)}")
+def validate_no_human_apply(result: dict[str, Any]) -> None:
+    """Mercor acquisition never asks the operator to finish an application."""
+    if result.get("status") != "blocked" and result.get("needs_human"):
+        raise ValueError("mercor_apply_must_be_no_human")
 
 
 def _blocked_for_evidence_violation(
@@ -365,12 +332,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         validate_evidence_paths(result, args.evidence_dir.parent)
         validate_bounded_scan(result)
-        validate_priority_scan(
-            result,
-            args.evidence_dir.parent,
-            context["pending_human_gate_listing_ids"],
-        )
-        validate_human_gate_progress(result)
+        validate_priority_scan(result, args.evidence_dir.parent)
+        validate_no_human_apply(result)
     except ValueError as error:
         result = _blocked_for_evidence_violation(result, args.evidence_dir, error)
     record_verified_submissions(args.state_root, result, run_id=args.run_id)
