@@ -69,7 +69,11 @@ function accountToFinancialRecord(account, options) {
 
 function transactionToFinancialRecord(transaction, options) {
   validateFinancialRecord("transaction", transaction);
-  const base = commonBase({ ...transaction, observed_at: options.recordedAt }, options);
+  const stableObservedAt = instant(transaction.occurred_at, "Moneytree transaction time");
+  const base = commonBase(
+    { ...transaction, observed_at: stableObservedAt },
+    { ...options, recordedAt: stableObservedAt },
+  );
   const transfer = Boolean(transaction.transfer_id);
   const idempotencyKey = base.idempotency_key;
   return {

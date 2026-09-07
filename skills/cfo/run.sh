@@ -7,7 +7,15 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOM
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
-STATE_DIR="${CFO_STATE_DIR:-$HOME/loops/cfo-hourly}"
+ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+if [[ -r "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
+STATE_DIR="${CFO_STATE_DIR:-${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/life-manager-cfo-hourly}}"
+export CFO_STATE_DIR="$STATE_DIR"
 export CEO_STATE_DIR="$STATE_DIR"
 # The stable release stages this canonical gate and its small Python/budget/config closure under
 # the same repo root. A paused allocation exits from registry_enforce_or_exit before any provider
@@ -16,8 +24,7 @@ export CEO_STATE_DIR="$STATE_DIR"
 source "$REPO_ROOT/lib/registry-enforce.sh"
 registry_enforce_or_exit cfo-hourly
 
-APP_DIR="${LIFE_MANAGER_APP_DIR:-$REPO_ROOT/apps/life-manager}"
-ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+APP_DIR="$REPO_ROOT/apps/life-manager"
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 
 if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" || ! -f "$APP_DIR/scripts/cfo-hourly-local.js" ]]; then
@@ -25,13 +32,6 @@ if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" || ! -f "$APP_DIR/scripts/cfo-hourly-lo
   printf '%s\n' '{"status":"failed","reportingDate":null,"revision":null,"appended":false,"delivered":false,"recovered":false}' >"$STATE_DIR/last-result.json"
   printf '%s\n' '{"status":"failed","reportingDate":null,"revision":null,"appended":false,"delivered":false,"recovered":false}'
   exit 1
-fi
-
-if [[ -r "$ENV_FILE" ]]; then
-  # shellcheck disable=SC1090
-  set -a
-  source "$ENV_FILE"
-  set +a
 fi
 
 mkdir -p "$STATE_DIR"

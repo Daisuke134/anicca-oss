@@ -32,6 +32,7 @@ def notify_effect(
     chat_id: str,
     env_file: Path,
     sender: Optional[Callable[[str], Any]] = None,
+    repeat_after_seconds: Optional[float] = 3600,
 ) -> dict[str, Any]:
     """Enqueue, deliver and return the durable provider receipt for one effect.
 
@@ -40,7 +41,10 @@ def notify_effect(
     """
     outbox = _load("marketplace_effect_outbox", HERE / "telegram_outbox.py")
     delivery = _load("marketplace_effect_delivery", HERE / "telegram_delivery.py")
-    outbox.enqueue(Path(database), event_key, message, observed_at)
+    outbox.enqueue(
+        Path(database), event_key, message, observed_at,
+        repeat_after_seconds=repeat_after_seconds,
+    )
     current = next(
         item for item in outbox.list_items(Path(database))
         if item.event_key == event_key

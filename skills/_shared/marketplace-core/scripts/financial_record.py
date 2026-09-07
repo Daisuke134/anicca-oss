@@ -5,6 +5,8 @@ import importlib.util
 from pathlib import Path
 import re
 import sys
+import argparse
+import json
 from typing import Mapping
 
 
@@ -104,4 +106,33 @@ def payout_to_financial_record(value: Mapping[str, object], *, subject_id: str) 
     }
 
 
-__all__ = ["payment_to_financial_records", "payout_to_financial_record"]
+def project_receipts(values: list[Mapping[str, object]], *, subject_id: str) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for value in values:
+        if value.get("record_type") == "payment_receipt":
+            records.extend(payment_to_financial_records(value, subject_id=subject_id))
+        elif value.get("record_type") == "payout_match_receipt":
+            records.append(payout_to_financial_record(value, subject_id=subject_id))
+        else:
+            raise ValueError("unsupported marketplace financial receipt")
+    return records
+
+
+def _main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--subject-id", required=True)
+    args = parser.parse_args()
+    values = json.load(sys.stdin)
+    if not isinstance(values, list):
+        raise ValueError("marketplace receipt batch must be a list")
+    print(json.dumps(project_receipts(values, subject_id=args.subject_id), separators=(",", ":")))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())
+
+
+__all__ = [
+    "payment_to_financial_records", "payout_to_financial_record", "project_receipts",
+]
