@@ -480,5 +480,9 @@ test("Telegram OAuth callback migration is hash-only, tenant-bound, one-time, an
   assert.match(migration, /DELETE FROM public\.lm_panel_oauth_states[\s\S]*provider\s*=\s*'calendar'[\s\S]*used_at\s+IS\s+NULL/i);
   assert.match(migration, /FROM public\.lm_users[\s\S]*uid\s*=\s*p_uid[\s\S]*telegram_chat_id::text\s*=\s*p_chat_id[\s\S]*FOR UPDATE/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.create_lm_telegram_oauth_state[\s\S]*FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.complete_lm_telegram_home/i);
+  assert.match(migration, /telegram_chat_id::text\s*=\s*p_chat_id[\s\S]*calendar_provider\s*=\s*'composio_gcal'[\s\S]*FOR UPDATE/i);
+  assert.match(migration, /UPDATE public\.lm_users SET home_address[\s\S]*INSERT INTO public\.lm_panel_preferences[\s\S]*notifications_enabled/i);
+  assert.match(migration, /REVOKE ALL ON FUNCTION public\.complete_lm_telegram_home[\s\S]*FROM PUBLIC, anon, authenticated/i);
   assert.doesNotMatch(migration, /raw_state|CREATE TABLE/i);
 });

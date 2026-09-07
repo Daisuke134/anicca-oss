@@ -171,17 +171,34 @@ async function transitionOnboarding(uid, chatId, action, payload, supaUrl, supaK
     body: JSON.stringify({ p_uid: uid, p_chat_id: String(chatId), p_action: action, p_payload: payload || {} }),
   });
   if (!response.ok) throw new Error("onboarding_transition_failed");
+  const value = await response.json().catch(() => false);
+  const completed = Array.isArray(value) ? value[0] === true : value === true;
+  if (!completed) throw new Error("onboarding_transition_failed");
+  return true;
+}
+
+async function completeTelegramHome(uid, chatId, homeAddress, supaUrl, supaKey) {
+  const response = await fetch(`${String(supaUrl || "").replace(/\/$/, "")}/rest/v1/rpc/complete_lm_telegram_home`, {
+    method: "POST",
+    headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_uid: uid, p_chat_id: String(chatId), p_home_address: homeAddress }),
+  });
+  if (!response.ok) throw new Error("onboarding_transition_failed");
   return response.json().catch(() => ({}));
 }
 
 async function backfillIfCalendarCompleted(row, opts = {}) {
   if (!row || row.tg_onboard_stage !== "calendar" || computeStage(row) === "calendar") return false;
   const backfill = opts.backfillCalendarContext || backfillCalendarContext;
-  await backfill(row.uid, {
-    composioKey: opts.composioKey, geminiKey: opts.geminiKey,
-    supaUrl: opts.supaUrl, supaKey: opts.supaKey, gmailAccountId: row.gmail_account_id,
-  });
-  return true;
+  try {
+    await backfill(row.uid, {
+      composioKey: opts.composioKey, geminiKey: opts.geminiKey,
+      supaUrl: opts.supaUrl, supaKey: opts.supaKey, gmailAccountId: row.gmail_account_id,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function handleOnboardingText(chatId, text, row, opts) {
@@ -194,9 +211,7 @@ async function handleOnboardingText(chatId, text, row, opts) {
       await (opts.sendMessage || sendMessage)(opts.token, chatId, "自宅の住所を240文字以内で教えてください。");
       return "bad-home";
     }
-    const transition = opts.transitionOnboarding || transitionOnboarding;
-    await transition(row.uid, chatId, "home.save", { home_address: homeAddress }, opts.supaUrl, opts.supaKey);
-    await transition(row.uid, chatId, "notifications.enable", {}, opts.supaUrl, opts.supaKey);
+    await (opts.completeTelegramHome || completeTelegramHome)(row.uid, chatId, homeAddress, opts.supaUrl, opts.supaKey);
     const message = stageMessage("phone", chatId, opts.base);
     await (opts.sendMessage || sendMessage)(opts.token, chatId, message.text, message.extra);
     return "home";
@@ -347,5 +362,5 @@ async function onboardNudgeAll(opts) {
 module.exports = {
   computeStage, telegramProfileName, applyTelegramProfileName, stageMessage, sendStage, isNativeStage,
   normalizePhone, handleOnboardingText, handleGmailCallback, rowByChatId, linkedRows, setStage, transitionOnboarding,
-  saveField, backfillIfCalendarCompleted, onboardNudgeAll, NUDGE_COOLDOWN_MS,
+  saveField, completeTelegramHome, backfillIfCalendarCompleted, onboardNudgeAll, NUDGE_COOLDOWN_MS,
 };

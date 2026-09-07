@@ -63,7 +63,7 @@ const { resolveTelegramReply } = require("./lib/telegram-reply.js");
 const { handleInboundReply, handleAskCallback, parseInboundRecipient } = require("./lib/ask.js");
 const { isReplyToken } = require("./lib/reply-token.js");
 const {
-  rowByChatId, handleOnboardingText, handleGmailCallback,
+  rowByChatId, handleOnboardingText, handleGmailCallback, sendStage,
 } = require("./lib/telegram-onboard.js");
 const { createHostedGmailLink } = require("./lib/gmail-onboard.js");
 const { mailAvailable } = require("./lib/mail-availability.js");
@@ -1002,7 +1002,8 @@ const server = http.createServer(async (req, res) => {
             if (!row || !row.uid) throw new Error("telegram actor unavailable");
             const commandStore = createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY });
             commandStore.createOAuthState = commandStore.createTelegramOAuthState;
-            const result = await executeUserCommand({ uid: row.uid, chatId: u.chatId }, {
+            const telegramScope = { uid: row.uid, chatId: u.chatId };
+            const result = await executeUserCommand(telegramScope, {
               type: "connection.start", provider: "calendar",
             }, {
               store: commandStore,
@@ -1014,15 +1015,24 @@ const server = http.createServer(async (req, res) => {
               calendarCallbackParams: { lang: u.languageCode },
               startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY }),
             });
+            if (result && result.state && result.state.state === "connected") {
+              await commandStore.syncCalendarStatus(telegramScope, "ACTIVE");
+            }
             if (result && result.state && result.state.redirectUrl) {
               const reply = startReply({ calendarUrl: result.state.redirectUrl, languageCode: u.languageCode });
               const sent = await sendMessage(LM_TG_TOKEN, u.chatId, reply.text, reply.extra);
               if (!sent || sent.ok !== true) throw new Error("Telegram onboarding send failed");
             } else {
-              const sent = await sendMessage(LM_TG_TOKEN, u.chatId, /^ja(?:-|$)/i.test(u.languageCode)
-                ? "Google Calendarは接続済みです。自宅の住所を教えてください。"
-                : "Google Calendar is connected. What is your home address?");
-              if (!sent || sent.ok !== true) throw new Error("Telegram onboarding send failed");
+              row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+              const stage = await sendStage(LM_TG_TOKEN, u.chatId, row, PUBLIC_BASE, {
+                sendMessage: async (...args) => {
+                  const delivered = await sendMessage(...args);
+                  if (!delivered || delivered.ok !== true) throw new Error("Telegram onboarding send failed");
+                  return delivered;
+                },
+                profile: { first_name: u.firstName, last_name: u.lastName },
+              });
+              if (!stage) throw new Error("Telegram onboarding send failed");
             }
             res.writeHead(200); res.end("ok");
             return;

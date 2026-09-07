@@ -644,34 +644,31 @@ test("calendar completion asks for the exact home address", () => {
   assert.doesNotMatch(message.text, /料金|カード|Stripe/);
 });
 
-test("home text is tenant-scoped, enables notifications, then advances once", async () => {
-  const transitions = [], messages = [];
+test("home text is tenant-scoped and atomically enables notifications before advancing", async () => {
+  const completions = [], messages = [];
   const row = { ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar" };
   const result = await handleOnboardingText("1", " 東京都千代田区1-1 ", row, {
     token: "t", base: "https://x", supaUrl: "s", supaKey: "k",
     backfillCalendarContext: async () => {},
-    transitionOnboarding: async (...args) => transitions.push(args),
+    completeTelegramHome: async (...args) => completions.push(args),
     sendMessage: async (_token, _chat, text) => messages.push(text),
   });
   assert.equal(result, "home");
-  assert.deepEqual(transitions, [
-    ["u1", "1", "home.save", { home_address: "東京都千代田区1-1" }, "s", "k"],
-    ["u1", "1", "notifications.enable", {}, "s", "k"],
-  ]);
+  assert.deepEqual(completions, [["u1", "1", "東京都千代田区1-1", "s", "k"]]);
   assert.equal(messages.length, 1);
 });
 
 test("blank or overlong home text performs no mutation", async () => {
   for (const input of [" ", "a".repeat(241)]) {
-    const transitions = [], messages = [];
+    const completions = [], messages = [];
     const row = { ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar" };
     assert.equal(await handleOnboardingText("1", input, row, {
       token: "t", base: "https://x", supaUrl: "s", supaKey: "k",
       backfillCalendarContext: async () => {},
-      transitionOnboarding: async (...args) => transitions.push(args),
+      completeTelegramHome: async (...args) => completions.push(args),
       sendMessage: async (_token, _chat, text) => messages.push(text),
     }), "bad-home");
-    assert.deepEqual(transitions, []);
+    assert.deepEqual(completions, []);
     assert.equal(messages.length, 1);
   }
 });
@@ -686,6 +683,18 @@ test("calendar completion hook also runs on immediate /start or text resume", as
   assert.equal(await backfillIfCalendarCompleted({ ...row, tg_onboard_stage: "phone" }, {
     backfillCalendarContext: async () => calls.push("unexpected"),
   }), false);
+});
+
+test("best-effort Calendar context failure never loses the following home input", async () => {
+  const completions = [];
+  const row = { ...full, home_address: null, phone: null, paid: false, tg_onboard_stage: "calendar" };
+  assert.equal(await handleOnboardingText("1", "東京都千代田区1-1", row, {
+    token: "t", base: "https://x", supaUrl: "s", supaKey: "k",
+    backfillCalendarContext: async () => { throw new Error("temporary provider error"); },
+    completeTelegramHome: async (...args) => completions.push(args),
+    sendMessage: async () => ({ ok: true }),
+  }), "home");
+  assert.equal(completions.length, 1);
 });
 
 test("normalizePhone: valid forms", () => {
