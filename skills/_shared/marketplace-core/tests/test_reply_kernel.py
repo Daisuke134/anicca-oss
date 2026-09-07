@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import threading
 
 
 MODULE = Path(__file__).parents[1] / "scripts" / "reply_kernel.py"
@@ -121,3 +122,33 @@ def test_duplicate_thread_inventory_is_rejected(tmp_path):
         assert str(error) == "reply_inventory_duplicate"
     else:
         raise AssertionError("duplicate inventory was accepted")
+
+
+def test_single_worker_keeps_thread_affine_adapter_on_calling_thread(tmp_path):
+    owner = threading.get_ident()
+
+    class ThreadAffine(Adapter):
+        def _same(self):
+            if threading.get_ident() != owner:
+                raise RuntimeError("wrong_thread")
+
+        def observe_threads(self):
+            self._same()
+            return super().observe_threads()
+
+        def observe_one(self, thread_id):
+            self._same()
+            return super().observe_one(thread_id)
+
+        def context(self, thread_id):
+            self._same()
+            return super().context(thread_id)
+
+    result = reply_kernel.run_wake(
+        adapter=ThreadAffine(),
+        decide=lambda _row: {"action": "noop", "classification": "no_reply"},
+        state_root=tmp_path,
+        max_workers=1,
+    )
+    assert result["failed"] == 0
+    assert result["items"][0]["status"] == "no_reply"
