@@ -271,6 +271,11 @@ JPYはGoogle Cloud invoiceの照合にだけ併記し、MRR、ARPU、価格、�
    未適用と確認した。Supabase dashboardの既存sessionは対象projectを持たない別accountで、対象GitHub accountの
    通常loginは2FAで停止し、GitHub Mobile確認もproviderがidentity確認不能として拒否した。次の一手はDaisが
    GitHub 2FAを1回完了することだけ。その直後に3 migration適用、main由来Railway deploy、health/schema/readbackを行う。
+   GitHub Mobile 2FA後、3 migrationは本番へHTTP 201で適用し、allowance/voice/route/OAuth schema readbackは
+   4/4 HTTP 200。本番`life-call`はdeploy前からCRASHEDで、最新main deployもrepo-rootの
+   `runtime/contracts/common-record.cjs`をapp-root imageが含まないため起動時MODULE_NOT_FOUNDとなった。
+   起動時の不要なcontract解決だけを遅延する最小修正とRailway app-root再現testを追加し、関連62/62がPASS。
+   次はfresh review、hotfix merge/deploy、health SHA readbackで項目4を閉じる。
 5. Telegram Webへ既存sessionまたは通常loginで入り、DaisのTelegram actorと隔離test actorで、新規開始から
    最初のTravel block・乗換案内・Telegram provider receipt・replay追加送信0までE2Eする。
 6. E2E receipt後にだけ公開導線を再開し、友人DMとX投稿を行う。

@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const {
   buildRuntimeJob,
@@ -18,6 +19,15 @@ const {
   recordUnknownReconciliation,
   MAX_UNKNOWN_RECONCILE_RESULTS,
 } = require("./runtime-job-store.js");
+
+test("Railway app-root startup does not eagerly require repo-root contracts", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lm-railway-root-"));
+  const lib = path.join(root, "lib");
+  fs.mkdirSync(lib);
+  fs.copyFileSync(path.join(__dirname, "runtime-job-store.js"), path.join(lib, "runtime-job-store.js"));
+  assert.doesNotThrow(() => require(path.join(lib, "runtime-job-store.js")));
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
 const MIGRATION = fs.readFileSync(path.join(
   __dirname,
