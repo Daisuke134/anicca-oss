@@ -16,10 +16,11 @@ VENDOR_DIR="$SKILL_DIR/vendor/skillopt-writing"
 
 PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"
 command -v "$PY" >/dev/null 2>&1 || PY=python3
-SKILLOPT_PY="${SKILLOPT_PYTHON:-$HOME/.venvs/skillopt/bin/python3}"
+SKILLOPT_PY="${SKILLOPT_PYTHON:-$PY}"
 command -v "$SKILLOPT_PY" >/dev/null 2>&1 || SKILLOPT_PY="$PY"
 
 CRAFT_TRAIN_SH="$SKILL_DIR/scripts/craft-train.sh"
+cd "$SKILL_DIR"
 
 PASS=0
 FAIL=0
@@ -479,6 +480,9 @@ FIXTURE_CONF="$T5_DIR/cliproxyapi.conf"
 SPY="$T5_DIR/spy-skillopt-python.sh"
 cat > "$SPY" <<SPYEOF
 #!/usr/bin/env bash
+if [ "\${1:-}" = "-c" ]; then
+  exit 0
+fi
 touch "$T5_DIR/spy-invoked"
 exit 0
 SPYEOF
@@ -594,6 +598,7 @@ with tempfile.TemporaryDirectory() as td:
 
     rc = ct.main([
         '--craft-md', str(craft_path), '--config', str(config_path),
+        '--split-dir', str(split_dir),
         '--run-train', 'unused-run-train', '--skillopt-python', str(stall),
         '--runs-root', str(runs_root), '--out-root', str(Path(td, 'trainout')),
         '--jsonl', str(jsonl_path), '--deadline-epoch', str(deadline_epoch),
@@ -629,6 +634,28 @@ print("same" if a == b else f"DIVERGED {a} vs {b}")
 PYEOF
 )
 check "opponent counts stay in sync across both modules" "same" "$SYNC"
+
+PORTABLE=$("$PY" - <<'PYEOF'
+from pathlib import Path
+root = Path.cwd()
+config = root / "vendor/skillopt-writing/configs/writing/default.yaml"
+base = root / "vendor/skillopt-writing/configs/_base_/default.yaml"
+wrapper = (root / "scripts/craft-train.sh").read_text(encoding="utf-8")
+driver = (root / "scripts/craft_train.py").read_text(encoding="utf-8")
+requirements = (root.parent.parent / "requirements-runtime.txt").read_text(encoding="utf-8")
+text = config.read_text(encoding="utf-8")
+assert base.is_file()
+assert "_base_: ../_base_/default.yaml" in text
+assert "/tmp/SkillOpt" not in text and "/Users/anicca" not in text
+assert 'SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$PY}"' in wrapper
+assert '--split-dir "$SPLIT_DIR"' in wrapper
+assert 'OUT_ROOT="$STATE_DIR/craft-train-output/' in wrapper
+assert '"--cfg-options", *config_overrides' in driver
+assert "skillopt==0.2.0" in requirements
+print("portable")
+PYEOF
+)
+check "SkillOpt trainer has no checkout/home-venv dependency" "portable" "$PORTABLE"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

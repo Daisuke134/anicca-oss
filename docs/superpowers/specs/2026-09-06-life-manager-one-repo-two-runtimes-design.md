@@ -351,6 +351,15 @@ shared-component or legacy-retirement atom is active.
 - [x] `DOC-01` Update English/Japanese README architecture and status from measured output; remove the Compose runtime claim and describe Mobile Apps as Anicca iOS, Honne and the other owned iOS build/marketing loops.
 - [x] `DOC-02` Bake the one-loop/two-host-adapter rule into `AGENTS.md`, make `skills/loop-engineering/SKILL.md` the implementation-boundary authority, and expose the same local/cloud reuse rule in both READMEs without duplicating the detailed spec.
 
+### 6.2 Current Writer cleanup checkpoint
+
+- [x] Dormant executable fallback cleanup: repair candidates and research clones use Writer-owned state; callerless self-fix, rotation audit, diary digest and the unimplemented self-signup scaffold are deleted. Focused tests and fresh review ship in pushed commit `7188462d2`. Coconala and Lancers remain untouched.
+- [ ] SkillOpt craft-training portability (active): own the upstream v0.2.0 base config in this repository, inject runtime paths explicitly, write generated runs beneath Writer state and install locked `skillopt==0.2.0` in the managed runtime. Focused contracts pass 25/25; fresh review and commit/push remain.
+- [ ] Complete the executable census for any remaining active Writer external dependency.
+- [ ] Run the final Writer-focused suite and fresh review.
+- [ ] At a proven idle boundary, converge/seal Writer state, cut over through the final main-derived release and read back receipts.
+- [ ] Delete retired legacy Writer work-state only after the new release proves it unused.
+
 ## 7. Acceptance
 
 Complete means all of the following are measured:

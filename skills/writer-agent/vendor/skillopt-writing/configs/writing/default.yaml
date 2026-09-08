@@ -1,13 +1,8 @@
 # SkillOpt feasibility-probe config for the "writing" env.
 #
-# _base_ points INTO the upstream checkout at /tmp/SkillOpt purely to read
-# its shared defaults (model/train/gradient/optimizer/evaluation knobs) --
-# this does not modify anything inside /tmp/SkillOpt, it only references it,
-# the same way any config under /tmp/SkillOpt/configs/*/default.yaml does.
-# Absolute path because this file does not live under /tmp/SkillOpt/configs/,
-# so a relative "../_base_/default.yaml" (as the guide's own docfaithful
-# example uses) would not resolve from here.
-_base_: /tmp/SkillOpt/configs/_base_/default.yaml
+# The upstream v0.2.0 base is checked into this repository. Runtime-specific
+# paths are supplied by craft-train.sh through SkillOpt's cfg overrides.
+_base_: ../_base_/default.yaml
 
 model:
   # Backend plumbing under test (Task B): route both roles through the
@@ -56,9 +51,9 @@ env:
   name: writing
   # T6: the REAL trainable weight, not the probe's seed skill -- this is
   # the file craft-train.sh checks in/out and diffs.
-  skill_init: /Users/anicca/profitable-claude/skills/writing-craft/CRAFT.md
+  skill_init: __WRITER_CRAFT_MD__
   split_mode: split_dir
-  split_dir: /Users/anicca/profitable-claude/skills/writer-agent/vendor/skillopt-writing/data/writing_split
+  split_dir: __WRITER_SPLIT_DIR__
   workers: 1
   max_completion_tokens: 256
   limit: 20              # was 0 (whole 119-item train split) -- see arithmetic above

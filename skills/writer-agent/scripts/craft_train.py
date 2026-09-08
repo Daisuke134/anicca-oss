@@ -463,7 +463,8 @@ def append_jsonl(path: Path, line: str) -> None:
 # ---------------------------------------------------------------------------
 
 def run_training(python_bin: Path, run_train_py: Path, config_path: Path,
-                  out_root: Path, *, timeout_s: float = 1800) -> dict:
+                  out_root: Path, *, timeout_s: float = 1800,
+                  config_overrides: list[str] | None = None) -> dict:
     """Runs run_train.py for real. A nonzero exit or missing summary.json
     is an INFRASTRUCTURE failure -- e.g. the 401 that happens when the
     OPENAI_COMPATIBLE_* env vars are unset -- and must read as a reject
@@ -482,9 +483,12 @@ def run_training(python_bin: Path, run_train_py: Path, config_path: Path,
     a night that ran out of time is distinguishable from one that broke."""
     out_root.mkdir(parents=True, exist_ok=True)
     try:
+        command = [str(python_bin), str(run_train_py), "--config", str(config_path),
+                   "--out_root", str(out_root)]
+        if config_overrides:
+            command.extend(["--cfg-options", *config_overrides])
         proc = subprocess.run(
-            [str(python_bin), str(run_train_py), "--config", str(config_path),
-             "--out_root", str(out_root)],
+            command,
             capture_output=True, text=True, timeout=timeout_s,
         )
     except subprocess.TimeoutExpired:
@@ -516,6 +520,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--craft-md", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--split-dir", required=True)
     parser.add_argument("--run-train", required=True)
     parser.add_argument("--skillopt-python", required=True)
     parser.add_argument("--runs-root", required=True,
@@ -555,7 +560,9 @@ def main(argv: list[str] | None = None) -> int:
     # without anyone doing the arithmetic by hand.
     now = datetime.now()
     config = load_yaml_config(Path(args.config))
-    split_dir = Path(config.get("env", {}).get("split_dir") or "")
+    split_dir = Path(args.split_dir)
+    config.setdefault("env", {})["skill_init"] = str(craft_md_path)
+    config["env"]["split_dir"] = str(split_dir)
     projection = project_and_check_deadline(
         config, split_dir, now=now, deadline=deadline, seconds_per_call=args.seconds_per_call,
     )
@@ -578,6 +585,10 @@ def main(argv: list[str] | None = None) -> int:
     result = run_training(
         Path(args.skillopt_python), Path(args.run_train), Path(args.config),
         Path(args.out_root), timeout_s=remaining_s,
+        config_overrides=[
+            f"env.skill_init={craft_md_path}",
+            f"env.split_dir={split_dir}",
+        ],
     )
 
     if not result["ok"]:

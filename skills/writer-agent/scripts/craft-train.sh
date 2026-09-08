@@ -38,14 +38,15 @@ CLIPROXY_PORT="${CLIPROXY_PORT:-8317}"
 
 PY="${ARTICLE_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
 command -v "$PY" >/dev/null 2>&1 || PY=python3
-SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$HOME/.venvs/skillopt/bin/python3}"
+SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$PY}"
 
 STATE_DIR="${ARTICLE_STATE_DIR:-$SKILL_DIR/state}"
 JSONL="${CRAFT_TRAIN_JSONL:-$STATE_DIR/craft-train.jsonl}"
 RUNS_ROOT="${CRAFT_TRAIN_RUNS_ROOT:-$STATE_DIR/runs}"
 CONFIG="$VENDOR_DIR/configs/writing/default.yaml"
 RUN_TRAIN="$VENDOR_DIR/run_train.py"
-OUT_ROOT="$VENDOR_DIR/runs/craft-train-$(date -u +%Y%m%dT%H%M%SZ)"
+SPLIT_DIR="$VENDOR_DIR/data/writing_split"
+OUT_ROOT="$STATE_DIR/craft-train-output/$(date -u +%Y%m%dT%H%M%SZ)"
 
 # The hard deadline: the next LOCAL occurrence of DEADLINE_HOUR:DEADLINE_MINUTE
 # (05:00 by default, ahead of the 06:00 local publish). If that time today
@@ -93,6 +94,10 @@ if [ ! -x "$SKILLOPT_PYTHON" ]; then
   echo "craft-train.sh: skillopt python not found/executable at $SKILLOPT_PYTHON" >&2
   exit 0
 fi
+if ! "$SKILLOPT_PYTHON" -c 'import skillopt, scripts.train' >/dev/null 2>&1; then
+  echo "craft-train.sh: managed runtime is missing skillopt==0.2.0" >&2
+  exit 0
+fi
 
 # Outer, last-resort kill switch (see the module comment above): generous
 # padding past the deadline so craft_train.py's own clean internal
@@ -111,6 +116,7 @@ if [ -n "$TIMEOUT_BIN" ]; then
   "$TIMEOUT_BIN" "${OUTER_TIMEOUT_S}s" "$PY" "$SKILL_DIR/scripts/craft_train.py" \
     --craft-md "$CRAFT_MD" \
     --config "$CONFIG" \
+    --split-dir "$SPLIT_DIR" \
     --run-train "$RUN_TRAIN" \
     --skillopt-python "$SKILLOPT_PYTHON" \
     --runs-root "$RUNS_ROOT" \
@@ -122,6 +128,7 @@ else
   "$PY" "$SKILL_DIR/scripts/craft_train.py" \
     --craft-md "$CRAFT_MD" \
     --config "$CONFIG" \
+    --split-dir "$SPLIT_DIR" \
     --run-train "$RUN_TRAIN" \
     --skillopt-python "$SKILLOPT_PYTHON" \
     --runs-root "$RUNS_ROOT" \
