@@ -10,6 +10,8 @@ import re
 import sys
 import time
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from writer_runtime_paths import note_work_dir
 
 from note_mcp.api.images import upload_eyecatch_image
 from note_mcp.models import Session
@@ -23,7 +25,7 @@ async def main() -> int:
         raise SystemExit("FATAL: NOTE_KEY required")
     image = Path(sys.argv[1])
     cookies = json.loads(
-        (Path.home() / ".cloak/note-work/note-cookies.json").read_text(
+        (note_work_dir() / "note-cookies.json").read_text(
             encoding="utf-8"
         )
     )

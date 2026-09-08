@@ -75,7 +75,10 @@ import urllib.request
 from cloakbrowser import launch_context
 from publish_guard import assert_publish_allowed
 
-WORK = os.path.expanduser("~/.cloak/note-work")
+WORK = os.path.join(
+    os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")),
+    "note-work",
+)
 PUBLICATION_GUARD = os.path.join(os.path.dirname(os.path.dirname(__file__)), "publication-guard.py")
 
 

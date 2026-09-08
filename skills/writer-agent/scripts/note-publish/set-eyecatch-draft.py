@@ -13,7 +13,7 @@ env: NOTE_KEY (required) = article key, e.g. nffb40c8e2b90
 import json, os, time
 from cloakbrowser import launch_context
 
-WORK = os.path.expanduser("~/.cloak/note-work")
+WORK = os.path.join(os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")), "note-work")
 KEY = os.environ.get("NOTE_KEY", "")
 if not KEY:
     raise SystemExit("FATAL: NOTE_KEY required")

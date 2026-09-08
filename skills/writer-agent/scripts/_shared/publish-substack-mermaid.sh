@@ -17,7 +17,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # .../scripts
 source "$DIR/writer-runtime-env.sh"
 . "$DIR/substack-publish/substack-curl.sh"
 VC="${VC:-$WRITER_BROWSER_PYTHON}"   # only for the verify-preview vision gate
-WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
+WORK="$NOTE_WORK_ROOT"; mkdir -p "$WORK"
 
 SUBSTACK_PUBLICATION="${SUBSTACK_PUBLICATION:?SUBSTACK_PUBLICATION is required}"
 

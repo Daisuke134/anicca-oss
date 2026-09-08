@@ -10,7 +10,7 @@ NOTE_URLNAME = os.environ.get("NOTE_URLNAME", "").strip()
 if not NOTE_URLNAME:
     raise SystemExit("NOTE_URLNAME is required")
 EXPECT_GATED = (sys.argv[2].lower() in ("1", "true", "gated")) if len(sys.argv) > 2 else True
-WORK = os.path.expanduser("~/.cloak/note-work"); os.makedirs(WORK, exist_ok=True)
+WORK = os.path.join(os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")), "note-work"); os.makedirs(WORK, exist_ok=True)
 SHOT = f"{WORK}/verify-{KEY}.png"
 
 # 1) API truth

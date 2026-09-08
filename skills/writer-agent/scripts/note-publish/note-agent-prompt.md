@@ -4,7 +4,7 @@ brain. The single most important thing you do is LOOK at the rendered draft with
 before anything is published.
 
 Tools: Bash, Read, Write, Edit. All scripts live in
-$ARTICLE_ROOT/scripts/note-publish/ . Data/screenshots in ~/.cloak/note-work/.
+$ARTICLE_ROOT/scripts/note-publish/ . Data/screenshots in $WRITER_STATE_DIR/note-work/.
 
 INPUTS are given at the end (TOPIC or MD, NOTE_KEY, PRICE, PAYWALL_BEFORE, EYECATCH, AUTONOMY).
 

@@ -35,6 +35,9 @@ class NoteRepairRefused(RuntimeError):
 
 
 SCRIPTS = Path(__file__).resolve().parents[1]
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+from writer_runtime_paths import note_work_dir  # noqa: E402
 
 
 def png_dimensions(path: Path) -> tuple[int, int]:
@@ -53,7 +56,7 @@ def png_dimensions(path: Path) -> tuple[int, int]:
 
 def browser_eyecatch(path: Path, target: str) -> str:
     """Use the proven note editor flow when its upload API omits a URL."""
-    work = Path(os.environ.get("HOME", str(Path.home()))) / ".cloak/note-work"
+    work = note_work_dir()
     work.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(path, work / "thumb.png")
     helper = Path(__file__).resolve().parent / "set-eyecatch-draft.py"
@@ -174,7 +177,7 @@ class NoteMcpAdapter:
         from note_mcp.models import Session  # pylint: disable=import-outside-toplevel
         from note_mcp.auth.browser import get_current_user  # pylint: disable=import-outside-toplevel
 
-        cookie_path = Path.home() / ".cloak/note-work/note-cookies.json"
+        cookie_path = note_work_dir() / "note-cookies.json"
         cookies = json.loads(cookie_path.read_text(encoding="utf-8"))
         if not isinstance(cookies, dict) or not cookies:
             raise NoteRepairRefused("note cookie cache is empty")

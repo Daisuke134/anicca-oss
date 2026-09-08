@@ -28,7 +28,7 @@ Subcommands:
       into the ledger JSON (same-dir temp file + os.replace, so a concurrent
       reader never observes a partially-written file).
 
-Ledger path default: ~/.cloak/note-work/draft-ledger.json
+Ledger path default: $WRITER_STATE_DIR/note-work/draft-ledger.json
 """
 from __future__ import annotations
 
@@ -40,7 +40,10 @@ import sys
 import tempfile
 import time
 
-DEFAULT_LEDGER = os.path.expanduser("~/.cloak/note-work/draft-ledger.json")
+DEFAULT_LEDGER = os.path.join(
+    os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")),
+    "note-work/draft-ledger.json",
+)
 
 
 def _load(ledger_path: str) -> dict:

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "skills/writer-agent/scripts/writer-runtime-env.sh"
 SCRIPTS = SCRIPT.parent
 sys.path.insert(0, str(SCRIPTS))
-from writer_runtime_paths import life_manager_env_file  # noqa: E402
+from writer_runtime_paths import life_manager_env_file, note_work_dir, writer_state_dir  # noqa: E402
 from writer_report_worker import telegram_api_transport  # noqa: E402
 
 
@@ -129,6 +129,14 @@ class WriterRuntimeEnvTest(unittest.TestCase):
                     {"LIFE_MANAGER_ENV_FILE": "~/private/life-manager.env"}, home=home
                 ),
                 Path.home() / "private/life-manager.env",
+            )
+            self.assertEqual(
+                writer_state_dir({}, home=home),
+                home / ".local/state/life-manager/writer",
+            )
+            self.assertEqual(
+                note_work_dir({"WRITER_STATE_DIR": str(home / "writer")}, home=home),
+                home / "writer/note-work",
             )
 
     def test_browser_python_comes_from_life_manager_managed_runtime(self):

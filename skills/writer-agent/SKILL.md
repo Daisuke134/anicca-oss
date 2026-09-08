@@ -533,7 +533,7 @@ X, dev.to, and video surfaces use their own product/channel reward contracts; no
 ### note conversion preview derivative — always through the shared script
 Never hand-truncate. Generate with `scripts/_shared/make-free-version.py --markdown-file <original.md>
 --note-url <url> --price <int> --paid-contents "<有料側見出しの正確な名指し>" --summary-file <bullets.md>
---out <free.md>` (proven shape: `~/.cloak/note-work/2026-07-12-agent-economy-jp-x-free.md`). The agent writes
+--out <free.md>` (write the derivative under `$WRITER_STATE_DIR/note-work/`). The agent writes
 and hands in `--summary-file` (3-5 まとめ bullets, no slop) and `--paid-contents` — the script only cuts+assembles,
 mechanically, at `--after-chars` (default 2500, same as `note-publish/publish-paid.py`'s PAYWALL_AFTER_CHARS;
 re-measure per article, the default rarely matches where you actually want to cut — see the script's own docstring).
@@ -602,7 +602,7 @@ violation; only a PUBLIC post is.
   it wiped ~25 diagrams/tables once). Re-render the body from markdown (rebuild-note-body.py / note-stage).
 - ALWAYS verify after any structural body edit BEFORE publishing: editor img count + screenshot every section
   + Read them. Image count dropped → STOP, do not publish.
-- Persistent assets only: render tables (HTML→PNG) + mermaid (kroki) to ~/.cloak/note-work/automaton-assets,
+- Persistent assets only: render tables (HTML→PNG) + mermaid (kroki) to `$WRITER_STATE_DIR/note-work/<slug>-assets`,
   NEVER /tmp. rebuild-note-body.py uploads them and places each at its @@TBLn@@/@@FIGn@@/@@FUNDn@@ marker.
 
 ## ★ ONE-SHOT NOTE PUBLISH PIPELINE (canonical order — get the clean state on the FIRST pass) ★ (2026-06-24)
@@ -611,8 +611,8 @@ The broken multi-day session happened because steps were scattered/ad-hoc + a ke
   0. WRITE (writer-agent) emits markdown with: `##` = section titles ONLY (these become the auto-目次);
      sub-points = `**bold**`, NEVER `###` (so the auto-目次 stays short); NO in-article infographic; tables as
      markdown, diagrams as ```mermaid; setup screenshots as ![](images/automaton/<file>.png).
-  1. cookies: extract from the daily-driver profile → ~/.cloak/note-work/note-cookies.json (NEVER /tmp).
-  2. render assets → ~/.cloak/note-work/<slug>-assets/ : each markdown table → PNG (HTML, uniform 1080px width),
+  1. cookies: extract from the daily-driver profile → `$WRITER_STATE_DIR/note-work/note-cookies.json` (NEVER /tmp).
+  2. render assets → `$WRITER_STATE_DIR/note-work/<slug>-assets/` : each markdown table → PNG (HTML, uniform 1080px width),
      each ```mermaid → kroki PNG. Persistent dir, NEVER /tmp.
   3. rebuild-note-body.py: upload every asset, place at its @@TBLn@@/@@FIGn@@/@@FUNDn@@ marker; NO infographic,
      NO body-hero; update_article (DRAFT). (This is the image-safe path — do structure in markdown, not the editor.)

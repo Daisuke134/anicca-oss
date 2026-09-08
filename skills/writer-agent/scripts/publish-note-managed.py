@@ -22,10 +22,10 @@ _pii_sys.path.insert(0, str(next(
     if (_p / "_shared" / "pii_gate.py").is_file()
 )))
 from pii_gate import gate_files, gate_run_dir  # noqa: E402,F401
+from writer_runtime_paths import note_work_dir
 
 HERE = Path(__file__).resolve().parent
 NOTE = HERE / "note-publish"
-HOME = Path.home()
 
 
 def adapt_note_eyecatch(source: Path, destination: Path) -> None:
@@ -90,7 +90,7 @@ def main() -> int:
         != headline.get("sha256")
     ):
         raise SystemExit("refuse managed note publish: immutable eyecatch changed")
-    work = HOME / ".cloak/note-work"
+    work = note_work_dir()
     work.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(headline_path, work / "thumb.png")
 

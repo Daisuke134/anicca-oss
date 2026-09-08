@@ -164,10 +164,10 @@ fi
 
 # Step 1.5: render tables → PNG, mermaid → source-captured, via note-stage1-render.py
 # (note-mcp does not touch note.com here — this is a local headless-browser render only).
-# WORK is a persistent per-run dir under ~/.cloak (NEVER /tmp — reboot/disk-cleanup wipes it
-# mid-task), and deliberately NOT the shared ~/.cloak/note-work/note-stage dir the manual
+# WORK is a persistent per-run dir under Writer state (NEVER /tmp — reboot/disk-cleanup wipes it
+# mid-task), and deliberately NOT the shared note-work/note-stage dir the manual
 # Automaton pipeline uses, so a daily-loop run can never clobber that pipeline's manifest.
-WORK="$HOME/.cloak/note-work/note-stage-daily/$$-$(date +%s)"
+WORK="$NOTE_WORK_ROOT/note-stage-daily/$$-$(date +%s)"
 mkdir -p "$WORK"
 IMG_DIR_SLUG="$(basename "$MD_FILE" | sed -E 's/\.[Mm][Dd]$//; s/[^A-Za-z0-9_-]+/-/g')"
 STAGE1_OK=false
@@ -208,7 +208,7 @@ fi
 MANIFEST_ARG=""; [[ "$STAGE1_OK" == "true" ]] && MANIFEST_ARG="$WORK/note-manifest.json"
 
 # Step 1.8: idempotency — decide update-existing-draft vs create-new-draft via the LOCAL ledger
-# (~/.cloak/note-work/draft-ledger.json by default, see note-draft-ledger.py). This is a pure
+# ($WRITER_STATE_DIR/note-work/draft-ledger.json by default, see note-draft-ledger.py). This is a pure
 # local decision (no network): --new-draft always wins (escape hatch), --key always wins over
 # the ledger (explicit override), otherwise the ledger is consulted by MD_FILE's absolute path.
 # Best-effort: a broken ledger must never turn a working publish into a script failure, so a
@@ -263,7 +263,7 @@ if (
 # same convention as scripts/note-publish/extract-note-cookies.py) so stage2 does not need
 # its own independent login.
 try:
-  cookie_out = os.path.expanduser("~/.cloak/note-work/note-cookies.json")
+  cookie_out = os.path.join(os.environ["NOTE_WORK_ROOT"], "note-cookies.json")
   cookie_dir = os.path.dirname(cookie_out)
   os.makedirs(cookie_dir, exist_ok=True)
   # atomic write (same-dir temp + os.replace): note-stage2-publish.py and the manual

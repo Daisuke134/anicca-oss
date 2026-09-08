@@ -294,3 +294,35 @@ def test_legacy_main_state_read_path_freezes_base_from_existing_receipt(
     monkeypatch.setenv("ARTICLE_SELF_OWNED_BASE_URL", "https://other.example")
     with pytest.raises(module.InvariantError, match="does not match"):
         store.read()
+
+
+def test_note_404_draft_readback_uses_writer_state_ledger(tmp_path, monkeypatch):
+    module = load(
+        "portable_publication_remote",
+        "skills/writer-agent/scripts/publication_remote.py",
+    )
+    work = tmp_path / "writer/note-work"
+    work.mkdir(parents=True)
+    (work / "draft-ledger.json").write_text(
+        json.dumps(
+            {
+                "article": {
+                    "key": "nportable",
+                    "account": "writer-note",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("WRITER_STATE_DIR", str(tmp_path / "writer"))
+
+    def not_public(_url, **_kwargs):
+        raise module.urllib.error.HTTPError(_url, 404, "missing", {}, None)
+
+    monkeypatch.setattr(module, "get_json", not_public)
+    result = module.note(
+        "nportable",
+        {"destination_identities": {"note/ja": "writer-note"}},
+    )
+    assert result["status"] == "not-live"
+    assert result["identity_source"] == "authenticated-note-draft-ledger"

@@ -1,12 +1,13 @@
 #!/bin/bash
 # F1 — one-command note publisher. Orchestrates the proven note-publish scripts, idempotent + guarded,
 # with a deterministic VERIFY gate whose screenshot the active model agent LOOKS at before --go.
-# Spec: docs/superpowers/specs/2026-06-24-publish-to-note-sh-F1.md.  NEVER /tmp — data in ~/.cloak/note-work.
+# Spec: docs/superpowers/specs/2026-06-24-publish-to-note-sh-F1.md. NEVER /tmp; data in Writer state.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$DIR/../writer-runtime-env.sh"
 PY="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
 HBPY="$PY"
-WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
+WORK="$NOTE_WORK_ROOT"; mkdir -p "$WORK"
 DEFAULT_KEY="na3a631e63d1a"
 
 filt(){ grep -vE "Update available|pip install|fonts loaded|no leaks found" || true; }

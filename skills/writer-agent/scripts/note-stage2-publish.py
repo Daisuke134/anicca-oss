@@ -7,8 +7,9 @@ from note_mcp.models import Session, ArticleInput
 from note_mcp.api.articles import update_article, generate_image_html
 from note_s3_upload import upload_body_image
 from note_stage2_assets import resolve_mermaid_images
-WORK=os.path.expanduser(os.environ.get("NOTE_WORK","~/.cloak/note-work/note-stage")); os.makedirs(WORK, exist_ok=True)
-mf=json.load(open(f"{WORK}/note-manifest.json")); ck=json.load(open(os.path.expanduser("~/.cloak/note-work/note-cookies.json")))
+STATE=os.path.expanduser(os.environ.get("WRITER_STATE_DIR","~/.local/state/life-manager/writer"))
+WORK=os.path.expanduser(os.environ.get("NOTE_WORK",f"{STATE}/note-work/note-stage")); os.makedirs(WORK, exist_ok=True)
+mf=json.load(open(f"{WORK}/note-manifest.json")); ck=json.load(open(f"{STATE}/note-work/note-cookies.json"))
 NUM=os.environ.get("NOTE_NUM","166686292"); title=mf["title"]; body=mf["body"]
 # NOTE_KEY (article key, e.g. "n1234567890ab"): when set, used for update_article INSTEAD of NUM.
 # Works around a real note-mcp bug (note_mcp/api/articles.py update_article, verified by reading

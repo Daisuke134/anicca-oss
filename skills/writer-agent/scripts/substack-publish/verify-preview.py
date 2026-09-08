@@ -6,13 +6,16 @@ so the agent can Read them. This is exactly the manual check we did, made repeat
 Usage: verify-preview.py <post_id> [max_on_screen_h=950]   → exit 1 (FAIL) if any image too tall.
 Needs the daily-driver running with remote-debugging-port=9222 (it is, kept alive by dd-keepalive.py)."""
 import os, sys, time
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from writer_runtime_paths import note_work_dir
 from playwright.sync_api import sync_playwright
 from playwright._impl._errors import TargetClosedError
 
 PUB = os.environ.get("SUBSTACK_PUBLICATION", "").strip().rstrip("/")
 if not PUB:
     raise SystemExit("SUBSTACK_PUBLICATION is required")
-W = os.path.expanduser("~/.cloak/note-work")
+W = str(note_work_dir())
 CDP = "http://localhost:9222"
 MAX_TARGET_CLOSED_ATTEMPTS = 3
 

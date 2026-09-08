@@ -37,6 +37,7 @@ from media_integrity import (
     content_proof,
     descriptor_from_file,
 )
+from writer_runtime_paths import note_work_dir
 
 
 DESTINATION_PROOF_FLAGS = {
@@ -940,7 +941,7 @@ def _payload_text(payload: dict[str, Any], keys: tuple[str, ...]) -> str:
 
 def note_authenticated_data(target: str) -> dict[str, Any]:
     """Read the owner's full paid body; anonymous note API returns only teaser."""
-    cookie_path = Path.home() / ".cloak/note-work/note-cookies.json"
+    cookie_path = note_work_dir() / "note-cookies.json"
     cookies = json.loads(cookie_path.read_text(encoding="utf-8"))
     if not isinstance(cookies, dict) or not cookies:
         raise ValueError("note owner cookie cache is empty")
@@ -966,7 +967,7 @@ def note(target: str, state: dict[str, Any] | None = None) -> dict[str, Any]:
         # classify as draft-only only when the authenticated staging ledger has
         # independently recorded the same n-prefixed key.
         if error.code == 404 and target.startswith("n"):
-            ledger_path = Path.home() / ".cloak" / "note-work" / "draft-ledger.json"
+            ledger_path = note_work_dir() / "draft-ledger.json"
             try:
                 ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):

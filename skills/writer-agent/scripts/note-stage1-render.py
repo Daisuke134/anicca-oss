@@ -1,8 +1,10 @@
 import re, os, sys, json, time, html
 from cloakbrowser import launch_context
 # source = positional arg (orchestrator passes "$MD") OR NOTE_SRC env OR the Automaton default
-ART=sys.argv[1] if len(sys.argv)>1 else os.environ.get("NOTE_SRC","/Users/anicca/.cache/anicca-article-wt/docs/articles/2026-06-11-automaton-jp.md")
-WORK=os.path.expanduser(os.environ.get("NOTE_WORK","~/.cloak/note-work/note-stage")); os.makedirs(WORK, exist_ok=True)
+ART=sys.argv[1] if len(sys.argv)>1 else os.environ.get("NOTE_SRC","")
+if not ART: raise SystemExit("article path argument or NOTE_SRC is required")
+STATE=os.path.expanduser(os.environ.get("WRITER_STATE_DIR","~/.local/state/life-manager/writer"))
+WORK=os.path.expanduser(os.environ.get("NOTE_WORK",f"{STATE}/note-work/note-stage")); os.makedirs(WORK, exist_ok=True)
 IMG_DIR=os.environ.get("NOTE_IMG_DIR","automaton")
 md=open(ART).read()
 # strip YAML frontmatter (zenn/devto parse it; note has no frontmatter concept and would
