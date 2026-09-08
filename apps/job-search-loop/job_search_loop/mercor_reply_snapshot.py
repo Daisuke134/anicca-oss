@@ -112,7 +112,10 @@ def _valid_cached_thread(row: object, thread_id: str) -> bool:
             return False
         if message.get("threadId") != thread_id:
             return False
-        if not isinstance(message.get("internalDate"), str) or not message["internalDate"]:
+        internal_date = message.get("internalDate")
+        if not ((isinstance(internal_date, str) and internal_date)
+                or (isinstance(internal_date, int) and not isinstance(internal_date, bool)
+                    and internal_date > 0)):
             return False
         if not isinstance(message.get("labels"), list):
             return False
@@ -252,7 +255,7 @@ def _gmail(account: str, executable: str,
             normalized.append({
                 "id": message.get("id"),
                 "threadId": message.get("threadId") or thread_id,
-                "internalDate": message.get("internalDate"),
+                "internalDate": str(message.get("internalDate") or ""),
                 "from": headers.get("from"),
                 "to": headers.get("to"),
                 "subject": headers.get("subject"),
