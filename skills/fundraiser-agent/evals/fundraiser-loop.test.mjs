@@ -208,6 +208,8 @@ test("production contract runs every 30 minutes and maximizes real applications"
   assert.match(contract, /Telegram[^\n]*(?:immediately|real.?time)/i);
   assert.match(contract, /reasonable inference/i);
   assert.match(dailyPrompt, /Ledger-first selection/);
+  assert.match(dailyPrompt, /remote programs remain eligible/i);
+  assert.doesNotMatch(dailyPrompt, /allow remote only when explicitly listed/i);
   assert.match(dailyPrompt, /read the complete receipt ledger and application dossiers before the priority queue/);
   assert.match(dailyPrompt, /SR008[^\n]*terminal[^\n]*SR009[^\n]*new opportunity/i);
   assert.match(dailyPrompt, /Fall 2026[^\n]*F26[^\n]*same cohort/i);
@@ -455,7 +457,7 @@ test("production queue advances current ASAC and YC work without replaying close
   assert.match(fundraising.priority_queue[2].reason, /terminal receipt/);
   assert.match(fundraising.priority_queue[3].reason, /password-recovery request/);
   assert.match(fundraising.priority_queue[4].reason, /email verification/);
-  assert.match(dailyPrompt, /Reject Kenya and every other geography/);
+  assert.match(dailyPrompt, /format and geography[\s\S]*ranking preferences, not automatic rejection rules/i);
   assert.match(dailyPrompt, /Never submit a `hold_do_not_submit` program/);
   assert.match(dailyPrompt, /Ordinary privacy-policy and data-processing consent/);
   assert.match(dailyPrompt, /Do not infer consent to investment, equity/);
