@@ -152,3 +152,31 @@ def test_the_discovery_vocabulary_does_not_fetch_artwork_either():
     """Searching for work we now decline would only manufacture skips."""
     for term in fit.discovery_terms(("イラスト作成", "Live2Dモデリング", "業務システム")):
         assert fit.category_refusal(term) is None
+
+
+# --- building is not operating, 2026-09-07 ---------------------------------------------------
+
+def test_the_desktop_class_says_building_is_never_it():
+    """Promoted from Coconala the same afternoon, this class then refused, on Lancers:
+
+        RPAツール「アシロボ」シナリオ作成          -- building automation, the catalogue's core
+        Notesからサイボウズ Officeへの移行とアプリ開発 -- a migration plus an app
+        仮想通貨・Web3ライター（WordPress直接入稿）  -- an article, published through a tool
+
+    22 refusals, roughly half of them work the fleet sells. A class promoted into a lane with a
+    different catalogue has to be re-read against that catalogue, not assumed to transfer."""
+    text = fit.HARD_PROHIBITION_CLASSES["mandatory_desktop_or_browser_operations"]
+    assert "Building" in text and "migrating" in text
+    assert "is a delivery and is never this class" in text
+
+
+def test_the_class_still_names_what_it_is_for():
+    """Sharpening must not empty it: operating an account for hours is still refused."""
+    text = fit.HARD_PROHIBITION_CLASSES["mandatory_desktop_or_browser_operations"]
+    for phrase in ("data entry", "monitoring", "repeated logged-in", "deliverable"):
+        assert phrase in text, phrase
+
+
+def test_the_prompt_carries_the_sharpened_wording():
+    prompt = fit.build_judgement_prompt([{"posting_id": "1", "title": "t", "body": "b"}])
+    assert "is a delivery and is never this class" in prompt
