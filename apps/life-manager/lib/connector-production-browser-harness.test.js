@@ -137,6 +137,38 @@ test("Connpass known form completes natively before the agent when the runner is
   assert.deepEqual(operated, ["online_radio", "referral_radio", "confirm_button"]);
 });
 
+test("Connpass ordinary attendee tiers complete natively without selecting speaker, staff, or member-only tiers", async () => {
+  for (const attendeeLabel of ["参加者 無料 先着順 3/10人", "オーディエンス枠 無料 先着順 2/20人"]) {
+    let step = 0;
+    let agentCalls = 0;
+    const operated = [];
+    const controls = [
+      { control: "attendee", kind: "radio", label: attendeeLabel, question: "参加枠", required: true },
+      { control: "speaker", kind: "radio", label: "LT発表者 無料 先着順 0/5人", question: "参加枠", required: true },
+      { control: "staff", kind: "radio", label: "スタッフ枠 無料 先着順 2/8人", question: "参加枠", required: true },
+      { control: "member", kind: "radio", label: "会場参加）JISTA会員 無料 先着順 16/50人", question: "参加枠", required: true },
+      { control: "confirm_button", kind: "button", label: "申し込みを確定する", required: false, submittable: true },
+    ];
+    const proposer = createBoundedActionProposer({ repoRoot: "/private/repo", evidenceDir: "/private/evidence", async runAgentRunner() {
+      agentCalls += 1; throw new Error("agent must not run");
+    } });
+    const harness = createProductionBrowserHarness({
+      lumaWorkflow: { async readProviderState() { throw new Error("wrong provider"); } },
+      connpassWorkflow: { async readProviderState() { return step === 2 ? { status: "registered" } : { status: "absent" }; } },
+      async inspectControls() { return controls.map((control) => ({ ...control, completed: control.kind === "radio" && step > 0 })); },
+      proposeAction: proposer,
+      async operateControl(input) { operated.push(input.action.control); step += 1; return { status: "success" }; },
+      resolveValue: createPrivateValueResolver({ async readPeatixProfile() { throw new Error("private profile must not be read"); }, async readFormProfile() { throw new Error("private profile must not be read"); } }),
+    });
+    const result = await harness.runFallback({ provider: "connpass", candidate: { event_ref: "connpass-event://event/404960" },
+      page: { url() { return "https://hello-output.connpass.com/event/404960/join/"; } },
+      pageWebsocket: "ws://127.0.0.1:9222/devtools/page/ATTENDEE1", maxSteps: 3, expectedState: "registered_or_pending" });
+    assert.equal(result.status, "completed", `${attendeeLabel}: ${JSON.stringify(result)}`);
+    assert.deepEqual(operated, ["attendee", "confirm_button"], attendeeLabel);
+    assert.equal(agentCalls, 0, attendeeLabel);
+  }
+});
+
 test("Connpass resolver approves only the exact safe radio predicates", async () => {
   let privateReads = 0;
   const resolver = createPrivateValueResolver({ async readPeatixProfile() { privateReads += 1; return {}; }, async readFormProfile() { privateReads += 1; return { form_answers: {} }; } });
