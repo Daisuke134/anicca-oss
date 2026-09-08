@@ -560,11 +560,7 @@ class XBrowserAdapter:
         parser = Path(
             os.environ.get(
                 "WRITER_X_MARKDOWN_PARSER",
-                str(
-                    Path.home()
-                    / ".claude/skills/x-article-publisher/scripts/"
-                    "parse_markdown.py"
-                ),
+                str(Path(__file__).with_name("parse_markdown.py")),
             )
         )
         parsed = subprocess.run(

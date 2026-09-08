@@ -46,7 +46,7 @@ run_quality_gate() {
 }
 VC="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
 HBPY="$VC"
-PARSE="$HOME/.claude/skills/x-article-publisher/scripts/parse_markdown.py"
+PARSE="$DIR/parse_markdown.py"
 WORK="$NOTE_WORK_ROOT"; mkdir -p "$WORK"
 filt(){ grep -vE "Update available|pip install|fonts" || true; }
 cmd="${1:-}"; shift || true
