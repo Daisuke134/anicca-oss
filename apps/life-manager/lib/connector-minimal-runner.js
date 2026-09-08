@@ -202,7 +202,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
   let consecutiveFailures = 0;
   let providerDiscoveryFailed = false;
   let connpassBoundaryFailed = false;
-  let sessionExpiredObserved = false;
+  let sessionExpiredReason = null;
   let discoveryFailureReason = "provider_discovery_failed";
   let lastSafeReason = "provider_discovery_failed";
   let reusedBundleObserved = false;
@@ -457,7 +457,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
             consecutiveFailures += 1;
             return finish("circuit_open", "effect_unknown");
           }
-          const terminalDirectNoEffect = /_session_expired$/.test(directFailureReason)
+          const terminalDirectNoEffect = directFailureReason === `${provider}_session_expired`
             || (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(directFailureReason))
             || (provider === "luma" && directFailureReason === "luma_required_profile_field_unavailable");
           if (!terminalDirectNoEffect) try {
@@ -569,8 +569,8 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
         }
 
         lastSafeReason = directFailureReason || operationSafeReason(operation, "direct_action_unverified");
-        if (/_session_expired$/.test(lastSafeReason)) {
-          sessionExpiredObserved = true;
+        if (lastSafeReason === `${provider}_session_expired`) {
+          sessionExpiredReason = sessionExpiredReason || lastSafeReason;
           break;
         }
         const knownNoEffect = (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(lastSafeReason))
@@ -587,7 +587,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
     return finish("completed_no_effect", providerDiscoveryFailed
       ? discoveryFailureReason : connpassBoundaryFailed ? "connpass_action_boundary_failed"
         : reusedBundleObserved ? "existing_bundles_reused"
-          : sessionExpiredObserved ? lastSafeReason : "providers_exhausted");
+          : sessionExpiredReason || "providers_exhausted");
   } catch (error) {
     if (deadlineReached()) return finish("circuit_open", "wake_deadline");
     throw error;

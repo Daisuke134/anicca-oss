@@ -321,7 +321,7 @@ test("a non-Error external throw records its real constructor name as error_clas
     },
   });
 
-  await runMinimalConnectorWake({
+  const result = await runMinimalConnectorWake({
     ownerToken: "owner-token-connector-minimal-1",
     providers: ["luma", "connpass"],
   }, state.dependencies);
@@ -1223,7 +1223,7 @@ test("a session-expired provider does not block discovery of the next provider",
     },
   });
 
-  await runMinimalConnectorWake({
+  const result = await runMinimalConnectorWake({
     ownerToken: "owner-token-session-expired-continuation",
     providers: ["doorkeeper", "eventbrite"],
   }, state.dependencies);
@@ -1231,6 +1231,31 @@ test("a session-expired provider does not block discovery of the next provider",
   assert.deepEqual(state.calls.filter(([name]) => name === "discover").map(([, provider]) => provider), [
     "doorkeeper", "eventbrite",
   ]);
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
+  assert.deepEqual(result, {
+    status: "completed_no_effect",
+    safe_reason: "doorkeeper_session_expired",
+    telegram_provider_id: "9001",
+  });
+});
+
+test("a mismatched session-expired reason cannot skip the provider Harness", async () => {
+  let state;
+  state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate(provider, "one")];
+    },
+    async runDirectAction() {
+      return Object.freeze({ status: "failed", safe_reason: "luma_session_expired" });
+    },
+  });
+
+  await runMinimalConnectorWake({
+    ownerToken: "owner-token-mismatched-session-expired",
+    providers: ["doorkeeper"],
+  }, state.dependencies);
+
   assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
 });
 
