@@ -284,6 +284,35 @@ def test_delivery_unknown_never_blindly_replays_same_intent(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_readback_exception_after_intent_preserves_reconcile_fence(tmp_path):
+    class ReadbackBreaksAfterEffect(Adapter):
+        def __init__(self):
+            super().__init__()
+            self.broken = True
+
+        def readback(self, intent):
+            if self.effects and self.broken:
+                raise RuntimeError("provider_dom_changed")
+            return super().readback(intent)
+
+    adapter = ReadbackBreaksAfterEffect()
+    decide = lambda _row: {"action": "reply", "payload": {"body": "one"}}
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert first["failed"] == 1
+    assert len(adapter.effects) == 1
+    state_path = next(tmp_path.glob("threads/*/state.json"))
+    state = reply_kernel._load(state_path)
+    assert state["status"] == "reconcile_unknown"
+    assert state["intent"]["payload"]["body"] == "one"
+
+    adapter.broken = False
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert replay["failed"] == 0
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
+
 def test_pre_effect_readback_must_prove_authoritative_absence(tmp_path):
     class UnknownBeforeEffect(Adapter):
         def readback(self, _intent):
