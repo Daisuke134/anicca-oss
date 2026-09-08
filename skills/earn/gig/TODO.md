@@ -963,6 +963,17 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
       following natural replay with zero duplicate effect.
    5. Prove Coconala consumes the same grounding/decision contract. Mercor and CrowdWorks remain the later
       fixed-order thin-adapter atoms; this correction does not pull either one forward.
+   Source checkpoint `ac4c13dea` adds the provider-neutral grounding reader and connects Lancers to it.
+   It derives only an age band from the private birth date, passes verified claims without their private
+   evidence metadata, adds the provider's public availability/skill facts, and leaves absent gender
+   explicitly missing rather than inferring it. The Lancers model contract now returns a structured wait
+   instead of telling a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
+   Lancers adapter checks pass 26/26. This is pushed source evidence only, not production acceptance;
+   Telegram human-handoff delivery, the corrective official reply/readback and replay-zero remain open.
+   CrowdWorks must not be described as having no reply opportunities: no shared Reply adapter currently
+   observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
+   verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
+   while the missing Reply observer is the current visibility and response gap.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
