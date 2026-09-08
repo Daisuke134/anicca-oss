@@ -1443,7 +1443,7 @@ test("before-deadline candidate navigation failure records once and continues to
   assert.doesNotMatch(JSON.stringify(history), /raw candidate navigation|luma\.example\.test\/one/);
 });
 
-test("candidate navigation audit failure keeps its original rejection instead of opening a candidate circuit", async () => {
+test("candidate navigation audit failure reports one sanitized terminal wake", async () => {
   let state;
   state = fixture();
   const raw = new Error("navigation audit raw");
@@ -1457,12 +1457,12 @@ test("candidate navigation audit failure keeps its original rejection instead of
     return recordAction(row);
   };
 
-  await assert.rejects(
-    runMinimalConnectorWake({ ownerToken: "owner-token-connector-navigation-audit", providers: ["luma"] }, state.dependencies),
-    (error) => error === raw,
+  const result = await runMinimalConnectorWake(
+    { ownerToken: "owner-token-connector-navigation-audit", providers: ["luma"] }, state.dependencies,
   );
+  assert.deepEqual(result, { status: "circuit_open", safe_reason: "wake_boundary_failed", telegram_provider_id: "9001" });
   assert.equal(state.calls.filter(([name]) => name === "readback").length, 0);
-  assert.equal(state.calls.filter(([name]) => name === "report").length, 0);
+  assert.deepEqual(state.calls.filter(([name]) => name === "report"), [["report", "circuit_open", "wake_boundary_failed"]]);
   assert.equal(state.calls.filter(([name]) => name === "close").length, 1);
   const history = state.calls.filter(([name]) => name === "history").map(([, row]) => row);
   assert.equal(history.filter((row) => row.purpose === "navigate" && row.result === "failed").length, 1);
@@ -1513,14 +1513,15 @@ test("deadline-crossing uncaught boundary errors report once and clean up owned 
   }
 });
 
-test("an uncaught boundary error before the deadline remains the original rejection without reporting", async () => {
+test("an uncaught boundary error before the deadline reports one sanitized terminal wake", async () => {
   const raw = new Error("raw before deadline");
   const state = fixture({ async readCalendarGaps() { throw raw; } });
-  await assert.rejects(
-    runMinimalConnectorWake({ ownerToken: "owner-token-connector-raw-before-deadline", providers: ["luma"] }, state.dependencies),
-    (error) => error === raw,
+  const result = await runMinimalConnectorWake(
+    { ownerToken: "owner-token-connector-raw-before-deadline", providers: ["luma"] }, state.dependencies,
   );
-  assert.equal(state.calls.filter(([entry]) => entry === "report").length, 0);
+  assert.deepEqual(result, { status: "circuit_open", safe_reason: "wake_boundary_failed", telegram_provider_id: "9001" });
+  assert.deepEqual(state.calls.filter(([entry]) => entry === "report"), [["report", "circuit_open", "wake_boundary_failed"]]);
+  assert.doesNotMatch(JSON.stringify(state.calls), /raw before deadline/);
   assert.equal(state.calls.filter(([entry]) => entry === "close").length, 0);
 });
 
