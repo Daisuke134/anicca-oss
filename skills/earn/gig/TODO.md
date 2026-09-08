@@ -997,6 +997,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    already provides receipt-backed, deduplicated delivery. Wire each officially verified Reply/estimate
    receipt through that existing shared notifier, using the effect identity as the Telegram idempotency key;
    do not add a Coconala sender or restore the legacy lifecycle.
+   The shared notifier fix merged in `f62bb151` and is present in the installed Coconala release
+   `d9dab16a`. The preceding natural run ended over 174 unique rooms with `actionable=36`, `effect=0`,
+   `readback=138`, `failed=19`, `pending=17`; therefore this atom remains open. The kernel previously
+   persisted only exception class names, discarding the concrete semantic/collector contract violation.
+   Preserve a bounded private `error_detail` in both per-thread retry state and the aggregate item so the
+   next terminal can drive a class-level fix instead of another blind retry.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
