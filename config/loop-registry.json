@@ -2818,9 +2818,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-repost/x-repost-en-cli.sh",
       "label": "ai.anicca.x-repost-pass",
-      "log_root": "~/loops/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-repost/en/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/loops"
+      "state_root": "~/.local/state/life-manager/social-x/x-repost/en"
     },
     "x-repost-digest": {
       "cadence": {
@@ -2837,9 +2837,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-repost/x-repost-digest.sh",
       "label": "ai.anicca.x-repost-digest",
-      "log_root": "~/loops/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-repost/en/logs",
       "provider_route": "deterministic",
-      "state_root": "~/loops"
+      "state_root": "~/.local/state/life-manager/social-x/x-repost/en"
     },
     "x-repost-healthcheck": {
       "cadence": {
@@ -2853,9 +2853,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-repost/x-repost-healthcheck.sh",
       "label": "ai.anicca.x-repost-healthcheck",
-      "log_root": "~/loops/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-repost/en/logs",
       "provider_route": "deterministic",
-      "state_root": "~/loops"
+      "state_root": "~/.local/state/life-manager/social-x/x-repost/en"
     },
     "x-repost-ja-healthcheck": {
       "cadence": {
@@ -2869,9 +2869,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-repost/x-repost-healthcheck.sh",
       "label": "ai.anicca.x-repost-ja-healthcheck",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-repost/ja/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/social-x/x-repost/ja"
     },
     "x-repost-ja-pass": {
       "cadence": {
@@ -2892,9 +2892,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-repost/x-repost-ja-cli.sh",
       "label": "ai.anicca.x-repost-ja-pass",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-repost/ja/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/social-x/x-repost/ja"
     },
     "x-tweeter": {
       "cadence": {
@@ -2910,9 +2910,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-tweeter/x-tweeter-cli.sh",
       "label": "ai.anicca.x-tweeter-pass",
-      "log_root": "~/loops/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-tweeter/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/loops"
+      "state_root": "~/.local/state/life-manager/social-x/x-tweeter"
     },
     "x-tweeter-healthcheck": {
       "cadence": {
@@ -2926,9 +2926,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/x-tweeter/x-tweeter-healthcheck.sh",
       "label": "ai.anicca.x-tweeter-healthcheck",
-      "log_root": "~/loops/logs",
+      "log_root": "~/.local/state/life-manager/social-x/x-tweeter/logs",
       "provider_route": "deterministic",
-      "state_root": "~/loops"
+      "state_root": "~/.local/state/life-manager/social-x/x-tweeter"
     },
     "x402-acquisition-controller": {
       "cadence": {

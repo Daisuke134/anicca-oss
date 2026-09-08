@@ -2,7 +2,7 @@
 set -uo pipefail
 
 SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE="${X_REPOST_STATE_DIR:-$HOME/loops/x-repost-en}"
+STATE="${X_REPOST_STATE_DIR:-$HOME/.local/state/life-manager/social-x/x-repost/en}"
 mkdir -p "$STATE"
 touch "$STATE/no-affiliate-jobs.jsonl"
 

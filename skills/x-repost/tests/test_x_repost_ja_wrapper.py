@@ -44,14 +44,14 @@ class JapaneseDiceLoopContractTests(unittest.TestCase):
         text = HEALTHCHECK.read_text()
         self.assertIn('LIFE_MANAGER_LOOP_ID:-', text)
         self.assertIn('DEFAULT_LABEL="ai.anicca.x-repost-ja-pass"', text)
-        self.assertIn('DEFAULT_STATE="$HOME/loops/x-repost-ja"', text)
+        self.assertIn('DEFAULT_STATE="$HOME/.local/state/life-manager/social-x/x-repost/ja"', text)
         self.assertIn("DEFAULT_MAX_AGE_SECONDS=5400", text)
         self.assertIn("DEFAULT_INITIAL_GRACE_SECONDS=3600", text)
         self.assertIn('DEFAULT_LABEL="ai.anicca.x-repost-pass"', text)
-        self.assertIn('DEFAULT_STATE="$HOME/loops/x-repost-en"', text)
+        self.assertIn('DEFAULT_STATE="$HOME/.local/state/life-manager/social-x/x-repost/en"', text)
 
     def test_digest_defaults_to_the_english_repost_state(self):
-        self.assertIn('$HOME/loops/x-repost-en', DIGEST.read_text())
+        self.assertIn('$HOME/.local/state/life-manager/social-x/x-repost/en', DIGEST.read_text())
 
     def test_runtime_dependencies_are_repository_owned(self):
         main = MAIN.read_text()

@@ -11,13 +11,13 @@ SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "${LIFE_MANAGER_LOOP_ID:-}" = "x-repost-ja-healthcheck" ]; then
   DEFAULT_LOOP_NAME="x-repost-ja"
   DEFAULT_LABEL="ai.anicca.x-repost-ja-pass"
-  DEFAULT_STATE="$HOME/loops/x-repost-ja"
+  DEFAULT_STATE="$HOME/.local/state/life-manager/social-x/x-repost/ja"
   DEFAULT_MAX_AGE_SECONDS=5400
   DEFAULT_INITIAL_GRACE_SECONDS=3600
 else
   DEFAULT_LOOP_NAME="x-repost"
   DEFAULT_LABEL="ai.anicca.x-repost-pass"
-  DEFAULT_STATE="$HOME/loops/x-repost-en"
+  DEFAULT_STATE="$HOME/.local/state/life-manager/social-x/x-repost/en"
   DEFAULT_MAX_AGE_SECONDS=10800
   DEFAULT_INITIAL_GRACE_SECONDS=0
 fi

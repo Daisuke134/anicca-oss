@@ -13,7 +13,7 @@ export X_REPOST_FORCE_KIND=original
 export X_REPOST_FORCE_LANGUAGE=en
 export X_REPOST_SOURCE_MODE=chinese-public
 export X_REPOST_DISABLE_AFFILIATE=1
-export X_REPOST_STATE_DIR="${X_TWEETER_STATE_DIR:-$HOME/loops/x-tweeter}"
+export X_REPOST_STATE_DIR="${X_TWEETER_STATE_DIR:-$HOME/.local/state/life-manager/social-x/x-tweeter}"
 export AFFILIATE_REPOST_PROPOSAL_PATH="$X_REPOST_STATE_DIR/no-affiliate-proposal.json"
 export AFFILIATE_X_DISTRIBUTION_QUEUE="$X_REPOST_STATE_DIR/no-affiliate-jobs.jsonl"
 
