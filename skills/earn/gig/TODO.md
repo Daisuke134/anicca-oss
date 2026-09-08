@@ -765,7 +765,7 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    submitted!`, advanced the ledger 24→25 and delivered Telegram message `66682` with no human gate.
    This closes the independent Mercor Apply owner and advances the active cursor to
    `SHARED-REPLY-1` without changing the fixed order.
-8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
+8. [x] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
    `skills/_shared/marketplace-core/`. Coconala and Lancers keep only auth, selectors, provider state
@@ -1097,6 +1097,16 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    buyer-side provider notice with no question or request to `unknown/wait` rather than inventing an effect.
    The focused shared/Coconala Reply regression remains 71/71. This awaits a pushed-main natural run after
    the durable backoff timestamps, not a state reset or manual retry.
+   The post-backoff main-derived natural terminal on release `4c1a0d84132f7f5ae56943b0cebbf98863cb901b`
+   proves final Coconala acceptance: 174 official rooms are represented by 174 unique thread identities,
+   `effect=0`, `readback=157`, `failed=0`, and `pending=17`. The archived verified attachment context on
+   `10085794` now reaches a safely fenced pre-effect reconciliation wait; `10158735` rebuilt its missing
+   authenticated manifest and became a truthful provider-send-restriction wait; `9992000` became
+   `no_reply` without a customer effect. All four prior verified Reply/estimate effects are delivered through
+   the shared Telegram outbox with provider message IDs `69119`, `69124`, `69128`, and `69147`; following
+   natural terminals produced zero duplicate effects. Coconala and Lancers now consume the same shared
+   grounding, decision, lifecycle, receipt, notification, retry and replay-zero components. This atom is
+   complete; the fixed next atom is `CROWDWORKS-REPLY-1`.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
