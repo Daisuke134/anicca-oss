@@ -1039,6 +1039,12 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    `unknown/wait`. Apply the existing purchase-response guard only when the semantic state is
    `question`, `negotiating` or `ready_to_buy`; do not force a customer reply for an `unknown` system
    notice. The real purchase-decision guards remain covered and 37 semantic checks pass.
+   `dm_attachment_message_identity_changed` came from a second identity representation mismatch:
+   the authenticated download manifest legitimately has no provider message IDs, and the semantic DOM
+   can gain a newer message before rebinding, so equal list position is not a durable identity. When the
+   provider ID is absent, bind attachments only to one exact, unique buyer-body match; preserve the
+   verified byte count and SHA-256 requirements and continue to fail closed on zero or multiple matches.
+   Reordered and ambiguous-message regressions pass with the wider semantic suite, 39/39.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

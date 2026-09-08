@@ -789,6 +789,49 @@ def test_merge_verified_dm_attachments_uses_exact_index_and_body_when_ids_are_ab
     assert dom["messages"][0]["verified_attachments"][0]["sha256"] == "c" * 64
 
 
+def test_merge_verified_dm_attachments_rebinds_unique_exact_body_after_reorder():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": None, "author_path": "/users/buyer", "body": "newer"},
+        {"message_id": None, "author_path": "/users/buyer", "body": "添付です"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "text": "添付です",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "file.xlsx",
+            "bytes": 100, "sha256": "f" * 64,
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }],
+    }
+
+    queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+    assert "verified_attachments" not in dom["messages"][0]
+    assert dom["messages"][1]["verified_attachments"][0]["sha256"] == "f" * 64
+
+
+def test_merge_verified_dm_attachments_rejects_ambiguous_exact_body():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": None, "author_path": "/users/buyer", "body": "添付です"},
+        {"message_id": None, "author_path": "/users/buyer", "body": "添付です"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "text": "添付です",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "file.xlsx",
+            "bytes": 100, "sha256": "f" * 64, "content_type": "application/octet-stream",
+        }],
+    }
+
+    with pytest.raises(queue_snapshot.CollectorUnhealthy, match="dm_attachment_message_identity_changed"):
+        queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+
 def test_verified_attachment_denial_debt_allows_one_correction():
     rows = [
         {
