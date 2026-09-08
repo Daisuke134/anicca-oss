@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ARTICLE_ROOT="${ARTICLE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd -P)}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh" || exit $?
 T=$(TZ=Asia/Tokyo date +%Y-%m-%d)
-EXP="$HOME/.openclaw/workspace/experience-log/$T.jsonl"
-STATE_DIR="${ARTICLE_STATE_DIR:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}/state}"
+EXP="${WRITER_EXPERIENCE_DIR:-$WRITER_STATE_DIR/experience-log}/$T.jsonl"
+STATE_DIR="$WRITER_STATE_DIR"
 OUT="$STATE_DIR/daily-lesson-$T.md"
 if [ ! -s "$EXP" ]; then
   echo "EMPTY experience-log: $EXP" >&2

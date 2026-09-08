@@ -23,7 +23,7 @@ STATE_PREFIXES = (
     ".self-fix-writer-agent",
 )
 LOG_PREFIXES = ("article-", "writer-")
-LOG_NAMES = {"self-fix-writer-agent.log"}
+LOG_NAMES = {"note-eyecatch.log", "self-fix-writer-agent.log"}
 
 
 def selected_files(source_root: Path) -> dict[Path, Path]:
@@ -66,6 +66,19 @@ def selected_files(source_root: Path) -> dict[Path, Path]:
                     files[item.relative_to(source_root)] = (
                         Path("logs/article-writer") / item.relative_to(article_logs)
                     )
+
+    seo_root = source_root / "skills/anicca-seo-rank-monitor/state"
+    if seo_root.is_symlink():
+        raise ValueError(f"symlink legacy Writer SEO state is not allowed: {seo_root}")
+    if seo_root.exists():
+        if not seo_root.is_dir():
+            raise ValueError(f"legacy Writer SEO state is not a directory: {seo_root}")
+        reject_symlinks(seo_root)
+        for item in sorted(seo_root.rglob("*")):
+            if item.is_file():
+                files[item.relative_to(source_root)] = (
+                    Path("seo-rank-monitor") / item.relative_to(seo_root)
+                )
     return files
 
 

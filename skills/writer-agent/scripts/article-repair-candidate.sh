@@ -22,7 +22,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOM
 
 ARTICLE_ROOT="${ARTICLE_ROOT:-${ARTICLE_SKILL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
 # shellcheck source=writer-runtime-env.sh
-source "$ARTICLE_ROOT/scripts/writer-runtime-env.sh"
+source "$ARTICLE_ROOT/scripts/writer-runtime-env.sh" || exit $?
 STATE_DIR="$WRITER_STATE_DIR"
 LOG="${ARTICLE_REPAIR_LOG:-$WRITER_LOG_DIR/article-repair-candidate.log}"
 MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"

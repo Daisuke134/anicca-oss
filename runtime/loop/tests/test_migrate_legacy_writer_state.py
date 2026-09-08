@@ -23,6 +23,7 @@ class WriterMigrationTest(unittest.TestCase):
         target = root / "writer"
         (source / "state").mkdir(parents=True)
         (source / "logs/article-writer/nested").mkdir(parents=True)
+        (source / "skills/anicca-seo-rank-monitor/state").mkdir(parents=True)
         target.mkdir()
         os.chmod(target, 0o751)
         (target / "money.sqlite3").write_text("current business state\n")
@@ -33,21 +34,25 @@ class WriterMigrationTest(unittest.TestCase):
         (source / "logs/writer-report.log").write_text("writer\n")
         (source / "logs/article-daily.log").write_text("article\n")
         (source / "logs/self-fix-writer-agent.log").write_text("self-fix\n")
+        (source / "logs/note-eyecatch.log").write_text("eyecatch\n")
         (source / "logs/unrelated.log").write_text("ignore\n")
         (source / "logs/article-writer/nested/run.log").write_text("nested\n")
+        (source / "skills/anicca-seo-rank-monitor/state/ranks.jsonl").write_text("rank\n")
         return temporary, source, target
 
     def test_allowlist_copies_into_existing_writer_store(self):
         temporary, source, target = self.stores()
         self.addCleanup(temporary.cleanup)
         result = MODULE.migrate(source, target)
-        self.assertEqual(result, {"copied": 6, "skipped": 0, "verified": 6, "sealed": False})
+        self.assertEqual(result, {"copied": 8, "skipped": 0, "verified": 8, "sealed": False})
         self.assertEqual((target / "money.sqlite3").read_text(), "current business state\n")
         self.assertEqual(target.stat().st_mode & 0o777, 0o751)
         self.assertEqual((target / "owned-elsewhere").stat().st_mode & 0o777, 0o755)
         self.assertEqual((target / "logs").stat().st_mode & 0o777, 0o700)
         self.assertFalse((target / "unrelated.json").exists())
         self.assertFalse((target / "logs/unrelated.log").exists())
+        self.assertEqual((target / "logs/note-eyecatch.log").read_text(), "eyecatch\n")
+        self.assertEqual((target / "seo-rank-monitor/ranks.jsonl").read_text(), "rank\n")
 
     def test_unrelated_existing_target_symlink_is_ignored(self):
         temporary, source, target = self.stores()
@@ -56,14 +61,14 @@ class WriterMigrationTest(unittest.TestCase):
         outside.mkdir()
         (target / "owned-elsewhere/link").symlink_to(outside, target_is_directory=True)
         result = MODULE.migrate(source, target)
-        self.assertEqual(result["verified"], 6)
+        self.assertEqual(result["verified"], 8)
         self.assertTrue((target / "owned-elsewhere/link").is_symlink())
 
     def test_unchanged_rerun_and_owned_update(self):
         temporary, source, target = self.stores()
         self.addCleanup(temporary.cleanup)
         MODULE.migrate(source, target)
-        self.assertEqual(MODULE.migrate(source, target)["skipped"], 6)
+        self.assertEqual(MODULE.migrate(source, target)["skipped"], 8)
         legacy = source / "logs/writer-report.log"
         legacy.write_text("writer updated\n")
         with self.assertRaisesRegex(ValueError, "sealed idle cutover"):
@@ -148,7 +153,7 @@ class WriterMigrationTest(unittest.TestCase):
 
         with mock.patch.object(legacy_state_mirror, "atomic_json", side_effect=mutate_after_preflight):
             result = MODULE.migrate(source, target)
-        self.assertEqual(result["verified"], 6)
+        self.assertEqual(result["verified"], 8)
         self.assertEqual((target / "logs/writer-report.log").read_text(), "latest source\n")
 
     def test_existing_file_as_target_parent_fails_before_marker(self):

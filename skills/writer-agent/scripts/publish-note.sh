@@ -64,9 +64,9 @@ export PYTHONPATH="$NOTE_MCP_SRC${PYTHONPATH:+:$PYTHONPATH}"
 # Life Manager managed Python has cloakbrowser for the table-to-PNG render step.
 CLOAK_PY="$WRITER_BROWSER_PYTHON"
 
-# Ensure camofox daemon is up
+# Ensure the repository-owned camofox daemon is up.
 curl -sS --max-time 3 http://localhost:9377/health >/dev/null 2>&1 || \
-  bash "$HOME/.openclaw/skills/camofox-browser/scripts/start.sh" >/dev/null 2>&1 || true
+  bash "$LIFE_MANAGER_REPO/skills/camofox-browser/scripts/start.sh" >/dev/null 2>&1 || true
 sleep 2
 
 # Step 1: Login via camofox if needed, extract _note_session_v5 cookie

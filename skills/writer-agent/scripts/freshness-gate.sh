@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ARTICLE_ROOT="${ARTICLE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd -P)}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh" || exit $?
 TITLE="$1"
-HIST="$HOME/.openclaw/skills/_shared/account-history.jsonl"
+HIST="${WRITER_ACCOUNT_HISTORY:-$WRITER_STATE_DIR/content-library/account-history.jsonl}"
 [ ! -f "$HIST" ] && { echo "OK no history"; exit 0; }
 TMP=$(mktemp); trap 'rm -f "$TMP"' EXIT
 printf '%s\n' "$TITLE" | tr ' ' '\n' | grep -v '^$' | sort -u > "$TMP"

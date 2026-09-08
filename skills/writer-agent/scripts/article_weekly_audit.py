@@ -308,8 +308,7 @@ def audit(
             states.append(path)
     runs = [audit_run(skill_dir, path, ledger) for path in states]
     seo = seo_evidence(
-        Path.home()
-        / ".openclaw/skills/anicca-seo-rank-monitor/state"
+        Path(os.environ.get("WRITER_SEO_STATE_DIR", state_root / "seo-rank-monitor"))
     )
     failures = [
         failure

@@ -10,7 +10,11 @@
 # Usage: identity-gate.sh <article.md> [--lang ja|en]
 # stdout: one JSON line {"verdict":"PASS|FAIL","violations":[...]} ; exit 0 only on PASS.
 set -uo pipefail
-MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}/runtime/model-runner.sh}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ARTICLE_ROOT="${ARTICLE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd -P)}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh" || exit $?
+MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"
 
 MD=""; LANG_A="ja"
 POSITIONAL=()
@@ -22,7 +26,7 @@ esac; done
 [ -z "$MD" ] && [ ${#POSITIONAL[@]} -gt 0 ] && MD="${POSITIONAL[0]}"
 [ -f "$MD" ] || { echo "FATAL: usage: identity-gate.sh <article.md> [--lang ja|en]" >&2; exit 2; }
 
-GATES_LOG="${ARTICLE_GATES_LOG:-$HOME/.openclaw/logs/article-gates.log}"
+GATES_LOG="${ARTICLE_GATES_LOG:-$WRITER_LOG_DIR/article-gates.log}"
 log_gate_verdict() {
   mkdir -p "$(dirname "$GATES_LOG")" 2>/dev/null || return 0
   printf '%s script=identity-gate.sh md=%s lang=%s verdict=%s\n' \

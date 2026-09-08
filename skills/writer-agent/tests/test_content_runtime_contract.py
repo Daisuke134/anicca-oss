@@ -37,6 +37,16 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
             SCRIPTS / "propose.sh",
             SCRIPTS / "run.sh",
             SCRIPTS / "seo-gate.sh",
+            SCRIPTS / "publish-note.sh",
+            SCRIPTS / "freshness-gate.sh",
+            SCRIPTS / "extract-daily-lesson.sh",
+            SCRIPTS / "identity-gate.sh",
+            SCRIPTS / "deslop-gate.sh",
+            SCRIPTS / "eval-gate.sh",
+            SCRIPTS / "conscience-gate.sh",
+            SCRIPTS / "render-verify-draft.sh",
+            SCRIPTS / "article_weekly_audit.py",
+            SCRIPTS / "note-publish/set-eyecatch-draft.py",
             ROOT / "skills/_shared/propose-and-rewrite.sh",
             ROOT / "skills/_shared/lib/account-history.sh",
             ROOT / "skills/_shared/lib/experience-log.sh",
@@ -47,6 +57,24 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
                 body = path.read_text(encoding="utf-8")
                 self.assertNotIn("$HOME/.openclaw", body)
                 self.assertNotIn("${ANICCA_HOME", body)
+
+    def test_shared_gate_refuses_legacy_runtime_root(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = subprocess.run(
+                ["bash", str(SCRIPTS / "freshness-gate.sh"), "portable title"],
+                text=True,
+                capture_output=True,
+                env={
+                    **os.environ,
+                    "HOME": temp,
+                    "LIFE_MANAGER_REPO": str(ROOT),
+                    "LIFE_MANAGER_ENV_FILE": str(Path(temp) / "missing.env"),
+                    "ARTICLE_STATE_DIR": str(Path(temp) / ".openclaw/state"),
+                },
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("OK no history", result.stdout)
+            self.assertIn("refuses legacy", result.stderr)
 
     def test_entrypoints_have_no_operator_identity_defaults(self):
         body = "\n".join(

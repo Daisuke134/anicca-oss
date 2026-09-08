@@ -63,7 +63,13 @@ try:
     # ever lost, there is no way to confirm after the fact whether an eyecatch actually
     # landed. One append-only line per attempt, timestamped and keyed by NOTE_KEY.
     try:
-        log_path = os.path.expanduser("~/.openclaw/logs/note-eyecatch.log")
+        log_path = os.path.join(
+            os.environ.get(
+                "WRITER_LOG_DIR",
+                os.path.expanduser("~/.local/state/life-manager/writer/logs"),
+            ),
+            "note-eyecatch.log",
+        )
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
         with open(log_path, "a") as lf:
             lf.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} key={KEY} {result_line}\n")
