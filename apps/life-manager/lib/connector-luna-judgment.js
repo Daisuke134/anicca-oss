@@ -110,6 +110,9 @@ async function runLocalAgentRunner(input = {}, deps = {}) {
       "--loop", "connector",
       "--workdir", repoRoot,
       "--timeout-seconds", String(Math.ceil(timeoutMs / 1_000)),
+      ...(taskClass === "browser-lane-agent" ? [
+        "--escalation-reason", "unknown event registration UI requires bounded visual judgment",
+      ] : []),
       ...(readOnly ? ["--read-only"] : []),
     ];
     const env = { ...process.env };
