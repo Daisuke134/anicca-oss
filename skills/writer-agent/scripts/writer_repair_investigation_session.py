@@ -180,10 +180,10 @@ def read_deployed_commit(state_root: Path) -> str | None:
 
     Owned by `self_improve_control.update_deployed_commit`, which refuses any
     value that is not a full lowercase git object id equal to the runtime
-    checkout's HEAD, and writes it atomically with fsync. `config/state-
-    lifecycle.json` classes it `immutable-receipt`: "deployed revision receipt
-    for the installed loop". It is therefore the code-version marker for this
-    runtime, and this module must not invent a second one.
+    checkout's HEAD, and writes it atomically with fsync. The shared cleanup
+    contract only admits marked terminal run directories beneath `runs/`, so
+    this root-level receipt is outside its deletion boundary. It is the one
+    code-version marker for this runtime; this module must not invent another.
     """
     marker = state_root / "deployed-commit"
     if not marker.is_file():
