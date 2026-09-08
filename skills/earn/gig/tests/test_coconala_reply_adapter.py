@@ -159,7 +159,7 @@ def test_semantic_composer_refreshes_required_official_application_once():
 
         def official_application_context(self, _thread_id):
             self.version = 2
-            return {"proposal_id": "7"}
+            return {"application": {"proposal_id": "7"}}
 
     calls = []
 
@@ -179,6 +179,36 @@ def test_semantic_composer_refreshes_required_official_application_once():
     result = adapter_module.CoconalaSemanticComposer(Adapter(), judge)({"thread_id": "12"})
     assert result["reply_body"] == "対応可能です。"
     assert calls[1] == ({"version": 2}, {"official_context": {"application": {"proposal_id": "7"}}})
+
+
+def test_semantic_composer_passes_multiple_verified_applications_without_guessing():
+    applications = [{"offer_id": "7"}, {"offer_id": "8"}]
+
+    class Adapter:
+        def semantic_dom(self, _thread_id):
+            return {"version": "official"}
+
+        def official_application_context(self, _thread_id):
+            return {"applications": applications}
+
+    calls = []
+
+    def judge(dom, _url, **kwargs):
+        calls.append((dom, kwargs))
+        if not kwargs:
+            return {"judgement": {
+                "next_action": "wait", "required_official_context": "application",
+                "uncertainty": ["公式応募条件"],
+            }}
+        return {"judgement": {
+            "next_action": "reply", "required_official_context": "none",
+            "reply_body": "対応可能です。",
+        }}
+
+    result = adapter_module.CoconalaSemanticComposer(Adapter(), judge)({"thread_id": "12"})
+
+    assert result["reply_body"] == "対応可能です。"
+    assert calls[1][1] == {"official_context": {"applications": applications}}
 
 
 def _estimate_intent():
