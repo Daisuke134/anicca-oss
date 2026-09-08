@@ -4844,7 +4844,12 @@ def _write_file_effect(args, item_path: Path, output: Path, prepared: dict[str, 
         manifest = _validate_file_authorization(root, stable, feedback, requirements_sha256)
         base = args.evidence_dir / "paid-direct" / room
         presend = base / "presend" / "selected-talkroom-snapshot.json"
-        _run(_collector(args, "selected-talkroom-only", presend, presend.parent, item_path, prepared), "presend_readback")
+        _reclaim_browser_owner(args, f"paid-direct-{room}")
+        environment = _fresh_child_env(args, owner=f"paid-direct-{room}")
+        _run(
+            _collector(args, "selected-talkroom-only", presend, presend.parent, item_path, prepared),
+            "presend_readback", env=environment,
+        )
         row = _row(_load(presend), room)
         if (_text(row.get("buyer_feedback_sha256")) != feedback
                 or paid_remote_result.requirements_digest(root, feedback) != requirements_sha256):
@@ -5065,7 +5070,12 @@ def _write_one(args, item_path: Path, output: Path) -> int:
         if _load(answer_snapshot) != answer_payload: raise Failure("answer_snapshot")
         repaired = prepared.get("remote_repaired") is True if isinstance(prepared, dict) else False
         presend = base / "presend" / "selected-talkroom-snapshot.json"
-        _run(_collector(args, "selected-talkroom-only", presend, presend.parent, item_path, item), "presend_readback")
+        _reclaim_browser_owner(args, f"paid-direct-{room}")
+        environment = _fresh_child_env(args, owner=f"paid-direct-{room}")
+        _run(
+            _collector(args, "selected-talkroom-only", presend, presend.parent, item_path, item),
+            "presend_readback", env=environment,
+        )
         presend_row = _row(_load(presend), room)
         if (_text(presend_row.get("buyer_feedback_sha256")) != feedback
                 or paid_remote_result.requirements_digest(root, feedback) != requirements_sha256):
