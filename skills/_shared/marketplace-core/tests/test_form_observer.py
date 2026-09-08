@@ -393,5 +393,174 @@ def test_step_requirements_is_not_vacuous_when_restricted_to_known_names():
     assert "業種" in restored
 
 
+# --- clickable_controls: census of every visible, plausibly-clickable control -----------------
+#
+# A minimal live-page fake distinct from _LivePage above: clickable_controls() drives real
+# Playwright CSS-tag selectors ("button", "a", 'input[type="submit"]', ...) directly against the
+# page, not the positional nth-of-type locators observe_page's own field walk issues -- so this
+# fake dispatches by exact selector string, the same convention
+# skills/earn/lancers/tests/test_create_package.py's own _FakeCreatePage.locator() already uses.
+
+class _ClickableElement:
+    def __init__(self, *, tag, text="", attrs=None, visible=True, img_alt=None, outer_html=None):
+        self.tag = tag
+        self._text = text
+        self._attrs = dict(attrs or {})
+        self._visible = visible
+        self._img_alt = img_alt
+        self._outer_html = outer_html
+        self.clicks = 0
+
+    def is_visible(self) -> bool:
+        return self._visible
+
+    def inner_text(self) -> str:
+        return self._text
+
+    def get_attribute(self, name: str) -> str | None:
+        return self._attrs.get(name)
+
+    def click(self, **_kwargs) -> None:
+        self.clicks += 1
+
+    def evaluate(self, script: str) -> str | None:
+        if "outerHTML" in script:
+            return self._outer_html if self._outer_html is not None else f"<{self.tag}>{self._text}</{self.tag}>"
+        if "tagName" in script:
+            return self.tag
+        raise NotImplementedError(script)
+
+    def locator(self, selector: str):
+        if selector == "img" and self._img_alt is not None:
+            return _ClickableList([_ClickableImg(self._img_alt)])
+        return _ClickableList([])
+
+
+class _ClickableImg:
+    def __init__(self, alt: str):
+        self._alt = alt
+
+    def get_attribute(self, name: str) -> str | None:
+        return self._alt if name == "alt" else None
+
+
+class _ClickableList:
+    def __init__(self, items):
+        self._items = list(items)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def all(self):
+        return list(self._items)
+
+
+class _ClickablePage:
+    def __init__(self, by_selector: dict[str, list[_ClickableElement]]):
+        self._by_selector = by_selector
+
+    def locator(self, selector: str):
+        return _ClickableList(self._by_selector.get(selector, []))
+
+
+def test_clickable_controls_finds_a_link_a_role_button_div_and_a_submit_input_not_only_button():
+    """1. The census's reach extends past <button>: an <a>, a [role="button"] div, and an
+    input[type=submit] are all found."""
+    link = _ClickableElement(tag="a", text="次へ")
+    role_div = _ClickableElement(tag="div", text="公開する")
+    submit_input = _ClickableElement(tag="input", text="", attrs={"value": "送信"})
+    page = _ClickablePage({
+        "a": [link],
+        '[role="button"]': [role_div],
+        'input[type="submit"]': [submit_input],
+    })
+
+    census = observer.clickable_controls(page)
+
+    assert sorted(record["tag"] for record in census) == ["a", "div", "input"]
+
+
+def test_clickable_controls_reports_a_control_named_only_by_aria_label():
+    """2. A control with no visible text is still found and named, via aria-label."""
+    control = _ClickableElement(tag="button", text="", attrs={"aria-label": "公開する"})
+    page = _ClickablePage({"button": [control]})
+
+    [record] = observer.clickable_controls(page)
+
+    assert record["text"] == ""
+    assert record["aria_label"] == "公開する"
+    assert observer.clickable_accessible_names(record) == ["公開する"]
+
+
+def test_clickable_controls_reports_a_control_named_only_by_value():
+    """3. A control with no visible text is still found and named, via its value attribute."""
+    control = _ClickableElement(tag="input", text="", attrs={"value": "送信"})
+    page = _ClickablePage({'input[type="submit"]': [control]})
+
+    [record] = observer.clickable_controls(page)
+
+    assert record["value"] == "送信"
+    assert observer.clickable_accessible_names(record) == ["送信"]
+
+
+def test_clickable_controls_reports_a_nested_img_alt_when_text_is_empty():
+    """4. A button with empty text but a nested img[alt] is reported with that alt -- but img_alt
+    is never itself an accessible-name source (see the module comment above clickable_controls --
+    no live form has ever been observed naming a control that way)."""
+    control = _ClickableElement(tag="button", text="", img_alt="公開アイコン")
+    page = _ClickablePage({"button": [control]})
+
+    [record] = observer.clickable_controls(page)
+
+    assert record["text"] == ""
+    assert record["img_alt"] == "公開アイコン"
+    assert observer.clickable_accessible_names(record) == []
+
+
+def test_clickable_controls_excludes_invisible_controls():
+    control = _ClickableElement(tag="button", text="次へ", visible=False)
+    page = _ClickablePage({"button": [control]})
+
+    assert observer.clickable_controls(page) == []
+
+
+def test_clickable_public_record_strips_the_private_element_reference():
+    control = _ClickableElement(tag="button", text="次へ")
+    page = _ClickablePage({"button": [control]})
+
+    [record] = observer.clickable_controls(page)
+    public = observer.clickable_public_record(record)
+
+    assert "_element" not in public
+    assert public["text"] == "次へ"
+
+
+def test_clickable_controls_outer_html_is_hard_truncated():
+    long_html = '<button class="c-btn">' + ("次へ" * 200) + "</button>"
+    control = _ClickableElement(tag="button", text="次へ", outer_html=long_html)
+    page = _ClickablePage({"button": [control]})
+
+    [record] = observer.clickable_controls(page)
+
+    assert record["outer_html"].endswith(observer._CLICKABLE_TRUNCATION_MARKER)
+    assert len(record["outer_html"]) == observer._CLICKABLE_OUTER_HTML_MAX_CHARS + len(observer._CLICKABLE_TRUNCATION_MARKER)
+
+
+# --- proof test 1 above is not vacuous: narrow the census to <button> only ---------------------
+
+def test_clickable_controls_reach_is_not_vacuous_when_narrowed_to_button_only():
+    link = _ClickableElement(tag="a", text="次へ")
+    page = _ClickablePage({"button": [], "a": [link]})
+    original = observer._CLICKABLE_TAG_SELECTORS
+    observer._CLICKABLE_TAG_SELECTORS = (("button", "button"),)
+    try:
+        assert observer.clickable_controls(page) == []
+    finally:
+        observer._CLICKABLE_TAG_SELECTORS = original
+
+    restored = observer.clickable_controls(page)
+    assert [record["tag"] for record in restored] == ["a"]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

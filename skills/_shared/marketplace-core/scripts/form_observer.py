@@ -43,6 +43,9 @@ from typing import Any, Mapping, Sequence
 __all__ = [
     "observe_html",
     "observe_page",
+    "clickable_controls",
+    "clickable_accessible_names",
+    "clickable_public_record",
     "diff_vocabulary",
 ]
 
@@ -635,6 +638,142 @@ def observe_page(page: Any, *, confirm_dependents: Sequence[Mapping[str, str]] |
     # value" are both facts only a live DOM knows.
     report["step_requirements"] = _step_requirements(page, root)
     return report
+
+
+# ---------------------------------------------------------------------------------
+# Clickable-control census: every visible, plausibly-clickable control on a live page, with every
+# accessible-name source a caller might match a label against.
+#
+# This shipped from a marketplace wake whose wizard-advance search could not find its own final
+# step's own submit control: the search looked only at <button> elements' own visible text, so a
+# control expressed as an <a>, an input[type=submit]/input[type=button], or a [role="button"]
+# element -- or a real <button> whose accessible name lives in an aria-label, a title, or a
+# value rather than in its own text -- was invisible to it. The one visible <button> that search
+# did find carried no text at all; the real control was almost certainly one of these other
+# shapes, but the search had no way to say so because it never looked.
+#
+# clickable_controls() is the fix: one census covering every shape a "move this listing forward"
+# control has actually been observed to take, live-only (Playwright, never observe_html, since
+# visibility is exactly what decides which control on a multi-step wizard is real right now).
+# Each record already resolves to a genuinely interactive element -- never a bare text node
+# needing an ancestor climb -- so a caller matches directly against clickable_accessible_names()
+# and either gets exactly one control or a named failure carrying the whole census; it never
+# falls back to "the only visible control".
+# ---------------------------------------------------------------------------------
+
+_CLICKABLE_TAG_SELECTORS: tuple[tuple[str | None, str], ...] = (
+    ("button", "button"),
+    ("a", "a"),
+    ("input", 'input[type="submit"]'),
+    ("input", 'input[type="button"]'),
+    (None, '[role="button"]'),
+)
+_CLICKABLE_OUTER_HTML_MAX_CHARS = 300
+_CLICKABLE_TRUNCATION_MARKER = "...(truncated)"
+# The only sources this module will ever say name a control -- deliberately excludes img_alt:
+# an <img>'s alt text describes the image, not necessarily the control's own action, and no live
+# marketplace form has ever been observed relying on it to name a control. img_alt is still
+# carried on every record (see _clickable_record) so a human reading a failure report can see it;
+# it is simply never one of the sources a caller matches a label against.
+_CLICKABLE_ACCESSIBLE_NAME_KEYS = ("text", "aria_label", "title", "value")
+
+
+def _clickable_safe(fn, default: Any = None) -> Any:
+    try:
+        return fn()
+    except Exception:
+        return default
+
+
+def _clickable_hard_truncate(value: Any, max_chars: int) -> str | None:
+    if not isinstance(value, str):
+        return None
+    if len(value) <= max_chars:
+        return value
+    return value[:max_chars] + _CLICKABLE_TRUNCATION_MARKER
+
+
+def _clickable_img_alt(element: Any) -> str | None:
+    """A nested <img>'s alt text, when this control has one -- the fact that lets a button with
+    no text of its own (an icon-only control) still be identified in a failure report. Reported
+    for identification only; see the module comment above for why it is never a match source."""
+    try:
+        images = element.locator("img")
+        if images.count() < 1:
+            return None
+        return images.all()[0].get_attribute("alt")
+    except Exception:
+        return None
+
+
+def _clickable_record(element: Any, known_tag: str | None) -> dict[str, Any]:
+    """Everything this module can say about one clickable element: which accessible-name sources
+    it carries (text/aria-label/title/value, plus img_alt for identification only -- see
+    _CLICKABLE_ACCESSIBLE_NAME_KEYS), its tag and type, and a hard-truncated outerHTML so a human
+    can tell at a glance whether an unmatched control is a real submit button or something else
+    entirely. `known_tag` is the tag the selector that found this element already names (button/
+    a/input); only the generic [role="button"] selector needs a live tagName read. Every fact is
+    independent and best-effort -- one field this can't read off a given element reports None
+    rather than failing the whole record.
+    """
+    tag = known_tag or _clickable_safe(lambda: element.evaluate("el => el.tagName.toLowerCase()"))
+    text = " ".join(str(_clickable_safe(lambda: element.inner_text(), "") or "").split())
+    return {
+        "tag": tag,
+        "type": _clickable_safe(lambda: element.get_attribute("type")),
+        "text": text,
+        "aria_label": _clickable_safe(lambda: element.get_attribute("aria-label")),
+        "title": _clickable_safe(lambda: element.get_attribute("title")),
+        "value": _clickable_safe(lambda: element.get_attribute("value")),
+        "img_alt": _clickable_img_alt(element),
+        "outer_html": _clickable_hard_truncate(
+            _clickable_safe(lambda: element.evaluate("el => el.outerHTML")),
+            _CLICKABLE_OUTER_HTML_MAX_CHARS,
+        ),
+        # Popped by clickable_public_record() before a census ever reaches a serialized report --
+        # kept here so the one function that built this record is also the one a caller can click
+        # through without a second, separate lookup back into the live page.
+        "_element": element,
+    }
+
+
+def clickable_controls(page: Any) -> list[dict[str, Any]]:
+    """Census of every visible, plausibly-clickable control on the live page: <button>, <a>,
+    input[type=submit], input[type=button], and [role="button"] -- the reach a "move this listing
+    forward" control has actually been observed taking on a real marketplace wizard (see the
+    module comment above). Never raises: a selector this page's own Playwright surface cannot
+    resolve, or one element this cannot read a visibility/text/attribute fact from, is simply
+    excluded or reported with that one fact missing -- never the reason the whole census fails.
+    """
+    records: list[dict[str, Any]] = []
+    for known_tag, selector in _CLICKABLE_TAG_SELECTORS:
+        try:
+            elements = page.locator(selector).all()
+        except Exception:
+            continue
+        for element in elements:
+            if not _clickable_safe(lambda: element.is_visible(), False):
+                continue
+            records.append(_clickable_record(element, known_tag))
+    return records
+
+
+def clickable_accessible_names(record: Mapping[str, Any]) -> list[str]:
+    """Every accessible-name source a caller may match one of clickable_controls()'s records
+    against: visible text, aria-label, title, and (for an input[type=submit|button]) its value --
+    trimmed, empties excluded. Deliberately excludes img_alt; see the module comment above."""
+    names = []
+    for key in _CLICKABLE_ACCESSIBLE_NAME_KEYS:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            names.append(value.strip())
+    return names
+
+
+def clickable_public_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    """`record` with its private `_element` popped -- the JSON-safe shape a failure report
+    serializes, never the raw census a caller searches against."""
+    return {key: value for key, value in record.items() if not key.startswith("_")}
 
 
 # ---------------------------------------------------------------------------------

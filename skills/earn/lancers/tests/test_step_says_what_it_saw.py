@@ -216,8 +216,9 @@ def test_the_manual_chooser_call_site_passes_its_own_context():
 
 def test_advance_failures_never_go_through_step_at_all():
     """_click_create_next_button (the wizard's 次へ) resolves its own click target independently
-    of _step() -- see _resolve_create_advance_control's docstring, which says so explicitly. A
-    chooser failure and an advance failure are distinguishable in the error precisely because
+    of _step() -- via the shared clickable-control census (see _create_click_census's docstring),
+    never via _step()'s own get_by_text mechanism. A chooser failure and an advance failure are
+    distinguishable in the error precisely because
     they are raised by two different functions with two different prefixes: form_changed(:
     <context>) from _step(), create_step_stalled: <step> from _advance_create_step()."""
     source = SCRIPT.read_text(encoding="utf-8")
