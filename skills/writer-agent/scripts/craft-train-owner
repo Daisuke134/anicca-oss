@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+source "$ROOT/skills/writer-agent/scripts/writer-runtime-env.sh"
+
+"$ROOT/skills/writer-agent/scripts/craft-train.sh" "$@"
+exec "$ROOT/skills/writer-agent/scripts/craft-train-notify.sh"

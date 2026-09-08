@@ -2709,6 +2709,7 @@
       "state_root": "~/.local/state/life-manager/writer"
     },
     "writer-craft-train": {
+      "adapter": "exec",
       "cadence": {
         "calendar_interval": {
           "Hour": 23,
@@ -2721,10 +2722,12 @@
       },
       "domain": "earn",
       "effect_class": "none",
-      "entrypoint": "skills/writer-agent/scripts/craft-train-notify.sh",
+      "command": [],
+      "entrypoint": "skills/writer-agent/scripts/craft-train-owner",
       "label": "ai.anicca.writer-craft-train",
       "log_root": "~/.local/state/life-manager/writer/logs",
       "provider_route": "shared-agent-runner",
+      "runtime_timeout_seconds": 25200,
       "state_root": "~/.local/state/life-manager/writer"
     },
     "writer-money-sync": {

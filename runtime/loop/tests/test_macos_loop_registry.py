@@ -415,6 +415,21 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "skills/writer-agent/scripts/money-sync-owner",
         )
 
+    def test_writer_craft_train_runs_training_before_notification(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        row = registry["loops"]["writer-craft-train"]
+        self.assertEqual(row["adapter"], "exec")
+        self.assertEqual(row["command"], [])
+        self.assertEqual(row["runtime_timeout_seconds"], 25200)
+        self.assertEqual(
+            row["entrypoint"],
+            "skills/writer-agent/scripts/craft-train-owner",
+        )
+        owner = (ROOT / row["entrypoint"]).read_text()
+        self.assertIn("set -uo pipefail", owner)
+        self.assertNotIn("set -e", owner)
+        self.assertLess(owner.index('craft-train.sh'), owner.index('craft-train-notify.sh'))
+
     def test_writer_opportunity_discovery_uses_repo_owned_exec_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         row = registry["loops"]["writer-opportunity-discovery"]
