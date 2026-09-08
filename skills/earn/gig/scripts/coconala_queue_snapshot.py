@@ -391,6 +391,17 @@ TALKROOM_FULL_EXPRESSION = TALKROOM_FULL_EXPRESSION.replace(_CURRENT_STEP_JS, _T
 
 TRANSIENT_NAVIGATION_ERROR = "authenticated tab did not finish navigation"
 NAVIGATION_RETRY_ATTEMPTS = 2
+
+
+def _is_transient_tab_open_error(error: RuntimeError) -> bool:
+    message = str(error)
+    return (
+        message == TRANSIENT_NAVIGATION_ERROR
+        or (
+            message.startswith("failed to open authenticated hidden target:")
+            and "timed out" in message.lower()
+        )
+    )
 NAVIGATION_READY_STATES = frozenset({"interactive", "complete"})
 
 
@@ -2774,7 +2785,7 @@ def inspect_page_with_retry(
             if attempt == attempts - 1:
                 raise
         except RuntimeError as exc:
-            if str(exc) != TRANSIENT_NAVIGATION_ERROR or attempt == attempts - 1:
+            if not _is_transient_tab_open_error(exc) or attempt == attempts - 1:
                 raise
     raise AssertionError("unreachable navigation retry state")
 
