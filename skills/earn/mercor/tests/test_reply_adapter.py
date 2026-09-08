@@ -255,6 +255,8 @@ def test_owner_and_registry_use_shared_reply_kernel():
     assert "_shared/marketplace-core/scripts/reply_kernel.py" in owner
     assert "mercor_auth_readback" in owner
     assert "mercor_email_auth" not in owner
+    assert '"$LEASE_SCRIPT" release "$TASK"' in owner
+    assert "never retry more than once per wake" in owner
     row = registry["loops"]["mercor-revenue-reply"]
     assert row["entrypoint"] == "skills/earn/mercor/scripts/reply-owner"
     assert row["cadence"]["start_interval_seconds"] == 300
