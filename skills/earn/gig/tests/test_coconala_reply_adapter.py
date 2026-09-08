@@ -73,6 +73,20 @@ def test_mutation_and_official_readback_remain_provider_specific(tmp_path):
     assert effects == ["回答"]
 
 
+def test_official_sending_restriction_is_the_only_classified_mutation_wait(tmp_path):
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+    )
+
+    assert adapter.classify_mutation_error(
+        RuntimeError("submit_rejected_sending_unavailable")
+    ) == {
+        "reason": "provider_sending_unavailable",
+        "remaining_work": ["Wait for the provider message control to become available"],
+    }
+    assert adapter.classify_mutation_error(RuntimeError("network_timeout")) is None
+
+
 def test_default_runtime_paths_stay_inside_the_release(tmp_path):
     adapter = adapter_module.CoconalaReplyAdapter(
         state_root=tmp_path,

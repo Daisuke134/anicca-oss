@@ -201,6 +201,30 @@ def test_one_thread_failure_is_isolated(tmp_path):
     assert replay["items"][0]["failed"] == 0
 
 
+def test_authoritative_provider_rejection_becomes_durable_external_wait(tmp_path):
+    class Restricted(Adapter):
+        def mutate(self, _intent):
+            raise RuntimeError("submit_rejected_sending_unavailable")
+
+        def classify_mutation_error(self, error):
+            assert str(error) == "submit_rejected_sending_unavailable"
+            return {
+                "reason": "provider_sending_unavailable",
+                "remaining_work": ["Wait for the provider message control to become available"],
+            }
+
+    result = reply_kernel.run_wake(
+        adapter=Restricted(),
+        decide=lambda _context: {"action": "reply", "payload": {"body": "Thanks"}},
+        state_root=tmp_path,
+    )
+
+    assert result["failed"] == 0
+    assert result["pending"] == 1
+    assert result["effect"] == 0
+    assert result["items"][0]["reason"] == "provider_sending_unavailable"
+
+
 def test_duplicate_thread_inventory_is_rejected(tmp_path):
     adapter = Adapter([event(), event()])
     try:

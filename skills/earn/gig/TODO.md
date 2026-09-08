@@ -1068,8 +1068,13 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    older than the complete current DOM window and exactly one counterparty identity exists; a missing or
    invalid durable manifest triggers exactly one authenticated same-thread refresh. Ambiguous identity,
    timestamp or bytes still fails closed. Coconala browser, adapter, owner and shared-kernel regressions pass
-   68/68. This is source evidence, not production acceptance. Next require a pushed-main natural terminal,
-   then close the remaining semantic and server-restriction classes, verify every effect notification, and
+   68/68. The server-side sending restriction is also an authoritative no-effect response rather than a
+   retryable mutation failure. The shared kernel now accepts an optional provider classification only at the
+   mutation-error boundary; Coconala maps only exact `submit_rejected_sending_unavailable` to a durable
+   `provider_sending_unavailable` external wait, while every other mutation error retains normal failure and
+   backoff. The combined Coconala/shared Reply regression passes 70/70. This is source evidence, not
+   production acceptance. Next require a pushed-main natural terminal, close the remaining semantic class,
+   verify every effect notification, and
    require the following replay to produce zero duplicate effect before checking this atom.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
