@@ -162,7 +162,6 @@ def mirror_files(
     target_root = resolved_non_root(target_root, "target root")
     if within(source_root, target_root) or within(target_root, source_root):
         raise ValueError("source and target overlap")
-    reject_symlinks(target_root)
     marker_path = target_root / marker_name
     has_marker = marker_path.exists()
     previous: dict = {}

@@ -49,6 +49,16 @@ class WriterMigrationTest(unittest.TestCase):
         self.assertFalse((target / "unrelated.json").exists())
         self.assertFalse((target / "logs/unrelated.log").exists())
 
+    def test_unrelated_existing_target_symlink_is_ignored(self):
+        temporary, source, target = self.stores()
+        self.addCleanup(temporary.cleanup)
+        outside = target.parent / "outside-unrelated"
+        outside.mkdir()
+        (target / "owned-elsewhere/link").symlink_to(outside, target_is_directory=True)
+        result = MODULE.migrate(source, target)
+        self.assertEqual(result["verified"], 6)
+        self.assertTrue((target / "owned-elsewhere/link").is_symlink())
+
     def test_unchanged_rerun_and_owned_update(self):
         temporary, source, target = self.stores()
         self.addCleanup(temporary.cleanup)
@@ -164,7 +174,7 @@ class WriterMigrationTest(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         (target / "logs").mkdir()
         (target / "logs/writer-report.log").symlink_to(target / "missing")
-        with self.assertRaisesRegex(ValueError, "symlink"):
+        with self.assertRaisesRegex(ValueError, "unsafe migration target"):
             MODULE.migrate(source, target)
         self.assertFalse((target / MODULE.MARKER).exists())
 
