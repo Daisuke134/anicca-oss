@@ -179,6 +179,9 @@ class CoconalaReplyAdapter:
         context["conversation"] = normalized
         context["thread_id"] = thread_id
         context["decision_required"] = True
+        context["provider_sending_unavailable"] = (
+            self._raw_threads.get(thread_id, {}).get("sending_unavailable") is True
+        )
         return context
 
     def semantic_dom(self, thread_id: str) -> dict[str, Any]:
@@ -384,6 +387,12 @@ class CoconalaSemanticComposer:
         thread_id = str(context.get("thread_id") or "").strip()
         if not thread_id:
             raise RuntimeError("coconala_thread_identity_invalid")
+        if context.get("provider_sending_unavailable") is True:
+            return {
+                "action": "wait",
+                "reason": "provider_sending_unavailable",
+                "remaining_work": ["Wait for the provider message control to become available"],
+            }
         url = f"https://coconala.com/mypage/direct_message/{thread_id}"
         receipt = self.judge(self.adapter.semantic_dom(thread_id), url)
         judgement = receipt.get("judgement") if isinstance(receipt, Mapping) else None

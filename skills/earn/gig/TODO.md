@@ -1051,6 +1051,12 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    model. Reuse the plural official reader; expose one result as `application` and multiple results as
    `applications`, without guessing which offer the conversation means. Adapter and semantic checks pass
    50/50.
+   Both `submit_rejected_sending_unavailable` failures were also observable before mutation: the official
+   DOM states that the counterparty is currently restricted, but the shared adapter dropped that field and
+   attempted a send anyway. Preserve it in normalized context and return provider-neutral
+   `waiting_external` before invoking the model or mutation. The same thread is observed again on later
+   wakes so a lifted restriction can resume; unrelated threads continue. Kernel and adapter checks pass
+   24/24.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
