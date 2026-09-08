@@ -8,7 +8,7 @@
 # sha256 compare, protected-block safety) lives in craft_train.py so it can
 # be driven by fixtures in the contract test with no live model call and no
 # live network -- this script's own job is just: export the two
-# OPENAI_COMPATIBLE_* env vars SkillOpt's openai_compatible backend needs
+# AZURE_OPENAI_* env vars SkillOpt's openai_chat/OpenAI-compatible mode needs
 # (NEVER echo the key -- without these, SkillOpt silently addresses
 # api.openai.com with the key "dummy" and burns every retry on a 401, and a
 # launchd job inherits no environment, so this is the difference between
@@ -86,15 +86,16 @@ if [ -z "$RAW_KEY" ]; then
   exit 0
 fi
 
-export OPENAI_COMPATIBLE_BASE_URL="http://127.0.0.1:${CLIPROXY_PORT}/v1"
-export OPENAI_COMPATIBLE_API_KEY="$RAW_KEY"
+export AZURE_OPENAI_ENDPOINT="http://127.0.0.1:${CLIPROXY_PORT}/v1"
+export AZURE_OPENAI_API_KEY="$RAW_KEY"
+export AZURE_OPENAI_AUTH_MODE="openai_compatible"
 unset RAW_KEY
 
 if [ ! -x "$SKILLOPT_PYTHON" ]; then
   echo "craft-train.sh: skillopt python not found/executable at $SKILLOPT_PYTHON" >&2
   exit 0
 fi
-if ! "$SKILLOPT_PYTHON" -c 'import skillopt, scripts.train' >/dev/null 2>&1; then
+if ! "$SKILLOPT_PYTHON" -c 'from skillopt.model.backend_config import set_optimizer_backend, set_target_backend; set_optimizer_backend("openai_chat"); set_target_backend("openai_chat"); import scripts.train' >/dev/null 2>&1; then
   echo "craft-train.sh: managed runtime is missing skillopt==0.2.0" >&2
   exit 0
 fi

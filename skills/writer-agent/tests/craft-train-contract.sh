@@ -646,6 +646,8 @@ requirements = (root.parent.parent / "requirements-runtime.txt").read_text(encod
 text = config.read_text(encoding="utf-8")
 assert base.is_file()
 assert "_base_: ../_base_/default.yaml" in text
+assert "optimizer_backend: openai_chat" in text
+assert "target_backend: openai_chat" in text
 assert "/tmp/SkillOpt" not in text and "/Users/anicca" not in text
 assert 'SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$PY}"' in wrapper
 assert '--split-dir "$SPLIT_DIR"' in wrapper
@@ -656,6 +658,22 @@ print("portable")
 PYEOF
 )
 check "SkillOpt trainer has no checkout/home-venv dependency" "portable" "$PORTABLE"
+
+BACKEND_CONFIG=$("$SKILLOPT_PY" - <<'PYEOF'
+from skillopt.config import flatten_config, load_config
+from skillopt.model.backend_config import set_optimizer_backend, set_target_backend
+cfg = flatten_config(load_config(
+    "vendor/skillopt-writing/configs/writing/default.yaml",
+    ["env.skill_init=/tmp/craft.md", "env.split_dir=/tmp/splits"],
+))
+set_optimizer_backend(cfg["optimizer_backend"])
+set_target_backend(cfg["target_backend"])
+assert cfg["skill_init"] == "/tmp/craft.md"
+assert cfg["split_dir"] == "/tmp/splits"
+print("accepted")
+PYEOF
+)
+check "SkillOpt 0.2.0 accepts configured backends and path overrides" "accepted" "$BACKEND_CONFIG"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
