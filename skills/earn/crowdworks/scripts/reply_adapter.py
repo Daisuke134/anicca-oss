@@ -180,9 +180,13 @@ class CrowdWorksReplyAdapter:
         if not isinstance(body, str):
             return {"authoritative_absent": True}
         rows = self._detail(intent["thread_id"])
-        for row in rows:
+        for index, row in enumerate(rows):
             if row["role"] == "seller" and row["body"].replace("\r\n", "\n") == body.replace("\r\n", "\n"):
-                return {"verified": True, "provider_receipt_id": row["event_id"], "observed_at": _now()}
+                receipt_id = row["event_id"]
+                inbox = self.rows.get(intent["thread_id"], {})
+                if index == len(rows) - 1 and inbox.get("is_replied") is True:
+                    receipt_id = _text(inbox.get("id"))
+                return {"verified": True, "provider_receipt_id": receipt_id, "observed_at": _now()}
         return {"authoritative_absent": True}
 
     def close(self) -> None:

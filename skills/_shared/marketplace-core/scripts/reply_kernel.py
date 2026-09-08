@@ -308,6 +308,16 @@ def _run_one(adapter, decide, state_root, source, notify=None):
         except Exception as error:
             state = _load(path)
             error_detail = str(error).strip()[:500] or type(error).__name__
+            if isinstance(state.get("intent"), Mapping):
+                _write(path, {
+                    **state,
+                    "status": "reconcile_unknown",
+                    "last_error": type(error).__name__,
+                    "last_error_detail": error_detail,
+                })
+                return {"thread_id": row["thread_id"], "status": "failed",
+                        "reason": type(error).__name__, "error_detail": error_detail,
+                        "effect": 0, "readback": 0, "failed": 1}
             retry_count = min(int(state.get("retry_count", 0)) + 1, 10)
             delay = min(3600, 30 * (2 ** (retry_count - 1)))
             next_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
