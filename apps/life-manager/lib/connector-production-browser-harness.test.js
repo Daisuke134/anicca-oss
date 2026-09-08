@@ -42,7 +42,7 @@ test("bounded proposer requests one structured action from Terra with sanitized 
   });
   assert.deepEqual(action, { control: "register_button" });
   assert.equal(request.taskClass, "browser-lane-agent");
-  assert.equal(request.timeoutMs, 30_000);
+  assert.equal(request.timeoutMs, 60_000);
   assert.equal(request.signal, controller.signal);
   assert.equal(request.readOnly, true);
   assert.equal(request.tokenBudget, 24_576);

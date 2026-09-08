@@ -1843,7 +1843,7 @@ function createBoundedActionProposer(options = {}) {
         },
       },
       taskClass: "browser-lane-agent",
-      timeoutMs: 30_000,
+      timeoutMs: 60_000,
       signal: input.signal,
       readOnly: true,
       tokenBudget: stepTokenBudget,
