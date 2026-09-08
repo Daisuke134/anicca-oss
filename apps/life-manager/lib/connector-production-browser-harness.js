@@ -24,6 +24,7 @@ const PEATIX_CONFIRM_URL = /^https:\/\/peatix\.com\/sales\/event\/([1-9][0-9]*)\
 const CONNPASS_FINAL_LABEL = "申し込みを確定する";
 const CONNPASS_REFERRAL_QUESTION = "このイベントは何を見て知りましたか？";
 const CONNPASS_ONLINE_LABEL = /^オンライン視聴枠（YouTube） 無料(?: 参加者数 \d+人)?$/i;
+const CONNPASS_ATTENDEE_LABEL = /^(?:参加者|オーディエンス枠) 無料 先着順(?:（抽選終了）)? \d+\/\d+人$/;
 const CONNPASS_JOIN_URL = /^https:\/\/(?:[a-z0-9-]+\.)?connpass\.com\/event\/([1-9][0-9]*)\/join\/$/;
 const DOORKEEPER_FINAL_LABEL = "申し込む";
 const DOORKEEPER_TRIGGER_CONTROL = /^(?:control_[1-9][0-9]*|(?:doorkeeper_)?(?:modal_)?trigger(?:_[a-z0-9]+)?)$/;
@@ -1651,6 +1652,7 @@ function connpassSafeRadioCategory(control) {
   const label = normalizedLabel(control.label);
   const question = normalizedLabel(control.question);
   if (CONNPASS_ONLINE_LABEL.test(label)) return question === normalizedLabel("参加枠") ? "online" : null;
+  if (CONNPASS_ATTENDEE_LABEL.test(control.label)) return question === normalizedLabel("参加枠") ? "attendee" : null;
   return label === "connpass" && question === normalizedLabel(CONNPASS_REFERRAL_QUESTION) ? "referral" : null;
 }
 
@@ -1658,7 +1660,7 @@ function nativeConnpassControl(provider, state, controls) {
   if (provider !== "connpass" || state !== "connpass_join") return null;
   const pending = controls.filter((control) => ACTIONABLE_KINDS.has(control.kind) && control.required && !control.completed);
   if (pending.length > 0) {
-    for (const category of ["online", "referral"]) {
+    for (const category of ["online", "attendee", "referral"]) {
       const matches = pending.filter((control) => connpassSafeRadioCategory(control) === category);
       if (matches.length > 0) return matches.length === 1 ? matches[0].control : null;
     }
