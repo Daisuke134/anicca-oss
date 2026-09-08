@@ -43499,3 +43499,10 @@
 {"ts":1788910026,"wake_id":"00MTTAUAEP921F3A9C11D94062","kind":"wake","sleep_s":120,"model":"auto","slot":"report","profitable":false,"exit_code":0}
 {"ts":1788910180,"wake_id":"00MTTAXLHT96F7B421DAF74269","kind":"narrate","sleep_s":120,"model":"auto"}
 {"ts":1788910318,"wake_id":"00MTTB0K4F6EEF227021314A7F","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788910484,"wake_id":"00MTTB43UR8119248F1EEF40EB","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788910631,"wake_id":"00MTTB79Q05EFF21D4575A4F63","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
+{"ts":1788910774,"wake_id":"00MTTBABHCC493ECA20A064E24","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788910938,"wake_id":"00MTTBDU0UE569C4D186D24E87","kind":"wake","sleep_s":120,"model":"auto","slot":"x402_sell","profitable":false,"exit_code":0,"result":"HALT: missing-wallet bySkill=null byAgent=null [earn] P1 GUARD: cumulative net breach or unresolved wallet (wallet='') — HALT (fail-closed), skipping wake. "}
+{"ts":1788911073,"wake_id":"00MTTBGQ3S27523729E6954232","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
+{"ts":1788911202,"wake_id":"00MTTBJHUVEDB096719D354EF8","kind":"wake","sleep_s":120,"model":"auto","slot":"x402_sell","profitable":false,"exit_code":0,"result":"HALT: missing-wallet bySkill=null byAgent=null [earn] P1 GUARD: cumulative net breach or unresolved wallet (wallet='') — HALT (fail-closed), skipping wake. "}
+{"ts":1788911337,"wake_id":"00MTTBME9O1FC6C8FBC372499B","kind":"narrate","sleep_s":120,"model":"auto"}
