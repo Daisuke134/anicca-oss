@@ -952,24 +952,25 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    1. Add one provider-neutral reply-grounding reader under `marketplace-core` for the private candidate
       SSOT, reusable verified facts and provider public-profile facts; adapters may add only verified
       proposal/provider context.
-   2. Make the shared model contract answer every explicit buyer question from those verified facts and
-      return a structured human wait for only the facts still missing. Internal context absence must
-      never be rendered as a customer-facing answer. Do not replace model judgment with keyword/regex
-      classification.
-   3. Deliver that structured human wait once through the existing shared Telegram outbox, with provider,
-      thread, official link and exact missing fields, while all other threads continue independently.
-   4. After the sole missing gender fact is confirmed and persisted to the private SSOT, send one natural
-      corrective answer on board `9058411`, require the exact official message readback, then require a
-      following natural replay with zero duplicate effect.
+   2. Make the shared model contract answer every explicit buyer question from verified facts, safe
+      derivations and reasonable reversible defaults. Internal context absence must never be rendered as
+      a customer-facing answer, and ordinary profile questionnaires must not create a Telegram human gate.
+      Do not replace model judgment with keyword/regex classification. Irreversible financial, legal,
+      identity or qualification claims still require authoritative facts rather than invention.
+   3. Send one natural corrective answer on board `9058411`, require the exact official message readback,
+      then require a following natural replay with zero duplicate effect.
+   4. Keep shared Telegram handoff only for genuinely person-bound or irreversible actions, not missing
+      ordinary questionnaire fields; all other threads continue independently.
    5. Prove Coconala consumes the same grounding/decision contract. Mercor and CrowdWorks remain the later
       fixed-order thin-adapter atoms; this correction does not pull either one forward.
    Source checkpoint `ac4c13dea` adds the provider-neutral grounding reader and connects Lancers to it.
    It derives only an age band from the private birth date, passes verified claims without their private
    evidence metadata, adds the provider's public availability/skill facts, and leaves absent gender
-   explicitly missing rather than inferring it. The Lancers model contract now returns a structured wait
-   instead of telling a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
+   explicit rather than silently inferring it. Dais then authoritatively supplied `male`; it is persisted
+   only in the private candidate SSOT and must be reused without a Telegram question. The Lancers model
+   contract no longer tells a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
    Lancers adapter checks pass 26/26. This is pushed source evidence only, not production acceptance;
-   Telegram human-handoff delivery, the corrective official reply/readback and replay-zero remain open.
+   the corrective official reply/readback and replay-zero remain open.
    CrowdWorks must not be described as having no reply opportunities: no shared Reply adapter currently
    observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
    verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
