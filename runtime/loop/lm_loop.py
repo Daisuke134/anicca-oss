@@ -420,6 +420,18 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 existing_bytes = target_path.read_bytes() if target_path.is_file() else None
                 retired_environment_keys = {
                     "life-manager-cfo-hourly": ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR"),
+                    "agentmail-webhook": (
+                        "AGENTMAIL_QUEUE_PATH", "AGENTMAIL_DB_PATH",
+                        "AGENTMAIL_ADAPTER_STATE_DIR", "AGENTMAIL_SEMANTIC_STATE_DIR",
+                    ),
+                    "agentmail-replier": (
+                        "AGENTMAIL_QUEUE_PATH", "AGENTMAIL_DB_PATH",
+                        "AGENTMAIL_ADAPTER_STATE_DIR", "AGENTMAIL_SEMANTIC_STATE_DIR",
+                    ),
+                    "agentmail-nudge": (
+                        "AGENTMAIL_QUEUE_PATH", "AGENTMAIL_DB_PATH",
+                        "AGENTMAIL_ADAPTER_STATE_DIR", "AGENTMAIL_SEMANTIC_STATE_DIR",
+                    ),
                     # These two lanes' plists were installed while they were still rendered
                     # from skills/earn/gig/config/launchd-jobs.json's legacy manifest, which
                     # explicitly set GIG_DISK_HEADROOM_KIB="0" for them (see gig_disk_guard.py's
