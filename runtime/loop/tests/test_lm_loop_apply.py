@@ -183,15 +183,16 @@ class LmLoopApplyTest(unittest.TestCase):
         value["loops"]["agent-economy-loop"] = value["loops"].pop("example")
         rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
         environment = rendered["EnvironmentVariables"]
-        state = str((Path.home() / ".local/state/life-manager/example"))
+        state = Path.home() / ".local/state/life-manager/example"
+        instance = state / "instance"
+        earn_state = instance / "state/skills/earn"
         self.assertEqual(environment["ANICCA_REPO"], str(self.root.resolve()))
         self.assertEqual(environment["ANICCA_CODE_ROOT"], str(self.root.resolve()))
         self.assertEqual(environment["ANICCA_RELEASE_ROOT"], str(self.root.resolve().parent.parent))
-        self.assertEqual(environment["ANICCA_HOME"], state)
-        self.assertEqual(
-            environment["CEO_EFFECTIVE_CRON_DIR"],
-            str(Path(state) / "state/effective-cron"),
-        )
+        self.assertEqual(environment["ANICCA_HOME"], str(instance))
+        self.assertEqual(environment["EARN_STATE_ROOT"], str(earn_state))
+        self.assertEqual(environment["EARN_LEDGER"], str(earn_state / "earn-ledger.jsonl"))
+        self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
 
     def test_writer_plist_projects_one_state_log_and_env_contract(self):
         writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
