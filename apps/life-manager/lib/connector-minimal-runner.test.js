@@ -1179,7 +1179,7 @@ test("discovery circuit reports the exact bounded provider stage", async () => {
   ]);
 });
 
-test("each provider's session-expired reason reaches the recorded wake report unambiguously", async () => {
+test("each provider's session-expired reason skips Harness and ends that provider", async () => {
   for (const [provider, safeReason] of [
     ["luma", "luma_session_expired"],
     ["connpass", "connpass_session_expired"],
@@ -1203,9 +1203,35 @@ test("each provider's session-expired reason reaches the recorded wake report un
       maxConsecutiveFailures: 1,
     }, state.dependencies);
 
-    assert.deepEqual(result, { status: "circuit_open", safe_reason: safeReason, telegram_provider_id: "9001" });
-    assert.deepEqual(state.calls.find(([name]) => name === "report").slice(1), ["circuit_open", safeReason]);
+    assert.deepEqual(result, { status: "completed_no_effect", safe_reason: safeReason, telegram_provider_id: "9001" });
+    assert.equal(state.calls.some(([name]) => name === "agent"), false);
+    assert.deepEqual(state.calls.find(([name]) => name === "report").slice(1), ["completed_no_effect", safeReason]);
   }
+});
+
+test("a session-expired provider does not block discovery of the next provider", async () => {
+  let state;
+  state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate(provider, "one")];
+    },
+    async runDirectAction({ provider }) {
+      return provider === "doorkeeper"
+        ? Object.freeze({ status: "failed", safe_reason: "doorkeeper_session_expired" })
+        : Object.freeze({ status: "failed", safe_reason: "direct_action_unavailable" });
+    },
+  });
+
+  await runMinimalConnectorWake({
+    ownerToken: "owner-token-session-expired-continuation",
+    providers: ["doorkeeper", "eventbrite"],
+  }, state.dependencies);
+
+  assert.deepEqual(state.calls.filter(([name]) => name === "discover").map(([, provider]) => provider), [
+    "doorkeeper", "eventbrite",
+  ]);
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
 });
 
 test("the ten-minute wake deadline stops browser churn and still reports the wake", async () => {
