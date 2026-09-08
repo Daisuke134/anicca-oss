@@ -902,7 +902,8 @@ function connpassFixture(options = {}) {
     async readArtifact(tenant, ref) { calls.push(["evidence-read-artifact", tenant, ref]); return png; },
   };
   const chain = createMinimalEvidenceChain({ stateDir, tenantId: "dais-local", calendar, calendarId: "primary", telegramTarget: "private-target", connpassEvidenceStore: evidenceStore, now: () => new Date("2026-08-11T08:30:00.000Z"), sendMessage: async (message, telegram) => { calls.push(["telegram-message", message, telegram]); return { messageId: 9401 }; }, sendPhoto: async (bytes, telegram) => { calls.push(["telegram-photo", bytes, telegram]); return { messageId: 9402 }; } });
-  const page = { async screenshot(input) { calls.push(["screenshot", input]); return png; }, async setContent() { throw new Error("Connpass must not replace the verified page"); }, async goto() { throw new Error("Connpass must not navigate away from the verified page"); }, url() { calls.push(["url"]); return options.pageUrl || "https://tokyo-builders.connpass.com/event/400028/"; } };
+  let screenshotCalls = 0; let currentPageUrl = options.pageUrl || "https://tokyo-builders.connpass.com/event/400028/";
+  const page = { async screenshot(input) { calls.push(["screenshot", input]); screenshotCalls += 1; if (options.fullPageScreenshotThrows && screenshotCalls === 1) { if (options.changeUrlOnScreenshotFailure) currentPageUrl = "about:blank"; throw new Error("full page timeout"); } return png; }, async setContent() { throw new Error("Connpass must not replace the verified page"); }, async goto() { throw new Error("Connpass must not navigate away from the verified page"); }, url() { calls.push(["url"]); return currentPageUrl; } };
   return { stateDir, png, pngSha, calls, evidenceStore, chain, candidate: connpassCandidate(), page, cleanup: () => fs.rmSync(stateDir, { recursive: true, force: true }) };
 }
 function assertConnpassNoDownstream(fixture, label) { assert.equal(fixture.calls.filter(([name]) => ["screenshot", "evidence-record", "calendar-read", "calendar-create", "telegram-message", "telegram-photo"].includes(name)).length, 0, label); }
@@ -927,6 +928,27 @@ test("Connpass captures the current parent-verified page and reuses the exact ap
       await assert.rejects(fixture.chain.completeEvidence({ provider: "connpass", candidate: fixture.candidate, page: fixture.page, providerState: { status: "registered" } }));
       assertConnpassNoDownstream({ calls: fixture.calls.slice(before) }, pageUrl);
     }
+  } finally { fixture.cleanup(); }
+});
+
+test("Connpass falls back to a viewport screenshot when full-page capture times out", async () => {
+  const fixture = connpassFixture({ fullPageScreenshotThrows: true });
+  try {
+    const result = await fixture.chain.completeEvidence({ provider: "connpass", candidate: fixture.candidate, page: fixture.page, providerState: { status: "registered" } });
+    assert.equal(result.status, "applied_bundle");
+    assert.deepEqual(fixture.calls.filter(([name]) => name === "screenshot").map(([, options]) => options), [
+      { type: "png", fullPage: true },
+      { type: "png", fullPage: false },
+    ]);
+  } finally { fixture.cleanup(); }
+});
+
+test("Connpass screenshot fallback rejects a page identity change before downstream effects", async () => {
+  const fixture = connpassFixture({ fullPageScreenshotThrows: true, changeUrlOnScreenshotFailure: true });
+  try {
+    await assert.rejects(fixture.chain.completeEvidence({ provider: "connpass", candidate: fixture.candidate, page: fixture.page, providerState: { status: "registered" } }));
+    assert.equal(fixture.calls.filter(([name]) => name === "screenshot").length, 1);
+    assert.equal(fixture.calls.some(([name]) => ["evidence-record", "calendar-read", "calendar-create", "telegram-message", "telegram-photo"].includes(name)), false);
   } finally { fixture.cleanup(); }
 });
 
