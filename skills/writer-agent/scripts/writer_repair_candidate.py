@@ -939,10 +939,9 @@ def execute(
     child["ARTICLE_REPAIR_WORKSPACE"] = str(workspace)
     child["ARTICLE_PROVIDER"] = "codex"
     child["ARTICLE_MODEL_ROLE"] = "terra"
-    # Without these the runner falls back to `$HOME/profitable-claude/...`, so a
-    # repair attempt would write its provider log and health file into the live
-    # tree. An explicit caller still wins; the default keeps the attempt inside
-    # the state root the plan already names.
+    # Keep repair provider logs and health inside the isolated attempt state.
+    # An explicit caller still wins; these defaults prevent any live Writer
+    # state from becoming the repair attempt's model-runtime destination.
     child.setdefault("ARTICLE_RUN_ID", f"repair-{fingerprint[:12]}-{attempt}")
     child.setdefault("ARTICLE_MODEL_ROOT", str(repo))
     child.setdefault("ARTICLE_MODEL_STATE_ROOT", str(state_root))

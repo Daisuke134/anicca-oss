@@ -18,6 +18,7 @@ import re
 import shutil
 import stat
 import subprocess
+import tempfile
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -30,6 +31,18 @@ if str(SCRIPT_DIR) not in os.sys.path:
 SUBSTACK_HTTP_DIR = SCRIPT_DIR / "substack-publish"
 if str(SUBSTACK_HTTP_DIR) not in os.sys.path:
     os.sys.path.insert(0, str(SUBSTACK_HTTP_DIR))
+
+
+def inside_host_temp(path: Path) -> bool:
+    resolved = path.resolve(strict=False)
+    roots = {Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve()}
+    for root in roots:
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        return True
+    return False
 
 
 def _ensure_media_capable_interpreter() -> None:
@@ -712,7 +725,7 @@ def fetch_remote_asset(url: str, _expected: dict[str, Any]) -> bytes:
     if (
         os.environ.get("ARTICLE_TEST_ONLY") == "1"
         and (urlparse(url).hostname or "").lower() == "assets.example"
-        and str(expected_path).startswith(("/tmp/", "/private/tmp/"))
+        and inside_host_temp(expected_path)
     ):
         return expected_path.read_bytes()
     host = (urlparse(url).hostname or "").lower()
@@ -3538,7 +3551,7 @@ def main() -> int:
             resolved_state = Path(args.state).resolve(strict=False)
             if (
                 os.environ.get("ARTICLE_TEST_ONLY") != "1"
-                or not str(resolved_state).startswith(("/tmp/", "/private/tmp/"))
+                or not inside_host_temp(resolved_state)
             ):
                 raise InvariantError("test-only local asset readback is forbidden")
             globals()["fetch_remote_asset"] = (

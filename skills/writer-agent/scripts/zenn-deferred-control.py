@@ -22,7 +22,7 @@ from article_completion import (
     validate_live_set,
 )
 from publication_resume import InvariantError as PublicationInvariantError
-from publication_resume import PublicationStore
+from publication_resume import PublicationStore, inside_host_temp
 from publication_remote import probe as publication_probe
 
 
@@ -315,7 +315,7 @@ def record(args: argparse.Namespace) -> int:
             if (
                 not args.allow_local_source
                 or os.environ.get("ARTICLE_TEST_ONLY") != "1"
-                or not str(readback_path).startswith(("/tmp/", "/private/tmp/"))
+                or not inside_host_temp(readback_path)
             ):
                 raise InvariantError("test public readback injection is forbidden")
             evidence = read_json(readback_path)
