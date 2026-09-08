@@ -2309,6 +2309,24 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/anicca/job-search/mercor"
     },
+    "mercor-revenue-reply": {
+      "adapter": "exec",
+      "cadence": {
+        "start_interval_seconds": 300
+      },
+      "cleanup": {
+        "max_age_days": 14,
+        "max_runs": 100
+      },
+      "command": [],
+      "domain": "earn",
+      "effect_class": "message",
+      "entrypoint": "skills/earn/mercor/scripts/reply-owner",
+      "label": "ai.anicca.mercor-revenue-reply",
+      "log_root": "~/.local/state/anicca/job-search/mercor/reply/logs",
+      "provider_route": "shared-agent-runner",
+      "state_root": "~/.local/state/anicca/job-search/mercor/reply"
+    },
     "mcp-claude-p": {
       "cadence": {
         "keep_alive": true

@@ -17,6 +17,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
@@ -138,6 +139,20 @@ def _pending(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
+def _redact_private(value: Any, identities: tuple[str, ...]) -> Any:
+    if isinstance(value, str):
+        result = value
+        for identity in identities:
+            result = re.sub(re.escape(identity), "[private identity]", result,
+                            flags=re.IGNORECASE)
+        return result
+    if isinstance(value, Mapping):
+        return {key: _redact_private(item, identities) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_private(item, identities) for item in value]
+    return value
+
+
 def _private_context(value: Mapping[str, Any]) -> tuple[dict[str, Any], tuple[str, ...]]:
     context = dict(value)
     grounding = context.get("grounding")
@@ -149,8 +164,11 @@ def _private_context(value: Mapping[str, Any]) -> tuple[dict[str, Any], tuple[st
         isinstance(item, str) and item.strip() for item in raw
     ):
         raise ValueError("reply_private_identity_contract_invalid")
+    identities = tuple(item.strip() for item in raw)
     context["grounding"] = public
-    return context, tuple(item.strip().casefold() for item in raw)
+    return _redact_private(context, identities), tuple(
+        item.casefold() for item in identities
+    )
 
 
 def _assert_private_identity_safe(decision: Mapping[str, Any], values: tuple[str, ...]) -> None:

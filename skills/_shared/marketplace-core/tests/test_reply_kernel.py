@@ -102,7 +102,8 @@ def test_private_identity_is_hidden_from_model_and_rejected_before_provider_effe
     class PrivateContext(Adapter):
         def context(self, _thread_id):
             return {
-                "conversation": [{"role": "buyer", "body": "Hello"}],
+                "title": "Question for Private Legal Name",
+                "conversation": [{"role": "buyer", "body": "Hello private@example.com"}],
                 "grounding": {
                     "prompt_facts": [{"id": "role", "claim": "Python developer"}],
                     "private_identity_values": ["Private Legal Name", "private@example.com"],
@@ -122,6 +123,8 @@ def test_private_identity_is_hidden_from_model_and_rejected_before_provider_effe
     )
 
     assert "private_identity_values" not in seen[0]["grounding"]
+    assert "Private Legal Name" not in seen[0]["title"]
+    assert "private@example.com" not in seen[0]["conversation"][0]["body"]
     assert result["failed"] == 1
     assert result["items"][0]["error_detail"] == "reply_private_identity_leak"
     assert adapter.effects == []
