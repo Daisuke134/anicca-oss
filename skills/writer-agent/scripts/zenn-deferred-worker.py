@@ -18,6 +18,7 @@ from typing import Any
 
 from article_completion import REQUIRED_LIVE, terminal_artifact_complete, validate_live_set
 from publication_resume import PublicationStore
+from writer_report_worker import telegram_api_transport
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -137,25 +138,16 @@ def retain_pending(artifact: Path, action: str, error: str | None = None, **fiel
 
 
 def notify(args: argparse.Namespace, message: str) -> bool:
-    if args.notify_bin:
-        command = [args.notify_bin, message]
-    else:
-        command = [
-            "openclaw",
-            "message",
-            "send",
-            "--channel",
-            "telegram",
-            "--target",
-            os.environ.get("TELEGRAM_TARGET_ID", "8547730585"),
-            "--message",
-            message,
-            "--json",
-        ]
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
+        if args.notify_bin:
+            subprocess.run(
+                [args.notify_bin, message], check=True, capture_output=True, text=True
+            )
+        else:
+            target = os.environ.get("TELEGRAM_TARGET_ID", "8547730585")
+            telegram_api_transport(target)(message)
         return True
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError):
         return False
 
 

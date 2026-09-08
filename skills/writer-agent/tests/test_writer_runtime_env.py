@@ -5,6 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+import importlib.util
+from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -288,6 +291,25 @@ class WriterRuntimeEnvTest(unittest.TestCase):
             '"openclaw",\n                "message"',
             (SCRIPTS / "self-improve-notify.py").read_text(),
         )
+
+    def test_active_python_notifiers_use_life_manager_transport(self):
+        for relative in (
+            "publication_resume.py",
+            "article_weekly_audit.py",
+            "zenn-deferred-worker.py",
+        ):
+            body = (SCRIPTS / relative).read_text(encoding="utf-8")
+            self.assertIn("telegram_api_transport", body, relative)
+            self.assertNotIn('"openclaw",\n', body, relative)
+
+    def test_zenn_notifier_treats_empty_target_as_notification_failure(self):
+        path = SCRIPTS / "zenn-deferred-worker.py"
+        spec = importlib.util.spec_from_file_location("zenn_deferred_worker", path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader
+        spec.loader.exec_module(module)
+        with mock.patch.dict(os.environ, {"TELEGRAM_TARGET_ID": ""}):
+            self.assertFalse(module.notify(SimpleNamespace(notify_bin=None), "message"))
 
     def test_telegram_transport_accepts_canonical_life_manager_token_name(self):
         with tempfile.TemporaryDirectory() as temp:

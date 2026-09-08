@@ -89,6 +89,7 @@ from publication_contract_resolver import (
     PublicationContractError,
     infer_publication_contract,
 )
+from writer_report_worker import telegram_api_transport
 
 # Compatibility name for callers that mean the current required set.  Legacy
 # exact-eight state is selected explicitly from its persisted contract below.
@@ -2976,23 +2977,7 @@ class PublicationStore:
             "残りの公開先は、同じ記事を使って自動的に確認します。"
         )
         try:
-            subprocess.run(
-                [
-                    "openclaw",
-                    "message",
-                    "send",
-                    "--channel",
-                    "telegram",
-                    "--target",
-                    target,
-                    "--message",
-                    message,
-                    "--json",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+            telegram_api_transport(target)(message)
         except Exception:
             pass
 
