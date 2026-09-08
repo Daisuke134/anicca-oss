@@ -1129,6 +1129,12 @@ complete. The active engineering atom is `CROWDWORKS-REPLY-1`; its fixed next at
    latest event in thread `303996182` as a buyer event requiring a decision. Remaining acceptance is
    main-derived production apply, one appropriate real reply with exact official readback and
    Telegram delivery, then a following natural replay with effect zero.
+   The first main-derived natural wake did send one appropriate Java opportunity reply at the
+   official timestamp `2026-09-08 16:59`, but its immediate readback selected the now-visible
+   collapsed buyer digest instead of the hidden full message body. The provider therefore showed
+   the exact seller reply while the aggregate incorrectly ended `effect=0`, `failed=8`. No second
+   seller reply exists. The bounded correction selects the provider's full body node independent of
+   collapsed visibility; acceptance remains open until a natural official reconciliation and replay-zero.
 10. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
