@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import io
 import json
@@ -41,6 +42,26 @@ queue_snapshot = _load_module(
 reply_browser = _load_module(
     "gig_reply_browser_attachment_context_test", REPLY_BROWSER_PATH,
 )
+
+
+def test_paused_storefront_contract_does_not_invalidate_the_ledger(tmp_path):
+    fields = {
+        "service_id": "123", "public_url": "https://coconala.com/services/123",
+        "title": "Service", "state": "受付休止中", "price_jpy": 5000,
+        "category": "IT・プログラミング・開発/Webサイト制作",
+        "public_content_sha256": hashlib.sha256("scope".encode()).hexdigest(),
+    }
+    row = {
+        "version": 1, **fields, "scope_text": "scope",
+        "service_version_sha256": hashlib.sha256(json.dumps(
+            fields, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        ).encode()).hexdigest(),
+    }
+    path = tmp_path / "offer-contracts.jsonl"
+    path.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    assert requested_estimate.load_service_contracts(path) == []
+    assert requested_estimate.load_service_contracts(path, latest_only=False) == [row]
 
 
 def test_reply_semantic_route_uses_bounded_luna_candidate():
