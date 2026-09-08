@@ -356,6 +356,13 @@ shared-component or legacy-retirement atom is active.
 - [x] `DOC-01` Update English/Japanese README architecture and status from measured output; remove the Compose runtime claim and describe Mobile Apps as Anicca iOS, Honne and the other owned iOS build/marketing loops.
 - [x] `DOC-02` Bake the one-loop/two-host-adapter rule into `AGENTS.md`, make `skills/loop-engineering/SKILL.md` the implementation-boundary authority, and expose the same local/cloud reuse rule in both READMEs without duplicating the detailed spec.
 
+### 6.1a Current remaining TODO (authoritative two-step summary)
+
+The detailed unchecked lines above and below roll up into exactly these two remaining steps. This summary does not reorder them.
+
+1. [ ] Finish and merge the repository change: close the current PR CI failures without weakening the OSS boundary, run the focused/full required checks, obtain fresh read-only review, and merge PR #4686 from the latest `main`. Current source fixes are present locally; clean-install passes 21/21, the Writer rerun passes 104/104 plus 57 subtests, and the OSS self-contained verifier passes. No protected Coconala/Lancers runtime code is changed.
+2. [ ] Perform the final main-derived cutover and proof: at verified idle boundaries converge/seal X and Writer state, reconcile the other already-prepared Life Manager state roots, cut over/read back the declared loops, prove the same local/cloud contracts including Financial Manager Telegram behavior, and only then delete legacy OpenClaw/Hermes work-state proven unused. The four protected Coconala/Lancers loops remain owned by their current developer and are excluded from this cleanup mutation.
+
 ### 6.2 Current Writer cleanup checkpoint
 
 - [x] Dormant executable fallback cleanup: repair candidates and research clones use Writer-owned state; callerless self-fix, rotation audit, diary digest and the unimplemented self-signup scaffold are deleted. Focused tests and fresh review ship in pushed commit `7188462d2`. Coconala and Lancers remain untouched.

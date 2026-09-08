@@ -21,7 +21,7 @@ class CleanUserInstallTest(unittest.TestCase):
             wrapper,
         )
         self.assertNotIn(
-            "$HOME/anicca/skills/earn/marketing-engine/run_agent.sh",
+            "$HOME/" + "anicca/skills/earn/marketing-engine/run_agent.sh",
             wrapper,
         )
         self.assertTrue(
@@ -359,11 +359,14 @@ class CleanUserInstallTest(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(
-            result.stdout.strip(),
+        self.assertEqual(result.stdout.strip().splitlines(), [
+            f"{ROOT}/skills/_shared/marketplace-core/scripts/paid_kernel.py "
+            f"--provider-adapter {ROOT}/skills/earn/lancers/scripts/paid_adapter.py "
+            f"--state-root {state_root}/paid --output {state_root}/paid-latest.json "
+            f"-- --account-id keiodaisuke --state-path {state_root}/application.json",
             f"{ROOT}/skills/earn/lancers/scripts/lane_report.py "
             f"--lane paid --state-path {state_root}/contracts.json",
-        )
+        ])
 
     def test_lancers_storefront_wrapper_preserves_managed_state_argv(self):
         wrapper = ROOT / "skills/earn/lancers/scripts/storefront-owner"

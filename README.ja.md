@@ -15,7 +15,7 @@
 [Life Managerを開く](https://aniccaai.com/lm) · [Telegramで始める](https://t.me/LifeManagerBotbot?start=lp) · [sourceを見る](https://github.com/Daisuke134/life-manager)
 
 repositoryはopen sourceで、dataをowner端末に置くportable self-host版がtargetですが、clean-hostからの完全な起動経路は未完成です。
-phoneだけで常時稼働させたい時はpaid monthly cloudを使います。どちらもこのrepositoryから作り、同じstate・証拠・人間向け報告contractへ収束させます。資産増加や投資収益を保証せず、
+phoneだけで常時稼働させたい時はpaid monthly cloudを使います。どちらもこのrepositoryの同じcoreから作り、同じstate・証拠・人間向け報告contractへ収束させます。資産増加や投資収益を保証せず、
 receiptのない試行を「完了」と報告しません。
 
 ## 14本の主要product loop

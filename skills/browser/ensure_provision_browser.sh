@@ -27,8 +27,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="${AI_BROWSER_GUARD:-$HERE/browser-guard.sh}"
 REGISTRY="${AI_BROWSER_REGISTRY:-$HOME/.config/ai/registry/browsers.toml}"
 KEEPALIVE="$HERE/cdp_persistent_context.py"
-CLOAK_PY="${CLOAK_PYTHON:-$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3}"
-LOG="${PROVISION_BROWSER_LOG:-$HOME/.openclaw/logs/provision-browser.log}"
+CLOAK_PY="${CLOAK_PYTHON:-${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}}"
+LOG="${PROVISION_BROWSER_LOG:-$HOME/.local/state/life-manager/provision-browser/logs/provision-browser.log}"
 LAUNCH_WAIT="${PROVISION_BROWSER_WAIT:-120}"
 PY="/opt/homebrew/bin/python3"; [ -x "$PY" ] || PY=python3
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true

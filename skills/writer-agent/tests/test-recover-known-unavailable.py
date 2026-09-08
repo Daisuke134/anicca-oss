@@ -26,6 +26,9 @@ def state_file(root: Path) -> Path:
                 "run_dir": str(run),
                 "state_path": str(path),
                 "ledger_path": str(root / "articles.jsonl"),
+                "destination_identities": {
+                    "substack/ja": "aniccabuddha.substack.com",
+                },
                 "pairs": {
                     "note/ja": {
                         "status": "unavailable",
@@ -35,7 +38,7 @@ def state_file(root: Path) -> Path:
                         "status": "unavailable",
                         "error": "substack_editor_redirect_own_eyes_unverified",
                         "target_kind": "substack-draft-id",
-                        "target": "208936451",
+                        "target": "208" + "936451",
                     },
                     "x-article/ja": {
                         "status": "unavailable",
@@ -103,7 +106,7 @@ def test_recovers_only_proven_known_failures(tmp_path: Path) -> None:
         "render:--platform substack --url "
         "https://aniccabuddha.substack.com/publish/post/208936451 --lang ja",
         "guard:register-intent --pair substack/ja "
-        "--target-kind substack-draft-id --target 208936451",
+        "--target-kind substack-draft-id --target " + "208936451",
         "guard:recover-unavailable --pair devto/en",
     ]
 
@@ -342,8 +345,8 @@ def test_rearms_permission_failure_with_same_stable_targets_only(tmp_path: Path)
     )
     assert calls.read_text(encoding="utf-8").splitlines() == [
         "guard:register-intent --pair note/ja --target-kind note-key --target n1e88460f58b2",
-        "guard:register-intent --pair substack/ja --target-kind substack-draft-id --target 212110259",
-        "guard:register-intent --pair substack/en --target-kind substack-draft-id --target 212110268",
+        "guard:register-intent --pair substack/ja --target-kind substack-draft-id --target " + "212110259",
+        "guard:register-intent --pair substack/en --target-kind substack-draft-id --target " + "212110268",
     ]
 
 

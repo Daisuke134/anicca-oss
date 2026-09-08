@@ -10,7 +10,7 @@
 # craft_train.py, which has zero skillopt dependency.
 set -uo pipefail
 
-ROOT="${PROFITABLE_CLAUDE_ROOT:-$HOME/profitable-claude}"
+ROOT="${LIFE_MANAGER_REPO:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
 SKILL_DIR="$ROOT/skills/writer-agent"
 VENDOR_DIR="$SKILL_DIR/vendor/skillopt-writing"
 
@@ -657,7 +657,7 @@ assert base.is_file()
 assert "_base_: ../_base_/default.yaml" in text
 assert "optimizer_backend: openai_chat" in text
 assert "target_backend: openai_chat" in text
-assert "/tmp/SkillOpt" not in text and "/Users/anicca" not in text
+assert "/tmp/SkillOpt" not in text and "/Users/" not in text
 assert 'SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$PY}"' in wrapper
 assert "/opt/homebrew/etc/cliproxyapi.conf" not in wrapper
 assert "ARTICLE_OPENAI_API_KEY" in wrapper

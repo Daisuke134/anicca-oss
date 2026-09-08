@@ -6,7 +6,7 @@ skills/writer-engine/tests/integration/test_e7_pii_gate.py (pytest) into this pi
 stdlib-unittest style, which is what tests/run-all.sh executes (`python3 <file>`).
 
 EVERY identifier below is invented. The real blocklist is operator PII: it lives only in
-~/.openclaw/.env as WRITER_PII_BLOCKLIST, is never committed, and is never printed by this file.
+a configured private env file as WRITER_PII_BLOCKLIST, is never committed, and is never printed by this file.
 These tests parameterise the gate through the same env vars production uses, and point
 WRITER_PII_ENV_FILE at a path that does not exist so the machine's real .env can never leak into
 a fixture or silently satisfy an "unconfigured blocklist" assertion.

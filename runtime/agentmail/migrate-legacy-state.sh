@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 
-SOURCE_ROOT="${AGENTMAIL_LEGACY_ROOT:-$HOME/.openclaw}"
+SOURCE_ROOT="${AGENTMAIL_LEGACY_ROOT:?AGENTMAIL_LEGACY_ROOT must name the explicit legacy source root}"
 TARGET_ROOT="${AGENTMAIL_STATE_ROOT:-$HOME/.local/state/life-manager/agentmail}"
 SOURCE_STATE="$SOURCE_ROOT/state"
 TARGET_STATE="$TARGET_ROOT/state"

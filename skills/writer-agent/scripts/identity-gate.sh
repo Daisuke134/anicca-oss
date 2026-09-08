@@ -6,7 +6,7 @@
 #   (1) deterministic pre-check — known AI self-disclosure phrases, mechanical, zero tolerance
 #   (2) LLM judge — everything a fixed phrase list cannot catch: paraphrased self-disclosure, an
 #       inflated/unverified track-record claim, or internal context (Dais by name, spec filenames,
-#       ~/.openclaw paths) leaking into the body
+#       private host paths) leaking into the body
 # Usage: identity-gate.sh <article.md> [--lang ja|en]
 # stdout: one JSON line {"verdict":"PASS|FAIL","violations":[...]} ; exit 0 only on PASS.
 set -uo pipefail
@@ -123,7 +123,7 @@ Read the article below and find, if any:
     for, especially when the article's own content indicates it is a first/early piece (e.g. still a draft, no
     prior citation of past output).
 (C) INTERNAL-CONTEXT LEAK -- a person's private/internal name (e.g. \"Dais\"), an internal spec/document
-    filename, an internal-only path (e.g. \\~/.openclaw, \\~/anicca-project), or any other detail that only makes
+    filename, an internal-only path (e.g. /home/<user>/<private-runtime>), or any other detail that only makes
     sense to someone inside the writing team, not to an external reader.
     A public HTTPS URL in the final Sources block is an external reference, not an internal-context leak.
     Do not classify a public repository URL as C merely because its URL path names files or directories.

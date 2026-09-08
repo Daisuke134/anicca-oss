@@ -1,6 +1,6 @@
 # Polymarket agent source provenance
 
-Vendored byte-for-byte from `/Users/anicca/.anicca-founder/agents/polymarket-agent/src`.
+Vendored byte-for-byte from the operator-owned Polymarket agent source snapshot.
 The snapshot records the current SHA-256 for every copied file. Only the modules
 transitively imported by `skills/earn/polymarket-trade/pick.py` are included;
 unrelated agent, trading, storage, and CLI sources are intentionally omitted.

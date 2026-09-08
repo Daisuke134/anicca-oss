@@ -18,13 +18,13 @@
 #   Swap: EARN_SWAP_ETH (0.0003), EARN_SLIPPAGE_BPS (100), EARN_MIN_ETH_RESERVE (0.0005).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Env discovery: droplet ships /opt/anicca.env; local bodies keep the wallet key in the
-# OpenClaw/clawd env. Source the first that exists so the loop finds the signing key anywhere.
+# Env discovery: hosted installs may ship /opt/anicca.env; local installs use the
+# canonical Life Manager environment. Source only those declared installation boundaries.
 # Allowlist ONLY the vars the earn path needs — never expose user-PII env (gmail/gcal/composio/
 # google-login) to the earn process, or identity-guard.mjs (malice-guard) fails closed and HALTS.
 # Reconciled against every env var read by run.sh + execute-0xwork.py (verified 2026-06-16).
 EARN_ALLOW="BLOCKRUN_WALLET_KEY PKVAR OXWORK_PKVAR BASE_RPC_URL USDC_ADDRESS EARN_MODE EARN_STRATEGY EARN_TX EARN_SOURCE EARN_AMOUNT EARN_COST EARN_TASK EARN_LEDGER WAKE_ID OXWORK_API OXWORK_CAPS OXWORK_DELIVER OXWORK_POLL_SECS OXWORK_ANY_CATEGORY OXWORK_TASK_ID AUTO_CANCEL_USDC SUB_ID SELF_CANCEL_TOKEN ANICCA_API_BASE"
-for ENVF in /opt/anicca.env "$HOME/.openclaw/.env" "$HOME/clawd/.env"; do
+for ENVF in /opt/anicca.env "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"; do
   [ -f "$ENVF" ] || continue
   while IFS= read -r kv; do
     k="${kv%%=*}"
@@ -45,7 +45,7 @@ WAKE="${WAKE_ID:-$(date -u +%s)}"
 MODE="${EARN_MODE:-discover}"
 
 # THIS instance's own EVM signing key -- file-gated on ANICCA_HOME (resolve-identity.mjs), NEVER the
-# shared ~/.openclaw/.env BLOCKRUN_WALLET_KEY (that key is anicca-a3cdd4's; using it made Franklin's
+# shared legacy environment BLOCKRUN_WALLET_KEY (that key belongs to another instance; using it made Franklin's
 # earn slots sign with automaton's wallet). Mirrors economy/gig/run.sh:49-56 (per-instance, fail-closed).
 unset ANICCA_EVM_PRIVATE_KEY 2>/dev/null || true   # an env override must not beat the ANICCA_HOME file
 SIGNKEY=$(node "$HERE/lib/resolve-identity.mjs" evm 2>/dev/null)
@@ -379,7 +379,7 @@ print(json.dumps(base,separators=(',',':')))" "$IMPROVE_RES" "${ACT:-{}}" 2>/dev
     <key>X402_PAYTO</key><string>$W</string>
     <key>X402_PORT</key><string>$XPORT</string>
     <key>X402_PUBLIC_URL</key><string>${X402_PUBLIC_URL:-}</string>
-    <key>OPENCLAW_ENV_FILE</key><string>${OPENCLAW_ENV_FILE:-}</string>
+    <key>LIFE_MANAGER_ENV_FILE</key><string>${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}</string>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
   </dict>
   <key>KeepAlive</key><true/>
@@ -390,7 +390,7 @@ SELLERPLIST
       launchctl bootstrap "gui/$(id -u)" "$SPLIST" 2>/dev/null \
         || launchctl kickstart -k "gui/$(id -u)/$SLABEL" 2>/dev/null || true
     else
-      set -a; . "${OPENCLAW_ENV_FILE:-$HOME/.openclaw/.env}" 2>/dev/null || true; set +a
+      set -a; . "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}" 2>/dev/null || true; set +a
       X402_PAYTO="$W" X402_PORT="$XPORT" X402_PUBLIC_URL="${X402_PUBLIC_URL:-}" setsid nohup node "$X402DIR/serve-v2.mjs" >/dev/null 2>&1 < /dev/null &
     fi
     sleep 3

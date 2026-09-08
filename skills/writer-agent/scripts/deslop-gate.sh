@@ -54,7 +54,7 @@ log_gate_verdict() {
 }
 
 # Checklist vendor location (spec #58 self-containment, 2026-07-17): this used to be
-# hardcoded to ~/anicca-project/.claude/skills/... which FATALs the gate on any checkout
+# hardcoded to a developer-local skill path which FATALs the gate on any other checkout
 # that does not also have that other repo cloned at that exact path. Checklists now live
 # vendored inside THIS repo tree (profitable-claude), with an env override for anyone who
 # still wants to point elsewhere.

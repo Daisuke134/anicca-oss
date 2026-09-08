@@ -17,14 +17,14 @@ available and end suffering for humans and, ultimately, all living beings.
 
 The repository is open source and the target is a portable self-hosted Life Manager that keeps its data on the
 owner's machine; that full clean-host path is not finished yet. Use the paid monthly cloud service when you want an
-always-on manager with only a phone. Both surfaces come from this repository
+always-on manager with only a phone. Both surfaces use the same core from this repository
 and converge on the same state, evidence, and human-readable reporting contracts. Life
 Manager never guarantees wealth or investment returns, and it never reports an attempted action as completed
 without a receipt.
 
 ## The 14 main product loops
 
-Life Manager has 14 user-facing product loops. A product loop is a capability,
+Life Manager has fourteen user-facing product loops. A product loop is a capability,
 not necessarily one process: the lifecycle registry contains the smaller
 application, browser-owner, reporting, healthcheck, and reconciliation jobs that
 implement and support these 14 loops.

@@ -2,7 +2,7 @@
 # ensure-browser.sh — generic CDP-browser watchdog (spec #70b, OSS self-containment).
 #
 # Bundled, pluggable alternative to the Anicca-instance-specific
-# ~/anicca/skills/browser/ensure_browser.sh, which depends on CloakBrowser (a private,
+# the legacy private browser watchdog, which depends on CloakBrowser (a private,
 # stealth-focused Chromium fork that is NOT part of this OSS repo) plus three more
 # helper scripts (session_vault.py / cdp_context_lease.py / cdp_tab_gc.py) for cookie
 # session recovery and idle-tab garbage collection. Those are legitimate needs for a

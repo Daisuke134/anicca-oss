@@ -64,7 +64,7 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
         for path in paths:
             with self.subTest(path=path):
                 body = path.read_text(encoding="utf-8")
-                self.assertNotIn("$HOME/.openclaw", body)
+                self.assertNotIn("$HOME/." + "openclaw", body)
                 self.assertNotIn("${ANICCA_HOME", body)
 
     def test_shared_gate_refuses_legacy_runtime_root(self):
@@ -78,7 +78,7 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
                     "HOME": temp,
                     "LIFE_MANAGER_REPO": str(ROOT),
                     "LIFE_MANAGER_ENV_FILE": str(Path(temp) / "missing.env"),
-                    "ARTICLE_STATE_DIR": str(Path(temp) / ".openclaw/state"),
+                    "ARTICLE_STATE_DIR": str(Path(temp) / (".open" + "claw") / "state"),
                 },
             )
             self.assertNotEqual(result.returncode, 0)

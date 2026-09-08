@@ -242,7 +242,7 @@ The full agent uses:
 ```text
 printf '%s' "$PROMPT" |
   codex -a never -s danger-full-access \
-    -C "$HOME/profitable-claude" --add-dir "$HOME" \
+    -C "$LIFE_MANAGER_REPO" --add-dir "$HOME" \
     exec --ephemeral --model gpt-5.6-luna \
     -c 'model_reasoning_effort="xhigh"' -
 ```
@@ -517,13 +517,12 @@ last known-good rules and remains independent.
 ### Install
 
 1. push the complete source commit
-2. fast-forward the canonical Mac mini repository at
-   `~/profitable-claude` to that exact commit
+2. fast-forward the canonical Life Manager repository at
+   `$LIFE_MANAGER_REPO` to that exact commit
 3. write its hash to
-   `~/profitable-claude/skills/writer-agent/state/deployed-commit`
+   `$WRITER_STATE_DIR/deployed-commit`
    and atomically refresh that marker after every successful learning commit/push
-4. restore
-   `~/.claude/skills/writer-agent -> ~/profitable-claude/skills/writer-agent`
+4. resolve Writer source directly from `$LIFE_MANAGER_REPO/skills/writer-agent`
 5. install all article launchd plists
 6. load only health, pending recovery, Zenn recovery, and learning jobs needed
    for the canary

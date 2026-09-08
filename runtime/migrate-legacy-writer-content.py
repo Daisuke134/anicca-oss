@@ -81,7 +81,7 @@ def migrate(source_root: Path, target_root: Path, *, seal: bool = False) -> dict
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", type=Path, default=Path.home() / ".openclaw")
+    parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument(
         "--target-root",
         type=Path,

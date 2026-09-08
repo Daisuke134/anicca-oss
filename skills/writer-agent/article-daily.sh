@@ -34,7 +34,11 @@ if [ "${ARTICLE_OWNER_FENCE_ACTIVE:-0}" != "1" ]; then
     --run-id "${ARTICLE_EXPECTED_RUN_ID:-daily-$(TZ=Asia/Tokyo date +%F)}" \
     -- "$0" "$@"
 fi
-TELEGRAM_TARGET_ID="${TELEGRAM_TARGET_ID:-8547730585}"
+TELEGRAM_TARGET_ID="${TELEGRAM_TARGET_ID:-${TELEGRAM_CHAT_ID:-${TELEGRAM_ALERT_CHAT_ID:-}}}"
+[ -n "$TELEGRAM_TARGET_ID" ] || {
+  echo "article-daily: Telegram target is not configured" >>"$LOG"
+  exit 2
+}
 ARTICLE_PROVIDER_COOLDOWN_SECONDS="300"
 ARTICLE_PRODUCT_ID="${ARTICLE_PRODUCT_ID:-anicca}"
 ARTICLE_PRODUCT_LANDING_URL="${ARTICLE_PRODUCT_LANDING_URL:-https://aniccaai.com/}"
@@ -868,12 +872,6 @@ STEP 9 (REPORT EVIDENCE -- MANDATORY, every pass, success or failure): persist h
 
 STEP 10 (FINISH -- HONEST DELIVERY): completion requires identity safety clear, conscience ALLOW, every active platform attempted independently, and exact current-run ledger evidence. Editorial/reader FAIL is retried in the same run up to five iterations; after the fifth it may be an explicitly recorded force-publish advisory, never a hidden bypass. In armed mode article-run-complete.py requires four active live reality receipts; the four dormant skip receipts are not failures or SLO work. Until then report PENDING; never equate foreground exit with shipped.'
 
-# task #27: PROMPT is single-quoted (the literal text above can't be touched safely -- it is a
-# live production agent instruction, editing it in place risks corrupting it), so the Telegram
-# ID is swapped in via a plain string substitution on the already-built value instead of
-# interpolating a variable into the quoted literal. No-op (identical string) unless
-# TELEGRAM_TARGET_ID is overridden from the default set above.
-PROMPT="${PROMPT//8547730585/$TELEGRAM_TARGET_ID}"
 PROMPT="${PROMPT//PUBLICATION_PAUSE_SNAPSHOT_PLACEHOLDER/$PUBLICATION_PAUSE_SNAPSHOT}"
 # self-heal L2 (spec #22): append-only, same technique as above -- if ensure_browser.sh could
 # not bring the shared daily-driver back, tell the pass to degrade gracefully (skip the
