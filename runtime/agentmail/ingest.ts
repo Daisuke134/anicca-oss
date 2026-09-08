@@ -14,13 +14,11 @@
 //   AGENTMAIL_DB_PATH=/path/to/x.db AGENTMAIL_QUEUE_PATH=/path/to/q.jsonl node ingest.ts
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname } from "node:path";
+import { agentMailDbPath, agentMailQueuePath } from "./paths.ts";
 
-const QUEUE_PATH = process.env.AGENTMAIL_QUEUE_PATH
-  ?? `${homedir()}/.openclaw/state/inbox-queue.jsonl`;
-const DB_PATH = process.env.AGENTMAIL_DB_PATH
-  ?? `${homedir()}/.openclaw/state/agentmail.db`;
+const QUEUE_PATH = agentMailQueuePath;
+const DB_PATH = agentMailDbPath;
 const CURSOR_PATH = `${QUEUE_PATH}.cursor`;
 
 mkdirSync(dirname(DB_PATH), { recursive: true });

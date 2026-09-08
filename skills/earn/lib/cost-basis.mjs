@@ -8,7 +8,8 @@
 // so the poster can pair current value ↔ cost basis per source.
 import fs from "fs";
 
-const FILE = (process.env.ANICCA_HOME || process.env.HOME + "/.anicca") + "/skills/earn/state/cost-basis.json";
+const FILE = process.env.EARN_COST_BASIS
+  || `${process.env.EARN_STATE_ROOT || `${process.env.LIFE_MANAGER_SKILLS_STATE_ROOT || `${process.env.ANICCA_HOME || `${process.env.HOME}/.anicca`}/state/skills`}/earn`}/cost-basis.json`;
 
 export function readCostBasis() {
   try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; }

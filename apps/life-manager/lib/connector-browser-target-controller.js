@@ -13,17 +13,20 @@ function exactTargetId(value) {
   return targetId;
 }
 
-function targetIdFromWebsocket(value) {
+function connectorPageWebsocketTargetId(value) {
   let parsed;
   try { parsed = new URL(String(value || "")); } catch { unavailable("Connector page websocket invalid"); }
-  const prefix = "/devtools/page/";
+  const match = /^\/devtools\/page\/([A-Za-z0-9._-]{3,128})$/.exec(parsed.pathname);
   if (
     parsed.protocol !== "ws:"
     || parsed.origin !== CONNECTOR_CDP_WEBSOCKET_ORIGIN
-    || !parsed.pathname.startsWith(prefix)
-    || parsed.username || parsed.password || parsed.search || parsed.hash
+    || !match || parsed.username || parsed.password || parsed.search || parsed.hash
   ) unavailable("Connector page websocket invalid");
-  return exactTargetId(parsed.pathname.slice(prefix.length));
+  return match[1];
+}
+
+function targetIdFromWebsocket(value) {
+  return exactTargetId(connectorPageWebsocketTargetId(value));
 }
 
 function createConnectorBrowserTargetController(options = {}) {
@@ -130,5 +133,6 @@ function createConnectorBrowserTargetController(options = {}) {
 module.exports = {
   CONNECTOR_CDP_ENDPOINT,
   CONNECTOR_CDP_WEBSOCKET_ORIGIN,
+  connectorPageWebsocketTargetId,
   createConnectorBrowserTargetController,
 };

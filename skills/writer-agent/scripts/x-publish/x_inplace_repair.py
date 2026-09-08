@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import html as html_lib
-import importlib.util
 import json
 import os
 import re
@@ -27,6 +26,7 @@ _pii_sys.path.insert(0, str(next(
 )))
 from pii_gate import gate_files, gate_run_dir, gate_text  # noqa: E402,F401
 from browser_clipboard import browser_write_html, browser_write_image  # noqa: E402
+from x_anchor import build_chunks  # noqa: E402
 
 from typing import Any
 from urllib.parse import urlparse
@@ -165,7 +165,10 @@ def _guard(
     state, _ = _state()
     target = str(state.get("pairs", {}).get(pair, {}).get("target", ""))
     arguments = [
-        os.environ.get("WRITER_SYSTEM_PYTHON", "/opt/homebrew/bin/python3"),
+        os.environ.get(
+            "WRITER_SYSTEM_PYTHON",
+            os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
+        ),
         str(SCRIPTS / "publication-guard.py"),
         command,
         "--pair",
@@ -537,10 +540,7 @@ class XBrowserAdapter:
         venv_python = Path(
             os.environ.get(
                 "WRITER_CLOAK_PYTHON",
-                str(
-                    Path.home()
-                    / ".openclaw/skills/_shared/venv-cloak/bin/python3"
-                ),
+                os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
             )
         )
         prep = subprocess.run(
@@ -560,16 +560,15 @@ class XBrowserAdapter:
         parser = Path(
             os.environ.get(
                 "WRITER_X_MARKDOWN_PARSER",
-                str(
-                    Path.home()
-                    / ".claude/skills/x-article-publisher/scripts/"
-                    "parse_markdown.py"
-                ),
+                str(Path(__file__).with_name("parse_markdown.py")),
             )
         )
         parsed = subprocess.run(
             [
-                os.environ.get("WRITER_SYSTEM_PYTHON", "/opt/homebrew/bin/python3"),
+                os.environ.get(
+                    "WRITER_SYSTEM_PYTHON",
+                    os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
+                ),
                 str(parser),
                 str(prepared),
                 "--output",
@@ -850,6 +849,7 @@ class XBrowserAdapter:
         title: str,
         source: str,
         cover: str,
+        expected_identity: str,
         protected: dict[str, Any] | None = None,
         readability_receipt: Path | None = None,
     ) -> dict[str, Any]:
@@ -881,6 +881,11 @@ class XBrowserAdapter:
                 "X body media readability gate failed: "
                 + "; ".join(str(item) for item in readability["violations"])
             )
+        body_html = str(parsed.get("html", ""))
+        try:
+            chunks = build_chunks(body_html, content_images)
+        except ValueError as error:
+            raise XRepairRefused(f"X body image anchor is invalid: {error}") from error
         manager, _browser, page = self._page()
         try:
             page.goto(
@@ -911,10 +916,18 @@ class XBrowserAdapter:
             page.wait_for_timeout(500)
             if composer.inner_text().strip():
                 raise XRepairRefused("X composer did not clear deterministically")
-            body_html = str(parsed.get("html", ""))
-            self._clipboard_html(page, body_html)
-            page.keyboard.press("Meta+v")
-            page.wait_for_timeout(3_000)
+            for kind, value in chunks:
+                if kind == "html":
+                    if not value.strip():
+                        continue
+                    self._clipboard_html(page, value)
+                    page.keyboard.press("Meta+v")
+                    page.wait_for_timeout(2_000)
+                else:
+                    path = Path(value)
+                    if not path.is_file():
+                        raise XRepairRefused("X body image is missing")
+                    self._paste_image_chunk(page, composer, path)
             normalized_body = " ".join(
                 html_lib.unescape(re.sub(r"<[^>]+>", " ", body_html)).split()
             )
@@ -925,58 +938,6 @@ class XBrowserAdapter:
                 for probe in probes
             ):
                 raise XRepairRefused("X composer body text is incomplete")
-            canonical_path = (
-                Path.home()
-                / ".claude/skills/x-article-publisher/scripts/publish_md_to_x.py"
-            )
-            canonical_spec = importlib.util.spec_from_file_location(
-                "x_article_publisher", canonical_path
-            )
-            if canonical_spec is None or canonical_spec.loader is None:
-                raise XRepairRefused("canonical X image inserter is unavailable")
-            canonical = importlib.util.module_from_spec(canonical_spec)
-            canonical_spec.loader.exec_module(canonical)
-            # Reuse the canonical DOM anchor/search/postcondition code, but
-            # replace only its OS-pasteboard side effect. The canonical module
-            # imports an older helper that calls AppKit directly; launchd has
-            # no reliable NSPasteboard server, while this authenticated X page
-            # already has clipboard-write permission.
-            canonical.copy_image_to_clipboard = (
-                lambda image_path, quality=85: browser_write_image(
-                    page, str(image_path)
-                )
-            )
-            for image in sorted(
-                content_images,
-                key=lambda item: int(item.get("block_index", 0)),
-            ):
-                path = Path(str(image["path"]))
-                if not path.is_file():
-                    raise XRepairRefused("X body image is missing")
-                anchor = self._rendered_anchor(
-                    str(image.get("after_text", ""))
-                )
-                probe = canonical.search_phrase(anchor)
-                matches = page.evaluate(
-                    """(text) => {
-                        const editor = document.querySelector('div[data-testid="composer"]')
-                            || document.querySelector('div.public-DraftEditor-content');
-                        if (!editor || !text) return 0;
-                        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-                        let node, count = 0;
-                        while ((node = walker.nextNode())) {
-                            if ((node.textContent || '').includes(text)) count += 1;
-                        }
-                        return count;
-                    }""",
-                    probe,
-                )
-                if matches != 1:
-                    raise XRepairRefused(
-                        f"X body image anchor is not unique: {probe!r} matches={matches}"
-                    )
-                if not canonical.insert_content_image(page, path, anchor):
-                    raise XRepairRefused("X body image insertion failed")
             file_input = page.locator('input[type="file"]')
             if file_input.count() != 1 or not Path(cover).is_file():
                 raise XRepairRefused("X cover input or immutable cover is missing")
@@ -1061,7 +1022,7 @@ class XBrowserAdapter:
                 raise XRepairRefused("X publish confirmation is missing")
             confirm_visible[-1].click()
             page.wait_for_timeout(8_000)
-            identity = "diceai0"
+            identity = expected_identity
             if isinstance(protected, dict):
                 live_path = urlparse(
                     str(protected.get("live_url", ""))
@@ -1122,7 +1083,7 @@ def repair(
         live_url = str(protected.get("live_url", ""))
         public_id = str(protected.get("public_id", ""))
         expected_identity = (
-            state.get("destination_identities", {}).get(pair) or "diceai0"
+            state.get("destination_identities", {}).get(pair) or ""
         )
         if (
             not public_id
@@ -1132,8 +1093,10 @@ def repair(
                 "X repair lost the protected public Article ID"
             )
     expected_identity = (
-        state.get("destination_identities", {}).get(pair) or "diceai0"
+        state.get("destination_identities", {}).get(pair) or ""
     )
+    if not expected_identity:
+        raise XRepairRefused("persisted X destination identity is required")
     browser = adapter or XBrowserAdapter()
     if browser.authenticated_identity() != expected_identity:
         raise XRepairRefused(
@@ -1348,6 +1311,7 @@ def repair(
         title,
         str(adapted),
         str(cover),
+        expected_identity,
         protected if isinstance(protected, dict) else None,
         readability_receipt=work / "media-readability.json",
     )

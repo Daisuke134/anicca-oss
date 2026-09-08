@@ -5,7 +5,8 @@
 # compute_feature_stats with synthetic {title, role, beat_rate} fixtures.
 set -uo pipefail
 
-SCRIPT_DIR="${ARTICLE_SKILL_DIR:-$HOME/profitable-claude/skills/writer-agent}/scripts"
+TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="${ARTICLE_SKILL_DIR:-$(cd "$TEST_DIR/.." && pwd)}/scripts"
 PY=/opt/homebrew/bin/python3
 command -v "$PY" >/dev/null 2>&1 || PY=python3
 TMP="$(mktemp -d)"
@@ -122,10 +123,10 @@ cat > "$TMP/outage-root/run-x/gates/beat-rate-en.json" <<'JSON'
  "candidates":[{"title":"We measured 40 percent","role":"chosen","beat_rate":0.0,"scorable_pairs":0},
                {"title":"A plain headline","role":"rejected","beat_rate":0.5,"scorable_pairs":4}]}
 JSON
-OUT_OUTAGE=$(ROOT="$TMP/outage-root" "$PY" -c '
+OUT_OUTAGE=$(ROOT="$TMP/outage-root" SCRIPT_DIR="$SCRIPT_DIR" "$PY" -c '
 import os, sys
 from pathlib import Path
-sys.path.insert(0, "scripts")
+sys.path.insert(0, os.environ["SCRIPT_DIR"])
 import goodhart
 print(len(goodhart.load_candidates_from_runs(Path(os.environ["ROOT"]))))
 ')

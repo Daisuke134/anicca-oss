@@ -32,7 +32,11 @@
 # driver) rather than forcing an unsupported full-page use case onto a script built for something
 # else.
 set -uo pipefail
-MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}/runtime/model-runner.sh}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ARTICLE_ROOT="${ARTICLE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd -P)}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh" || exit $?
+MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"
 
 PLATFORM=""
 URL=""
@@ -57,7 +61,7 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CDP_PORT="${CDP_PORT:-9222}"
-PY="${RENDER_VERIFY_PYTHON:-$(command -v python3 || echo /opt/homebrew/bin/python3)}"
+PY="${RENDER_VERIFY_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
 SHOT_DIR="${RENDER_VERIFY_SHOT_DIR:-$HOME/.cloak/render-verify}"
 mkdir -p "$SHOT_DIR"
 SHOT="$SHOT_DIR/${PLATFORM}-$(date +%s).png"
@@ -68,7 +72,7 @@ SHOT="$SHOT_DIR/${PLATFORM}-$(date +%s).png"
 # against this same default path truncated real production evidence with no backup --
 # tests/callers that need an isolated log MUST set this, never write to the production
 # default), defaults to the real production path.
-GATES_LOG="${ARTICLE_GATES_LOG:-$HOME/.openclaw/logs/article-gates.log}"
+GATES_LOG="${ARTICLE_GATES_LOG:-$WRITER_LOG_DIR/article-gates.log}"
 log_gate_verdict() {
   mkdir -p "$(dirname "$GATES_LOG")" 2>/dev/null || return 0
   printf '%s script=render-verify-draft.sh platform=%s url=%s lang=%s verdict=%s\n' \
@@ -76,7 +80,7 @@ log_gate_verdict() {
 }
 
 # --- zenn: git-based, NO browser session (task #76, 2026-07-17 correction) ---
-# Zenn publish is a plain `git push` to Daisuke134/zenn-articles (SKILL.md "ZENN ONE-SHOT
+# Zenn publish is a plain `git push` to the configured publication repository (SKILL.md "ZENN ONE-SHOT
 # PUBLISH") -- there is no login-gated dashboard in this loop's actual publish path, so
 # screenshotting zenn.dev/dashboard (what an earlier version of this task mistakenly tried) is
 # wrong on two counts: it needs a browser session this loop never otherwise uses, AND it does
@@ -84,7 +88,7 @@ log_gate_verdict() {
 # --url accepts a full zenn.dev URL, a local `npx zenn preview` URL, or a bare slug -- only the
 # last path segment (the slug) is used.
 if [ "$PLATFORM" = "zenn" ]; then
-  ZENN_REPO="${ZENN_ARTICLES_REPO:-$HOME/.openclaw/workspace/zenn-articles}"
+  ZENN_REPO="${ZENN_REPO_PATH:-${ZENN_ARTICLES_REPO:-$HOME/.local/state/life-manager/writer/checkouts/zenn-articles}}"
   SLUG="${URL##*/}"
   MD="$ZENN_REPO/articles/$SLUG.md"
   PROBLEMS=(); ADVISORY=()

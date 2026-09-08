@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# telegram-notify.sh — direct-from-bash Telegram alert via OpenClaw's own channel session.
+# telegram-notify.sh — direct-from-bash Telegram alert via Life Manager's shared sender.
 # For launchd / out-of-band scripts that do not have a channel delivery field.
 #
 # Usage (source then call):
@@ -16,6 +16,7 @@
 telegram_notify() {
   local text="$1"
   local target="${TELEGRAM_ALERT_CHAT_ID:-}"
+  local script_dir sender
   if [ -z "$target" ]; then
     set -a; . "$HOME/.local/state/life-manager/.env" 2>/dev/null || true; set +a
     target="${TELEGRAM_ALERT_CHAT_ID:-}"
@@ -24,6 +25,12 @@ telegram_notify() {
     echo "telegram_notify: no TELEGRAM_ALERT_CHAT_ID, dropping alert: $text" >&2
     return 1
   fi
-  openclaw message send --channel telegram --target "$target" -m "$text" >/dev/null 2>&1
+  script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  sender="$script_dir/../send-telegram.sh"
+  [ -x "$sender" ] || {
+    echo "telegram_notify: shared sender is unavailable: $sender" >&2
+    return 1
+  }
+  "$sender" "$text" "$target" >/dev/null 2>&1
   return $?
 }

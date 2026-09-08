@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 exec /usr/bin/env node "$DIR/the402-worker-daemon.mjs"

@@ -26,14 +26,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from skills._shared.telegram import TelegramClient
+
 JST = timezone(timedelta(hours=9))
-TARGET = "8547730585"
 STATE = Path.home() / ".local" / "state" / "anicca" / "effect-watch-state.json"
 
 # Events with a counterparty. Everything else is the loop describing itself.
@@ -121,15 +124,9 @@ def compose(finding: dict) -> str:
 
 
 def send(message: str) -> str:
-    result = subprocess.run(
-        ["openclaw", "message", "send", "--channel", "telegram",
-         "--target", TARGET, "--message", message, "--json"],
-        capture_output=True, text=True, timeout=120,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"telegram transport rc={result.returncode}: {result.stderr[:200]}")
-    payload = json.loads(result.stdout)
-    message_id = payload.get("messageId") or (payload.get("payload") or {}).get("messageId")
+    payload = TelegramClient.from_env().send_text(message)
+    message_ids = payload.get("message_ids") or []
+    message_id = message_ids[-1] if message_ids else None
     if not message_id:
         raise RuntimeError("telegram ACK carried no message id")
     return str(message_id)

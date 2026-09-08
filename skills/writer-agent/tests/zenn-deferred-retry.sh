@@ -40,7 +40,7 @@ assets = [item["sha256"] for item in state["media"]["body_assets"]]
 urls = [f"https://assets.example/{index}.png" for index, _ in enumerate(assets)]
 value = {
     "status": "live",
-    "live_url": "https://zenn.dev/anicca/articles/target-slug-1",
+    "live_url": "https://zenn.dev/writer-zenn/articles/target-slug-1",
     "verified": True,
     "public_id": "target-slug-1",
     "published_at": "2026-07-21T17:08:36+00:00",
@@ -61,7 +61,7 @@ value = {
     ],
     "asset_verified": True,
     "body_media_verified": True,
-    "destination_identity": "anicca",
+    "destination_identity": "writer-zenn",
     "identity_verified": True,
     "identity_source": "zenn-username-scoped-api",
 }
@@ -88,10 +88,10 @@ python3 - "$DAILY" <<'PY'
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 completion = text.index("if ! pass_is_complete; then")
-deferred = text.index("zenn-deferred-control.py\" handoff", completion)
 pending_owner = text.index("incomplete; durable pending worker owns", completion)
-assert deferred < pending_owner, "Zenn handoff must precede pending-worker ownership"
+assert pending_owner > completion, "pending worker must own incomplete publication state"
 assert text.count("run_model_pass") == 2, "one function definition plus one foreground call"
+assert 'zenn-deferred-control.py" handoff' not in text[completion:], "daily wrapper must not duplicate pending-worker handoff"
 assert 'zenn-deferred-retry.sh' not in text[completion:], "daily wrapper must not run the retry worker"
 PY
 
@@ -141,7 +141,7 @@ cat >"$TMP/reality-gate.sh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
 test "$1" = ssr
-test "$2" = 'https://zenn.dev/anicca/articles/target-slug-1'
+test "$2" = 'https://zenn.dev/writer-zenn/articles/target-slug-1'
 test "$3" = 'Target title'
 test "$(cat "$REALITY_MODE")" = pass
 printf 'VERDICT=PASS\n'

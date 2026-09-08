@@ -6,7 +6,7 @@ TMP="$(mktemp -d "${TMPDIR:-/tmp}/self-improve-notify.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 SKILL="$TMP/skill"
 mkdir -p "$SKILL/scripts" "$SKILL/state/learning" "$TMP/home/.openclaw/logs"
-: >"$TMP/home/.openclaw/.env"
+: >"$TMP/life-manager.env"
 
 for helper in score-latest-run.sh topic-supply.sh; do
   printf '#!/usr/bin/env bash\nexit 0\n' >"$SKILL/scripts/$helper"
@@ -50,6 +50,8 @@ PY
 if ! NOTIFY_MARKER="$TMP/notified" \
   LEARNING_CALLS="$TMP/learning-calls" \
   HOME="$TMP/home" \
+  LIFE_MANAGER_REPO="$(cd "$ROOT/../.." && pwd)" \
+  LIFE_MANAGER_ENV_FILE="$TMP/life-manager.env" \
   ARTICLE_SKILL_DIR="$SKILL" \
   bash "$ROOT/scripts/self-improve.sh" >"$TMP/stdout" 2>"$TMP/stderr"; then
   cat "$TMP/stdout" >&2

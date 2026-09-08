@@ -250,16 +250,19 @@ CODEX_PROVIDER_ID="${ARTICLE_CODEX_PROVIDER_ID:-openai}"
 CODEX_PROVIDER_BASE_URL="${ARTICLE_CODEX_PROVIDER_BASE_URL:-}"
 CODEX_PROVIDER_ENV_KEY="${ARTICLE_CODEX_PROVIDER_ENV_KEY:-}"
 CODEX_PROVIDER_API_KEY_SOURCE="${ARTICLE_CODEX_PROVIDER_API_KEY_SOURCE:-}"
+CODEX_PROVIDER_CONFIG="${ARTICLE_CLIPROXY_CONFIG:-}"
 
 load_codex_provider_key() {
+  set +x
   case "$CODEX_PROVIDER_API_KEY_SOURCE" in
     "") ;;
     cliproxyapi)
       [ "$CODEX_PROVIDER_ENV_KEY" = "CLIPROXY_API_KEY" ] || return 1
-      local config_file="/opt/homebrew/etc/cliproxyapi.conf"
-      local provider_key
-      [ -r "$config_file" ] || return 1
-      provider_key="$(awk '/^api-keys:/{in_keys=1; next} in_keys && /- "/{gsub(/.*- "/, ""); gsub(/".*/, ""); print; exit}' "$config_file")"
+      local provider_key="${ARTICLE_CODEX_PROVIDER_API_KEY:-}"
+      if [ -z "$provider_key" ]; then
+        [ -n "$CODEX_PROVIDER_CONFIG" ] && [ -r "$CODEX_PROVIDER_CONFIG" ] || return 1
+        provider_key="$(awk '/^api-keys:/{in_keys=1; next} in_keys && /- "/{gsub(/.*- "/, ""); gsub(/".*/, ""); print; exit}' "$CODEX_PROVIDER_CONFIG")"
+      fi
       [ -n "$provider_key" ] || return 1
       export CLIPROXY_API_KEY="$provider_key"
       unset provider_key

@@ -53,8 +53,8 @@ tests; see tests/beat-rate-contract.sh.
 
 Judge process boundary: exactly `scripts/editorial-gate.sh` and
 `self_improve_control.py`'s `model_judge` -- `$ARTICLE_MODEL_RUNNER judge
---prompt-file -`, default $HOME/profitable-claude/skills/writer-agent/
-runtime/model-runner.sh. No second model path is invented here; the broker
+--prompt-file -`, defaulting to the repository-owned Writer runtime model
+runner. No second model path is invented here; the broker
 discovery inside that runner is what keeps judging alive outside the agent
 sandbox.
 

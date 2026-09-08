@@ -1,6 +1,6 @@
 "use strict";
 
-const PAGE_WEBSOCKET = /^ws:\/\/(?:127\.0\.0\.1|\[::1\]):9222\/devtools\/page\/([A-Za-z0-9._-]{3,128})$/;
+const { connectorPageWebsocketTargetId } = require("./connector-browser-target-controller.js");
 const PROVIDER = /^[a-z][a-z0-9_-]{1,31}$/;
 const CONTROL = /^[a-z][a-z0-9_-]{1,63}$/;
 const EXPECTED_STATE = /^[a-z][a-z0-9_]{1,63}$/;
@@ -40,8 +40,9 @@ function dependencies(input) {
 function scope(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) invalid();
   const websocket = String(input.pageWebsocket || "");
-  const match = PAGE_WEBSOCKET.exec(websocket);
-  if (!match || !input.page || typeof input.page !== "object") invalid();
+  let targetId;
+  try { targetId = connectorPageWebsocketTargetId(websocket); } catch { invalid(); }
+  if (!input.page || typeof input.page !== "object") invalid();
   const provider = String(input.provider || "");
   const expectedState = String(input.expectedState || "");
   if (!PROVIDER.test(provider) || !EXPECTED_STATE.test(expectedState)) invalid();
@@ -58,7 +59,7 @@ function scope(input) {
     provider,
     page: input.page,
     page_websocket: websocket,
-    target_id: match[1],
+    target_id: targetId,
     expected_state: expectedState,
     max_steps: maxSteps,
     max_duration_ms: maxDurationMs,

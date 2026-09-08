@@ -11,7 +11,7 @@
  */
 
 const DEFAULTS = {
-  OPENAI_BASE_URL:      'http://127.0.0.1:8402/v1',
+  OPENAI_BASE_URL:      'http://127.0.0.1:18402/v1',
   // FREE brain = nvidia/gpt-oss-120b — BlockRun's documented DEFAULT free model (README: "default free
   // model", 128K), OpenAI's open 120B. Verified live via the raw-BlockRun proxy: clean agentic tool-use
   // (valid JSON tool call, 1676ms, resp model matches). $0 forever — the cost-free brain so prepared
@@ -139,6 +139,18 @@ export function loadConfig(processEnv, dotenvText) {
 
   config.EARN_LEDGER = processEnv.EARN_LEDGER
     ?? dotenvValues.EARN_LEDGER
+    ?? undefined;
+
+  config.LIFE_MANAGER_SKILLS_ROOT = processEnv.LIFE_MANAGER_SKILLS_ROOT
+    ?? dotenvValues.LIFE_MANAGER_SKILLS_ROOT
+    ?? undefined;
+
+  config.EARN_STATE_ROOT = processEnv.EARN_STATE_ROOT
+    ?? dotenvValues.EARN_STATE_ROOT
+    ?? undefined;
+
+  config.LIFE_MANAGER_SKILLS_STATE_ROOT = processEnv.LIFE_MANAGER_SKILLS_STATE_ROOT
+    ?? dotenvValues.LIFE_MANAGER_SKILLS_STATE_ROOT
     ?? undefined;
 
   config.CLAUDE_BIN = processEnv.CLAUDE_BIN

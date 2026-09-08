@@ -17,17 +17,16 @@
 //
 // Idempotent: re-running with no new mail is a no-op.
 //
-// Env required (in ~/.openclaw/.env):
+// Env required (in ~/.local/state/life-manager/.env):
 //   AGENTMAIL_API_KEY               — adapter uses this
 //   AGENTMAIL_REPLIER_FROM_INBOX    — optional override; defaults to anicca-001-claude@agentmail.to
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { semanticDecision } from "./semantic-reply.ts";
+import { agentMailAdapterDir, agentMailDbPath } from "./paths.ts";
 
-const DB_PATH = process.env.AGENTMAIL_DB_PATH
-  ?? `${homedir()}/.openclaw/state/agentmail.db`;
+const DB_PATH = agentMailDbPath;
 const ADAPTER_SEND = process.env.AGENTMAIL_ADAPTER_SEND_SH
   ?? fileURLToPath(new URL("./send.sh", import.meta.url));
 const FROM_INBOX = process.env.AGENTMAIL_REPLIER_FROM_INBOX
@@ -98,7 +97,7 @@ function isPrimaryOrgInbox(inbox: string): boolean {
 }
 
 // Direct REST send — used for sibling-org inboxes because the spec-12 adapter
-// re-sources ~/.openclaw/.env after we pass our env override, which clobbers
+// re-sources the Life Manager env after we pass our env override, which clobbers
 // AGENTMAIL_API_KEY. We re-implement just the bits we need (curl + log line).
 import { appendFileSync as fsAppend, mkdirSync as fsMkdir } from "node:fs";
 import { dirname as fsDirname } from "node:path";
@@ -123,7 +122,7 @@ async function directSend(
   const msgId = parsed.message_id ?? `direct-${Date.now()}`;
   // Mirror the adapter's append-only sent-log so audits stay coherent.
   try {
-    const LOG = `${process.env.AGENTMAIL_ADAPTER_STATE_DIR ?? `${homedir()}/.openclaw/state/agentmail-adapter`}/sent-log.jsonl`;
+    const LOG = `${agentMailAdapterDir}/sent-log.jsonl`;
     fsMkdir(fsDirname(LOG), { recursive: true });
     fsAppend(LOG, JSON.stringify({
       ts: new Date().toISOString(),

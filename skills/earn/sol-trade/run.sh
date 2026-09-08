@@ -12,7 +12,7 @@ set -u
 # ~/.blockrun directly and never needs this var, so unsetting it here is safe.
 unset ANICCA_SOLANA_PRIVATE_KEY 2>/dev/null || true
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
-STATE_DIR="$SKILL_DIR/../state"; mkdir -p "$STATE_DIR"
+STATE_DIR="${SOL_TRADE_STATE_ROOT:-${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}}"; mkdir -p "$STATE_DIR"
 TRACE="$STATE_DIR/sol-trade.trace.jsonl"
 FT_MODEL="${SOL_TRADE_MODEL:-openai/gpt-5-mini}"   # cheapest WORKING tool-caller (~pennies/session), don't bleed the bankroll (FIX-C)
 

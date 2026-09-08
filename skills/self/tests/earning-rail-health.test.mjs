@@ -296,7 +296,8 @@ test("observeSlot performs bounded read-only probes without returning raw diagno
       probe: {
         kind: "trace",
         tracePath: "skills/earn/state/pm.jsonl",
-        killPath: "skills/earn/polymarket-trade/KILL",
+        killPath: ".local/state/life-manager/polymarket/KILL",
+        killPathBase: "home",
       },
     }, {
       runtimeRoot,

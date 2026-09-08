@@ -1,12 +1,13 @@
 #!/bin/bash
 # F1 — one-command note publisher. Orchestrates the proven note-publish scripts, idempotent + guarded,
 # with a deterministic VERIFY gate whose screenshot the active model agent LOOKS at before --go.
-# Spec: docs/superpowers/specs/2026-06-24-publish-to-note-sh-F1.md.  NEVER /tmp — data in ~/.cloak/note-work.
+# Spec: docs/superpowers/specs/2026-06-24-publish-to-note-sh-F1.md. NEVER /tmp; data in Writer state.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PY="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
-HBPY="/opt/homebrew/bin/python3"          # has `cryptography` for cookie extraction
-WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
+source "$DIR/../writer-runtime-env.sh"
+PY="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
+HBPY="$PY"
+WORK="$NOTE_WORK_ROOT"; mkdir -p "$WORK"
 DEFAULT_KEY="na3a631e63d1a"
 
 filt(){ grep -vE "Update available|pip install|fonts loaded|no leaks found" || true; }
@@ -42,11 +43,15 @@ case "$cmd" in
       *) echo "unknown arg: $1"; exit 2;;
     esac; done
     export NOTE_KEY="$KEY" NOTE_PRICE="$PRICE" NOTE_PAYWALL="$PAYWALL" NOTE_EYECATCH="$EYECATCH" NOTE_MODE="$MODE" NOTE_SRC="$MD"
+    if [ -n "$EYECATCH" ]; then
+      [ -f "$EYECATCH" ] || { echo "ERROR: eyecatch is not a regular file: $EYECATCH"; exit 2; }
+      cp "$EYECATCH" "$WORK/thumb.png" || { echo "ERROR: failed to stage eyecatch in Writer state"; exit 1; }
+    fi
     [ -n "$NUM" ] && export NOTE_NUM="$NUM"; [ -n "$IMG_DIR" ] && export NOTE_IMG_DIR="$IMG_DIR"; [ -n "$TAGS" ] && export NOTE_TAGS="$TAGS"; [ -n "$INFOG" ] && export NOTE_INFOG="$INFOG"
     echo "== PUBLISH md=$MD key=$KEY price=$PRICE paywall-before='$PAYWALL' mode=$MODE =="
     echo "[1/7] cookies";   "$HBPY" "$DIR/extract-note-cookies.py" | filt
     if [ "$KEY" = "new" ]; then
-      [ -n "$NUM" ] || { echo "ERROR: --key new requires --num <noteId> (new-article id creation is a TODO) — refusing to default to the Automaton note 166686292"; exit 2; }
+      [ -n "$NUM" ] || { echo "ERROR: --key new requires --num <noteId> (new-article id creation is a TODO)"; exit 2; }
       echo "[2/7] render+draft (new article)"
       "$PY" "$DIR/../note-stage1-render.py" "$MD" | filt
       "$PY" "$DIR/../note-stage2-publish.py" | filt

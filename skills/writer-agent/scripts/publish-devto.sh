@@ -29,6 +29,8 @@ fi
 # published:false, records the authenticated numeric article ID, and later
 # flips only that ID live. There is no second unmanaged/manual pipeline.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 if [[ -z "${ARTICLE_RUN_DIR:-}" || ! -f "${ARTICLE_PUBLICATION_STATE:-}" || ! -f "${ARTICLE_LEDGER:-}" ]]; then
   echo "FATAL: managed publication state is required" >&2
@@ -41,7 +43,6 @@ fi
 # goes to stderr so it cannot pollute this script's single-line stdout contract.
 python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-devto "$MD_FILE" >&2 || exit $?
 
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
 STAGED="$(python3 "$SCRIPT_DIR/devto-publish/devto.py" stage)" || exit $?
 ARTICLE_ID="$(printf '%s' "$STAGED" | jq -r '.article_id // empty')"
 DASHBOARD_URL="$(printf '%s' "$STAGED" | jq -r '.dashboard_url // empty')"

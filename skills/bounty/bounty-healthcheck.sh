@@ -3,21 +3,25 @@
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
 
-RUN_AGENT="$HOME/anicca/skills/earn/marketing-engine/run_agent.sh"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+RUN_AGENT="${RUN_AGENT_BIN:-$REPO_ROOT/skills/earn/marketing-engine/run_agent.sh}"
 if [ "${AGENT_WIRING_PROBE_ONLY:-0}" = "1" ]; then
   printf '{"task_class":"high-value-agent","runner":"%s"}\n' "$RUN_AGENT"
   exit 0
 fi
 
 PASS_LOCK="/tmp/anicca-bounty-pass.lock"
-CLI="$HOME/profitable-claude/skills/bounty/bounty-cli.sh"
+CLI="$REPO_ROOT/skills/bounty/bounty-cli.sh"
 DAILY_LABEL="ai.anicca.hf-bounty-daily"
-HB="$HOME/.openclaw/state/.bounty-core-last-pass"
-START="$HOME/.openclaw/state/.bounty-core-last-start"
-LOG="$HOME/.openclaw/logs/bounty-core-healthcheck.log"
+STATE_ROOT="${BOUNTY_STATE_ROOT:-$HOME/.local/state/life-manager/bounty}"
+STATE="${BOUNTY_STATE_DIR:-$STATE_ROOT/state}"
+HB="$STATE/.bounty-core-last-pass"
+START="$STATE/.bounty-core-last-start"
+LOG="${BOUNTY_HEALTHCHECK_LOG:-$STATE_ROOT/logs/bounty-core-healthcheck.log}"
 STALE_MIN=1560
 LOCK_DIR="/tmp/.bounty-healthcheck.lock"
-mkdir -p "$(dirname "$LOG")" "$HOME/.openclaw/state"
+mkdir -p "$(dirname "$LOG")" "$STATE"
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then exit 0; fi
 trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT

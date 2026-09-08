@@ -1,5 +1,5 @@
 #!/bin/bash
-# A3 — one-tap X-Article orchestrator (the hands). NEVER /tmp; data in ~/.cloak/note-work.
+# A3 — one-tap X-Article orchestrator (the hands). NEVER /tmp; data in Writer state.
 #   publish <md> [--mode draft] [--lang ja|en]  → language-purity + de-slop + eval gates
 #                                  (same as run.sh's STEP 6a/6c/6d; seo-gate excluded, it
 #                                  needs --title/--meta this path does not have) → prep
@@ -11,6 +11,7 @@
 #   verify  <draftUrl>           → measure every image px + screenshot sections (the AGENT Reads them).
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$DIR/../writer-runtime-env.sh"
 QUALITY_ADVISORY_MODE="${ARTICLE_QUALITY_ADVISORY:-0}"
 QUALITY_GATES_ALL_PASS=1
 run_quality_gate() {
@@ -43,10 +44,10 @@ run_quality_gate() {
   rm -f "$raw_file"
   return 1
 }
-VC="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
-HBPY="/opt/homebrew/bin/python3"
-PARSE="$HOME/.claude/skills/x-article-publisher/scripts/parse_markdown.py"
-WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
+VC="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
+HBPY="$VC"
+PARSE="$DIR/parse_markdown.py"
+WORK="$NOTE_WORK_ROOT"; mkdir -p "$WORK"
 filt(){ grep -vE "Update available|pip install|fonts" || true; }
 cmd="${1:-}"; shift || true
 case "$cmd" in

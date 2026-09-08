@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # anicca local-default compute proxy — fully local, free, no server/API key.
 #
-# Anicca pays its OWN compute via ClawRouter/BlockRun (USDC x402) from its OWN
+# Anicca pays its OWN compute via BlockRun x402 from its OWN
 # wallet — exactly like Franklin. The user provides only SHELTER (this device);
 # Anicca buys its own FOOD (inference). Free NVIDIA models when the wallet is
 # empty; frontier models unlock automatically once USDC lands in the wallet.
 #
 # What this script DOES (and does NOT) do:
 #   1. ensures a self-owned wallet at ~/.automaton/wallet.json (auto-gen, never a human key)
-#   2. starts runtime/compute-proxy/proxy.mjs on :8402 (x402 self-pay, OpenAI-compatible)
+#   2. starts runtime/compute-proxy/proxy.mjs on :18402 (x402 self-pay, OpenAI-compatible)
 #   3. exports OPENAI_BASE_URL + OPENAI_API_KEY (placeholder) + ANICCA_MODEL so an
 #      OpenAI-compatible loop you pass in routes inference through the self-paid proxy
 #   4. exec "$@" if you give it a loop command; otherwise HOLD the proxy in the
@@ -22,7 +22,12 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PORT="${COMPUTE_PROXY_PORT:-8402}"
+PORT="${COMPUTE_PROXY_PORT:-18402}"
+PROXY_ONLY=0
+if [ "${1:-}" = "--proxy-only" ]; then
+  PROXY_ONLY=1
+  shift
+fi
 # per-instance EVM identity (#26 EQUALIZE, R4): the wallet path is resolved by a single sourced
 # helper (unit-tested) so every instance gets its OWN isolated wallet under its OWN $ANICCA_HOME,
 # while ONLY the original default-home instance keeps the legacy shared $HOME wallet. A spawn with
@@ -30,15 +35,12 @@ PORT="${COMPUTE_PROXY_PORT:-8402}"
 # shellcheck source=resolve-wallet-path.sh
 . "$HERE/resolve-wallet-path.sh"
 WALLET="$(resolve_wallet_path)"
-# Free BlockRun model = $0/call, no key. Frontier (paid) is chosen by your loop
-# when the wallet has USDC; override with ANICCA_MODEL to pin one.
-FREE_MODEL="${ANICCA_FREE_MODEL:-nvidia/deepseek-v4-flash}"
 
 # --- 1. self-owned wallet (no human key) -------------------------------
 if [ ! -f "$WALLET" ]; then
   mkdir -p "$(dirname "$WALLET")"
   WALLET_PATH="$WALLET" node -e '
-    const {generatePrivateKey,privateKeyToAccount}=require("'"$HERE"'/../node_modules/viem/accounts");
+    const {generatePrivateKey,privateKeyToAccount}=require("'"$HERE"'/node_modules/viem/accounts");
     const fs=require("fs"); const pk=generatePrivateKey(); const wp=process.env.WALLET_PATH;
     fs.writeFileSync(wp,
       JSON.stringify({privateKey:pk,address:privateKeyToAccount(pk).address},null,2));
@@ -52,7 +54,9 @@ fi
 # --- 1b. self-owned Solana wallet (fund via Binance SOL -> auto-swap to USDC) --
 # Lets anyone top anicca up from Binance (which in many regions only sells SOL):
 # send SOL here, the funding daemon swaps it to USDC on Base. No human key, no deps.
-node "$HERE/ensure-solana-wallet.mjs" || echo "[local] WARN: solana wallet gen skipped"
+if [ "$PROXY_ONLY" -eq 0 ]; then
+  node "$HERE/ensure-solana-wallet.mjs" || echo "[local] WARN: solana wallet gen skipped"
+fi
 
 # --- 1c. born-with-Polygon (#27 EQUALIZE): self-owned Polymarket deposit wallet --
 # The moment this instance has its OWN EVM key (step 1 above), it can also own a
@@ -61,22 +65,32 @@ node "$HERE/ensure-solana-wallet.mjs" || echo "[local] WARN: solana wallet gen s
 # ADDRESS; funding it (pUSD / bridged USDC) is a separate, later, deliberate step —
 # see skills/earn/polymarket-trade/SKILL.md. Best-effort / non-blocking: any missing
 # python/pip/network never fails wallet creation (see ensure-polymarket-deposit-wallet.sh).
-EFFECTIVE_HOME="${ANICCA_HOME:-$HOME/.anicca}"
-bash "$HERE/ensure-polymarket-deposit-wallet.sh" "$WALLET" "$EFFECTIVE_HOME" \
-  || echo "[local] WARN: Polymarket deposit-wallet bootstrap skipped (non-blocking)"
+if [ "$PROXY_ONLY" -eq 0 ]; then
+  EFFECTIVE_HOME="${ANICCA_HOME:-$HOME/.anicca}"
+  bash "$HERE/ensure-polymarket-deposit-wallet.sh" "$WALLET" "$EFFECTIVE_HOME" \
+    || echo "[local] WARN: Polymarket deposit-wallet bootstrap skipped (non-blocking)"
+fi
 
 # --- 2. start the x402 self-pay proxy ----------------------------------
-# Readiness is proven by a real routed path (/v1/chat/completions), NOT /v1/models
-# (proxy.mjs returns an empty data:[] for /models, so a 200 there proves nothing).
-proxy_ready() {
-  curl -sS --max-time 3 "http://127.0.0.1:$PORT/v1/chat/completions" \
-    -H 'Content-Type: application/json' \
-    -d "{\"model\":\"$FREE_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}" \
-    >/dev/null 2>&1
-}
+# /models is a process-readiness probe only. Provider inference is verified separately without
+# charging or fabricating a completion during ordinary daemon boot.
+if [ "$PROXY_ONLY" -eq 1 ]; then
+  if curl -sS --max-time 2 "http://127.0.0.1:$PORT/v1/models" >/dev/null 2>&1; then
+    echo "[local] compute-proxy already live on :$PORT"
+    exit 0
+  fi
+  echo "[local] starting compute-proxy on :$PORT (x402 self-pay from own wallet)..."
+  cd "$HERE"
+  exec env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY \
+    COMPUTE_PROXY_PORT="$PORT" node proxy.mjs
+fi
+
+PROXY_PID=""
 if ! curl -sS --max-time 2 "http://127.0.0.1:$PORT/v1/models" >/dev/null 2>&1; then
   echo "[local] starting compute-proxy on :$PORT (x402 self-pay from own wallet)..."
-  ( cd "$HERE" && COMPUTE_PROXY_PORT="$PORT" node proxy.mjs ) &
+  ( cd "$HERE" && env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY \
+      COMPUTE_PROXY_PORT="$PORT" node proxy.mjs ) &
+  PROXY_PID="$!"
   # wait for the HTTP server to bind (port up). Live inference still needs the
   # network + a free-tier/funded wallet — see step 4 / verify notes.
   for _ in $(seq 1 20); do
@@ -90,7 +104,7 @@ fi
 # --- 3. point any OpenAI-compatible loop at the self-paid proxy --------
 export OPENAI_BASE_URL="http://127.0.0.1:$PORT/v1"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-x402-local-nokey}"   # placeholder; proxy pays in USDC, not this
-# Use ClawRouter's `auto` router by default (no hardcoded model); ANICCA_MODEL can pin one.
+# The repository proxy maps this profile to its configured concrete frontier model.
 export ANICCA_MODEL="${ANICCA_MODEL:-auto}"
 # The loop requires ANICCA_HOME (no default) — derive it the same way install.sh does.
 export ANICCA_HOME="${ANICCA_HOME:-$HOME/.anicca}"
@@ -101,15 +115,15 @@ export ANICCA_WALLET_ADDRESS="${ANICCA_WALLET_ADDRESS:-$(WALLET_PATH="$WALLET" n
     const w=JSON.parse(require("fs").readFileSync(process.env.WALLET_PATH));
     if (w.address) { console.log(w.address); }
     else if (w.privateKey) {
-      const {privateKeyToAccount}=require("'"$HERE"'/../node_modules/viem/accounts");
+      const {privateKeyToAccount}=require("'"$HERE"'/node_modules/viem/accounts");
       console.log(privateKeyToAccount(w.privateKey).address);
     }
   } catch(e){ process.exit(0); }
 ')}"
-echo "[local] inference -> $OPENAI_BASE_URL  model=$ANICCA_MODEL  (ClawRouter auto; free until wallet funded)"
+echo "[local] inference -> $OPENAI_BASE_URL  model=$ANICCA_MODEL  (repository x402 proxy)"
 echo "[local] ANICCA_HOME=$ANICCA_HOME  wallet=$ANICCA_WALLET_ADDRESS"
 
-# --- 4. run YOUR loop, or hold the proxy + show how to plug one in -----
+# --- 4. run loop or hold ------------------------------------------------
 if [ "$#" -gt 0 ]; then
   echo "[local] launching your loop: $*"
   exec "$@"

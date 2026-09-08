@@ -10,7 +10,7 @@ md=re.sub(r'^---\n.*?\n---\n','',md,count=1,flags=re.S)   # strip frontmatter
 # The canonical source envelope is a cross-platform manifest, not literal X
 # body markup. X uses the pinned headline as its cover and the already-rendered
 # body diagram as its one reader-visible figure. Resolve that body asset before
-# writing the adapted Markdown into ~/.cloak/note-work, where relative run-dir
+# writing the adapted Markdown into $WRITER_STATE_DIR/note-work, where relative run-dir
 # paths would otherwise break.
 _canonical=re.compile(
     r'(?ms)^<!-- canonical-media:start -->\n(?P<content>.*?)^<!-- canonical-media:end -->\n?'

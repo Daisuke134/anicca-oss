@@ -10,9 +10,9 @@ it NEVER touches the live daily-driver tab.
 ```
  SOURCE                         AUTH                         PUBLISH STEPS (each = one script)
  ──────                         ────                         ────────────────────────────────
- docs/articles/<x>.md  ──┐   dd-keepalive.py (browser alive) ┌─► note-stage1-render.py  render md → tables/figs → PNG
+ docs/articles/<x>.md  ──┐   life-manager-daily-driver       ┌─► note-stage1-render.py  render md → tables/figs → PNG
    (markdown + images)   │   extract-note-cookies.py         │      note-stage2-publish.py  upload imgs + create DRAFT
-                         │     → ~/.cloak/note-work/          │   set-eyecatch-republish.py  cover image (見出し画像)
+                         │     → $WRITER_STATE_DIR/note-work/ │   set-eyecatch-republish.py  cover image (見出し画像)
                          └────► note-cookies.json  ───────────┤   insert-toc-save.py        manual 目次 = big titles only
                                 (mock-keychain decrypt)       │   delete-toc-node.py        kill any auto-<table-of-contents>
                                                               │   publish.py               無料 + membership 特典 + 試し読み
@@ -28,7 +28,7 @@ it NEVER touches the live daily-driver tab.
 ## Canonical files
 | file | role |
 |---|---|
-| `dd-keepalive.py` | reopen + keep the daily-driver CloakBrowser alive (HARD RULE 0.39 — never close it) |
+| `../../../../skills/browser/owned-persistent-context` | registry-owned daily-driver process |
 | `extract-note-cookies.py` | decrypt note.com cookies from the daily-driver profile (run with /opt/homebrew/bin/python3) |
 | `../note-stage1-render.py`,`../note-stage2-publish.py` | md → draft (tables/figs as uniform PNGs, hero, compact figure HTML) |
 | `set-eyecatch-republish.py` | set the 見出し画像 (top `画像を追加` button → upload → crop 保存) |

@@ -48,7 +48,13 @@ class ManagedImmutableMediaTest(unittest.TestCase):
                     return_value="https://cdn.example/body-diagram.png",
                 ),
                 patch.object(module, "load_cache", return_value={}),
-                patch.dict(os.environ, {"SUBSTACK_SESSION_COOKIE": "test-cookie"}),
+                patch.dict(
+                    os.environ,
+                    {
+                        "SUBSTACK_SESSION_COOKIE": "test-cookie",
+                        "SUBSTACK_PUBLICATION": "writer.example",
+                    },
+                ),
             ):
                 try:
                     result = module.main(

@@ -44,7 +44,8 @@ test("daemon-free install stays inside LIFE_MANAGER_HOME and preserves user env 
 
   assert.equal(existsSync(join(runtime, ".env")), true);
   assert.equal(existsSync(join(runtime, "identity", "genesis.md")), true);
-  assert.equal(existsSync(join(runtime, "skills", "_shared")), true);
+  assert.equal(existsSync(join(runtime, "skills")), false);
+  assert.equal(existsSync(join(runtime, "state", "skills", "earn")), true);
   assert.equal(existsSync(join(home, "Library", "LaunchAgents")), false);
   assert.equal(existsSync(join(home, ".anicca")), false);
 

@@ -10,6 +10,7 @@
 import fs from "fs";
 import bs58 from "bs58";
 import nacl from "tweetnacl";
+import { normalizeModelSelection } from "../compute-proxy/model-map.mjs";
 
 // franklin2-daemon-identity impl-review iteration-1 FIND-001 fix: the dashboard `host` label must
 // derive from ANICCA_INSTANCE so franklin2 (and future franklin3, franklin10, …) are distinguishable
@@ -23,9 +24,17 @@ function instanceHostLabel(instance) {
   return name.charAt(0).toUpperCase() + name.slice(1); // franklin2 -> Franklin2, franklin10 -> Franklin10, ...
 }
 
-const HOME = process.env.HOME;
-const SOLANA_WALLET_FILE = HOME + "/.blockrun/.solana-session"; // base58 64-byte secret key (Franklin's own wallet, written by @blockrun/llm on first `franklin setup`)
-const COST_LOG = HOME + "/.blockrun/cost_log.jsonl";
+function instanceHome(argv, env) {
+  const marker = argv.indexOf("--home");
+  const explicit = marker >= 0 ? argv[marker + 1] : "";
+  if (explicit?.startsWith("/")) return explicit;
+  if (env.ANICCA_HOME?.startsWith("/")) return env.ANICCA_HOME;
+  return `${env.HOME}/.blockrun`;
+}
+
+const INSTANCE_HOME = instanceHome(process.argv.slice(2), process.env);
+const SOLANA_WALLET_FILE = INSTANCE_HOME + "/.solana-session"; // base58 64-byte secret key (Franklin's own wallet, written by @blockrun/llm on first `franklin setup`)
+const COST_LOG = INSTANCE_HOME + "/cost_log.jsonl";
 const SOLR = "https://api.mainnet-beta.solana.com";
 const SOL_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const TELEMETRY_URL = process.env.ANICCA_TELEMETRY_URL || "https://aniccaai.com/.netlify/functions/telemetry";
@@ -39,7 +48,7 @@ const address = bs58.encode(Buffer.from(secretKey.slice(32))); // last 32 bytes 
 // makes the "Live activity" feed update in real time from Franklin's own ledger — no fakes. Franklin's
 // realized earnings are $0 so far (it correctly WAITs when the edge doesn't clear fees), so revenue_by_source
 // is empty/0 honestly; the activity log still shows it IS awake and deciding.
-const LEDGER = HOME + "/.blockrun/state/ledger.jsonl";
+const LEDGER = INSTANCE_HOME + "/state/ledger.jsonl";
 function activityLog() {
   try {
     return fs.readFileSync(LEDGER, "utf8").trim().split("\n").slice(-15).reverse().map((s) => {
@@ -82,14 +91,12 @@ function burnToday() {
   } catch { return 0; }
 }
 
-// #31 FREE-MODE (2026-07-05): brain model label must reflect what `franklin proxy` is ACTUALLY
-// pinned to (anicca-daemon.sh: `franklin proxy --model "$FRANKLIN_FREE_MODEL" --no-fallback`), not a
-// stale hardcoded paid placeholder. anicca-daemon.sh now `export`s FRANKLIN_FREE_MODEL so this
-// one-shot poster (spawned as a child of that same shell) inherits the real value; the literal here
-// is only the fallback for a standalone/manual run where that env var isn't set. Live-verified
-// 2026-07-05: nvidia/llama-4-maverick is BlockRun billing_mode="free" (pricing input/output = 0) —
-// so model_tier is "free", never "frontier".
-const FRANKLIN_MODEL = process.env.FRANKLIN_FREE_MODEL || "nvidia/llama-4-maverick";
+// Derive the dashboard label through the same normalizer as the repository proxy. ANICCA_MODEL is
+// the loop's highest-precedence request model; without an override every current tier uses free/glm.
+const FRANKLIN_MODEL = normalizeModelSelection(
+  process.env.ANICCA_MODEL || "free/glm-4.7",
+  process.env.ANICCA_FRONTIER_MODEL || "anthropic/claude-sonnet-4-6",
+);
 const HOST_LABEL = instanceHostLabel(process.env.ANICCA_INSTANCE);
 
 async function post() {
@@ -99,7 +106,7 @@ async function post() {
   const payload = {
     id: address, ts: Math.floor(Date.now() / 1000), host: HOST_LABEL, geo: "JP", chain: "solana",
     funding: "self", env: "local", brain: "proxy",
-    model_live: FRANKLIN_MODEL, model_tier: "free",
+    model_live: FRANKLIN_MODEL.model, model_tier: FRANKLIN_MODEL.tier,
     net_worth_usd, revenue_mo_usd: 0, revenue_by_source: {}, log: activityLog(),
     burn_day_usd, runway_days: 999, status: "alive",
   };

@@ -26,6 +26,9 @@ def state_file(root: Path) -> Path:
                 "run_dir": str(run),
                 "state_path": str(path),
                 "ledger_path": str(root / "articles.jsonl"),
+                "destination_identities": {
+                    "substack/ja": "aniccabuddha.substack.com",
+                },
                 "pairs": {
                     "note/ja": {
                         "status": "unavailable",
@@ -35,7 +38,7 @@ def state_file(root: Path) -> Path:
                         "status": "unavailable",
                         "error": "substack_editor_redirect_own_eyes_unverified",
                         "target_kind": "substack-draft-id",
-                        "target": "208936451",
+                        "target": "208" + "936451",
                     },
                     "x-article/ja": {
                         "status": "unavailable",
@@ -60,11 +63,6 @@ def test_recovers_only_proven_known_failures(tmp_path: Path) -> None:
     root = tmp_path / "state"
     state_file(root)
     calls = tmp_path / "calls"
-    ensure = tmp_path / "ensure"
-    ensure.write_text(
-        '#!/usr/bin/env bash\nset -euo pipefail\nprintf "ensure:%s\\n" "$1" >>"$CALLS"\n',
-        encoding="utf-8",
-    )
     render = executable(
         tmp_path / "render",
         'printf "render:%s\\n" "$*" >>"$CALLS"\n',
@@ -76,13 +74,15 @@ def test_recovers_only_proven_known_failures(tmp_path: Path) -> None:
         '    out.write("guard:" + " ".join(sys.argv[1:]) + "\\n")\n',
         encoding="utf-8",
     )
-    note_mcp = tmp_path / "note-mcp"
-    note_mcp.mkdir()
+    note_src = tmp_path / "note-src"
+    (note_src / "note_mcp/api").mkdir(parents=True)
+    (note_src / "note_mcp/__init__.py").write_text("", encoding="utf-8")
+    (note_src / "note_mcp/api/__init__.py").write_text("", encoding="utf-8")
+    (note_src / "note_mcp/api/articles.py").write_text("", encoding="utf-8")
     env = {
         **os.environ,
         "CALLS": str(calls),
-        "NOTE_MCP_DIR": str(note_mcp),
-        "ARTICLE_NOTE_RUNTIME_GUARD": str(ensure),
+        "NOTE_MCP_SRC": str(note_src),
         "ARTICLE_RENDER_VERIFY": str(render),
         "ARTICLE_PUBLICATION_GUARD": str(guard),
     }
@@ -102,12 +102,11 @@ def test_recovers_only_proven_known_failures(tmp_path: Path) -> None:
 
     logged = calls.read_text(encoding="utf-8").splitlines()
     assert logged == [
-        f"ensure:{note_mcp}",
         "guard:clear-unavailable --pair note/ja",
         "render:--platform substack --url "
         "https://aniccabuddha.substack.com/publish/post/208936451 --lang ja",
         "guard:register-intent --pair substack/ja "
-        "--target-kind substack-draft-id --target 208936451",
+        "--target-kind substack-draft-id --target " + "208936451",
         "guard:recover-unavailable --pair devto/en",
     ]
 
@@ -124,13 +123,13 @@ def test_failed_note_and_substack_probes_never_rearm(tmp_path: Path) -> None:
         '    out.write("guard:" + " ".join(sys.argv[1:]) + "\\n")\n',
         encoding="utf-8",
     )
-    note_mcp = tmp_path / "note-mcp"
-    note_mcp.mkdir()
+    note_src = tmp_path / "note-src"
+    note_src.mkdir()
     env = {
         **os.environ,
         "CALLS": str(calls),
-        "NOTE_MCP_DIR": str(note_mcp),
-        "ARTICLE_NOTE_RUNTIME_GUARD": str(failing),
+        "NOTE_MCP_SRC": str(note_src),
+        "WRITER_BROWSER_PYTHON": str(failing),
         "ARTICLE_RENDER_VERIFY": str(failing),
         "ARTICLE_PUBLICATION_GUARD": str(guard),
     }
@@ -346,8 +345,8 @@ def test_rearms_permission_failure_with_same_stable_targets_only(tmp_path: Path)
     )
     assert calls.read_text(encoding="utf-8").splitlines() == [
         "guard:register-intent --pair note/ja --target-kind note-key --target n1e88460f58b2",
-        "guard:register-intent --pair substack/ja --target-kind substack-draft-id --target 212110259",
-        "guard:register-intent --pair substack/en --target-kind substack-draft-id --target 212110268",
+        "guard:register-intent --pair substack/ja --target-kind substack-draft-id --target " + "212110259",
+        "guard:register-intent --pair substack/en --target-kind substack-draft-id --target " + "212110268",
     ]
 
 

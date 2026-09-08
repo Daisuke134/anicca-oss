@@ -117,10 +117,10 @@
     "economy/ubi": {
       "track": "A",
       "dir": "skills/economy/ubi",
-      "entrypoint": "ubi.js",
+      "entrypoint": "run.sh",
       "status": "live",
       "spec": "27 §3 UBI / colony spec §5.2-§5.3, 2026-07-05",
-      "summary": "contribute() = gate: realized-profit% -> human UBI pool, fail-closed (no profit/below threshold/would breach reserve = no-op). distributeAI() = gojo mutual-aid gate (REQ-DRAIN: registry+rate-limit+cap). Both COMPUTE+LOG only -- actual sends stay in the separate skills/ubi/execute-ubi.py, never auto-invoked. distributeHuman() is NOT reimplemented here -- it is the already-built skills/ubi/ human-funded outflow engine (ubi-payout-watcher.mjs), which this slot deliberately does not duplicate. NOTE: runtime/loop's run-skill.mjs::resolveSkillPath always looks for run.sh regardless of the registry 'entrypoint' field, so the actual run_skill entrypoint is run.sh (which wraps ubi.js) -- entrypoint left as ubi.js here to match the pre-declared contract, flagged for Foundation awareness.",
+      "summary": "contribute() = gate: realized-profit% -> human UBI pool, fail-closed (no profit/below threshold/would breach reserve = no-op). distributeAI() = gojo mutual-aid gate (REQ-DRAIN: registry+rate-limit+cap). Both COMPUTE+LOG only -- actual sends stay in the separate skills/ubi/execute-ubi.py, never auto-invoked. distributeHuman() is NOT reimplemented here -- it is the already-built skills/ubi/ human-funded outflow engine (ubi-payout-watcher.mjs), which this slot deliberately does not duplicate. The registry-owned run.sh entrypoint wraps ubi.js.",
       "owner": "wf-a:earn",
       "risk": "safe",
       "toolDescription": "Computes and LOGS (never sends) two things from your real recent numbers: whether you owe a share of realized profit to the human UBI pool (contribute, fail-closed -- no-ops if no profit, below threshold, or it would breach your reserve), and whether any other colony instance has fallen below the survival floor and needs mutual-aid (distributeAI, rate-limited + capped). Pick this after a profitable wake to log the UBI obligation, or periodically to check if a peer needs rescuing -- it never moves a single dollar itself, only decides+records; the actual transfer is a separate, later step. Safe to call anytime -- a no-op decision is still logged honestly. Args are ignored; call with {}.",

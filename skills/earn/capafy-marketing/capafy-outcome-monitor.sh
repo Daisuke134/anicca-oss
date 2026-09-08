@@ -4,7 +4,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PA
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE="${CAPAFY_OUTCOME_STATE_DIR:-$HOME/.openclaw/state}"
+STATE="${CAPAFY_OUTCOME_STATE_DIR:-$HOME/.local/state/life-manager/state}"
 OUTCOME="${CAPAFY_OUTCOME_SCRIPT:-$SCRIPT_DIR/scripts/capafy_outcome.py}"
 SENDER="${CAPAFY_TELEGRAM_SENDER:-$SCRIPT_DIR/../../_shared/send-telegram.sh}"
 SIDECAR="$STATE/.self-fix-capafy-loop.incident.json"

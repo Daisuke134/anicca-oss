@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # publish-note.sh — publish article to note.com via note-mcp Python lib
-# Auth: email + password (NOTE_EMAIL / NOTE_PASSWORD in ~/.openclaw/.env) → camofox session
+# Auth: NOTE_EMAIL / NOTE_PASSWORD from LIFE_MANAGER_ENV_FILE → browser session
 # → cookie. Task #31 (2026-07-16): the actual credentials used to live here in plaintext
 # (both in this comment and as a hardcoded default two lines below) -- removed. They still
 # exist in this file's git history until rotated; rotation is a Dais decision, not done here.
@@ -27,6 +27,8 @@ done
 [[ -f "$MD_FILE" && -n "$TITLE" ]] || { echo "FATAL: --markdown-file --title required" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 # --- fail-closed PII gate (scripts/pii-gate.py) ---------------------------------------
 # Nothing operator-identifying may reach note.com. ANY non-zero exit from the gate -- a finding,
@@ -35,8 +37,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-note "$MD_FILE" >&2 || exit $?
 
 
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
-[[ -n "${NOTE_EMAIL:-}" && -n "${NOTE_PASSWORD:-}" ]] || { echo "FATAL: NOTE_EMAIL / NOTE_PASSWORD missing in ~/.openclaw/.env" >&2; exit 1; }
+[[ -n "${NOTE_EMAIL:-}" && -n "${NOTE_PASSWORD:-}" ]] || { echo "FATAL: NOTE_EMAIL / NOTE_PASSWORD missing from LIFE_MANAGER_ENV_FILE" >&2; exit 1; }
+[[ -n "${NOTE_USER_ID:-}" && -n "${NOTE_URLNAME:-}" ]] || { echo "FATAL: NOTE_USER_ID / NOTE_URLNAME missing from LIFE_MANAGER_ENV_FILE" >&2; exit 1; }
 # note-mcp's login_with_browser() unconditionally calls SessionManager().save()
 # after a successful login, and by default that goes through the macOS
 # Keychain. On this machine (unattended/background shell, no unlocked GUI
@@ -51,42 +53,41 @@ set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
 # USE_FILE_SESSION=1" -- see note_mcp/auth/session.py), which stores the
 # session as a plain JSON file instead. Use it always here.
 export USE_FILE_SESSION=1
-# Default points at the real clone (~/.openclaw/external/note-mcp): the
-# ~/.cache/anicca-clones/note-mcp path was never populated on this machine
-# (verified 2026-07-12: dir does not exist), so every unattended run of this
-# script hit "FATAL: note-mcp not cloned" before ever reaching login. The
-# 2026-07-12 fix further below already assumed callers would override
-# NOTE_MCP_DIR to the real location "as we do" -- but nothing in the daily
-# loop actually sets that override, so make the working default correct
-# instead of relying on an override that doesn't exist.
-NOTE_MCP_DIR="${NOTE_MCP_DIR:-$HOME/.openclaw/external/note-mcp}"
+NOTE_MCP_DIR="${NOTE_MCP_DIR:-$WRITER_ROOT/vendor/note-mcp}"
+NOTE_MCP_SRC="${NOTE_MCP_SRC:-$NOTE_MCP_DIR/src}"
+[[ -f "$NOTE_MCP_SRC/note_mcp/__init__.py" ]] || {
+  echo "FATAL: vendored note-mcp source missing at $NOTE_MCP_SRC" >&2; exit 2;
+}
+PY_VENV="$WRITER_BROWSER_PYTHON"
+export NOTE_MCP_DIR NOTE_MCP_SRC
+export PYTHONPATH="$NOTE_MCP_SRC${PYTHONPATH:+:$PYTHONPATH}"
 
-[[ -d "$NOTE_MCP_DIR" ]] || { echo "FATAL: note-mcp not cloned at $NOTE_MCP_DIR" >&2; exit 2; }
+# Life Manager managed Python has cloakbrowser for the table-to-PNG render step.
+CLOAK_PY="$WRITER_BROWSER_PYTHON"
 
-# note-mcp venv (checked early — needed both for create_draft below and for the
-# stage1-manifest title patch that runs before it).
-PY_VENV="$NOTE_MCP_DIR/.venv/bin/python"
-bash "$SCRIPT_DIR/ensure-note-mcp-runtime.sh" "$NOTE_MCP_DIR"
-
-# venv-cloak python (has the `cloakbrowser` lib note-stage1-render.py needs for the
-# table→PNG headless screenshot step; note-mcp's own venv does NOT have cloakbrowser).
-CLOAK_PY="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
-
-# Ensure camofox daemon is up
+# Ensure the repository-owned camofox daemon is up.
 curl -sS --max-time 3 http://localhost:9377/health >/dev/null 2>&1 || \
-  bash "$HOME/.openclaw/skills/camofox-browser/scripts/start.sh" >/dev/null 2>&1 || true
+  bash "$LIFE_MANAGER_REPO/skills/camofox-browser/scripts/start.sh" >/dev/null 2>&1 || true
 sleep 2
 
 # Step 1: Login via camofox if needed, extract _note_session_v5 cookie
 # Approach: fresh tab → /login → fill email + pw → submit → wait for redirect → read live cookies.sqlite
-USER_ID="${ANICCA_NOTE_USER_ID:-anicca-pure}"
+USER_ID="${NOTE_BROWSER_PROFILE_ID:-note-publisher}"
 SESSION_KEY="${ANICCA_NOTE_SESSION_KEY:-note-daily}"
 
 # Always probe live cookies first — if session is already alive, skip login.
-# Camoufox/Playwright profiles in this environment live under /private/tmp,
-# not /var/folders, so search both and pick the newest matching profile.
-PROFILE="$(python3 "$SCRIPT_DIR/find-note-browser-profile.py" \
-  --root /private/tmp:1 --root /var/folders:4)"
+# Search an explicitly configured profile root first, then the host temporary
+# directory and portable /tmp fallback. The first root containing a profile
+# wins; within that root, use its newest matching profile.
+find_note_browser_profile() {
+  local roots=()
+  [[ -n "${NOTE_BROWSER_PROFILE_ROOT:-}" ]] \
+    && roots+=(--ordered-root "$NOTE_BROWSER_PROFILE_ROOT:4")
+  roots+=(--ordered-root "${TMPDIR:-/tmp}:4")
+  [[ "${TMPDIR:-/tmp}" != "/tmp" ]] && roots+=(--ordered-root /tmp:1)
+  python3 "$SCRIPT_DIR/find-note-browser-profile.py" "${roots[@]}"
+}
+PROFILE="$(find_note_browser_profile)"
 COOKIE_DB=""
 if [[ -n "$PROFILE" && -f "$PROFILE/cookies.sqlite" ]]; then
   COOKIE_DB="/tmp/note-publish-cookies-$$.sqlite"
@@ -147,8 +148,7 @@ if [[ "$NEED_LOGIN" == "true" ]]; then
     sleep 8
   fi
   # Re-extract cookies
-  PROFILE="$(python3 "$SCRIPT_DIR/find-note-browser-profile.py" \
-    --root /private/tmp:1 --root /var/folders:4)"
+  PROFILE="$(find_note_browser_profile)"
   # camofox tab-based login is a best-effort fast path only. If no profile shows up
   # (camofox naming drift, timing, or a note.com login-page DOM change breaking the
   # ref-based type/click), fall through with no cookie: the block below already sets
@@ -171,10 +171,10 @@ fi
 
 # Step 1.5: render tables → PNG, mermaid → source-captured, via note-stage1-render.py
 # (note-mcp does not touch note.com here — this is a local headless-browser render only).
-# WORK is a persistent per-run dir under ~/.cloak (NEVER /tmp — reboot/disk-cleanup wipes it
-# mid-task), and deliberately NOT the shared ~/.cloak/note-work/note-stage dir the manual
+# WORK is a persistent per-run dir under Writer state (NEVER /tmp — reboot/disk-cleanup wipes it
+# mid-task), and deliberately NOT the shared note-work/note-stage dir the manual
 # Automaton pipeline uses, so a daily-loop run can never clobber that pipeline's manifest.
-WORK="$HOME/.cloak/note-work/note-stage-daily/$$-$(date +%s)"
+WORK="$NOTE_WORK_ROOT/note-stage-daily/$$-$(date +%s)"
 mkdir -p "$WORK"
 IMG_DIR_SLUG="$(basename "$MD_FILE" | sed -E 's/\.[Mm][Dd]$//; s/[^A-Za-z0-9_-]+/-/g')"
 STAGE1_OK=false
@@ -215,7 +215,7 @@ fi
 MANIFEST_ARG=""; [[ "$STAGE1_OK" == "true" ]] && MANIFEST_ARG="$WORK/note-manifest.json"
 
 # Step 1.8: idempotency — decide update-existing-draft vs create-new-draft via the LOCAL ledger
-# (~/.cloak/note-work/draft-ledger.json by default, see note-draft-ledger.py). This is a pure
+# ($WRITER_STATE_DIR/note-work/draft-ledger.json by default, see note-draft-ledger.py). This is a pure
 # local decision (no network): --new-draft always wins (escape hatch), --key always wins over
 # the ledger (explicit override), otherwise the ledger is consulted by MD_FILE's absolute path.
 # Best-effort: a broken ledger must never turn a working publish into a script failure, so a
@@ -235,16 +235,11 @@ fi
 if OUT=$(COOKIE_DB="$COOKIE_DB" USE_DIRECT_LOGIN="$USE_DIRECT_LOGIN" NOTE_EMAIL="$NOTE_EMAIL" NOTE_PASSWORD="$NOTE_PASSWORD" MD_FILE="$MD_FILE" TITLE="$TITLE" DESCRIPTION="$DESCRIPTION" TAGS_RAW="$TAGS_RAW" NOTE_MCP_DIR="$NOTE_MCP_DIR" NOTE_MANIFEST="$MANIFEST_ARG" LEDGER_ACTION="$LEDGER_ACTION" LEDGER_ARTICLE_ID="$LEDGER_ARTICLE_ID" LEDGER_KEY_FORMAT_OK="$LEDGER_KEY_FORMAT_OK" \
   "$PY_VENV" - <<'PY' 2>&1
 import json, os, re, sys, asyncio, time, subprocess, tempfile
-# NOTE_MCP_DIR-relative src path (2026-07-12 fix): this used to hardcode
-# ~/.cache/anicca-clones/note-mcp/src regardless of $NOTE_MCP_DIR, which silently worked
-# only because uv sync installs note_mcp into the venv's own site-packages (editable
-# install) -- so the bogus insert was a no-op, not a real fix. Use the actual configured
-# dir so a caller pointing NOTE_MCP_DIR elsewhere (as we do, at ~/.openclaw/external/note-mcp)
-# gets the right src tree if the editable install ever isn't in play.
-sys.path.insert(0, os.path.join(os.environ.get("NOTE_MCP_DIR", os.path.expanduser("~/.cache/anicca-clones/note-mcp")), "src"))
+# Use the release-owned vendored source selected by writer-runtime-env.sh.
+sys.path.insert(0, os.environ["NOTE_MCP_SRC"])
 from note_mcp.models import Session, ArticleInput, ArticleStatus
 from note_mcp.api.articles import create_draft, get_article_via_api, update_article
-from note_mcp.auth.browser import login_with_browser
+from note_mcp.auth.browser import get_current_user, login_with_browser
 from note_mcp.auth.session import SessionManager
 
 async def load_session():
@@ -262,14 +257,20 @@ async def load_session():
   for line in res.strip().split('\n'):
     if '=' in line:
       k,v = line.split('=', 1); cookies[k] = v
-  return Session(cookies=cookies, user_id=os.environ.get("NOTE_USER_ID", "14651590"), username=os.environ.get("NOTE_URLNAME", "anicca123"), created_at=int(time.time()))
+  return Session(cookies=cookies, user_id=os.environ["NOTE_USER_ID"], username=os.environ["NOTE_URLNAME"], created_at=int(time.time()))
 
 session = asyncio.run(load_session())
+actual = asyncio.run(get_current_user(session.cookies))
+if (
+  str(actual.get("id", "")) != os.environ["NOTE_USER_ID"]
+  or str(actual.get("urlname", "")).lower() != os.environ["NOTE_URLNAME"].lower()
+):
+  raise SystemExit("authenticated Note account does not match NOTE_USER_ID / NOTE_URLNAME")
 # cache this session's cookies for note-stage2-publish.py (reads them from this fixed path,
 # same convention as scripts/note-publish/extract-note-cookies.py) so stage2 does not need
 # its own independent login.
 try:
-  cookie_out = os.path.expanduser("~/.cloak/note-work/note-cookies.json")
+  cookie_out = os.path.join(os.environ["NOTE_WORK_ROOT"], "note-cookies.json")
   cookie_dir = os.path.dirname(cookie_out)
   os.makedirs(cookie_dir, exist_ok=True)
   # atomic write (same-dir temp + os.replace): note-stage2-publish.py and the manual
@@ -406,7 +407,7 @@ if [[ "$STAGE1_OK" == "true" && -n "$DRAFT_NUM" ]]; then
   # bug (verified in note_mcp/api/articles.py update_article: it tries to resolve the key via
   # get_article_via_api(numeric_id), which itself rejects numeric IDs). DRAFT_KEY is already
   # available here from create_draft()'s output, same as DRAFT_NUM.
-  if STAGE2_OUT=$(NOTE_WORK="$WORK" NOTE_NUM="$DRAFT_NUM" NOTE_KEY="$DRAFT_KEY" NOTE_SRC="$MD_FILE" NOTE_TAGS="$TAGS_RAW" NOTE_MCP_SRC="$NOTE_MCP_DIR/src" \
+  if STAGE2_OUT=$(NOTE_WORK="$WORK" NOTE_NUM="$DRAFT_NUM" NOTE_KEY="$DRAFT_KEY" NOTE_SRC="$MD_FILE" NOTE_TAGS="$TAGS_RAW" NOTE_MCP_SRC="$NOTE_MCP_SRC" \
     "$PY_VENV" "$SCRIPT_DIR/note-stage2-publish.py" 2>&1); then
     STAGE2_RC=0
   else

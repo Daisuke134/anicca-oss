@@ -28,7 +28,7 @@ def slugify(title: str) -> str:
     value = re.sub(r"[^a-z0-9\- ]+", "", title.lower().strip())
     value = re.sub(r"\s+", "-", value)
     value = re.sub(r"-{2,}", "-", value).strip("-")
-    return (value or "anicca-day")[:50]
+    return (value or "life-manager-day")[:50]
 
 
 def force_draft(source: str) -> str:
@@ -53,7 +53,7 @@ def _title(source: str) -> str:
         r"(?m)^title:\s*(.+?)\s*$",
         source,
     )
-    return match.group(1).strip().strip("\"'") if match else "anicca-day"
+    return match.group(1).strip().strip("\"'") if match else "life-manager-day"
 
 
 def _git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -75,14 +75,23 @@ def _git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
 
 def stage() -> dict[str, str]:
     article_date = os.environ.get("ARTICLE_DATE", date.today().isoformat())
-    workspace = Path.home() / ".openclaw/workspace/writer-agent"
+    writer_state = Path(
+        os.environ.get(
+            "WRITER_STATE_DIR",
+            str(Path.home() / ".local/state/life-manager/writer"),
+        )
+    )
+    workspace = writer_state
     source_path = workspace / "drafts" / article_date / "ja.md"
     repo = Path(
         os.environ.get(
             "ZENN_REPO_PATH",
-            str(Path.home() / ".openclaw/workspace/zenn-articles"),
+            str(writer_state / "checkouts/zenn-articles"),
         )
     )
+    account = os.environ.get("ZENN_ACCOUNT", "")
+    if re.fullmatch(r"[A-Za-z0-9_-]+", account) is None:
+        raise RuntimeError("ZENN_ACCOUNT is required and invalid")
     if not source_path.is_file() or not (repo / ".git").is_dir():
         raise RuntimeError("Zenn source or repository is missing")
     source = force_draft(source_path.read_text(encoding="utf-8"))
@@ -108,10 +117,6 @@ def stage() -> dict[str, str]:
         committed = _git(
             repo,
             [
-                "-c",
-                "user.email=anicca@aniccaai.com",
-                "-c",
-                "user.name=anicca",
                 "commit",
                 "-m",
                 f"article(draft): {slug}",
@@ -126,7 +131,7 @@ def stage() -> dict[str, str]:
         raise RuntimeError("Zenn draft push failed")
     return {
         "slug": slug,
-        "url": f"https://zenn.dev/anicca/articles/{slug}",
+        "url": f"https://zenn.dev/{account}/articles/{slug}",
         "relative_path": str(relative),
     }
 

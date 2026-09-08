@@ -16,7 +16,9 @@
 #   exit 0 = at or above the floor, 1 = below it
 set -uo pipefail
 
-SKILL_DIR="${ARTICLE_SKILL_DIR:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+SKILL_DIR="${ARTICLE_SKILL_DIR:-${ARTICLE_ROOT:-$(cd -- "$SCRIPT_DIR/.." && pwd -P)}}"
 QUEUE_DIR="${ARTICLE_TOPIC_QUEUE:-$SKILL_DIR/state/topics/queue}"
 IDEAS_DIR="${ARTICLE_RAW_IDEAS:-$SKILL_DIR/state/raw-ideas}"
 # Three days of head room: enough to notice on a Friday and act by Monday.
@@ -50,9 +52,13 @@ printf '{"queue":%s,"raw_ideas_ready":%s,"total":%s,"floor":%s,"ok":%s}\n' \
 [ "$TOTAL" -ge "$MIN" ] && exit 0
 
 if [ "$QUIET" = "0" ]; then
-  openclaw message send --channel telegram --target "${ARTICLE_TELEGRAM_TARGET:-8547730585}" \
-    --message "topic supply low: $TOTAL left (queue $QUEUE, ready ideas $READY), floor $MIN. The daily publish runs out of material, not out of quality." \
-    --json >/dev/null 2>&1 || true
+  MESSAGE="topic supply low: $TOTAL left (queue $QUEUE, ready ideas $READY), floor $MIN. The daily publish runs out of material, not out of quality."
+  SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
+  if [ -n "${ARTICLE_TELEGRAM_TARGET:-}" ]; then
+    "$SENDER" "$MESSAGE" "$ARTICLE_TELEGRAM_TARGET" >/dev/null 2>&1 || true
+  else
+    "$SENDER" "$MESSAGE" >/dev/null 2>&1 || true
+  fi
 fi
 echo "topic-supply: $TOTAL below floor $MIN -- the daily publish will run dry" >&2
 exit 1

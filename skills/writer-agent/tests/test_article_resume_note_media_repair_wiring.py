@@ -38,19 +38,30 @@ def test_worker_recovers_ambiguous_note_then_repairs_same_key(
     run_dir = state_dir / "runs" / "daily-2026-07-30"
     scripts = fake_root / "scripts"
     runtime = fake_root / "runtime"
+    browser = tmp_path / "skills" / "browser"
     gates = run_dir / "gates"
     (scripts / "note-publish").mkdir(parents=True)
     (scripts / "_shared").mkdir()
     (note_mcp / ".venv" / "bin").mkdir(parents=True)
     runtime.mkdir()
+    browser.mkdir(parents=True)
     gates.mkdir(parents=True)
     for name in ("article-resume-pending.sh", "resume_failure_circuit.py"):
         shutil.copy(ROOT / "scripts" / name, scripts)
+    shutil.copy(ROOT / "scripts" / "writer_capacity_floor.py", scripts)
     for name in ("publication_remote.py", "publication_resume.py"):
         shutil.copy(ROOT / "scripts" / name, scripts)
     shutil.copy(ROOT / "scripts" / "publication_contract_resolver.py", scripts)
     shutil.copy(ROOT / "scripts" / "publication_contract.py", scripts)
     shutil.copy(ROOT / "scripts" / "_shared" / "notifier.sh", scripts / "_shared")
+    executable(
+        scripts / "writer-runtime-env.sh",
+        "#!/usr/bin/env bash\n"
+        "WRITER_LOG_DIR=\"$ARTICLE_STATE_DIR/logs\"\n"
+        "STATE_DIR=\"$ARTICLE_STATE_DIR\"\n"
+        "WRITER_BROWSER_PYTHON=\"$NOTE_MCP_DIR/.venv/bin/python\"\n"
+        "export WRITER_LOG_DIR STATE_DIR WRITER_BROWSER_PYTHON\n",
+    )
     (scripts / "note-publish" / "set-eyecatch-draft.py").write_text(
         "selector_version = 1\n"
     )
@@ -60,6 +71,11 @@ def test_worker_recovers_ambiguous_note_then_repairs_same_key(
     for name in ("quality_feedback_recovery.py", "quality_repair_control.py"):
         (scripts / name).write_text('print(\'{"status":"NONE"}\')\n')
     (scripts / "recover-known-unavailable.py").write_text("raise SystemExit(0)\n")
+    (scripts / "writer_unavailable_incident_bridge.py").write_text(
+        "raise SystemExit(0)\n"
+    )
+    (scripts / "writer_repair_dispatch.py").write_text("raise SystemExit(0)\n")
+    executable(browser / "ensure_browser.sh", "#!/usr/bin/env bash\nexit 0\n")
     state_path = gates / "publication-state.json"
     ledger_path = state_dir / "articles.jsonl"
     (scripts / "article_pending.py").write_text(
@@ -97,12 +113,6 @@ def test_worker_recovers_ambiguous_note_then_repairs_same_key(
         "d['pairs']['note/ja']['status']='live'\n"
         "d['pairs']['note/ja']['live_url']='https://note.com/anicca123/n/n-test'\n"
         "json.dump(d,open(p,'w')); open(os.environ['CALLS'],'a').write('repair\\n')\n",
-    )
-    executable(
-        scripts / "ensure-note-mcp-runtime.sh",
-        "#!/usr/bin/env bash\n"
-        "test \"$1\" = \"$NOTE_MCP_DIR\"\n"
-        "echo ensure >>\"$CALLS\"\n",
     )
     executable(
         note_mcp / ".venv" / "bin" / "python",
@@ -155,6 +165,7 @@ def test_worker_recovers_ambiguous_note_then_repairs_same_key(
         "BASH_ENV": _fake_df_env(tmp_path),
         "CALLS": str(calls),
         "NOTE_MCP_DIR": str(note_mcp),
+        "LIFE_MANAGER_REPO": str(tmp_path),
         "TELEGRAM_BOT_TOKEN": "",
         "TELEGRAM_CHAT_ID": "",
     }
@@ -163,10 +174,9 @@ def test_worker_recovers_ambiguous_note_then_repairs_same_key(
     first = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
     second = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
 
-    assert [first.returncode, second.returncode] == [0, 0]
+    assert [first.returncode, second.returncode] == [0, 0], (first.stderr, second.stderr)
     assert calls.read_text().splitlines() == [
         "recover",
-        "ensure",
         "pinned-python",
         "repair",
     ]

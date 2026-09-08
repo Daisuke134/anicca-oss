@@ -39,6 +39,107 @@ r=e/'result.json'; r.write_text('{"classification":"ACCEPTED"}')
         for forbidden in ("CODEX_HOME", "auth.json", "codex exec", "ARTICLE_PROVIDER"):
             self.assertNotIn(forbidden, source)
 
+    def test_legacy_runner_has_no_host_fixed_provider_secret_path(self):
+        source = LEGACY_ENTRY.read_text(encoding="utf-8")
+        self.assertNotIn("/opt/homebrew/etc/cliproxyapi.conf", source)
+        self.assertIn("ARTICLE_CODEX_PROVIDER_API_KEY", source)
+        self.assertIn("ARTICLE_CLIPROXY_CONFIG", source)
+        start = source.index("load_codex_provider_key")
+        self.assertLess(source.index("set +x", start),
+                        source.index('provider_key="${ARTICLE_CODEX_PROVIDER_API_KEY:-}"', start))
+
+    def test_direct_provider_key_wins_and_never_appears_in_xtrace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            prompt.write_text("portable provider probe")
+            capture = root / "captured-key"
+            fake = root / "codex"
+            fake.write_text(
+                '#!/usr/bin/env bash\nprintf %s "$CLIPROXY_API_KEY" > "$CAPTURE_KEY"\ncat >/dev/null\n'
+            )
+            fake.chmod(0o755)
+            config = root / "cliproxy.conf"
+            config.write_text('api-keys:\n  - "file-key-must-lose"\n')
+            secret = "direct-key-must-not-appear-in-trace"
+            env = {**os.environ,
+                   "ARTICLE_PROVIDER": "codex",
+                   "ARTICLE_CODEX_BIN": str(fake),
+                   "ARTICLE_CODEX_PROVIDER_ID": "cliproxy",
+                   "ARTICLE_CODEX_PROVIDER_BASE_URL": "http://127.0.0.1:8317/v1",
+                   "ARTICLE_CODEX_PROVIDER_ENV_KEY": "CLIPROXY_API_KEY",
+                   "ARTICLE_CODEX_PROVIDER_API_KEY_SOURCE": "cliproxyapi",
+                   "ARTICLE_CODEX_PROVIDER_API_KEY": secret,
+                   "ARTICLE_CLIPROXY_CONFIG": str(config),
+                   "CAPTURE_KEY": str(capture)}
+            result = subprocess.run(
+                ["bash", "-x", str(LEGACY_ENTRY), "agent", "--prompt-file", str(prompt)],
+                env=env, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(capture.read_text(), secret)
+            self.assertNotIn(secret, result.stdout + result.stderr)
+            self.assertNotIn("file-key-must-lose", capture.read_text())
+
+    def test_explicit_provider_config_is_used_when_direct_key_is_absent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            prompt.write_text("portable provider fallback")
+            capture = root / "captured-key"
+            fake = root / "codex"
+            fake.write_text(
+                '#!/usr/bin/env bash\nprintf %s "$CLIPROXY_API_KEY" > "$CAPTURE_KEY"\ncat >/dev/null\n'
+            )
+            fake.chmod(0o755)
+            config = root / "cliproxy.conf"
+            secret = "explicit-file-key-must-not-appear-in-trace"
+            config.write_text(f'api-keys:\n  - "{secret}"\n')
+            env = {**os.environ,
+                   "ARTICLE_PROVIDER": "codex",
+                   "ARTICLE_CODEX_BIN": str(fake),
+                   "ARTICLE_CODEX_PROVIDER_ID": "cliproxy",
+                   "ARTICLE_CODEX_PROVIDER_BASE_URL": "http://127.0.0.1:8317/v1",
+                   "ARTICLE_CODEX_PROVIDER_ENV_KEY": "CLIPROXY_API_KEY",
+                   "ARTICLE_CODEX_PROVIDER_API_KEY_SOURCE": "cliproxyapi",
+                   "ARTICLE_CLIPROXY_CONFIG": str(config),
+                   "CAPTURE_KEY": str(capture)}
+            env.pop("ARTICLE_CODEX_PROVIDER_API_KEY", None)
+            result = subprocess.run(
+                ["bash", "-x", str(LEGACY_ENTRY), "agent", "--prompt-file", str(prompt)],
+                env=env, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(capture.read_text(), secret)
+            self.assertNotIn(secret, result.stdout + result.stderr)
+
+    def test_nondefault_provider_fails_closed_without_any_key_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = root / "prompt.txt"
+            prompt.write_text("missing provider credential")
+            called = root / "called"
+            fake = root / "codex"
+            fake.write_text('#!/usr/bin/env bash\ntouch "$CALLED"\n')
+            fake.chmod(0o755)
+            env = {**os.environ,
+                   "ARTICLE_PROVIDER": "codex",
+                   "ARTICLE_CODEX_BIN": str(fake),
+                   "ARTICLE_CODEX_PROVIDER_ID": "cliproxy",
+                   "ARTICLE_CODEX_PROVIDER_BASE_URL": "http://127.0.0.1:8317/v1",
+                   "ARTICLE_CODEX_PROVIDER_ENV_KEY": "CLIPROXY_API_KEY",
+                   "ARTICLE_CODEX_PROVIDER_API_KEY_SOURCE": "cliproxyapi",
+                   "CALLED": str(called)}
+            env.pop("ARTICLE_CODEX_PROVIDER_API_KEY", None)
+            env.pop("ARTICLE_CLIPROXY_CONFIG", None)
+            result = subprocess.run(
+                [str(LEGACY_ENTRY), "agent", "--prompt-file", str(prompt)],
+                env=env, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(called.exists())
+            self.assertIn("invalid Codex provider configuration", result.stderr)
+
     def test_production_legacy_entry_delegates_to_canonical_adapter(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); fake = root / "agent-runner.py"
@@ -75,6 +176,7 @@ r=e/'result.json'; r.write_text('{"complete":true}')
             env={key:value for key,value in os.environ.items()
                  if key not in {'ARTICLE_CODEX_BIN','ARTICLE_CLAUDE_BIN'}}
             env.update({'AGENT_RUNNER_BIN':str(fake),'WRITER_SHARED_RUNNER_STATE':str(root/'state'),
+                        'ARTICLE_PROVIDER':'codex',
                         'ARTICLE_REPAIR_WORKSPACE':str(workspace),'ARTICLE_CODEX_EVENTS_FILE':str(events),
                         'ARTICLE_CODEX_LAST_MESSAGE_FILE':str(last),'ARTICLE_CODEX_OUTPUT_SCHEMA':str(schema),
                         'ARTICLE_CODEX_RESUME_SESSION_ID':'thread-123','CAPTURE_ARGS':str(args_file)})

@@ -8,8 +8,9 @@
 #  - NOTE_TOPIC is sanitized (allow-list + length cap) before it ever reaches the agent prompt (no injection).
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$DIR/../writer-runtime-env.sh"
 export NOTE_FORCE_DRAFT=1          # deterministic publish-prevention for the scheduled path
-rm -f "$HOME/.cloak/note-work/.PUBLISH_ENABLED" 2>/dev/null  # ensure no stale publish-enable sentinel
+rm -f "$NOTE_WORK_ROOT/.PUBLISH_ENABLED" 2>/dev/null  # ensure no stale publish-enable sentinel
 STAMP="$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo now)"
 
 RAW_TOPIC="${NOTE_TOPIC:-}"

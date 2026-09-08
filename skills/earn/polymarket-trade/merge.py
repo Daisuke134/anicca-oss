@@ -16,7 +16,7 @@ MECHANISM (verified against the installed SDK, ground truth not docs)
 -----------------------------------------------------------------------
 `polymarket.clients.secure.SecureClient.merge_positions(condition_id=..., amount=...)`
 (secure.py:2110) already exists in the SDK redeem.py imports from (`polymarket-client`
-0.1.0b13, `.venv-pysdk`). Reuses redeem.py's already-proven `build_client()` (SIWE mint,
+0.1.0b13, managed Life Manager Python). Reuses redeem.py's already-proven `build_client()` (SIWE mint,
 no browser) and `ensure_ctf_operator_approval()` (same ERC-1155 operator grant redeem
 needs — verified live 2026-07-17: both COLLATERAL_ADAPTER and NEG_RISK_COLLATERAL_ADAPTER
 already `isApprovedForAll=True` for claude-p's deposit wallet from prior redeem runs, so

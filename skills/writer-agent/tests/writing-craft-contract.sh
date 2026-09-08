@@ -109,8 +109,10 @@ check "at least 4 ban sentences were extracted from title-best-practices.md sect
 check "no line in CRAFT.md or any adapter duplicates a title-ban sentence" "0" "$(echo "$DUP_CHECK" | awk '{print $2}')"
 
 # 4. article-daily.sh mentions CRAFT.md (STEP 3 REQUIRED READ wiring).
-MENTIONS="$(grep -cE 'reference/CRAFT.md|LEGACY_WRITING_CRAFT_ROOT' "$ARTICLE_DAILY")"
+MENTIONS="$(grep -c 'ARTICLE_ROOT_PLACEHOLDER/reference/CRAFT.md' "$ARTICLE_DAILY")"
 check "article-daily.sh mentions CRAFT.md" "True" "$([ "$MENTIONS" -ge 1 ] && echo True || echo False)"
+check "article-daily.sh has no standalone craft compatibility path" "0" \
+  "$(grep -c 'profitable-claude/skills/writing-craft' "$ARTICLE_DAILY" || true)"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

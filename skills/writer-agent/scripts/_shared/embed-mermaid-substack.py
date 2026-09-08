@@ -35,12 +35,12 @@ checked explicitly at the call site (FATAL with an install command if missing), 
 silently borrowed from another venv.
 
 Env (same names/source as scripts/publish-substack.sh): SUBSTACK_SESSION_COOKIE
-(required, full Cookie header value), SUBSTACK_PUBLICATION (default
-aniccabuddha.substack.com). Load from ~/.openclaw/.env before running, or export them.
+(required, full Cookie header value), SUBSTACK_PUBLICATION (required).
+Load them from LIFE_MANAGER_ENV_FILE before running, or export them.
 
 Assets + the upload cache are PERSISTENT, never /tmp (repo rule): default assets dir is
-~/.cloak/note-work/<slug>-substack-assets/, cache is
-~/.cloak/note-work/substack-img-cache.json, so a re-run does not re-upload an image it
+$WRITER_STATE_DIR/note-work/<slug>-substack-assets/, cache is
+$WRITER_STATE_DIR/note-work/substack-img-cache.json, so a re-run does not re-upload an image it
 already has a URL for.
 
 CLI:
@@ -66,12 +66,16 @@ import urllib.request
 from pathlib import Path
 
 HTTP_DIR = Path(__file__).resolve().parents[1] / "substack-publish"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 if str(HTTP_DIR) not in sys.path:
     sys.path.insert(0, str(HTTP_DIR))
 from substack_http import json_request as substack_json_request
+from writer_runtime_paths import note_work_dir
 
 MIN_PNG_BYTES = 2000  # below this, kroki returned an error blob, not a real diagram
-CACHE_FILE = os.path.expanduser("~/.cloak/note-work/substack-img-cache.json")
+CACHE_FILE = str(note_work_dir() / "substack-img-cache.json")
 KROKI_UA = "Mozilla/5.0"  # kroki 403s urllib's bare default UA — measured
 
 DISPLAY_WIDTH = 728       # Substack stretches every body image to this reader-column width
@@ -206,11 +210,13 @@ def main(argv: list[str] | None = None) -> int:
 
     cookie = os.environ.get("SUBSTACK_SESSION_COOKIE", "")
     if not cookie:
-        fatal("SUBSTACK_SESSION_COOKIE missing (source ~/.openclaw/.env first)")
-    publication = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+        fatal("SUBSTACK_SESSION_COOKIE missing (configure LIFE_MANAGER_ENV_FILE first)")
+    publication = os.environ.get("SUBSTACK_PUBLICATION", "").strip()
+    if not publication:
+        fatal("SUBSTACK_PUBLICATION missing (configure LIFE_MANAGER_ENV_FILE first)")
 
     slug = src_path.stem
-    assets_dir = Path(args.assets_dir or os.path.expanduser(f"~/.cloak/note-work/{slug}-substack-assets"))
+    assets_dir = Path(args.assets_dir or note_work_dir() / f"{slug}-substack-assets")
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     cache = load_cache()

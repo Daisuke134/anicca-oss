@@ -13,25 +13,25 @@ test("claims exactly the matching :9222 Luma page and writes a private ownership
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const receiptPath = path.join(directory, "tab-owner.json");
   const owner = createConnectorTabOwner({
-    endpoint: "http://[::1]:9222",
+    endpoint: "http://127.0.0.1:9222",
     listTargets: async () => [
       {
         id: "DEVTOOLS",
         type: "page",
         url: "chrome://newtab/",
-        webSocketDebuggerUrl: "ws://[::1]:9222/devtools/page/DEVTOOLS",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/DEVTOOLS",
       },
       {
         id: "BASELINE",
         type: "page",
         url: "https://luma.com/home",
-        webSocketDebuggerUrl: "ws://[::1]:9222/devtools/page/BASELINE",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/BASELINE",
       },
       {
         id: "OWNED123",
         type: "page",
         url: "https://luma.com/tokyo-ai?tk=invite#registration",
-        webSocketDebuggerUrl: "ws://[::1]:9222/devtools/page/OWNED123",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/OWNED123",
       },
     ],
     ownerToken: () => "connector-owner-token",
@@ -46,10 +46,10 @@ test("claims exactly the matching :9222 Luma page and writes a private ownership
 
   assert.deepEqual(receipt, {
     schema_version: 1,
-    endpoint: "http://[::1]:9222",
+    endpoint: "http://127.0.0.1:9222",
     owner_token: "connector-owner-token",
     target_id: "OWNED123",
-    page_websocket: "ws://[::1]:9222/devtools/page/OWNED123",
+    page_websocket: "ws://127.0.0.1:9222/devtools/page/OWNED123",
     baseline_target_ids: ["BASELINE"],
     canonical_url: "https://luma.com/tokyo-ai",
     observed_at: "2026-08-06T01:02:03.000Z",
@@ -61,7 +61,7 @@ test("claims exactly the matching :9222 Luma page and writes a private ownership
 test("refuses another browser owner and ambiguous matching tabs", async () => {
   assert.throws(
     () => createConnectorTabOwner({
-      endpoint: "http://127.0.0.1:9222",
+      endpoint: "http://[::1]:9222",
       listTargets: async () => [],
     }),
     /:9222/,
@@ -75,19 +75,19 @@ test("refuses another browser owner and ambiguous matching tabs", async () => {
   );
 
   const owner = createConnectorTabOwner({
-    endpoint: "http://[::1]:9222",
+    endpoint: "http://127.0.0.1:9222",
     listTargets: async () => [
       {
         id: "ONE",
         type: "page",
         url: "https://luma.com/tokyo-ai",
-        webSocketDebuggerUrl: "ws://[::1]:9222/devtools/page/ONE",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/ONE",
       },
       {
         id: "TWO",
         type: "page",
         url: "https://luma.com/tokyo-ai?tk=other",
-        webSocketDebuggerUrl: "ws://[::1]:9222/devtools/page/TWO",
+        webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/TWO",
       },
     ],
   });
@@ -105,7 +105,7 @@ test("does not issue an ownership receipt until the durable target lease claims 
     owner_token: "connector-owner-token",
     generation: 7,
     target_id: "OWNED123",
-    page_websocket: "ws://[::1]:9222/devtools/page/OWNED123",
+    page_websocket: "ws://127.0.0.1:9222/devtools/page/OWNED123",
     canonical_url: "https://luma.com/tokyo-ai",
     claimed_at: "2026-08-06T01:02:03.000Z",
     heartbeat_at: "2026-08-06T01:02:03.000Z",
@@ -115,7 +115,7 @@ test("does not issue an ownership receipt until the durable target lease claims 
       id: "OWNED123",
       type: "page",
       url: "https://luma.com/tokyo-ai?tk=invite",
-      webSocketDebuggerUrl: "ws://[::1]:9222/devtools/page/OWNED123",
+      webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/OWNED123",
     }],
     targetLease: {
       async claim(input) {
@@ -132,7 +132,7 @@ test("does not issue an ownership receipt until the durable target lease claims 
 
   assert.deepEqual(calls, [{
     targetId: "OWNED123",
-    pageWebsocket: "ws://[::1]:9222/devtools/page/OWNED123",
+    pageWebsocket: "ws://127.0.0.1:9222/devtools/page/OWNED123",
     canonicalUrl: "https://luma.com/tokyo-ai",
   }]);
   assert.equal(receipt.owner_token, fence.owner_token);
@@ -147,7 +147,7 @@ test("claims a parent-created exact target and delegates its fenced lifecycle", 
     owner_token: "connector-owner-token",
     generation: 3,
     target_id: "PARENT_TARGET",
-    page_websocket: "ws://[::1]:9222/devtools/page/PARENT_TARGET",
+    page_websocket: "ws://127.0.0.1:9222/devtools/page/PARENT_TARGET",
     canonical_url: "https://luma.com/tokyo-ai",
     claimed_at: "2026-08-06T01:02:03.000Z",
     heartbeat_at: "2026-08-06T01:02:03.000Z",
@@ -164,7 +164,7 @@ test("claims a parent-created exact target and delegates its fenced lifecycle", 
   const receipt = await owner.claimExact({
     canonicalUrl: "https://luma.com/tokyo-ai",
     targetId: "PARENT_TARGET",
-    pageWebsocket: "ws://[::1]:9222/devtools/page/PARENT_TARGET",
+    pageWebsocket: "ws://127.0.0.1:9222/devtools/page/PARENT_TARGET",
   });
   assert.equal(receipt.generation, 3);
   assert.deepEqual(receipt.baseline_target_ids, []);
@@ -178,7 +178,7 @@ test("claims a parent-created Connpass target but rejects an arbitrary origin", 
   const fence = Object.freeze({
     schema_version: 1, owner_token: "connector-owner-token", generation: 1,
     target_id: "CONNPASS_TARGET",
-    page_websocket: "ws://[::1]:9222/devtools/page/CONNPASS_TARGET",
+    page_websocket: "ws://127.0.0.1:9222/devtools/page/CONNPASS_TARGET",
     canonical_url: canonicalUrl,
     claimed_at: "2026-08-06T01:02:03.000Z", heartbeat_at: "2026-08-06T01:02:03.000Z",
   });
@@ -192,11 +192,11 @@ test("claims a parent-created Connpass target but rejects an arbitrary origin", 
   });
   const receipt = await owner.claimExact({
     canonicalUrl: `${canonicalUrl}/?ref=connector`, targetId: "CONNPASS_TARGET",
-    pageWebsocket: "ws://[::1]:9222/devtools/page/CONNPASS_TARGET",
+    pageWebsocket: "ws://127.0.0.1:9222/devtools/page/CONNPASS_TARGET",
   });
   assert.equal(receipt.canonical_url, canonicalUrl);
   await assert.rejects(owner.claimExact({
     canonicalUrl: "https://example.com/event/101", targetId: "CONNPASS_TARGET",
-    pageWebsocket: "ws://[::1]:9222/devtools/page/CONNPASS_TARGET",
+    pageWebsocket: "ws://127.0.0.1:9222/devtools/page/CONNPASS_TARGET",
   }), /public event URL/i);
 });

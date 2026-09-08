@@ -18,9 +18,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from funnel import summarize_bounty_funnel  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_GATED = os.path.join(HERE, "state", "gated.json")
-DEFAULT_ATTEMPTS = os.path.join(HERE, "state", "attempts.jsonl")
-DEFAULT_OUT = os.path.join(HERE, "state", "bounty-funnel.jsonl")
+STATE_DIR = os.environ.get("BOUNTY_STATE_DIR", os.path.join(HERE, "state"))
+DEFAULT_GATED = os.path.join(STATE_DIR, "gated.json")
+DEFAULT_ATTEMPTS = os.path.join(STATE_DIR, "attempts.jsonl")
+DEFAULT_OUT = os.environ.get(
+    "BOUNTY_FUNNEL_REPORT",
+    os.path.join(STATE_DIR, "bounty-funnel.jsonl"),
+)
 
 
 def _read_json(path):

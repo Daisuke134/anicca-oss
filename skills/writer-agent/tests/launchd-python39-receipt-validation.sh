@@ -3,14 +3,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-/usr/bin/python3 - "$ROOT/scripts" <<'PY'
+PY="${LIFE_MANAGER_PYTHON:-python3}"
+"$PY" - "$ROOT/scripts" <<'PY'
 import sys
 
 sys.path.insert(0, sys.argv[1])
 import publication_resume as publication
 
-# The production weekly audit runs under launchd's /usr/bin Python. A receipt
-# with exactly the expected number of proofs must validate on that runtime.
+# The production weekly audit runs under the bootstrap-managed Life Manager
+# Python. A receipt with exactly the expected proof count validates there.
 publication._validate_asset_proofs(
     {"media": {}},
     "x-post/ja",
@@ -37,5 +38,5 @@ except publication.InvariantError as error:
 else:
     raise AssertionError("missing public asset proof was accepted")
 
-print("PASS: receipt validation supports launchd Python and preserves cardinality")
+print("PASS: receipt validation supports managed Python and preserves cardinality")
 PY

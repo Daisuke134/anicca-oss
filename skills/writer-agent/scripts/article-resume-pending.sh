@@ -3,16 +3,12 @@
 # pre-live target set may initialize only its explicitly missing targets in a publication-free tick.
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
-# Load runtime credentials exactly like article-daily.sh so remote reconciles
-# (e.g. publication_remote.devto) never fail closed on a missing API key.
-WRITER_RUNTIME_HOME="${LIFE_MANAGER_STATE_ROOT:-${LIFE_MANAGER_HOME:-$HOME/.local/state/life-manager}}"
-set -a; . "$WRITER_RUNTIME_HOME/.env" 2>/dev/null; set +a
-
-ARTICLE_ROOT="${ARTICLE_ROOT:-${ARTICLE_SKILL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$ARTICLE_ROOT/state}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 ARTICLE_PROVIDER="claude"
 ARTICLE_PROVIDER_COOLDOWN_SECONDS="300"
-LOG="${ARTICLE_RESUME_LOG:-$WRITER_RUNTIME_HOME/logs/article-resume.log}"
+LOG="${ARTICLE_RESUME_LOG:-$WRITER_LOG_DIR/article-resume.log}"
 TELEGRAM_TARGET="${TELEGRAM_TARGET_ID:-${GIG_REPORT_CHAT:-${TELEGRAM_CHAT_ID:-}}}"
 MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"
 MODEL_SUPPORT="${ARTICLE_MODEL_SUPPORT:-$ARTICLE_ROOT/runtime/model-runner-support.py}"
@@ -72,8 +68,8 @@ fi
 
 # A publisher must not create an irreversible external effect when its durable
 # receipt, circuit, or outbox cannot be persisted. Resume has no cleanup rights;
-# Coconala's canonical gig_disk_guard.py defaults to 524288 KiB. Keep direct
-# owner wakes identical to the launchd guard instead of inventing a second
+# Life Manager's shared disk admission defaults to 524288 KiB. Keep direct
+# owner wakes identical to the supervised guard instead of inventing a second
 # Writer-only threshold.
 CANONICAL_DISK_HEADROOM_KIB=524288
 GIG_DISK_HEADROOM_KIB="${GIG_DISK_HEADROOM_KIB:-$CANONICAL_DISK_HEADROOM_KIB}"
@@ -959,6 +955,7 @@ fi
 if [ -n "${ARTICLE_SELF_OWNED_LANDING_ROOT:-}" ] \
   && [ -n "${ARTICLE_SELF_OWNED_REMOTE:-}" ] \
   && [ -n "${ARTICLE_SELF_OWNED_BRANCH:-}" ]; then
+  : "${ARTICLE_SELF_OWNED_BASE_URL:?ARTICLE_SELF_OWNED_BASE_URL is required when self-owned publishing is enabled}"
   (
     SELF_OWNED_LOCK="$RUN_DIR/gates/self-owned-worker.lock"
     if ! mkdir "$SELF_OWNED_LOCK" 2>/dev/null; then
@@ -971,7 +968,7 @@ if [ -n "${ARTICLE_SELF_OWNED_LANDING_ROOT:-}" ] \
       --landing-root "$ARTICLE_SELF_OWNED_LANDING_ROOT" \
       --remote "$ARTICLE_SELF_OWNED_REMOTE" \
       --branch "$ARTICLE_SELF_OWNED_BRANCH" \
-      --base-url "${ARTICLE_SELF_OWNED_BASE_URL:-https://aniccaai.com}"
+      --base-url "$ARTICLE_SELF_OWNED_BASE_URL"
   ) >>"$LOG" 2>&1 </dev/null || \
     echo "article-resume: self-owned worker remains pending" >>"$LOG"
 fi
@@ -1043,21 +1040,12 @@ if [ "$INITIALIZATION_COUNT" -eq 0 ] \
   NOTE_STATUS="$(jq -r '.pairs["note/ja"].status // empty' "$STATE_PATH")"
   NOTE_CODE_ARGS=()
   if [ "$NOTE_STATUS" = "repair-required" ]; then
-    NOTE_MCP_DIR="${NOTE_MCP_DIR:-$WRITER_RUNTIME_HOME/external/note-mcp}"
-    bash "$ARTICLE_ROOT/scripts/ensure-note-mcp-runtime.sh" \
-      "$NOTE_MCP_DIR" >>"$LOG" 2>&1 || {
-      echo "article-resume: note-mcp runtime restore failed closed" >>"$LOG"
-      exit 1
-    }
-    export NOTE_MCP_DIR
-    export NOTE_MCP_SRC="$NOTE_MCP_DIR/src"
     NOTE_COMMAND=(
-      "$NOTE_MCP_DIR/.venv/bin/python"
+      "$WRITER_BROWSER_PYTHON"
       "$ARTICLE_ROOT/scripts/note-publish/note_inplace_repair.py"
     )
     NOTE_CODE_ARGS=(
       --code-file "$ARTICLE_ROOT/scripts/note-publish/note_inplace_repair.py"
-      --code-file "$ARTICLE_ROOT/scripts/ensure-note-mcp-runtime.sh"
     )
   elif [ "$NOTE_STATUS" = "intent" ]; then
     NOTE_COMMAND=(python3 "$ARTICLE_ROOT/scripts/publish-note-managed.py")
@@ -1066,7 +1054,6 @@ if [ "$INITIALIZATION_COUNT" -eq 0 ] \
       --code-file "$ARTICLE_ROOT/scripts/note-publish/set-eyecatch-draft.py"
       --code-file "$ARTICLE_ROOT/scripts/note-publish/set-eyecatch-api.py"
       --code-file "$ARTICLE_ROOT/scripts/note-publish/publish-paid.py"
-      --code-file "$ARTICLE_ROOT/scripts/ensure-note-mcp-runtime.sh"
     )
   else
     echo "article-resume: note deterministic dispatch refused status=$NOTE_STATUS" >>"$LOG"

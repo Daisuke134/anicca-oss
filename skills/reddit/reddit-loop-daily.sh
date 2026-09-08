@@ -15,24 +15,34 @@
 # reliance on the LLM self-scheduling itself.
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
 set -uo pipefail
-RUN_AGENT="$HOME/anicca/skills/earn/marketing-engine/run_agent.sh"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../.." && pwd)"
+RUN_AGENT="${RUN_AGENT_BIN:-$REPO_ROOT/skills/earn/marketing-engine/run_agent.sh}"
 if [ "${AGENT_WIRING_PROBE_ONLY:-0}" = "1" ]; then
   printf '{"task_class":"tool-agent","runner":"%s"}\n' "$RUN_AGENT"
   exit 0
 fi
-LOG="$HOME/.openclaw/logs/reddit-loop-daily.log"
+STATE_ROOT="${REDDIT_STATE_ROOT:-$HOME/.local/state/life-manager/reddit}"
+STATE="${REDDIT_STATE_DIR:-$STATE_ROOT/state}"
+LOG="${REDDIT_LOG_FILE:-$STATE_ROOT/logs/reddit-loop-daily.log}"
 mkdir -p "$(dirname "$LOG")"
+mkdir -p "$STATE"
+export LIFE_MANAGER_REPO="${LIFE_MANAGER_REPO:-$REPO_ROOT}"
+export REDDIT_STATE_DIR="$STATE"
+set -a
+. "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}" 2>/dev/null || true
+set +a
 echo "=== reddit-loop-daily run $(date '+%F %T %Z') ===" >>"$LOG"
 
 # launchd does not provide PROMPT. Preserve an injected prompt when present, but
 # keep the deterministic trigger runnable under `set -u` when it is absent.
-PROMPT="${PROMPT:-} Perform one full Reddit loop pass now: measure the canonical state, heal Camofox if needed, then make exactly one honest disclosed contribution when the account is active and the ledger is stale; verify the real Reddit URL in a fresh browser navigation and append only verified evidence to ~/profitable-claude/skills/reddit/state/posts.jsonl. The canonical Reddit runtime is ~/profitable-claude/skills/reddit; use that path for every measure and ledger write. This is a bounded pass: if browser navigation or posting has not produced a verified success within 120 seconds, stop the ACT attempt, record the precise blocker, touch the heartbeat, and return a failure result so the supervisor can retry later; never hang until the outer runner timeout. Commit tracked runtime ledger changes in the profitable-claude repo after confirming its remote; do not commit the legacy ~/anicca mirror."
+PROMPT="${PROMPT:-} Perform one full Reddit loop pass now. Run $REPO_ROOT/skills/reddit/loop.sh to measure canonical state, heal Camofox through $REPO_ROOT/skills/camofox-browser when needed, then make exactly one honest disclosed contribution when the account is active and the ledger is stale. Verify the real Reddit URL in a fresh browser navigation and append only verified evidence to $STATE/posts.jsonl. Code is read from the Life Manager repository; runtime ledgers belong only in $STATE and must never be committed. This is a bounded pass: if browser navigation or posting has not produced a verified success within 120 seconds, stop the ACT attempt, record the precise blocker, touch $STATE/.reddit-loop-last-pass, and return a failure result so the supervisor can retry later; never hang until the outer runner timeout. Report a meaningful result through $REPO_ROOT/skills/report/loop-report.sh."
 
-EVIDENCE_DIR="$HOME/.openclaw/state/agent-runner-evidence/reddit-daily/$(date +%s)-$$"
+EVIDENCE_DIR="$STATE/agent-runner-evidence/reddit-daily/$(date +%s)-$$"
 printf '%s\n' "$PROMPT" | "$RUN_AGENT" --task-class tool-agent \
   --loop reddit \
-  --evidence-dir "$EVIDENCE_DIR" --task-label reddit-loop-daily >>"$LOG" 2>&1
+  --evidence-dir "$EVIDENCE_DIR" --task-label reddit-loop-daily --workdir "$REPO_ROOT" >>"$LOG" 2>&1
 RC=$?
 echo "=== reddit-loop-daily done rc=$RC $(date '+%F %T %Z') ===" >>"$LOG"
-touch "$HOME/.openclaw/state/.reddit-loop-last-pass" 2>/dev/null || true
+touch "$STATE/.reddit-loop-last-pass" 2>/dev/null || true
 exit 0

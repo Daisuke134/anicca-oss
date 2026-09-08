@@ -6,6 +6,7 @@ import json
 import os
 import plistlib
 import re
+import shutil
 import tempfile
 import time
 from pathlib import Path
@@ -94,9 +95,27 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         value["KeepAlive"] = True
     if loop_id.startswith(("article-", "writer-")):
         writer_root = str(release_root / "skills/writer-agent")
+        writer_state = os.path.expanduser(entry["state_root"])
         value["EnvironmentVariables"].update({
             "ARTICLE_ROOT": writer_root, "ARTICLE_SKILL_DIR": writer_root,
+            "ARTICLE_STATE_DIR": writer_state, "WRITER_STATE_DIR": writer_state,
+            "WRITER_LOG_DIR": os.path.expanduser(entry["log_root"]),
+            "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
+            "LIFE_MANAGER_PYTHON": str(
+                Path.home() / ".local/share/life-manager/venv/bin/python"
+            ),
             "LIFE_MANAGER_REPO": str(release_root),
+        })
+    if loop_id in {"pm-decision-loop", "pm-live-trade"}:
+        node = shutil.which("node")
+        if not node or not Path(node).is_absolute():
+            raise ValueError(f"{loop_id}: managed node executable is unavailable")
+        value["EnvironmentVariables"].update({
+            "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
+            "LIFE_MANAGER_NODE": node,
+            "LIFE_MANAGER_PYTHON": str(
+                Path.home() / ".local/share/life-manager/venv/bin/python"
+            ),
         })
     return plistlib.dumps(value, fmt=plistlib.FMT_XML, sort_keys=True)
 
@@ -174,7 +193,7 @@ def _preserve_operational_attributes(new_bytes: bytes, old_bytes: bytes | None,
     for key in ("WorkingDirectory", "ProcessType", "RunAtLoad", "ThrottleInterval", "Umask", "Nice"):
         if key in old and key not in retired_operational_keys and not (
             key == "WorkingDirectory"
-            and _is_immutable_release_working_directory(old[key])
+            and (key not in new or _is_immutable_release_working_directory(old[key]))
         ):
             new[key] = old[key]
     preserved_env = {

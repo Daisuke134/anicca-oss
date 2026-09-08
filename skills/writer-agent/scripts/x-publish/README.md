@@ -1,6 +1,6 @@
 # publish-to-x (cloakbrowser/CDP, optimized for our daily-driver — NO Playwright MCP, NO API credits)
-Posts a Markdown article to X Articles via the REAL daily-driver browser (CDP :9222). Reuses wshuyi
-scripts (parse_markdown, copy_to_clipboard, table_to_image in ~/.claude/skills/x-article-publisher/).
+Posts a Markdown article to X Articles via the REAL daily-driver browser (CDP :9222). The parser,
+browser clipboard and table/image preparation code are owned by this repository.
 Flow (each a script here, driven by CDP):
  1. prep-x-md.py     : source md → X md (tables→PNG via table_to_image, mermaid→PNG via kroki, H1 title + cover)
  2. parse_markdown.py: → title, cover, content_images[block_index], html, dividers

@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import sys
 from pathlib import Path
 
@@ -49,3 +50,14 @@ def test_publish_path_persists_receipt_and_quarantines_readability_failure():
     assert '"media-readability.json"' in source
     assert '_guard("mark-unavailable", pair, reason=reason)' in source
     assert '"action": "quarantined-unreadable-media"' in source
+
+
+def test_inplace_repair_uses_repository_chunk_inserter_only():
+    source = MODULE.read_text(encoding="utf-8")
+    method = inspect.getsource(x_repair.XBrowserAdapter.replace_and_publish)
+    assert "from x_anchor import build_chunks" in source
+    assert "chunks = build_chunks(body_html, content_images)" in method
+    assert "self._paste_image_chunk(page, composer, path)" in method
+    assert method.index("chunks = build_chunks") < method.index("manager, _browser, page = self._page()")
+    assert ".claude/skills/x-article-publisher" not in source
+    assert "spec_from_file_location" not in source

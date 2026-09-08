@@ -261,13 +261,13 @@ def test_uncertain_replay_cannot_overwrite_existing_delivered_receipt(tmp_path: 
     assert json.loads(receipt_path.read_text())["telegram"] == delivered["telegram"]
 
 
-def test_hourly_goal_monitor_uses_unified_receipt_before_legacy_sender() -> None:
+def test_hourly_goal_monitor_uses_unified_receipt_before_shared_sender() -> None:
     source = GOAL_MONITOR.read_text()
     hourly = source.index('CAPAFY_REPORT_KIND:-morning')
     reconcile = source.index("capafy_hourly_reconcile.py", hourly)
     receipt = source.index("capafy_company_receipt.py", reconcile)
-    legacy = source.index("openclaw message send", receipt)
+    shared = source.index("skills/_shared/send-telegram.sh", receipt)
 
-    assert hourly < reconcile < receipt < legacy
+    assert hourly < reconcile < receipt < shared
     assert 'if [ "$REPORT_KIND" = "hourly" ]' in source
     assert 'exit "$UNIFIED_RC"' in source

@@ -1,4 +1,0 @@
-# source: /Users/anicca/profitable-claude/lib/vendor/ytdlp-parse-shared-lib/ytdlp_parse.py
-# source_commit: 0ceb17f1
-# archived only to rerun the pure verifier test; never active production code
-85f6633563b3a88be96c988b7c278108df43d7f749e586e1f5c99e1ca5cfa601  vendor/ytdlp-parse-shared-lib/ytdlp_parse.py

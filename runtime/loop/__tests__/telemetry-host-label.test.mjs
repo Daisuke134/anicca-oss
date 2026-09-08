@@ -44,6 +44,18 @@ function hostLabel(instance) {
   return result.stdout.trim();
 }
 
+function instanceHome(argv, env) {
+  const match = source.match(/function instanceHome\(argv, env\)\s*\{[\s\S]*?\n\}\n/);
+  assert.ok(match, 'instanceHome() function not found');
+  const result = spawnSync(
+    process.execPath,
+    ['--eval', `${match[0]}\nconsole.log(instanceHome(${JSON.stringify(argv)}, ${JSON.stringify(env)}));`],
+    { env: { PATH: process.env.PATH || '' }, encoding: 'utf8', timeout: 5000 },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
 test('REQ-002(b) (FIND-001 fix): instanceHostLabel("franklin") -> "Franklin" (backward-compat, Franklin#1\'s dashboard row name is unchanged)', () => {
   assert.equal(hostLabel('franklin'), 'Franklin');
 });
@@ -64,4 +76,21 @@ test('REQ-002(b) (FIND-001 fix): instanceHostLabel(undefined) -> "Franklin" (uns
 
 test('REQ-002(b) (FIND-001 fix): instanceHostLabel is a general capitalize-first-letter mapping for any other franklin-family-adjacent string, never silently reused across distinct instances', () => {
   assert.equal(hostLabel('clawrouter'), 'Clawrouter');
+});
+
+test('ARCH-11: telemetry reads the exact instance home passed by its owning daemon', () => {
+  assert.equal(
+    instanceHome(['--home', '/instances/franklin2'], { HOME: '/users/owner', ANICCA_HOME: '/wrong' }),
+    '/instances/franklin2',
+  );
+  assert.equal(instanceHome([], { HOME: '/users/owner', ANICCA_HOME: '/instances/franklin1' }), '/instances/franklin1');
+  assert.equal(instanceHome([], { HOME: '/users/owner' }), '/users/owner/.blockrun');
+});
+
+test('ARCH-11: telemetry names the concrete model used by the shared repository proxy', () => {
+  assert.match(source, /import \{ normalizeModelSelection \} from "\.\.\/compute-proxy\/model-map\.mjs";/);
+  assert.match(source, /process\.env\.ANICCA_MODEL \|\| "free\/glm-4\.7"/);
+  assert.match(source, /process\.env\.ANICCA_FRONTIER_MODEL \|\| "anthropic\/claude-sonnet-4-6"/);
+  assert.match(source, /model_live: FRANKLIN_MODEL\.model, model_tier: FRANKLIN_MODEL\.tier/);
+  assert.doesNotMatch(source, /nvidia\/llama-4-maverick|franklin proxy --model/);
 });

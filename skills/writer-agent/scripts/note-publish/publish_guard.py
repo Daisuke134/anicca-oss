@@ -11,12 +11,15 @@ the sentinel, so under normal operation it can only ever DRAFT.
 
 To ENABLE a (manual, human) publish, BOTH must hold:
   1. env: NOTE_MODE=go  AND  NOTE_FORCE_DRAFT != 1
-  2. a fresh sentinel file ~/.cloak/note-work/.PUBLISH_ENABLED (created by `publish-to-note.sh enable-publish`,
+  2. a fresh sentinel file $WRITER_STATE_DIR/note-work/.PUBLISH_ENABLED (created by `publish-to-note.sh enable-publish`,
      valid 10 min — a deliberate act, stronger than an env var alone).
 """
 import os, sys, time
 
-SENTINEL = os.path.expanduser("~/.cloak/note-work/.PUBLISH_ENABLED")
+SENTINEL = os.path.join(
+    os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")),
+    "note-work/.PUBLISH_ENABLED",
+)
 SENTINEL_TTL = 600  # seconds
 
 

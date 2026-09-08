@@ -4,11 +4,11 @@ const path = require("node:path");
 const { canonicalKokuchProBinding } = require("./connector-kokuchpro-workflow.js");
 
 const { createBrowserHarnessAdapter } = require("./connector-browser-harness-adapter.js");
+const { connectorPageWebsocketTargetId } = require("./connector-browser-target-controller.js");
 const { runLocalAgentRunner } = require("./connector-luna-judgment.js");
 
 const CONTROL = /^[a-z][a-z0-9_-]{1,63}$/;
 const EXTENSION_PROVIDER = /^[a-z][a-z0-9_-]{1,31}$/;
-const PAGE_WEBSOCKET = /^ws:\/\/(?:127\.0\.0\.1|\[::1\]):9222\/devtools\/page\/[A-Za-z0-9._-]{3,128}$/;
 const TECHPLAY_POSTCHECK_ATTEMPTS = 20;
 const TECHPLAY_POSTCHECK_INTERVAL_MS = 25;
 const KINDS = new Set(["input", "textarea", "select", "checkbox", "radio", "button", "link"]);
@@ -2207,7 +2207,8 @@ function createProductionBrowserHarness(options = {}) {
 
   async function runTechPlayInputFallback(input) {
     const binding = candidateTechPlayBinding(input.candidate); const maxSteps = Number(input.maxSteps);
-    if (!binding || !PAGE_WEBSOCKET.test(String(input.pageWebsocket || "")) || !input.page || typeof input.page !== "object" || input.expectedState !== "registered_or_pending" || input.maxSteps == null || !Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 20) invalid();
+    try { connectorPageWebsocketTargetId(input.pageWebsocket); } catch { invalid(); }
+    if (!binding || !input.page || typeof input.page !== "object" || input.expectedState !== "registered_or_pending" || input.maxSteps == null || !Number.isInteger(maxSteps) || maxSteps < 1 || maxSteps > 20) invalid();
     const repaired = [];
     for (let step = 0; step < maxSteps; step += 1) {
       let observation; try { observation = await observed(input.page, "techplay", input.candidate); } catch { return Object.freeze({ status: "failed", safe_reason: "agent_action_failed", repaired_actions: Object.freeze([...repaired]) }); }

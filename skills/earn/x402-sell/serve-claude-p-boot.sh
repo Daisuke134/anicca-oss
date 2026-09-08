@@ -5,9 +5,9 @@
 # needed here) and a second Tailscale Funnel https port (8443 -> 8412) so the CDP Bazaar crawler
 # gets an explicit https resource distinct from the founder seller on :8411/443.
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 # load CDP facilitator creds (existing account, same as serve-mainnet-boot.sh) — never echoed
-set -a; . /Users/anicca/.openclaw/.env 2>/dev/null || true; set +a
 # NON-DISCRIMINATION (2026-07-19): claude-p runs the SAME concentrated v2 store as franklin —
 # same tool, same rail, measure external equally. Force this instance's identity so resale can
 # resolve a key (the .env injects a machine-legacy home/key; this store IS claude-p).

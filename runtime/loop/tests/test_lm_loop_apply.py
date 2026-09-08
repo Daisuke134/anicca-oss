@@ -3,6 +3,7 @@ import io
 import json
 import os
 import plistlib
+import shutil
 import shlex
 import stat
 import subprocess
@@ -69,7 +70,10 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertIn("LIFE_MANAGER_APPLY_TARGET", json.loads(output.getvalue())["error"])
 
     def test_apply_all_is_explicit(self):
-        with patch.dict(os.environ, {}, clear=True), \
+        with patch.dict(os.environ, {
+                "LIFE_MANAGER_RELEASE_ROOT": str(self.root),
+                "LIFE_MANAGER_LAUNCH_AGENTS_DIR": str(self.root / "LaunchAgents"),
+        }, clear=True), \
                 patch.object(lm_loop, "apply_live", return_value=[]) as apply, \
                 redirect_stdout(io.StringIO()):
             self.assertEqual(lm_loop.main(["apply", "--all"]), 0)
@@ -170,6 +174,82 @@ class LmLoopApplyTest(unittest.TestCase):
                          str(Path.home() / ".local/share/anicca/credentials.json"))
         self.assertEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
                          str(Path.home() / ".local/state/life-manager/example"))
+
+    def test_writer_plist_projects_one_state_log_and_env_contract(self):
+        writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
+        writer_entrypoint.parent.mkdir(parents=True)
+        writer_entrypoint.write_text("#!/bin/sh\nexit 0\n")
+        writer_entrypoint.chmod(0o755)
+        value = registry("skills/writer-agent/article-daily.sh")
+        value["loops"]["article-daily"] = value["loops"].pop("example")
+        value["loops"]["article-daily"].update({
+            "label": "ai.anicca.article-daily",
+            "state_root": "~/.local/state/life-manager/writer",
+            "log_root": "~/.local/state/life-manager/writer/logs",
+        })
+        environment = plistlib.loads(
+            build_apply_plan(value, self.root, SHA)[0]["plist_bytes"]
+        )["EnvironmentVariables"]
+        writer = str(self.root.resolve() / "skills/writer-agent")
+        state = str(Path.home() / ".local/state/life-manager/writer")
+        self.assertEqual(environment["ARTICLE_ROOT"], writer)
+        self.assertEqual(environment["ARTICLE_SKILL_DIR"], writer)
+        self.assertEqual(environment["ARTICLE_STATE_DIR"], state)
+        self.assertEqual(environment["WRITER_STATE_DIR"], state)
+        self.assertEqual(environment["WRITER_LOG_DIR"], f"{state}/logs")
+        self.assertEqual(
+            environment["LIFE_MANAGER_ENV_FILE"],
+            str(Path.home() / ".local/state/life-manager/.env"),
+        )
+        self.assertEqual(
+            environment["LIFE_MANAGER_PYTHON"],
+            str(Path.home() / ".local/share/life-manager/venv/bin/python"),
+        )
+
+        repository = Path(__file__).resolve().parents[3]
+        runtime_contract = repository / "skills/writer-agent/scripts/writer-runtime-env.sh"
+        runtime = subprocess.run(
+            [
+                "bash", "-c",
+                f'source "{runtime_contract}" && printf "%s" "$WRITER_BROWSER_PYTHON"',
+            ],
+            text=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                **environment,
+                "LIFE_MANAGER_REPO": str(repository),
+                "LIFE_MANAGER_ENV_FILE": str(self.root / "missing.env"),
+            },
+        )
+        self.assertEqual(runtime.returncode, 0, runtime.stderr)
+        self.assertEqual(runtime.stdout, environment["LIFE_MANAGER_PYTHON"])
+
+    def test_polymarket_plists_project_managed_python_and_install_env(self):
+        for loop_id, entrypoint in (
+            ("pm-decision-loop", "skills/earn/polymarket-trade/run_decision_loop.sh"),
+            ("pm-live-trade", "skills/earn/polymarket-trade/run.sh"),
+        ):
+            with self.subTest(loop_id=loop_id):
+                script = self.root / entrypoint
+                script.parent.mkdir(parents=True, exist_ok=True)
+                script.write_text("#!/bin/sh\nexit 0\n")
+                script.chmod(0o755)
+                value = registry(entrypoint)
+                value["loops"][loop_id] = value["loops"].pop("example")
+                environment = plistlib.loads(
+                    build_apply_plan(value, self.root, SHA)[0]["plist_bytes"]
+                )["EnvironmentVariables"]
+                self.assertEqual(
+                    environment["LIFE_MANAGER_ENV_FILE"],
+                    str(Path.home() / ".local/state/life-manager/.env"),
+                )
+                self.assertEqual(
+                    environment["LIFE_MANAGER_PYTHON"],
+                    str(Path.home() / ".local/share/life-manager/venv/bin/python"),
+                )
+                self.assertEqual(environment["LIFE_MANAGER_NODE"], shutil.which("node"))
+                self.assertTrue(Path(environment["LIFE_MANAGER_NODE"]).is_absolute())
 
     def test_browser_owner_is_projected_into_shared_runtime_environment(self):
         value = registry()
@@ -390,7 +470,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(target.read_bytes(), old)
         self.assertGreaterEqual(sum(call[0] == "bootstrap" for call in calls), 2)
 
-    def test_swap_preserves_existing_operational_attributes(self):
+    def test_swap_preserves_existing_operational_attributes_but_drops_undeclared_working_directory(self):
         target = self.root / "installed.plist"
         target.write_bytes(plistlib.dumps({
             "Label": "ai.anicca.example",
@@ -421,7 +501,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("CODEX_HOME", installed["EnvironmentVariables"])
         self.assertEqual(installed["EnvironmentVariables"]["LIFE_MANAGER_REPO"], str(self.root.resolve()))
         self.assertEqual(installed["EnvironmentVariables"]["LIFE_MANAGER_RELEASE_SHA"], SHA)
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
         self.assertEqual(installed["ProcessType"], "Interactive")
         self.assertTrue(installed["RunAtLoad"])
         self.assertEqual(installed["ThrottleInterval"], 30)
@@ -1219,7 +1299,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertFalse(selected.exists())
         self.assertTrue(other.exists())
 
-    def test_reapply_same_release_with_preserved_attributes_is_noop(self):
+    def test_reapply_same_release_drops_undeclared_working_directory_then_is_noop(self):
         release = self._release("release-a").resolve()
         current = self.root / "current"
         current.symlink_to(release)
@@ -1250,7 +1330,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertTrue(first[0]["changed"])
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
         self.assertEqual(installed["ProgramArguments"], expected_arguments)
         self.assertTrue((self.root / "launchctl.state").is_file())
         self.assertIn(
@@ -1275,7 +1355,7 @@ class LmLoopApplyTest(unittest.TestCase):
         ])
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
 
     def test_equal_effective_plist_still_installs_when_service_is_unloaded(self):
         release = self._release("release-a").resolve()
@@ -1291,7 +1371,6 @@ class LmLoopApplyTest(unittest.TestCase):
         target = values["agents_dir"] / "ai.anicca.example.plist"
         installed = plistlib.loads(rendered["plist_bytes"])
         installed["EnvironmentVariables"]["CUSTOM"] = "kept"
-        installed["WorkingDirectory"] = "/var/tmp/example"
         target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
         existing_bytes = target.read_bytes()
         self.assertEqual(
@@ -1315,7 +1394,7 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertIn(f"bootstrap gui/{os.getuid()} {target}", calls)
         installed = plistlib.loads(target.read_bytes())
         self.assertEqual(installed["EnvironmentVariables"]["CUSTOM"], "kept")
-        self.assertEqual(installed["WorkingDirectory"], "/var/tmp/example")
+        self.assertNotIn("WorkingDirectory", installed)
 
     def test_cfo_target_retires_only_obsolete_cfo_environment(self):
         release = self._release("release-cfo").resolve()
@@ -1356,6 +1435,54 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("CFO_STATE_DIR", environment)
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
         self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
+
+    def test_polymarket_target_retires_legacy_home_and_signer_environment(self):
+        release = self._release("release-pm-live").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.pm-live-trade"
+        registry_value["loops"]["pm-live-trade"] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-pm-live"
+        current.symlink_to(release)
+        expected_arguments = [
+            str(release / "bin/lm-loop-run"), "pm-live-trade", str(release),
+        ]
+        values = self._apply_kwargs(
+            current, self.root / "apply-pm-live.lock", expected_arguments,
+            label="ai.anicca.pm-live-trade",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.pm-live-trade.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "ANICCA_HOME": "/legacy/.anicca-founder",
+            "PM_TRADE_AGENT_HOME": "/legacy/polymarket-agent",
+            "PKVAR": "BORROWED_KEY",
+            "BORROWED_KEY": "kept-but-unused",
+            "BASE_CHAIN_WALLET_KEY": "retired-base-signer",
+            "POLYGON_WALLET_PRIVATE_KEY": "retired-signer",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin",
+        })
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target="pm-live-trade", current=current,
+            lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        for key in (
+            "ANICCA_HOME", "PM_TRADE_AGENT_HOME", "PKVAR",
+            "ANICCA_EVM_PRIVATE_KEY", "BASE_CHAIN_WALLET_KEY", "BLOCKRUN_WALLET_KEY",
+            "POLYGON_WALLET_PRIVATE_KEY",
+        ):
+            self.assertNotIn(key, environment)
+        self.assertEqual(environment["BORROWED_KEY"], "kept-but-unused")
+        self.assertEqual(environment["PATH"], "/opt/homebrew/bin:/usr/bin:/bin")
+        self.assertEqual(environment["LIFE_MANAGER_NODE"], shutil.which("node"))
 
     def test_gig_apply_direct_target_retires_stale_disk_headroom_kib(self):
         # hf-gig-apply-direct's plist was installed while it was still rendered from

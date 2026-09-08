@@ -35,16 +35,24 @@ if python3 "$CONTROL" handoff --repo "$REPO" --ledger "$LEDGER" --run-id "$RUN" 
   exit 1
 fi
 
-# The final exact-eight validator enforces the same single-topic/http(s) contract.
-cp "$LEDGER" "$TMP/eight.jsonl"
-printf '{"run_id":"%s","topic_id":"topic-2","platform":"zenn-article","lang":"ja","live_url":"https://zenn.dev/anicca/articles/strict-slug-1","published":true,"reality_gate":"PASS"}\n' "$RUN" >>"$TMP/eight.jsonl"
-if python3 "$COMPLETE" --ledger "$TMP/eight.jsonl" --run-id "$RUN" --armed 1 --publication-state "$STATE"; then
+# The final exact-eight validator starts from one known-good ledger, then
+# mutates one invariant at a time so each rejection has only one cause.
+printf '{"run_id":"%s","topic_id":"topic-1","platform":"zenn-article","lang":"ja","live_url":"https://zenn.dev/writer-zenn/articles/strict-slug-1","published":true,"reality_gate":"PASS"}\n' "$RUN" >>"$LEDGER"
+python3 "$COMPLETE" --ledger "$LEDGER" --run-id "$RUN" --armed 1 --publication-state "$STATE"
+cp "$LEDGER" "$TMP/valid-eight.jsonl"
+
+sed 's/"topic_id":"topic-1","platform":"zenn-article"/"topic_id":"topic-2","platform":"zenn-article"/' \
+  "$TMP/valid-eight.jsonl" >"$TMP/mutated-ledger.jsonl"
+mv "$TMP/mutated-ledger.jsonl" "$LEDGER"
+if python3 "$COMPLETE" --ledger "$LEDGER" --run-id "$RUN" --armed 1 --publication-state "$STATE"; then
   echo 'FAIL: mixed-topic exact-eight passed' >&2
   exit 1
 fi
-sed -i.bak 's#https://example.test/note-ja#javascript:alert(1)#' "$TMP/eight.jsonl"
-rm "$TMP/eight.jsonl.bak"
-if python3 "$COMPLETE" --ledger "$TMP/eight.jsonl" --run-id "$RUN" --armed 1 --publication-state "$STATE"; then
+cp "$TMP/valid-eight.jsonl" "$LEDGER"
+sed 's#https://note.com/writer-note/n/note-current#javascript:alert(1)#' \
+  "$TMP/valid-eight.jsonl" >"$TMP/mutated-ledger.jsonl"
+mv "$TMP/mutated-ledger.jsonl" "$LEDGER"
+if python3 "$COMPLETE" --ledger "$LEDGER" --run-id "$RUN" --armed 1 --publication-state "$STATE"; then
   echo 'FAIL: invalid live URL passed' >&2
   exit 1
 fi

@@ -14,6 +14,20 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_ceo_runner_uses_repository_owned_agent_boundary(self):
+        wrapper = (ROOT / "bin/ceo-run.sh").read_text()
+        self.assertIn(
+            'RUN_AGENT="${CEO_RUN_AGENT_BIN:-$HERE/skills/earn/marketing-engine/run_agent.sh}"',
+            wrapper,
+        )
+        self.assertNotIn(
+            "$HOME/" + "anicca/skills/earn/marketing-engine/run_agent.sh",
+            wrapper,
+        )
+        self.assertTrue(
+            (ROOT / "skills/earn/marketing-engine/run_agent.sh").is_file()
+        )
+
     def test_writer_report_wrapper_preserves_external_state_argv(self):
         wrapper = ROOT / "skills/writer-agent/scripts/writer-report-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))
@@ -48,9 +62,10 @@ class CleanUserInstallTest(unittest.TestCase):
                     **os.environ,
                     "LIFE_MANAGER_PYTHON": "/bin/echo",
                     "WRITER_STATE_DIR": state_root,
-                    "GIG_ENV_FILE": str(env_file),
+                    "LIFE_MANAGER_ENV_FILE": str(env_file),
                     "WRITER_GMAIL_ACCOUNT": "",
                     "LIFE_MANAGER_GMAIL_ACCOUNT": "",
+                    "GOG_ACCOUNT": "",
                 },
                 check=True,
                 capture_output=True,
@@ -70,7 +85,7 @@ class CleanUserInstallTest(unittest.TestCase):
             [str(wrapper)],
             env={
                 **os.environ,
-                "GIG_ENV_FILE": "/nonexistent/life-manager.env",
+                "LIFE_MANAGER_ENV_FILE": "/nonexistent/life-manager.env",
                 "WRITER_GMAIL_ACCOUNT": "",
                 "LIFE_MANAGER_GMAIL_ACCOUNT": "",
                 "GOG_ACCOUNT": "",
@@ -233,6 +248,19 @@ class CleanUserInstallTest(unittest.TestCase):
         requirements = (ROOT / "requirements-runtime.txt").read_text().splitlines()
         self.assertIn("jsonschema==4.26.0", requirements)
         self.assertIn("playwright==1.59.0", requirements)
+        self.assertIn("cloakbrowser==0.5.6", requirements)
+        self.assertIn("Pillow==12.2.0", requirements)
+        self.assertIn("cryptography==46.0.5", requirements)
+        self.assertIn("websocket-client==1.9.0", requirements)
+        self.assertIn("PyYAML==6.0.3", requirements)
+        self.assertIn("httpx==0.28.1", requirements)
+        self.assertIn("keyring==25.7.0", requirements)
+        self.assertIn("markdown-it-py==3.0.0", requirements)
+        self.assertIn("pydantic==2.12.5", requirements)
+        self.assertIn("polymarket-client==0.1.0b13", requirements)
+        self.assertIn("eth-account==0.13.7", requirements)
+        self.assertIn("requests==2.34.2", requirements)
+        self.assertIn("web3==7.16.0", requirements)
         bootstrap = (ROOT / "scripts/bootstrap.sh").read_text()
         self.assertIn('-r "$TARGET/requirements-runtime.txt"', bootstrap)
 
@@ -331,11 +359,14 @@ class CleanUserInstallTest(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(
-            result.stdout.strip(),
+        self.assertEqual(result.stdout.strip().splitlines(), [
+            f"{ROOT}/skills/_shared/marketplace-core/scripts/paid_kernel.py "
+            f"--provider-adapter {ROOT}/skills/earn/lancers/scripts/paid_adapter.py "
+            f"--state-root {state_root}/paid --output {state_root}/paid-latest.json "
+            f"-- --account-id keiodaisuke --state-path {state_root}/application.json",
             f"{ROOT}/skills/earn/lancers/scripts/lane_report.py "
             f"--lane paid --state-path {state_root}/contracts.json",
-        )
+        ])
 
     def test_lancers_storefront_wrapper_preserves_managed_state_argv(self):
         wrapper = ROOT / "skills/earn/lancers/scripts/storefront-owner"

@@ -64,7 +64,7 @@ test('FIND-001: the real bug-1 fixture (agent-economy-loop plist declares claude
   assert.deepEqual(report.registryDrift, []);
 });
 
-test('FIND-001: the real bug-2 fixture (canonical hl_trade=dormant, runtime copy=live) is detected end-to-end through the composed detector', async () => {
+test('one canonical registry means stale instance copies are not runtime inputs', async () => {
   const deps = fakeDeps({
     psLines: [AGENT_ECONOMY_PS_LINE],
     plistEnvsByPath: {
@@ -76,15 +76,9 @@ test('FIND-001: the real bug-2 fixture (canonical hl_trade=dormant, runtime copy
     },
   });
   const report = await runConfigDriftDetector(deps);
-  assert.equal(report.overallStatus, 'FAIL');
+  assert.equal(report.overallStatus, 'PASS');
   assert.deepEqual(report.brainDrift, []);
-  assert.equal(report.registryDrift.length, 1);
-  assert.deepEqual(report.registryDrift[0], {
-    key: 'hl_trade.status',
-    copyPath: '/home/life-manager/.anicca-founder/skills/registry.json',
-    declared: 'dormant',
-    actual: 'live',
-  });
+  assert.deepEqual(report.registryDrift, []);
 });
 
 test('FIND-001: BOTH real bugs fire simultaneously across 3 discovered targets (agent-economy-loop drifting, both Franklins clean) — REQ-003 per-instance expectations, no global hardcoding', async () => {
@@ -107,12 +101,7 @@ test('FIND-001: BOTH real bugs fire simultaneously across 3 discovered targets (
   assert.equal(report.overallStatus, 'FAIL');
   assert.equal(report.brainDrift.length, 1, 'only agent-economy-loop should show a brain drift, NOT the Franklins (REQ-003: same function, per-instance declared values)');
   assert.equal(report.brainDrift[0].instance, 'ai.anicca.agent-economy-loop');
-  assert.equal(report.registryDrift.length, 2, 'both Franklin runtime copies drifted from the canonical dormant status');
-  const driftedCopies = report.registryDrift.map((d) => d.copyPath).sort();
-  assert.deepEqual(driftedCopies, [
-    '/home/life-manager/.blockrun/skills/registry.json',
-    '/home/life-manager/.franklin2-home/.blockrun/skills/registry.json',
-  ]);
+  assert.equal(report.registryDrift.length, 0, 'per-instance registry copies are intentionally ignored');
 });
 
 test('everything clean -> overallStatus PASS, zero drift entries', async () => {
@@ -204,7 +193,7 @@ test('injected deps mean this file never touches a real ps/plutil/launchctl proc
 // must still surface as an explicit FAIL in registryDrift, never be silently excluded (REQ-004/REQ-010
 // edge case). Previously this branch had no `else` -- such a target contributed NOTHING at all. ────────
 
-test('FIND-002: a discovered target with NO observable ANICCA_HOME contributes an explicit unobservable FAIL to registryDrift, never a silent omission', async () => {
+test('a target without ANICCA_HOME still uses the observable canonical registry', async () => {
   const NO_HOME_PS_LINE =
     '77777 node __REPO_ROOT__/runtime/loop/index.mjs XPC_SERVICE_NAME=ai.anicca.orphan-loop ANICCA_BRAIN=proxy'; // deliberately no ANICCA_HOME= token
   const deps = fakeDeps({
@@ -215,13 +204,11 @@ test('FIND-002: a discovered target with NO observable ANICCA_HOME contributes a
   const report = await runConfigDriftDetector(deps);
   assert.equal(report.targets.length, 1);
   assert.equal(report.targets[0].aniccaHome, null);
-  assert.equal(report.overallStatus, 'FAIL', 'an unobservable ANICCA_HOME must FAIL the run, never silently PASS');
-  assert.equal(report.registryDrift.length, 1, 'exactly one unobservable registryDrift entry must be contributed for this target -- not zero (the pre-fix silent-drop bug)');
-  assert.equal(report.registryDrift[0].reason, 'unobservable');
-  assert.match(report.registryDrift[0].copyPath, /77777/, 'the unobservable entry must be traceable back to the specific pid it came from');
+  assert.equal(report.overallStatus, 'PASS');
+  assert.deepEqual(report.registryDrift, []);
 });
 
-test('FIND-002: a mix of one home-observable target (clean) and one home-unobservable target still surfaces the unobservable one -- the clean target must not mask it', async () => {
+test('mixed home observability does not create registry copies', async () => {
   const NO_HOME_PS_LINE = '77777 node __REPO_ROOT__/runtime/loop/index.mjs XPC_SERVICE_NAME=ai.anicca.orphan-loop ANICCA_BRAIN=proxy';
   const deps = fakeDeps({
     psLines: [FRANKLIN_PS_LINE, NO_HOME_PS_LINE],
@@ -235,9 +222,8 @@ test('FIND-002: a mix of one home-observable target (clean) and one home-unobser
     },
   });
   const report = await runConfigDriftDetector(deps);
-  assert.equal(report.overallStatus, 'FAIL');
-  assert.equal(report.registryDrift.length, 1);
-  assert.equal(report.registryDrift[0].reason, 'unobservable');
+  assert.equal(report.overallStatus, 'PASS');
+  assert.deepEqual(report.registryDrift, []);
 });
 
 // ── FIND-003 (adversary iteration-2, blocking): the OBSERVED-side codeDefault fallback (added to stop

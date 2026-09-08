@@ -40,7 +40,7 @@ export LM_SELFBUILD_ACTIVE=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${LM_SELFBUILD_REPO:-$(cd "$HERE/../.." && pwd)}"
 APP_DIR="$REPO_ROOT/apps/life-manager"
-DISK_GUARD="$REPO_ROOT/skills/earn/gig/scripts/gig_disk_guard.py"
+DISK_GUARD="$REPO_ROOT/runtime/host/disk_admission.py"
 NODE_BIN="${NODE_BIN:-$(command -v node || echo /opt/homebrew/bin/node)}"
 DAILY_CLI="$APP_DIR/scripts/self-build-daily.js"
 LIFE_MANAGER_STATE_HOME="${LIFE_MANAGER_STATE_HOME:-$HOME/.local/state/life-manager}"
@@ -48,7 +48,7 @@ ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$LIFE_MANAGER_STATE_HOME/.env}"
 LOG="${LM_SELFBUILD_LOG:-$LIFE_MANAGER_STATE_HOME/logs/life-manager-self-build.log}"
 LEDGER="${LM_SELFBUILD_LEDGER:-$LIFE_MANAGER_STATE_HOME/state/self-build-days.jsonl}"
 readonly LM_SELFBUILD_CANONICAL_DISK_GUARD="$DISK_GUARD"
-readonly LM_SELFBUILD_CANONICAL_HOST_STATE="$HOME/.openclaw/state"
+readonly LM_SELFBUILD_CANONICAL_HOST_STATE="$LIFE_MANAGER_STATE_HOME/state"
 readonly LM_SELFBUILD_CANONICAL_STATE_HOME="$LIFE_MANAGER_STATE_HOME"
 mkdir -p "$(dirname "$LOG")"
 printf '=== life-manager self-build run %s (TZ=%s) ===\n' "$(date '+%F %T %Z')" "$TZ" >>"$LOG"
@@ -72,18 +72,21 @@ DISK_GUARD="$LM_SELFBUILD_CANONICAL_DISK_GUARD"
 # Self-build is a write-heavy producer. Pin the repository's canonical floor and
 # host/state roots after dotenv loading so runtime configuration cannot lower or
 # redirect the shared guard boundary.
-GIG_DISK_HEADROOM_KIB=524288
-GIG_HOST_STATE_DIR="$LM_SELFBUILD_CANONICAL_HOST_STATE"
-GIG_STATE_DIR="$LM_SELFBUILD_CANONICAL_STATE_HOME"
-export GIG_DISK_HEADROOM_KIB
-export GIG_HOST_STATE_DIR GIG_STATE_DIR
+LIFE_MANAGER_DISK_HEADROOM_KIB=524288
+LIFE_MANAGER_HOST_STATE_DIR="$LM_SELFBUILD_CANONICAL_HOST_STATE"
+LIFE_MANAGER_PRODUCER_STATE_DIR="$LM_SELFBUILD_CANONICAL_STATE_HOME"
+export LIFE_MANAGER_DISK_HEADROOM_KIB
+export LIFE_MANAGER_HOST_STATE_DIR LIFE_MANAGER_PRODUCER_STATE_DIR
 
 # The dotenv file is allowed to set runtime values, but it can never bypass the
 # shared producer stop contract.
+unset LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP
+unset GIG_DISK_HEADROOM_KIB GIG_HOST_STATE_DIR GIG_STATE_DIR
 unset GIG_IGNORE_DISK_PRESSURE_BLOCK GIG_IGNORE_DISK_WRITERS_STOP
-unset DISK_CONTROL_STATE_DIR OPENCLAW_STATE_DIR LIFE_MANAGER_HOST_STATE_DIR
+unset DISK_CONTROL_STATE_DIR OPENCLAW_STATE_DIR
 
 TG_TARGET="${LM_SELFBUILD_TELEGRAM_TARGET:?LM_SELFBUILD_TELEGRAM_TARGET is required}"
+TELEGRAM_SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
 
 if ! /usr/bin/python3 "$DISK_GUARD" /usr/bin/true >>"$LOG" 2>&1; then
   printf 'self-build: disk guard blocked before dependency install\n' >>"$LOG"
@@ -177,8 +180,8 @@ REPORT="$REPORT
 $STREAK"
 
 printf '%s\n' "$REPORT" >>"$LOG"
-openclaw message send --channel telegram --target "$TG_TARGET" \
-  --message "$REPORT" --json >>"$LOG" 2>&1 || printf 'Telegram report failed\n' >>"$LOG"
+"$TELEGRAM_SENDER" "$REPORT" "$TG_TARGET" >>"$LOG" 2>&1 \
+  || printf 'Telegram report failed\n' >>"$LOG"
 
 printf '=== life-manager self-build done rc=%s %s ===\n' "$RC" "$(date '+%F %T %Z')" >>"$LOG"
 if [ "$RC" -eq 0 ]; then

@@ -25,7 +25,7 @@ PUB="$LIFE_MANAGER_REPO/skills/capafy-autopublish/state/published.jsonl"
 echo "[capafy]  published: $(count "$PUB") skills | newest-line: $(fresh "$PUB") | live-check: $(liveurl "$PUB")"
 echo "          → PASS only if count grows daily AND newest listing URL is LIVE"
 # 2 REDDIT: a real post made + its URL live + an account exists
-ACC="$HOME/.cloak/reddit-accounts.json"; POSTS="$LIFE_MANAGER_REPO/skills/self/reddit-loop/state/posts.jsonl"
+ACC="$HOME/.cloak/reddit-accounts.json"; POSTS="${REDDIT_STATE_DIR:-$HOME/.local/state/life-manager/reddit/state}/posts.jsonl"
 NACC=0; [ -f "$ACC" ] && NACC="$(python3 -c "import json;d=json.load(open('$ACC'));print(len(d if isinstance(d,list) else d.get('accounts',[])))" 2>/dev/null||echo 0)"
 echo "[reddit]  accounts: $NACC | posts: $(count "$POSTS") | newest-post: $(fresh "$POSTS") | live-check: $(liveurl "$POSTS")"
 echo "          → PASS only if posts.jsonl grows AND newest comment URL is LIVE"

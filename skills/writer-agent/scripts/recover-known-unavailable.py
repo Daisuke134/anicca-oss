@@ -191,14 +191,19 @@ def recover_state(state_path: Path, *, allow_zenn_intent: bool = False) -> None:
         and note.get("error") == NOTE_RUNTIME_ERROR
         and not note.get("receipt")
     ):
-        note_dir = os.environ.get(
-            "NOTE_MCP_DIR", str(Path.home() / ".openclaw" / "external" / "note-mcp")
+        note_source = os.environ.get(
+            "NOTE_MCP_SRC",
+            str(SCRIPT_DIR.parent / "vendor/note-mcp/src"),
         )
-        runtime_guard = os.environ.get(
-            "ARTICLE_NOTE_RUNTIME_GUARD",
-            str(SCRIPT_DIR / "ensure-note-mcp-runtime.sh"),
-        )
-        if run(["bash", runtime_guard, note_dir], env=env):
+        runtime_python = os.environ.get("WRITER_BROWSER_PYTHON", "python3")
+        note_env = {
+            **env,
+            "NOTE_MCP_SRC": note_source,
+            "PYTHONPATH": note_source + (
+                os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
+            ),
+        }
+        if run([runtime_python, "-c", "import note_mcp.api.articles"], env=note_env):
             run(
                 ["python3", guard, "clear-unavailable", "--pair", "note/ja"],
                 env=env,
@@ -245,9 +250,7 @@ def recover_state(state_path: Path, *, allow_zenn_intent: bool = False) -> None:
             or re.fullmatch(r"[1-9][0-9]*", target) is None
         ):
             continue
-        account = str(
-            identities.get(pair, "aniccabuddha.substack.com")
-        ).strip().lower()
+        account = str(identities.get(pair, "")).strip().lower()
         if re.fullmatch(r"[a-z0-9-]+\.substack\.com", account) is None:
             continue
         verifier = os.environ.get(
@@ -309,7 +312,7 @@ def recover_state(state_path: Path, *, allow_zenn_intent: bool = False) -> None:
     zenn_repo = Path(
         os.environ.get(
             "ARTICLE_ZENN_REPO",
-            str(Path.home() / ".openclaw/workspace/zenn-articles"),
+            str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles"),
         )
     )
     zenn_article = zenn_repo / "articles" / f"{zenn_slug}.md"

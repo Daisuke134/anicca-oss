@@ -19,7 +19,8 @@ from runtime.loop.loop_cleanup import gc_releases
 
 def host_cleanup_command(root: Path, home: Path) -> list[str]:
     return [sys.executable, str(root / "skills/self/disk-cleanup/disk_cleanup.py"),
-            "--home", str(home), "--state-dir", str(home / ".openclaw/state")]
+            "--home", str(home), "--state-dir",
+            str(home / ".local/state/life-manager/state")]
 
 
 def host_cleanup_ok(returncode: int, result: object) -> bool:

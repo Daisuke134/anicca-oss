@@ -3,7 +3,25 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { createConnectorBrowserTargetController } = require("./connector-browser-target-controller.js");
+const {
+  CONNECTOR_CDP_ENDPOINT,
+  CONNECTOR_CDP_WEBSOCKET_ORIGIN,
+  connectorPageWebsocketTargetId,
+  createConnectorBrowserTargetController,
+} = require("./connector-browser-target-controller.js");
+
+test("uses only the reachable IPv4 daily-driver endpoint and exact page websocket origin", () => {
+  assert.equal(CONNECTOR_CDP_ENDPOINT, "http://127.0.0.1:9222");
+  assert.equal(CONNECTOR_CDP_WEBSOCKET_ORIGIN, "ws://127.0.0.1:9222");
+  assert.equal(
+    connectorPageWebsocketTargetId("ws://127.0.0.1:9222/devtools/page/TARGET123"),
+    "TARGET123",
+  );
+  assert.throws(
+    () => connectorPageWebsocketTargetId("ws://[::1]:9222/devtools/page/TARGET123"),
+    /websocket invalid/i,
+  );
+});
 
 function fixture({ baselineCount = 1, delayedOwnedInsertion = false } = {}) {
   const calls = [];

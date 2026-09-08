@@ -29,9 +29,10 @@
 #   GIG_RESERVE_USDC / GIG_LOW_USDC - override decide.mjs's default eligibility thresholds
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE="$HERE/state"; mkdir -p "$STATE"
+SKILLS_STATE_ROOT="${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}"
+STATE="${GIG_STATE_ROOT:-$SKILLS_STATE_ROOT/economy/gig}"; mkdir -p "$STATE"
 SEEN_PAYOUTS="$STATE/seen-payouts.json"
-LEDGER="${EARN_LEDGER:-$HERE/../../earn/state/earn-ledger.jsonl}"
+LEDGER="${EARN_LEDGER:-$SKILLS_STATE_ROOT/earn/earn-ledger.jsonl}"
 WAKE="${WAKE_ID:-$(date -u +%s)}"
 AARGS="${ANICCA_ARGS:-}"; [ -z "$AARGS" ] && AARGS='{}'
 

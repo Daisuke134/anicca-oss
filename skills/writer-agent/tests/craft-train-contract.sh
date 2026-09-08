@@ -10,16 +10,17 @@
 # craft_train.py, which has zero skillopt dependency.
 set -uo pipefail
 
-ROOT="${PROFITABLE_CLAUDE_ROOT:-$HOME/profitable-claude}"
+ROOT="${LIFE_MANAGER_REPO:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)}"
 SKILL_DIR="$ROOT/skills/writer-agent"
 VENDOR_DIR="$SKILL_DIR/vendor/skillopt-writing"
 
 PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"
 command -v "$PY" >/dev/null 2>&1 || PY=python3
-SKILLOPT_PY="${SKILLOPT_PYTHON:-$HOME/.venvs/skillopt/bin/python3}"
+SKILLOPT_PY="${SKILLOPT_PYTHON:-$PY}"
 command -v "$SKILLOPT_PY" >/dev/null 2>&1 || SKILLOPT_PY="$PY"
 
 CRAFT_TRAIN_SH="$SKILL_DIR/scripts/craft-train.sh"
+cd "$SKILL_DIR"
 
 PASS=0
 FAIL=0
@@ -479,6 +480,9 @@ FIXTURE_CONF="$T5_DIR/cliproxyapi.conf"
 SPY="$T5_DIR/spy-skillopt-python.sh"
 cat > "$SPY" <<SPYEOF
 #!/usr/bin/env bash
+if [ "\${1:-}" = "-c" ]; then
+  exit 0
+fi
 touch "$T5_DIR/spy-invoked"
 exit 0
 SPYEOF
@@ -501,6 +505,15 @@ check "guard run: CRAFT.md untouched" "$SHA_BEFORE" "$SHA_AFTER"
 check "guard run: trainer subprocess never invoked" "False" "$([ -f "$T5_DIR/spy-invoked" ] && echo True || echo False)"
 GUARD_REASON="$(grep -o '"reason": *"[^"]*guard[^"]*"' "$T5_DIR/craft-train.jsonl" 2>/dev/null | head -1)"
 check "guard run: jsonl records a guard reason" "True" "$([ -n "$GUARD_REASON" ] && echo True || echo False)"
+
+TRACE_SECRET="writer-contract-secret-must-not-appear"
+ARTICLE_OPENAI_API_KEY="$TRACE_SECRET" \
+CRAFT_TRAIN_JSONL="$T5_DIR/trace-craft-train.jsonl" \
+CRAFT_TRAIN_RUNS_ROOT="$T5_DIR/runs" \
+CRAFT_MD="$FIXTURE_CRAFT" \
+SKILLOPT_PYTHON="$SPY" \
+  bash -x "$CRAFT_TRAIN_SH" >"$T5_DIR/trace.log" 2>&1
+check "xtrace never emits the direct credential" "False" "$(rg -q "$TRACE_SECRET" "$T5_DIR/trace.log" && echo True || echo False)"
 
 # ---------------------------------------------------------------------------
 # 6. T15 wall-clock follow-up, part 4: the projection refusal fires when
@@ -594,6 +607,7 @@ with tempfile.TemporaryDirectory() as td:
 
     rc = ct.main([
         '--craft-md', str(craft_path), '--config', str(config_path),
+        '--split-dir', str(split_dir),
         '--run-train', 'unused-run-train', '--skillopt-python', str(stall),
         '--runs-root', str(runs_root), '--out-root', str(Path(td, 'trainout')),
         '--jsonl', str(jsonl_path), '--deadline-epoch', str(deadline_epoch),
@@ -629,6 +643,79 @@ print("same" if a == b else f"DIVERGED {a} vs {b}")
 PYEOF
 )
 check "opponent counts stay in sync across both modules" "same" "$SYNC"
+
+PORTABLE=$("$PY" - <<'PYEOF'
+from pathlib import Path
+root = Path.cwd()
+config = root / "vendor/skillopt-writing/configs/writing/default.yaml"
+base = root / "vendor/skillopt-writing/configs/_base_/default.yaml"
+wrapper = (root / "scripts/craft-train.sh").read_text(encoding="utf-8")
+driver = (root / "scripts/craft_train.py").read_text(encoding="utf-8")
+requirements = (root.parent.parent / "requirements-runtime.txt").read_text(encoding="utf-8")
+text = config.read_text(encoding="utf-8")
+assert base.is_file()
+assert "_base_: ../_base_/default.yaml" in text
+assert "optimizer_backend: openai_chat" in text
+assert "target_backend: openai_chat" in text
+assert "/tmp/SkillOpt" not in text and "/Users/" not in text
+assert 'SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$PY}"' in wrapper
+assert "/opt/homebrew/etc/cliproxyapi.conf" not in wrapper
+assert "ARTICLE_OPENAI_API_KEY" in wrapper
+assert "ARTICLE_OPENAI_BASE_URL" in wrapper
+assert "date -j" not in wrapper
+assert '--split-dir "$SPLIT_DIR"' in wrapper
+assert 'OUT_ROOT="$STATE_DIR/craft-train-output/' in wrapper
+assert '"--cfg-options", *config_overrides' in driver
+assert "skillopt==0.2.0" in requirements
+print("portable")
+PYEOF
+)
+check "SkillOpt trainer has no checkout/home-venv dependency" "portable" "$PORTABLE"
+
+BACKEND_CONFIG=$("$SKILLOPT_PY" - <<'PYEOF'
+from skillopt.config import flatten_config, load_config
+from skillopt.model.backend_config import set_optimizer_backend, set_target_backend
+cfg = flatten_config(load_config(
+    "vendor/skillopt-writing/configs/writing/default.yaml",
+    ["env.skill_init=/tmp/craft.md", "env.split_dir=/tmp/splits"],
+))
+set_optimizer_backend(cfg["optimizer_backend"])
+set_target_backend(cfg["target_backend"])
+assert cfg["skill_init"] == "/tmp/craft.md"
+assert cfg["split_dir"] == "/tmp/splits"
+print("accepted")
+PYEOF
+)
+check "SkillOpt 0.2.0 accepts configured backends and path overrides" "accepted" "$BACKEND_CONFIG"
+
+DST=$("$PY" - <<'PYEOF'
+import os, sys, time
+from datetime import datetime
+from pathlib import Path
+sys.path.insert(0, str(Path("scripts").resolve()))
+from craft_deadline import next_deadline
+old = os.environ.get("TZ")
+try:
+    os.environ["TZ"] = "America/New_York"
+    time.tzset()
+    now = int(time.mktime(datetime(2026, 3, 7, 23, 10).timetuple()))
+    _, deadline = next_deadline(5, 0, now_epoch=now)
+    assert datetime.fromtimestamp(deadline) == datetime(2026, 3, 8, 5, 0)
+    assert deadline - now == 4 * 3600 + 50 * 60
+    fall_now = int(time.mktime(datetime(2026, 10, 31, 23, 10).timetuple()))
+    _, fall_deadline = next_deadline(5, 0, now_epoch=fall_now)
+    assert datetime.fromtimestamp(fall_deadline) == datetime(2026, 11, 1, 5, 0)
+    assert fall_deadline - fall_now == 6 * 3600 + 50 * 60
+    print("dst-safe")
+finally:
+    if old is None:
+        os.environ.pop("TZ", None)
+    else:
+        os.environ["TZ"] = old
+    time.tzset()
+PYEOF
+)
+check "next local deadline preserves DST wall time" "dst-safe" "$DST"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

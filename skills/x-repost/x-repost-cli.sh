@@ -21,7 +21,8 @@ REPO_ROOT="$(cd "$SKILL/../.." && pwd)"
 # State must outlive the code it was written by. Once this skill runs from a read-only release
 # directory keyed to a commit, a state dir inside the release would be discarded on every deploy --
 # taking the posted ledger, and with it the duplicate protection, along with it.
-STATE="${X_REPOST_STATE_DIR:-$SKILL/state}"
+SKILLS_STATE_ROOT="${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}"
+STATE="${X_REPOST_STATE_DIR:-$SKILLS_STATE_ROOT/x-repost}"
 POSTED="$STATE/posted.jsonl"
 LOOP_NAME="${X_LOOP_NAME:-x-repost}"
 PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3
@@ -36,9 +37,10 @@ QUERIES_FILE="${X_REPOST_QUERIES_FILE:-$SKILL/config/queries.txt}"
 MODEL="shared-agent-runner"
 REASONING_EFFORT="configured"
 TELEGRAM_SEND_TIMEOUT="${X_REPOST_TELEGRAM_SEND_TIMEOUT:-30}"
-HUMANIZER_SKILL="${X_REPOST_HUMANIZER:-$HOME/.openclaw/skills/jp-humanizer-pro/SKILL.md}"
-GUARD="$HOME/.config/ai/bin/browser-guard.sh"
-ENSURE_BROWSER="$HOME/anicca/skills/browser/ensure_provision_browser.sh"
+HUMANIZER_SKILL="$SKILL/config/humanize-checklist.md"
+TELEGRAM_SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
+GUARD="${AI_BROWSER_GUARD:-$REPO_ROOT/skills/browser/browser-guard.sh}"
+ENSURE_BROWSER="$REPO_ROOT/skills/browser/ensure_provision_browser.sh"
 AFFILIATE_PROPOSAL="${AFFILIATE_REPOST_PROPOSAL_PATH:-$HOME/.local/state/life-manager/affiliate/repost-proposals/latest.json}"
 AFFILIATE_CONSUMED="$STATE/affiliate-proposals-consumed.jsonl"
 AFFILIATE_JOB_QUEUE="${AFFILIATE_X_DISTRIBUTION_QUEUE:-$HOME/.local/state/life-manager/affiliate/x-distribution-jobs.jsonl}"
@@ -65,32 +67,16 @@ send_telegram() {
   fi
   local body="$1" idempotency_key response message_id
   idempotency_key="$(printf '%s' "$body" | shasum -a 256 | awk '{print $1}')"
-  # One external attempt only. The Gateway call can deliver successfully and then keep its CLI
-  # alive until the outer timeout; retrying that ambiguous result created duplicate Telegram
-  # messages. `message send` is the live-proven finite CLI and returns the provider messageId.
-  response="$(timeout "$TELEGRAM_SEND_TIMEOUT" openclaw message send \
-    --channel telegram --target "$TELEGRAM_ALERT_CHAT_ID" --message "$body" --json \
-    2>>"$EV/telegram.err")" || {
+  # One external attempt only. An uncertain result is never retried because the provider may have
+  # accepted it. The shared repository sender returns the real Telegram message id.
+  response="$(timeout "$TELEGRAM_SEND_TIMEOUT" "$TELEGRAM_SENDER" \
+    "$body" "$TELEGRAM_ALERT_CHAT_ID" 2>>"$EV/telegram.err")" || {
       printf '%s\n' "$response" >>"$EV/telegram.jsonl"
       return 1
     }
   printf '%s\n' "$response" >>"$EV/telegram.jsonl"
-  message_id="$("$PY" -c 'import json,sys
-def message_id(value):
-    if isinstance(value, dict):
-        for key in ("messageId", "message_id"):
-            if value.get(key) is not None: return str(value[key])
-        for child in value.values():
-            found=message_id(child)
-            if found: return found
-    elif isinstance(value, list):
-        for child in value:
-            found=message_id(child)
-            if found: return found
-    return None
-value=json.loads(sys.argv[1]); mid=message_id(value)
-print(mid or "")
-raise SystemExit(0 if mid else 1)' "$response")" || return 1
+  message_id="$(printf '%s\n' "$response" | sed -n 's/.*MSGID=\([0-9][0-9]*\).*/\1/p' | tail -1)"
+  [ -n "$message_id" ] || return 1
   "$PY" - "$STATE/telegram-sent.jsonl" "$idempotency_key" "$message_id" <<'PYEOF'
 import datetime, json, pathlib, sys
 path, body_sha, message_id = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
@@ -246,7 +232,7 @@ registry_enforce_or_exit "$LOOP_NAME"
 # queued receipt target the placeholder rather than the owner's private destination.
 set -a
 # shellcheck source=/dev/null
-. "$HOME/.openclaw/.env" 2>/dev/null
+. "${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}" 2>/dev/null
 set +a
 
 # Do this before the half-hour guard: a pass with nothing to publish is still a chance to deliver a
@@ -1464,15 +1450,7 @@ fi
 {
   echo "以下の各案について、**内容は一切変えず文体だけ**を直せ。事実・数値・固有名詞・主張・情報量を足しても引いてもいけない。"
   echo
-  # Use the house humanizer rather than a private copy of one. jp-humanizer-pro already exists and
-  # is maintained; a second checklist living here would drift from it, and the drifting one is the
-  # one this loop would keep using.
-  if [ -r "$HUMANIZER_SKILL" ]; then
-    cat "$HUMANIZER_SKILL"
-  else
-    echo "（jp-humanizer-pro が見つからないので同梱の簡易版を使う）"
-    cat "$SKILL/config/humanize-checklist.md"
-  fi
+  cat "$HUMANIZER_SKILL"
   echo; echo "## 入力（この drafts を直す）"
   "$PY" -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["drafts"], sys.stdout, ensure_ascii=False, indent=1)' "$EV/select.json"
   echo; echo

@@ -391,13 +391,9 @@ def _receipt_asset_urls(
                 raise DevtoRefused(
                     "canonical media receipt ignored configured media base"
                 )
-        elif re.fullmatch(
-            r"https://raw\.githubusercontent\.com/"
-            r"Daisuke134/zenn-articles/[0-9a-f]{40}/images",
-            base,
-        ) is None:
+        else:
             raise DevtoRefused(
-                "canonical media receipt is not pinned to a commit"
+                "ARTICLE_MEDIA_RAW_BASE is required for canonical media"
             )
         urls.append(url)
     return urls
@@ -439,16 +435,7 @@ def _ensure_public_media(
     except DevtoRefused:
         base = ""
     override = os.environ.get("ARTICLE_MEDIA_RAW_BASE", "").rstrip("/")
-    trusted_base = (
-        base == override
-        if override
-        else re.fullmatch(
-            r"https://raw\.githubusercontent\.com/"
-            r"Daisuke134/zenn-articles/[0-9a-f]{40}/images",
-            base,
-        )
-        is not None
-    )
+    trusted_base = bool(override) and base == override
     if trusted_base and _assets_available(urls):
         return urls
     stager = (
@@ -509,9 +496,9 @@ def _guard(command: str, target: str) -> dict[str, Any]:
 
 def _identity(api_key: str) -> None:
     me = _request("https://dev.to/api/users/me", api_key)
-    expected = os.environ.get(
-        "DEVTO_ACCOUNT_HANDLE", "anicca_301094325e"
-    ).strip().lstrip("@").lower()
+    expected = os.environ.get("DEVTO_ACCOUNT_HANDLE", "").strip().lstrip("@").lower()
+    if not expected:
+        raise DevtoRefused("DEVTO_ACCOUNT_HANDLE is required")
     if not isinstance(me, dict) or str(me.get("username", "")).lower() != expected:
         raise DevtoRefused("Dev.to API identity does not match configured account")
 
@@ -522,10 +509,9 @@ def stage() -> dict[str, Any]:
     if not api_key:
         raise DevtoRefused("DEVTO_API_KEY is required")
     _identity(api_key)
-    media_base = os.environ.get(
-        "ARTICLE_MEDIA_RAW_BASE",
-        "https://raw.githubusercontent.com/Daisuke134/zenn-articles/main/images",
-    )
+    media_base = os.environ.get("ARTICLE_MEDIA_RAW_BASE", "")
+    if not media_base:
+        raise DevtoRefused("ARTICLE_MEDIA_RAW_BASE is required")
     prepared = prepare(state, media_base)
     resolved_urls = _ensure_public_media(
         state_path,
@@ -732,10 +718,9 @@ def repair_existing(target: str) -> dict[str, Any]:
         )
     ):
         raise DevtoRefused("protected Dev.to article is not live")
-    media_base = os.environ.get(
-        "ARTICLE_MEDIA_RAW_BASE",
-        "https://raw.githubusercontent.com/Daisuke134/zenn-articles/main/images",
-    )
+    media_base = os.environ.get("ARTICLE_MEDIA_RAW_BASE", "")
+    if not media_base:
+        raise DevtoRefused("ARTICLE_MEDIA_RAW_BASE is required")
     prepared = prepare_existing(state, media_base, existing)
     resolved_urls = _ensure_public_media(
         state_path,

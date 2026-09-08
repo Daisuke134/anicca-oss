@@ -13,7 +13,7 @@ import { AgentMailClient } from "agentmail";
 
 const API_KEY = process.env.AGENTMAIL_API_KEY;
 if (!API_KEY) {
-  console.error("AGENTMAIL_API_KEY missing in env (see ~/.openclaw/.env)");
+  console.error("AGENTMAIL_API_KEY missing in env (see ~/.local/state/life-manager/.env)");
   process.exit(1);
 }
 

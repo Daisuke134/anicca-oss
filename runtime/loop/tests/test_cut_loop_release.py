@@ -6,6 +6,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
+DEPENDENCY_ROOTS = (
+    Path("."),
+    Path("runtime/agentmail"),
+    Path("apps/life-manager"),
+    Path("skills/earn/x402-sell"),
+    Path("services/x402-endpoint"),
+)
 
 
 class CutLoopReleaseTest(unittest.TestCase):
@@ -14,7 +21,7 @@ class CutLoopReleaseTest(unittest.TestCase):
             root = Path(directory)
             loops = root / "loops"
             donor = loops / "releases" / "donor"
-            for relative in (Path("."), Path("runtime/agentmail"), Path("apps/life-manager")):
+            for relative in DEPENDENCY_ROOTS:
                 package = donor / relative
                 package.mkdir(parents=True, exist_ok=True)
                 (package / "package-lock.json").write_bytes(
@@ -51,7 +58,7 @@ class CutLoopReleaseTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             release = (loops / "current").resolve()
-            for relative in (Path("."), Path("runtime/agentmail"), Path("apps/life-manager")):
+            for relative in DEPENDENCY_ROOTS:
                 self.assertEqual(
                     (release / relative / "node_modules/donor-marker").read_text(), "sealed"
                 )
@@ -61,7 +68,7 @@ class CutLoopReleaseTest(unittest.TestCase):
             root = Path(directory)
             loops = root / "loops"
             donor = loops / "releases" / "donor"
-            for relative in (Path("."), Path("runtime/agentmail"), Path("apps/life-manager")):
+            for relative in DEPENDENCY_ROOTS:
                 package = donor / relative
                 package.mkdir(parents=True, exist_ok=True)
                 (package / "package-lock.json").write_bytes(
@@ -83,7 +90,7 @@ class CutLoopReleaseTest(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(len(calls.read_text().splitlines()), 3)
+            self.assertEqual(len(calls.read_text().splitlines()), len(DEPENDENCY_ROOTS))
 
     def test_release_builds_locked_root_and_agentmail_dependencies(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -113,10 +120,12 @@ class CutLoopReleaseTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             recorded = calls.read_text().splitlines()
-            self.assertEqual(len(recorded), 3)
+            self.assertEqual(len(recorded), len(DEPENDENCY_ROOTS))
             self.assertTrue(recorded[0].endswith("|ci --omit=dev --ignore-scripts"))
             self.assertIn("/runtime/agentmail|ci --omit=dev --ignore-scripts", recorded[1])
             self.assertIn("/apps/life-manager|ci --omit=dev --ignore-scripts", recorded[2])
+            self.assertIn("/skills/earn/x402-sell|ci --omit=dev --ignore-scripts", recorded[3])
+            self.assertIn("/services/x402-endpoint|ci --omit=dev --ignore-scripts", recorded[4])
 
     def test_reconciler_pins_captured_main_sha_when_origin_moves_during_cut(self):
         with tempfile.TemporaryDirectory() as directory:

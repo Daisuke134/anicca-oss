@@ -55,3 +55,9 @@ def test_an_explicit_id_still_wins(tmp_path):
                 {"HOME": str(tmp_path), "TELEGRAM_ALERT_CHAT_ID": "999"})
     assert "done" in done.stdout
     assert "no TELEGRAM_ALERT_CHAT_ID" not in done.stderr
+
+
+def test_it_uses_the_repository_owned_sender():
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "../send-telegram.sh" in source
+    assert "openclaw message send" not in source

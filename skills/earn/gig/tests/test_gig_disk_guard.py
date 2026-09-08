@@ -17,6 +17,7 @@ GUARD_PATH = GIG_ROOT / "scripts" / "gig_disk_guard.py"
 GIG_BROWSER_PATH = GIG_ROOT / "scripts" / "launch_gig_browser.sh"
 MANIFEST_PATH = GIG_ROOT / "config" / "launchd-jobs.json"
 SELF_BUILD_PATH = GIG_ROOT.parents[1] / "life-manager" / "self-build-daily.sh"
+SHARED_GUARD_PATH = GIG_ROOT.parents[2] / "runtime" / "host" / "disk_admission.py"
 WRITER_DAILY_PATH = GIG_ROOT.parents[1] / "writer-agent" / "article-daily.sh"
 
 
@@ -425,22 +426,14 @@ def test_browser_script_preflights_before_profile_and_chromium_with_fixed_policy
 def test_self_build_uses_shared_guard_before_dependency_and_node_effects():
     script = SELF_BUILD_PATH.read_text(encoding="utf-8")
 
-    assert "GIG_DISK_HEADROOM_KIB=524288" in script
-    assert "GIG_HOST_STATE_DIR=" in script
-    # 2026-08-27 bbe15dbcb "fix(life-manager): pin self-build host state root" repointed this
-    # from $HOME/.openclaw/state to $LIFE_MANAGER_STATE_HOME/state, but the shared disk-pressure
-    # monitor (skills/self/disk-cleanup/disk_cleanup.py: `self.home / ".openclaw/state"`) and the
-    # writer lane's own bounded-stop paths (see BOUNDED_EXEC_STOP_PATHS below) both still write
-    # and read disk-writers.stop / disk-pressure.block under $HOME/.openclaw/state.
-    # $LIFE_MANAGER_STATE_HOME/state exists on this host but is never written by that monitor, so
-    # the repointed guard could never see a real stop flag -- a silent fail-open on the shared
-    # host-wide disk-pressure signal for this producer. Reverted to the value every other
-    # consumer of these flags actually reads.
-    assert 'readonly LM_SELFBUILD_CANONICAL_HOST_STATE="$HOME/.openclaw/state"' in script
-    assert "GIG_STATE_DIR=" in script
+    assert "LIFE_MANAGER_DISK_HEADROOM_KIB=524288" in script
+    assert "LIFE_MANAGER_HOST_STATE_DIR=" in script
+    assert 'readonly LM_SELFBUILD_CANONICAL_HOST_STATE="$LIFE_MANAGER_STATE_HOME/state"' in script
+    assert "LIFE_MANAGER_PRODUCER_STATE_DIR=" in script
+    assert 'DISK_GUARD="$REPO_ROOT/runtime/host/disk_admission.py"' in script
     assert script.count('/usr/bin/python3 "$DISK_GUARD" /usr/bin/true') == 2
-    assert "unset GIG_IGNORE_DISK_PRESSURE_BLOCK GIG_IGNORE_DISK_WRITERS_STOP" in script
-    assert "unset DISK_CONTROL_STATE_DIR OPENCLAW_STATE_DIR LIFE_MANAGER_HOST_STATE_DIR" in script
+    assert "unset LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP" in script
+    assert "unset DISK_CONTROL_STATE_DIR OPENCLAW_STATE_DIR" in script
     assert script.count("/usr/bin/true") == 2
     first_guard = script.index("/usr/bin/true")
     npm_effect = script.index("npm ci")
@@ -488,8 +481,8 @@ def test_self_build_stop_flag_blocks_npm_and_node_effects(tmp_path, flag_name, r
     marker = tmp_path / "effect.marker"
     env_file = tmp_path / "self-build.env"
     explicit_log = tmp_path / "explicit-self-build.log"
-    (home / ".openclaw" / "state").mkdir(parents=True)
-    (home / ".openclaw" / "state" / flag_name).write_text(
+    (home / ".local/state/life-manager/state").mkdir(parents=True, exist_ok=True)
+    (home / ".local/state/life-manager/state" / flag_name).write_text(
         "tier=4\n", encoding="utf-8",
     )
     hostile_state = tmp_path / "hostile-state"
@@ -511,9 +504,9 @@ def test_self_build_stop_flag_blocks_npm_and_node_effects(tmp_path, flag_name, r
         "DAILY_CLI=" + str(tmp_path / "hostile-cli.js") + "\n",
         encoding="utf-8",
     )
-    (repo / "skills" / "earn" / "gig" / "scripts").mkdir(parents=True)
+    (repo / "runtime" / "host").mkdir(parents=True)
     (repo / "apps" / "life-manager" / "scripts").mkdir(parents=True)
-    guard_source = GUARD_PATH.read_text(encoding="utf-8")
+    guard_source = SHARED_GUARD_PATH.read_text(encoding="utf-8")
     guard_source = guard_source.replace(
         "from __future__ import annotations\n",
         "from __future__ import annotations\n"
@@ -524,7 +517,7 @@ def test_self_build_stop_flag_blocks_npm_and_node_effects(tmp_path, flag_name, r
         "_guard_counter_path.write_text(str(_guard_counter + 1), encoding=\"utf-8\")\n",
         1,
     )
-    (repo / "skills" / "earn" / "gig" / "scripts" / "gig_disk_guard.py").write_text(
+    (repo / "runtime" / "host" / "disk_admission.py").write_text(
         guard_source, encoding="utf-8",
     )
     (repo / "apps" / "life-manager" / "scripts" / "self-build-daily.js").write_text(
@@ -698,9 +691,15 @@ def test_writer_lanes_render_from_immutable_release_and_life_manager_state():
         assert rendered["EnvironmentVariables"]["ARTICLE_STATE_DIR"] == (
             str(Path.home() / ".local/state/life-manager/writer")
         )
-        assert rendered["EnvironmentVariables"]["GIG_DISK_HEADROOM_KIB"] == "524288"
+        assert rendered["EnvironmentVariables"]["LIFE_MANAGER_DISK_HEADROOM_KIB"] == "524288"
+        assert rendered["EnvironmentVariables"]["LIFE_MANAGER_HOST_STATE_DIR"] == (
+            str(Path.home() / ".local/state/life-manager/state")
+        )
+        assert rendered["EnvironmentVariables"]["LIFE_MANAGER_PRODUCER_STATE_DIR"] == (
+            str(Path.home() / ".local/state/life-manager/writer")
+        )
         assert rendered["ProgramArguments"][1].endswith(
-            "/skills/earn/gig/scripts/gig_disk_guard.py"
+            "/runtime/host/disk_admission.py"
         )
         assert all("profitable-claude" not in value for value in rendered["ProgramArguments"])
         if "StartCalendarInterval" in job:

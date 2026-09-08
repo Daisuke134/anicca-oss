@@ -26,6 +26,7 @@ from claim_supply import _extract_json  # noqa: E402
 from opportunity_store import OpportunityStore, TransitionError  # noqa: E402
 import appsignal_response_adapter  # noqa: E402
 import techi_response_adapter  # noqa: E402
+from writer_runtime_paths import life_manager_env_file  # noqa: E402
 
 
 ResponseUnavailable = techi_response_adapter.ResponseUnavailable
@@ -41,7 +42,7 @@ EVIDENCE_KIND = {
     "EXPIRED": "closure",
     "PUBLISHED": "publication",
 }
-GOG_ENV_FILE = Path.home() / ".openclaw/.env"
+GOG_ENV_FILE = life_manager_env_file()
 GOG_ENV_KEYS = ("GOG_KEYRING_PASSWORD", "GOG_ACCOUNT")
 GOG_BASE_ENV_KEYS = (
     "HOME", "PATH", "TMPDIR", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR",

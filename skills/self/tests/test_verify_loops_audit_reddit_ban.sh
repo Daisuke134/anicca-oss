@@ -21,8 +21,9 @@ setup(){
   FAKE_SELF="$(mktemp -d)"
   FAKE_HOME="$(mktemp -d)"
   FAKE_BIN="$(mktemp -d)"
+  REDDIT_STATE="$FAKE_HOME/.local/state/life-manager/reddit/state"
   mkdir -p "$FAKE_HOME/.openclaw/state" "$FAKE_HOME/.openclaw/logs" \
-           "$FAKE_SELF/reddit-loop/state" "$FAKE_SELF/life-manager-loop/state"
+           "$REDDIT_STATE" "$FAKE_SELF/life-manager-loop/state"
 
   cat > "$FAKE_SELF/verify-loops.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -70,13 +71,13 @@ EOF
   chmod +x "$FAKE_BIN/fake-curl"
 }
 
-run(){ HOME="$FAKE_HOME" VERIFY_LOOPS_SELF_DIR="$FAKE_SELF" VERIFY_LOOPS_AUDIT_CURL_BIN="$FAKE_BIN/fake-curl" bash "$REAL_SCRIPT" >/dev/null 2>&1; }
+run(){ HOME="$FAKE_HOME" REDDIT_STATE_DIR="$REDDIT_STATE" VERIFY_LOOPS_SELF_DIR="$FAKE_SELF" VERIFY_LOOPS_AUDIT_CURL_BIN="$FAKE_BIN/fake-curl" bash "$REAL_SCRIPT" >/dev/null 2>&1; }
 
-# --- scenario 1 (THE FIX): fresh post URL, LIVE(200) -- but the ACCOUNT is BANNED (profile 404,
-# username-embedded title, the real u/anicca_sao signature) -> escalation MUST fire ---
+# --- scenario 1 (THE FIX): fresh post URL, LIVE(200) -- but the ACCOUNT is BANNED using the
+# production contract's distinctive profile 403 + suspended title -> escalation MUST fire ---
 setup; mkroot
-echo '{"url": "https://old.reddit.com/r/test/comments/live/x/", "account": "anicca_sao"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
-fake_curl 200 404 "u/anicca_sao: page not found"
+echo '{"url": "https://old.reddit.com/r/test/comments/live/x/", "account": "anicca_sao"}' > "$REDDIT_STATE/posts.jsonl"
+fake_curl 200 403 "reddit.com: suspended"
 run
 [ "$(reddit_call_count)" = 1 ] && ok "fresh+LIVE post but BANNED account -> 1 reddit self-fix call (the fix)" \
   || fail "fresh+LIVE post but BANNED account: expected 1 call, got $(reddit_call_count) (BAN check not wired)"
@@ -86,7 +87,7 @@ rm -rf "$FAKE_SELF" "$FAKE_HOME" "$FAKE_BIN"
 # --- scenario 2 (no false positive): fresh+LIVE post, account profile also 200 (healthy,
 # not banned) -> NO escalation ---
 setup; mkroot
-echo '{"url": "https://old.reddit.com/r/test/comments/live2/x/", "account": "anicca_sao"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+echo '{"url": "https://old.reddit.com/r/test/comments/live2/x/", "account": "anicca_sao"}' > "$REDDIT_STATE/posts.jsonl"
 fake_curl 200 200 "overview for anicca_sao"
 run
 [ "$(reddit_call_count)" = 0 ] && ok "fresh+LIVE post + healthy(200) account -> 0 reddit self-fix calls (no false BAN)" \
@@ -97,7 +98,7 @@ rm -rf "$FAKE_SELF" "$FAKE_HOME" "$FAKE_BIN"
 # GENERIC reddit.com title (username never embedded -- e.g. a typo'd/never-registered name, NOT
 # the same signal as a banned/suspended/deleted account) -> must NOT be treated as BANNED ---
 setup; mkroot
-echo '{"url": "https://old.reddit.com/r/test/comments/live3/x/", "account": "anicca_sao"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+echo '{"url": "https://old.reddit.com/r/test/comments/live3/x/", "account": "anicca_sao"}' > "$REDDIT_STATE/posts.jsonl"
 fake_curl 200 404 "reddit.com: page not found"
 run
 [ "$(reddit_call_count)" = 0 ] && ok "fresh+LIVE post + generic-404 profile (no username in title) -> 0 calls (not falsely BANNED)" \

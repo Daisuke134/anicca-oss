@@ -234,19 +234,29 @@ class SelfOwnedPublicationStore:
             raise SelfOwnedInvariant("self-owned state is invalid")
         return value
 
-    def prepare(self, publication_state_path: Path, contracts: list[dict]) -> dict:
+    def prepare(
+        self, publication_state_path: Path, contracts: list[dict], *, base_url: str,
+    ) -> dict:
         try:
             publication = json.loads(Path(publication_state_path).read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
             raise SelfOwnedInvariant("base publication state is unreadable") from error
         run_dir = Path(str(publication.get("run_dir", ""))).resolve()
         run_id = publication.get("run_id")
+        configured_base = urlparse(base_url)
+        normalized_base = (
+            f"{configured_base.scheme}://{configured_base.netloc.lower()}"
+            f"{configured_base.path.rstrip('/')}"
+        )
         if (
             publication.get("safety_status") != "ALLOW"
             or run_dir.name != run_id
             or set(publication.get("drafts", {})) != {"ja", "en"}
             or {item.get("lang") for item in contracts} != {"ja", "en"}
             or any(item.get("run_id") != run_id for item in contracts)
+            or configured_base.scheme != "https"
+            or not configured_base.hostname
+            or publication.get("self_owned_base_url") != normalized_base
         ):
             raise SelfOwnedInvariant("base run is not safe and complete")
         for lang in ("ja", "en"):
@@ -261,7 +271,7 @@ class SelfOwnedPublicationStore:
         articles = {
             f"self-owned/{contract['lang']}": {
                 "status": "intent",
-                "target_kind": "aniccaai-slug",
+                "target_kind": "self-owned-slug",
                 "target": contract["slug"],
                 "artifact_id": contract["artifact_id"],
                 "artifact_sha256": contract["source_sha256"],
@@ -275,16 +285,47 @@ class SelfOwnedPublicationStore:
             "run_id": run_id,
             "run_dir": str(run_dir),
             "topic_id": publication.get("topic_id"),
+            "self_owned_base_url": normalized_base,
             "articles": articles,
         }
         with self._lock():
             current = self._read()
             if current:
+                if "self_owned_base_url" not in current:
+                    observed_bases: set[str] = set()
+                    for entry in current.get("articles", {}).values():
+                        receipt = entry.get("receipt") if isinstance(entry, dict) else None
+                        if not isinstance(receipt, dict):
+                            continue
+                        parsed = urlparse(str(receipt.get("live_url", "")))
+                        match = re.fullmatch(
+                            r"(.*)/blog/[a-z0-9][a-z0-9-]{0,99}", parsed.path
+                        )
+                        if parsed.scheme != "https" or not parsed.hostname or match is None:
+                            raise SelfOwnedInvariant("legacy self-owned receipt URL is invalid")
+                        observed_bases.add(
+                            f"https://{parsed.netloc.lower()}{match.group(1).rstrip('/')}"
+                        )
+                    if len(observed_bases) > 1 or (
+                        observed_bases and next(iter(observed_bases)) != normalized_base
+                    ):
+                        raise SelfOwnedInvariant(
+                            "legacy self-owned receipt does not match configured base URL"
+                        )
+                    current["self_owned_base_url"] = normalized_base
+                    for entry in current.get("articles", {}).values():
+                        if (
+                            isinstance(entry, dict)
+                            and entry.get("target_kind") == "aniccaai-slug"
+                        ):
+                            entry["target_kind"] = "self-owned-slug"
+                    _atomic_json(self.state_path, current)
                 if (
                     current.get("schema_version") != 1
                     or current.get("run_id") != desired["run_id"]
                     or current.get("run_dir") != desired["run_dir"]
                     or current.get("topic_id") != desired["topic_id"]
+                    or current.get("self_owned_base_url") != desired["self_owned_base_url"]
                     or set(current.get("articles", {})) != set(articles)
                     or any(
                         {
@@ -339,9 +380,14 @@ class SelfOwnedPublicationStore:
             if any(receipt.get(key) != value for key, value in expected_receipt.items()):
                 raise SelfOwnedInvariant("public receipt differs from frozen contract")
             live = urlparse(str(receipt.get("live_url", "")))
+            expected = urlparse(str(state.get("self_owned_base_url", "")))
+            expected_prefix = expected.path.rstrip("/")
             if (
-                live.scheme != "https" or live.hostname != "aniccaai.com"
-                or live.path != f"/blog/{contract['slug']}"
+                expected.scheme != "https"
+                or not expected.hostname
+                or live.scheme != expected.scheme
+                or live.netloc.lower() != expected.netloc.lower()
+                or live.path != f"{expected_prefix}/blog/{contract['slug']}"
             ):
                 raise SelfOwnedInvariant("public receipt URL is invalid")
             if entry.get("status") == "live":
@@ -465,7 +511,7 @@ def _targets_already_materialized(root: Path, contracts: list[dict]) -> bool:
 
 def resume_publication(
     *, publication_state_path: Path, ledger_path: Path, landing_root: Path,
-    remote: str, branch: str, base_url: str = "https://aniccaai.com",
+    remote: str, branch: str, base_url: str,
     fetch_markup=None,
 ) -> dict:
     """Advance intent -> exact git delivery -> public readback by one safe tick."""
@@ -474,7 +520,7 @@ def resume_publication(
     state_path = publication_state_path.with_name("self-owned-publication.json")
     store = SelfOwnedPublicationStore(state_path, Path(ledger_path))
     contracts = contracts_from_publication_state(publication_state_path)
-    store.prepare(publication_state_path, contracts)
+    store.prepare(publication_state_path, contracts, base_url=base_url)
     if store.plan()["status"] == "complete":
         return {"status": "complete", "run_id": contracts[0]["run_id"]}
 
@@ -522,6 +568,7 @@ def resume_publication(
             markup = fetch(live_url)
             receipt = verify_public_readback(
                 contract, live_url, markup,
+                base_url=base_url,
                 observed_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             )
         except Exception as error:  # deploy propagation is retried on the next tick
@@ -546,7 +593,7 @@ def main() -> int:
     resume.add_argument("--landing-root", required=True, type=Path)
     resume.add_argument("--remote", required=True)
     resume.add_argument("--branch", required=True)
-    resume.add_argument("--base-url", default="https://aniccaai.com")
+    resume.add_argument("--base-url", required=True)
     args = parser.parse_args()
     if args.command == "resume":
         result = resume_publication(
@@ -614,10 +661,18 @@ def public_receipt_markup(contract: dict) -> str:
 
 
 def verify_public_readback(
-    contract: dict, live_url: str, markup: str, *, observed_at: str,
+    contract: dict, live_url: str, markup: str, *, base_url: str, observed_at: str,
 ) -> dict:
     parsed = urlparse(live_url)
-    if parsed.scheme != "https" or parsed.hostname != "aniccaai.com" or parsed.path != f"/blog/{contract['slug']}":
+    expected = urlparse(base_url)
+    expected_prefix = expected.path.rstrip("/")
+    if (
+        expected.scheme != "https"
+        or not expected.hostname
+        or parsed.scheme != expected.scheme
+        or parsed.netloc.lower() != expected.netloc.lower()
+        or parsed.path != f"{expected_prefix}/blog/{contract['slug']}"
+    ):
         raise SelfOwnedInvariant("public URL does not match stable slug")
     try:
         observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))

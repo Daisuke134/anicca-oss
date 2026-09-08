@@ -10,7 +10,7 @@ from cryptography.hazmat.backends import default_backend
 
 PROFILE = os.path.expanduser("~/.cloak/profiles/daily-driver")
 SRC = PROFILE + "/Default/Cookies"
-WORK = os.path.expanduser("~/.cloak/note-work")
+WORK = os.path.join(os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")), "note-work")
 COPY = WORK + "/cookies-copy.db"
 OUT = WORK + "/note-cookies.json"
 

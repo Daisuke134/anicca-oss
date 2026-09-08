@@ -321,9 +321,9 @@ fi
 
 # telegram daily report (best-effort; never blocks the monitor)
 if [ -n "$BODY" ]; then
-  openclaw message send --channel telegram \
-    --target "${CAPAFY_TELEGRAM_TARGET:-${TELEGRAM_ALERT_CHAT_ID:?CAPAFY_TELEGRAM_TARGET or TELEGRAM_ALERT_CHAT_ID is required}}" \
-    --message "$BODY" --json >/dev/null 2>&1 || true
+  "$LIFE_MANAGER_REPO/skills/_shared/send-telegram.sh" "$BODY" \
+    "${CAPAFY_TELEGRAM_TARGET:-${TELEGRAM_ALERT_CHAT_ID:?CAPAFY_TELEGRAM_TARGET or TELEGRAM_ALERT_CHAT_ID is required}}" \
+    >/dev/null 2>&1 || true
 fi
 cat /tmp/capafy_goal_monitor.json 2>/dev/null
 exit 0

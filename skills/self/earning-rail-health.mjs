@@ -290,7 +290,7 @@ export async function observeSlot(slot, {
       homeDir,
     });
     const killPath = resolveProbePath(probe.killPath, {
-      base: "runtime",
+      base: probe.killPathBase === "home" ? "home" : "runtime",
       runtimeRoot,
       homeDir,
     });

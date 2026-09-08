@@ -34,18 +34,19 @@ const bootEnv = (extra) => ({
   ...extra,
 });
 
-test("registration falls back to the dependency-complete repository copy", async () => {
+test("registration fails closed instead of falling back to another checkout", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "x402-register-boot-"));
   const home = path.join(tmp, "home");
   const repo = path.join(tmp, "repo");
   const runtime = await sellerDir(home, { withDeps: false, bootScript: true, marker: "RUNTIME" });
   await sellerDir(repo, { withDeps: true, bootScript: false, marker: "REPO" });
 
-  const { stdout } = await run(path.join(runtime, "register-x402scan-boot.sh"), [], {
-    env: bootEnv({ HOME: home, ANICCA_REPO: repo }),
-  });
-
-  assert.equal(stdout.trim(), "REPO");
+  await assert.rejects(
+    run(path.join(runtime, "register-x402scan-boot.sh"), [], {
+      env: bootEnv({ HOME: home, ANICCA_REPO: repo }),
+    }),
+    (error) => error.code === 78 && /locked x402 dependencies missing/.test(error.stderr),
+  );
 });
 
 test("registration prefers the runtime copy when its dependencies exist", async () => {

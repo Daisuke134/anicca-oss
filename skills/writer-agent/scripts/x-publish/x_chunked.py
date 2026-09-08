@@ -1,10 +1,13 @@
 """Reliable X-Articles draft: type-and-chunk insertion (text chunk -> image -> text chunk -> ...).
 Guarantees image ORDER (cursor always at end; no racy block-index click). Fresh draft. NEVER publishes."""
 import os,time,json,sys
+from pathlib import Path
 from playwright.sync_api import sync_playwright
 from browser_clipboard import browser_write_html, browser_write_image
 from x_anchor import build_chunks
-W=os.path.expanduser("~/.cloak/note-work")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from writer_runtime_paths import note_work_dir
+W=str(note_work_dir())
 PARSED=os.environ["X_PARSED"]
 d=json.load(open(PARSED)); TITLE=d["title"]; THUMB=d.get("cover_image",""); html=d["html"]
 cis=sorted(d["content_images"], key=lambda c:c["block_index"])

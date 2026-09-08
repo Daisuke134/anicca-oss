@@ -232,7 +232,7 @@ HAS_VALID_CTA=0
 if [ -x "$CTA_GATE" ] && bash "$CTA_GATE" "$MD" >/dev/null 2>&1; then
   HAS_VALID_CTA=1
 fi
-JSON=$(printf '%s' "$JSON" | /opt/homebrew/bin/python3 -c '
+JSON=$(printf '%s' "$JSON" | "${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}" -c '
 import json
 import re
 import sys
@@ -301,7 +301,7 @@ if payload.get("verdict") == "FAIL":
 print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 ' "$HAS_VALID_CTA")
 
-VERDICT=$(printf '%s' "$JSON" | /opt/homebrew/bin/python3 -c "
+VERDICT=$(printf '%s' "$JSON" | "${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}" -c "
 import json, sys
 print(json.loads(sys.stdin.read()).get('verdict', 'FAIL'))
 " 2>/dev/null || echo FAIL)
@@ -312,7 +312,7 @@ printf '%s\n' "$JSON"
 # replacement writes the file the learner reads.
 if [ -n "${ARTICLE_RUN_DIR:-}" ]; then
   mkdir -p "$ARTICLE_RUN_DIR/gates"
-  RECEIPT=$(printf '%s' "$JSON" | /opt/homebrew/bin/python3 -c "
+  RECEIPT=$(printf '%s' "$JSON" | "${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}" -c "
 import json, sys
 payload = json.load(sys.stdin)
 payload['article_sha256'] = sys.argv[1]

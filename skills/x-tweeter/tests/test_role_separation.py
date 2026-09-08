@@ -19,7 +19,7 @@ class XRoleSeparationTests(unittest.TestCase):
         self.assertIn('X_REPOST_FORCE_KIND="quote"', english_repost)
         self.assertIn('X_REPOST_FORCE_LANGUAGE="en"', english_repost)
         self.assertIn("X_REPOST_DISABLE_AFFILIATE=1", english_repost)
-        self.assertIn('$HOME/loops/x-repost-en', english_repost)
+        self.assertIn('$HOME/.local/state/life-manager/social-x/x-repost/en', english_repost)
         self.assertEqual(repost["entrypoint"], "skills/x-repost/x-repost-en-cli.sh")
         self.assertIn("no-affiliate-proposal.json", english_repost)
         self.assertIn("no-affiliate-jobs.jsonl", english_repost)
@@ -30,8 +30,8 @@ class XRoleSeparationTests(unittest.TestCase):
         self.assertIn("X_REPOST_DISABLE_AFFILIATE=1", tweeter)
         self.assertIn("no-affiliate-proposal.json", tweeter)
         self.assertIn("no-affiliate-jobs.jsonl", tweeter)
-        self.assertIn('$HOME/loops/x-repost-en', english_repost)
-        self.assertIn('$HOME/loops/x-tweeter', tweeter)
+        self.assertIn('$HOME/.local/state/life-manager/social-x/x-repost/en', english_repost)
+        self.assertIn('$HOME/.local/state/life-manager/social-x/x-tweeter', tweeter)
         self.assertNotEqual(repost["entrypoint"], tweeter_loop["entrypoint"])
 
     def test_repost_enforces_persona_points_and_rolling_70_30_language_mix(self) -> None:

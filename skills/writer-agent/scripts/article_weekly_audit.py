@@ -24,6 +24,7 @@ from publication_resume import (  # noqa: E402
     validate_receipt_evidence,
 )
 from publication_contract_resolver import infer_publication_contract  # noqa: E402
+from writer_report_worker import telegram_api_transport  # noqa: E402
 
 REQUIRED_PAIRS = ACTIVE_PAIRS
 
@@ -260,26 +261,8 @@ def seo_evidence(rank_dir: Path) -> dict[str, Any]:
 
 
 def _telegram(target: str, message: str) -> str:
-    result = subprocess.run(
-        [
-            "openclaw",
-            "message",
-            "send",
-            "--channel",
-            "telegram",
-            "--target",
-            target,
-            "--message",
-            message,
-            "--json",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(result.stdout)
-    message_id = str(payload.get("messageId", "")).strip()
-    if payload.get("dryRun") is True or not message_id:
+    message_id = telegram_api_transport(target)(message).strip()
+    if not message_id:
         raise RuntimeError("weekly audit Telegram messageId is missing")
     return message_id
 
@@ -308,8 +291,7 @@ def audit(
             states.append(path)
     runs = [audit_run(skill_dir, path, ledger) for path in states]
     seo = seo_evidence(
-        Path.home()
-        / ".openclaw/skills/anicca-seo-rank-monitor/state"
+        Path(os.environ.get("WRITER_SEO_STATE_DIR", state_root / "seo-rank-monitor"))
     )
     failures = [
         failure

@@ -490,7 +490,7 @@ def delivery_key(data: dict) -> str:
 
 def _state_root() -> Path:
     configured = os.environ.get("CAPAFY_OUTCOME_STATE_DIR")
-    return Path(configured).expanduser() if configured else Path.home() / ".openclaw/state"
+    return Path(configured).expanduser() if configured else Path.home() / ".local/state/life-manager/state"
 
 
 def _incident_dir() -> Path:

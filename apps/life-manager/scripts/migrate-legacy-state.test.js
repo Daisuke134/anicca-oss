@@ -84,7 +84,7 @@ test("a missing legacy dir is reported and skipped without failing", () => {
   assert.ok(fs.existsSync(path.join(dataRoot, "state", "lm-video", "daily-render-state.jsonl")));
 });
 
-test("a size mismatch on readback fails loudly", () => {
+test("a differing opaque file on readback fails loudly", () => {
   const { legacyRoot, dataRoot } = fakeStores();
   // Pre-plant a truncated destination file, then force the copier to treat it
   // as already-copied is NOT enough — verification must compare sizes of every
@@ -94,6 +94,52 @@ test("a size mismatch on readback fails loudly", () => {
   fs.writeFileSync(path.join(dest, "call.mp3"), Buffer.alloc(3, 1));
   const result = runMigration(legacyRoot, dataRoot);
   assert.equal(result.status, 1, result.stdout + result.stderr);
-  assert.match(result.stderr, /destination is stale or partial/i);
-  assert.match(result.stderr, /inspect and remove destination before re-running/i);
+  assert.match(result.stderr, /no safe merge rule exists/i);
+});
+
+test("pre-existing mutable dev state passes only when it semantically contains legacy state", () => {
+  const { legacyRoot, dataRoot } = fakeStores();
+  const legacy = path.join(legacyRoot, "life-manager-dev");
+  const current = path.join(dataRoot, "state", "life-manager-dev");
+  fs.mkdirSync(current, { recursive: true });
+  fs.writeFileSync(path.join(legacy, "issues.json"), JSON.stringify([{ number: 41 }]));
+  fs.writeFileSync(path.join(current, "issues.json"), JSON.stringify([{ number: 41 }, { number: 42 }]));
+  fs.writeFileSync(path.join(legacy, "seven-day-status.json"), JSON.stringify({
+    schema_version: 1, evaluated_at: "2026-07-29T19:11:39.660Z", ready: false,
+  }));
+  fs.writeFileSync(path.join(current, "seven-day-status.json"), JSON.stringify({
+    schema_version: 1, evaluated_at: "2026-09-07T19:17:32.123Z", ready: true,
+  }));
+  fs.writeFileSync(path.join(current, "done.jsonl"), '{"issue":41}\n{"issue":42}\n{"issue":43}\n');
+
+  const result = runMigration(legacyRoot, dataRoot);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /verified by content readback/i);
+});
+
+test("pre-existing JSONL missing a legacy row fails loudly", () => {
+  const { legacyRoot, dataRoot } = fakeStores();
+  const current = path.join(dataRoot, "state", "life-manager-dev");
+  fs.mkdirSync(current, { recursive: true });
+  fs.writeFileSync(path.join(current, "done.jsonl"), '{"issue":42}\n{"issue":43}\n');
+  const result = runMigration(legacyRoot, dataRoot);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /does not contain every legacy JSONL row/i);
+});
+
+test("an older seven-day snapshot fails loudly", () => {
+  const { legacyRoot, dataRoot } = fakeStores();
+  const legacy = path.join(legacyRoot, "life-manager-dev");
+  const current = path.join(dataRoot, "state", "life-manager-dev");
+  fs.mkdirSync(current, { recursive: true });
+  fs.copyFileSync(path.join(legacy, "done.jsonl"), path.join(current, "done.jsonl"));
+  fs.writeFileSync(path.join(legacy, "seven-day-status.json"), JSON.stringify({
+    schema_version: 1, evaluated_at: "2026-09-07T19:17:32.123Z",
+  }));
+  fs.writeFileSync(path.join(current, "seven-day-status.json"), JSON.stringify({
+    schema_version: 1, evaluated_at: "2026-07-29T19:11:39.660Z",
+  }));
+  const result = runMigration(legacyRoot, dataRoot);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /is older than or incompatible/i);
 });

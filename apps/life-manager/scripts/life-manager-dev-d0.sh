@@ -207,10 +207,10 @@ fi
 record "$NUM" "$PR_URL" "pr_open"
 write_result "pr_open" "pr_created" "$NUM" "$PR_URL"
 if [ -n "${LM_DEV_TELEGRAM_TARGET:-}" ]; then
-  openclaw message send --channel telegram \
-    --target "$LM_DEV_TELEGRAM_TARGET" \
-    --message "🤖 Life Manager dev loop: issue #$NUM → $PR_URL (tests/evals green, not merged)" \
-    --json >> "$LOG_DIR/life-manager-dev.out.log" 2>&1 || log "Telegram report failed"
+  "$LIFE_MANAGER_REPO/skills/_shared/send-telegram.sh" \
+    "🤖 Life Manager dev loop: issue #$NUM → $PR_URL (tests/evals green, not merged)" \
+    "$LM_DEV_TELEGRAM_TARGET" >> "$LOG_DIR/life-manager-dev.out.log" 2>&1 \
+    || log "Telegram report failed"
 else
   log "Telegram report skipped: LM_DEV_TELEGRAM_TARGET unavailable"
 fi

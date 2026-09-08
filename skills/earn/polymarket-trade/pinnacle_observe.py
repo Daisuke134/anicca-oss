@@ -31,7 +31,9 @@ import sys
 
 import pinnacle_edge as pe
 
-STATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "state")
+STATE_DIR = os.environ.get(
+    "LIFE_MANAGER_STATE_ROOT", os.path.expanduser("~/.local/state/life-manager/polymarket")
+)
 OBSERVATIONS_PATH = os.path.join(STATE_DIR, "pinnacle-observations.jsonl")
 
 
@@ -40,20 +42,7 @@ def _now_iso() -> str:
 
 
 def resolve_odds_api_key() -> str | None:
-    """ODDS_API_KEY from the real environment, else from AGENT_HOME/.env (same convention as
-    pick.py / place_order.py). Returns None if it is not set anywhere -- the caller must then
-    skip silently rather than fetch with an empty key."""
-    if os.environ.get("ODDS_API_KEY"):
-        return os.environ["ODDS_API_KEY"]
-    agent_home = os.environ.get(
-        "PM_TRADE_AGENT_HOME", os.path.expanduser("~/.anicca-founder/agents/polymarket-agent")
-    )
-    try:
-        from dotenv import load_dotenv  # local import: optional dependency, fail-soft if missing
-
-        load_dotenv(os.path.join(agent_home, ".env"))
-    except Exception:
-        pass
+    """Return the installation environment's optional Odds API key."""
     return os.environ.get("ODDS_API_KEY")
 
 

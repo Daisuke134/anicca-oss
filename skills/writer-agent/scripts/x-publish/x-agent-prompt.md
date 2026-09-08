@@ -4,7 +4,7 @@ deterministic script does the hands; YOU are the eyes and brain. The single most
 the rendered draft with your own vision and judge it before anything is published.
 
 Tools: Bash, Read, Write, Edit. Scripts live in $ARTICLE_ROOT/scripts/x-publish/ .
-Data/screenshots in ~/.cloak/note-work/. The browser = the daily-driver via CDP :9222 (never close it).
+Data/screenshots in $WRITER_STATE_DIR/note-work/. The browser = the daily-driver via CDP :9222 (never close it).
 
 INPUTS are given at the end (MD, AUTONOMY).
 
@@ -16,7 +16,7 @@ LOOP:
    renderer, mermaid→kroki PNG), opens the X editor on the daily-driver, types the title, pastes the rich body,
    sets the cover, and inserts every table/diagram at its block_index. It prints `DRAFT_URL: <url>`. Capture that URL.
 3. Verify: `publish-to-x.sh verify <DRAFT_URL>` → it measures every body image px and screenshots the article in
-   sections under ~/.cloak/note-work/ (fv*.png). Note the screenshot paths + the printed image sizes.
+   sections under $WRITER_STATE_DIR/note-work/ (fv*.png). Note the screenshot paths + the printed image sizes.
 4. ★ LOOK ★: Read EVERY section screenshot. Judge each CHECKLIST item and cite what you actually see:
    X VERIFY CHECKLIST:
    - every TABLE is clean: blue header, **bold** rendered as bold, columns aligned, text readable — NOT the ugly

@@ -32,7 +32,7 @@ function fixture(t, overrides = {}) {
 function claimInput(targetId = "TARGET_A") {
   return {
     targetId,
-    pageWebsocket: `ws://[::1]:9222/devtools/page/${targetId}`,
+    pageWebsocket: `ws://127.0.0.1:9222/devtools/page/${targetId}`,
     canonicalUrl: "https://luma.com/tokyo-ai",
   };
 }
@@ -54,7 +54,7 @@ test("durably fences one Connector target and writes only private safe ownership
     owner_token: "connector-owner-token-0001",
     generation: 1,
     target_id: "TARGET_A",
-    page_websocket: "ws://[::1]:9222/devtools/page/TARGET_A",
+    page_websocket: "ws://127.0.0.1:9222/devtools/page/TARGET_A",
     canonical_url: "https://luma.com/tokyo-ai",
     claimed_at: "2026-08-06T12:00:00.000Z",
     heartbeat_at: "2026-08-06T12:00:00.000Z",
@@ -130,7 +130,7 @@ test("refuses non-Connector websocket endpoints and credential-bearing event URL
   const fx = fixture(t);
   await assert.rejects(fx.lease.claim({
     ...claimInput(),
-    pageWebsocket: "ws://127.0.0.1:9222/devtools/page/TARGET_A",
+    pageWebsocket: "ws://[::1]:9222/devtools/page/TARGET_A",
   }), /page websocket/i);
   await assert.rejects(fx.lease.claim({
     ...claimInput(),

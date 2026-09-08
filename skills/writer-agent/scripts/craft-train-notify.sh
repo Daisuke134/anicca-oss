@@ -17,11 +17,13 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_DIR="${ARTICLE_SKILL_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$SKILL_DIR/state}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
+REPO_ROOT="$LIFE_MANAGER_REPO"
+SKILL_DIR="$WRITER_ROOT"
 JSONL="${CRAFT_TRAIN_JSONL:-$STATE_DIR/craft-train.jsonl}"
-TARGET="${CRAFT_TRAIN_TELEGRAM:-8547730585}"
-PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"
+TARGET="${CRAFT_TRAIN_TELEGRAM:-}"
+PY="${ARTICLE_PYTHON:-$WRITER_BROWSER_PYTHON}"
 
 [ -f "$JSONL" ] || { echo "craft-train-notify: no $JSONL yet"; exit 0; }
 
@@ -76,7 +78,12 @@ PYEOF
 [ -n "$MESSAGE" ] || { echo "craft-train-notify: empty ledger"; exit 0; }
 printf '%s\n' "$MESSAGE"
 
-openclaw message send --channel telegram --target "$TARGET" \
-  --message "$MESSAGE" --json >/dev/null 2>&1 \
-  || echo "craft-train-notify: telegram send failed (report only, not fatal)" >&2
+SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
+if [ -n "$TARGET" ]; then
+  "$SENDER" "$MESSAGE" "$TARGET" >/dev/null 2>&1 \
+    || echo "craft-train-notify: telegram send failed (report only, not fatal)" >&2
+else
+  "$SENDER" "$MESSAGE" >/dev/null 2>&1 \
+    || echo "craft-train-notify: telegram send failed (report only, not fatal)" >&2
+fi
 exit 0

@@ -1,6 +1,6 @@
 // telemetry-post-claude-p.mjs — ONE-SHOT signed telemetry POST for claude-p (human-funded, EVM/Polygon
 // instance — this Claude → Polymarket earner). Appended fail-safe to
-// skills/earn/polymarket-trade/run_earner.sh after each trading pass. Posts once and exits — this is a
+// the active Polymarket trading pass. Posts once and exits — this is a
 // launchd one-shot pass, not a daemon.
 //
 // IDENTITY NOTE (2026-07-05 finding, see skills/earn/polymarket-trade/SKILL.md): claude-p's REAL funded
@@ -30,7 +30,8 @@ const acct = privateKeyToAccount(pk.startsWith("0x") ? pk : "0x" + pk);
 // realized rows (redeems/trades) to the mother earn ledger, keyed by claude-p's funded wallet — read
 // them here so the dashboard shows WHAT it did and WHICH source earned HOW MUCH (no fakes: realized
 // net_usdc only, never unrealized). Path is relative to this script so it works from any launchd cwd.
-const EARN_LEDGER = new URL("../../skills/earn/state/earn-ledger.jsonl", import.meta.url).pathname;
+const EARN_LEDGER = process.env.EARN_LEDGER
+  || `${process.env.LIFE_MANAGER_SKILLS_STATE_ROOT || `${process.env.HOME}/.local/state/life-manager/state/skills`}/earn/earn-ledger.jsonl`;
 function activityAndRevenue() {
   let lines = [];
   try { lines = fs.readFileSync(EARN_LEDGER, "utf8").trim().split("\n"); } catch { return { log: [], revenue_by_source: {}, monthly: 0 }; }

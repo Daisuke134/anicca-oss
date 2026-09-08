@@ -19,7 +19,8 @@ export LIFE_MANAGER_REPO
 # written, whether the decision was to act or to no-op — fail-closed decisions are logged too).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE="$HERE/state"; mkdir -p "$STATE"
+SKILLS_STATE_ROOT="${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}"
+STATE="${UBI_STATE_ROOT:-$SKILLS_STATE_ROOT/economy/ubi}"; mkdir -p "$STATE"
 CONTRIB_LOG="$STATE/contribute-log.jsonl"
 GOJO_LOG="$STATE/gojo-log.jsonl"
 

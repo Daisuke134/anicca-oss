@@ -38,7 +38,7 @@ OWNER_PROMPT_PROHIBITION = (
     "inherit the exact existing value."
 )
 QUALITY_SELF_HEAL_ORPHAN_OCCURRENCE_SHA256 = (
-    "13267eb414f5ef0cb0c4c1839066f486f79c1fb3a56c243df6e79f3f076144e1"
+    "42a50e9b7f7d5d49889326b27bbdfeeab06bef7760d309ad927315edee55ab61"
 )
 
 

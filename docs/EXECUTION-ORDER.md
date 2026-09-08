@@ -112,7 +112,7 @@ Truth rule: every $ number must be on-chain-verifiable or a real tx hash. "reali
   · Substack (paid sub): aniccabuddha.substack.com/p/aiautomaton
   · X (free Article, no funnel): x.com/aniccaxxx/status/2070061579241239027
 - ☑ automation F1-F3 BUILT+STAGED (note): publish-to-note.sh (--draft/--go) + note-agent-prompt.md +
-  run-note-agent.sh (claude -p = eyes) + ai.anicca.note-publish.plist (NOT loaded) + publish_guard.py (VSDD-passed)
+  run-note-agent.sh (agent runner = eyes) + repository registry ownership + publish_guard.py
 - ☑ render-verify gate + verify-preview (vision loop) proven; realised earn so far = +$0.1676 (on-chain)
 
 ---

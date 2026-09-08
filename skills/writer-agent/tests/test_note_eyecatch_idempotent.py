@@ -13,7 +13,7 @@ SCRIPT = ROOT / "scripts" / "note-publish" / "set-eyecatch-draft.py"
 def test_existing_authenticated_eyecatch_is_reused_without_upload(tmp_path: Path) -> None:
     """A resume must not require the upload button after the cover already landed."""
     home = tmp_path / "home"
-    work = home / ".cloak" / "note-work"
+    work = home / ".local/state/life-manager/writer/note-work"
     work.mkdir(parents=True)
     (work / "thumb.png").write_bytes(b"immutable-cover")
     (work / "note-cookies.json").write_text('{"session":"test"}\n')
@@ -63,6 +63,7 @@ def launch_context(**kwargs):
         "NOTE_KEY": "n-existing",
         "CALLS": str(calls),
         "PYTHONPATH": str(tmp_path),
+        "WRITER_STATE_DIR": str(home / ".local/state/life-manager/writer"),
     }
 
     completed = subprocess.run(

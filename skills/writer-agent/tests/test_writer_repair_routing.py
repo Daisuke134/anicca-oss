@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LIVE_RUN = Path.home() / "profitable-claude" / "skills" / "writer-agent" / "state" / "runs"
+from writer_repair_fixture import write_repair_run_gates
 
 
 def _module(name: str):
@@ -284,15 +284,7 @@ def _seed_state(tmp_path: Path, *, with_run: bool = True) -> Path:
     (state / "self-heal").mkdir(parents=True)
     if with_run:
         run_gates = state / "runs" / "daily-2026-08-07" / "gates"
-        run_gates.mkdir(parents=True)
-        source = LIVE_RUN / "daily-2026-08-07" / "gates"
-        # The exact receipts the trace projection needs to reproduce the real
-        # `destination:note/ja` failure, copied read-only out of live state.
-        for name in (
-            "generation-state.json", "quality-self-heal.json",
-            "publication-state.json", "resume-failure-circuit.json",
-        ):
-            shutil.copy(source / name, run_gates / name)
+        write_repair_run_gates(run_gates, NOTE_422)
     return state
 
 
@@ -438,6 +430,15 @@ def _fake_df_env(tmp_path: Path) -> str:
     return str(env_file)
 
 
+def _copy_resume_runtime(scripts: Path) -> None:
+    for name in (
+        "article-resume-pending.sh",
+        "writer-runtime-env.sh",
+        "writer_capacity_floor.py",
+    ):
+        shutil.copy(ROOT / "scripts" / name, scripts)
+
+
 def test_dispatch_claims_the_blocking_revenue_set_incident_before_an_older_distribution_one(
     tmp_path: Path,
 ) -> None:
@@ -459,7 +460,7 @@ def test_dispatch_claims_the_blocking_revenue_set_incident_before_an_older_distr
     assert stored["c" * 64]["state"] == "OPEN", "a free-distribution failure must wait"
 
 
-def test_dispatch_claims_exactly_one_incident_per_tick_and_holds_a_lease(
+def test_dispatch_recovers_completed_handoff_before_claiming_next_incident(
     tmp_path: Path,
 ) -> None:
     state = _seed_state(tmp_path)
@@ -476,8 +477,9 @@ def test_dispatch_claims_exactly_one_incident_per_tick_and_holds_a_lease(
     assert second["fingerprint"] == "d" * 64
     assert first["lease_id"] != second["lease_id"]
     stored = json.loads(queue_path.read_text())["items"]
-    assert [stored[key]["state"] for key in ("b" * 64, "d" * 64)] == ["CLAIMED", "CLAIMED"]
-    assert stored["b" * 64]["lease_id"] == first["lease_id"]
+    assert [stored[key]["state"] for key in ("b" * 64, "d" * 64)] == ["WAIT", "CLAIMED"]
+    assert "lease_id" not in stored["b" * 64]
+    assert second["recovered_orphaned_handoffs"][0]["fingerprint"] == "b" * 64
 
     third = _dispatch(state, tmp_path, observed_at="2026-08-07T08:10:00Z")
     assert third["status"] == "NO_ACTIONABLE_INCIDENT"
@@ -782,7 +784,7 @@ def test_resume_loop_dispatches_repair_routing_after_the_incident_bridge(
     scripts.mkdir(parents=True)
     (scripts / "_shared").mkdir()
     runtime.mkdir()
-    shutil.copy(ROOT / "scripts" / "article-resume-pending.sh", scripts)
+    _copy_resume_runtime(scripts)
     shutil.copy(ROOT / "scripts" / "_shared" / "notifier.sh", scripts / "_shared")
     (scripts / "article_daily_start_control.py").write_text(
         'print(\'{"action":"skip-pending-worker"}\')\n'
@@ -811,6 +813,8 @@ def test_resume_loop_dispatches_repair_routing_after_the_incident_bridge(
             **os.environ,
             "ARTICLE_ROOT": str(fake_root),
             "ARTICLE_STATE_DIR": str(state_dir),
+            "LIFE_MANAGER_REPO": str(ROOT.parents[1]),
+            "LIFE_MANAGER_ENV_FILE": str(tmp_path / "missing.env"),
             "ARTICLE_LOCAL_DATE": "2026-08-07",
             "ARTICLE_RESUME_LOG": str(tmp_path / "resume.log"),
             "ARTICLE_MODEL_RUNNER": str(runtime / "model-runner.sh"),
@@ -863,7 +867,7 @@ def test_resume_loop_older_backlog_does_not_suppress_new_daily_schedule(
     scripts = fake_root / "scripts"
     (state_dir / "runs").mkdir(parents=True)
     scripts.mkdir(parents=True)
-    shutil.copy(ROOT / "scripts" / "article-resume-pending.sh", scripts)
+    _copy_resume_runtime(scripts)
     marker = tmp_path / "daily-started"
     (fake_root / "article-daily.sh").write_text(
         f"#!/usr/bin/env bash\nprintf '%s\\n' daily > {str(marker)!r}\n"
@@ -885,6 +889,8 @@ def test_resume_loop_older_backlog_does_not_suppress_new_daily_schedule(
             **os.environ,
             "ARTICLE_ROOT": str(fake_root),
             "ARTICLE_STATE_DIR": str(state_dir),
+            "LIFE_MANAGER_REPO": str(ROOT.parents[1]),
+            "LIFE_MANAGER_ENV_FILE": str(tmp_path / "missing.env"),
             "ARTICLE_OWNER_FENCE_ACTIVE": "1",
             "ARTICLE_LOCAL_DATE": "2026-08-21",
             "ARTICLE_LOCAL_HOUR": "06",
@@ -916,7 +922,7 @@ def test_resume_loop_future_or_unknown_backlog_still_suppresses_new_daily(
         scripts = fake_root / "scripts"
         (state_dir / "runs").mkdir(parents=True)
         scripts.mkdir(parents=True)
-        shutil.copy(ROOT / "scripts" / "article-resume-pending.sh", scripts)
+        _copy_resume_runtime(scripts)
         marker = case / "daily-started"
         (fake_root / "article-daily.sh").write_text(
             f"#!/usr/bin/env bash\nprintf '%s\\n' daily > {str(marker)!r}\n"
@@ -942,6 +948,8 @@ def test_resume_loop_future_or_unknown_backlog_still_suppresses_new_daily(
                 **os.environ,
                 "ARTICLE_ROOT": str(fake_root),
                 "ARTICLE_STATE_DIR": str(state_dir),
+                "LIFE_MANAGER_REPO": str(ROOT.parents[1]),
+                "LIFE_MANAGER_ENV_FILE": str(case / "missing.env"),
                 "ARTICLE_OWNER_FENCE_ACTIVE": "1",
                 "ARTICLE_LOCAL_DATE": "2026-08-21",
                 "ARTICLE_LOCAL_HOUR": "06",

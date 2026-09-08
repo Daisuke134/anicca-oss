@@ -5,7 +5,7 @@ const test = require("node:test");
 
 const { createBrowserHarnessAdapter } = require("./connector-browser-harness-adapter.js");
 
-const PAGE_WS = "ws://[::1]:9222/devtools/page/TARGETOWNED123";
+const PAGE_WS = "ws://127.0.0.1:9222/devtools/page/TARGETOWNED123";
 
 test("bounded fallback discovers and executes only focused actions on the exact claimed page", async () => {
   const calls = [];

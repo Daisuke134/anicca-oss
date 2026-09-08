@@ -3,7 +3,7 @@
 # but owns its browser identity, state, model home, language policy, and external-effect transport.
 set -uo pipefail
 
-STATE="${X_REPOST_JA_STATE_DIR:-$HOME/loops/x-repost-ja}"
+STATE="${X_REPOST_JA_STATE_DIR:-$HOME/.local/state/life-manager/social-x/x-repost/ja}"
 mkdir -p "$STATE"
 touch "$STATE/no-affiliate-jobs.jsonl"
 

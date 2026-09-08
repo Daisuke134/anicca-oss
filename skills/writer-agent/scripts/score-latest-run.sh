@@ -18,7 +18,7 @@
 set -uo pipefail
 
 SKILL_DIR="${ARTICLE_SKILL_DIR:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
-PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"
+PY="${ARTICLE_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
 
 RUN_DIR=""
 OPPONENTS=5

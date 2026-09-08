@@ -28,7 +28,7 @@ Subcommands:
       into the ledger JSON (same-dir temp file + os.replace, so a concurrent
       reader never observes a partially-written file).
 
-Ledger path default: ~/.cloak/note-work/draft-ledger.json
+Ledger path default: $WRITER_STATE_DIR/note-work/draft-ledger.json
 """
 from __future__ import annotations
 
@@ -40,7 +40,10 @@ import sys
 import tempfile
 import time
 
-DEFAULT_LEDGER = os.path.expanduser("~/.cloak/note-work/draft-ledger.json")
+DEFAULT_LEDGER = os.path.join(
+    os.path.expanduser(os.environ.get("WRITER_STATE_DIR", "~/.local/state/life-manager/writer")),
+    "note-work/draft-ledger.json",
+)
 
 
 def _load(ledger_path: str) -> dict:
@@ -134,6 +137,8 @@ def cmd_resolve(args: argparse.Namespace) -> None:
 
 
 def cmd_record(args: argparse.Namespace) -> None:
+    if not args.account:
+        raise ValueError("NOTE_URLNAME or --account is required")
     md_abs = os.path.abspath(args.md)
     # Lock spans load+merge+write: without it, two concurrent `record` processes can both load
     # the same pre-update snapshot and each write back a copy missing the other's entry (see
@@ -167,7 +172,7 @@ def main() -> None:
     pc.add_argument("--key", required=True)
     pc.add_argument("--num", default="")
     pc.add_argument("--title", default="")
-    pc.add_argument("--account", default="anicca123")
+    pc.add_argument("--account", default=os.environ.get("NOTE_URLNAME", ""))
     pc.set_defaults(func=cmd_record)
 
     args = p.parse_args()

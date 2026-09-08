@@ -9,9 +9,8 @@
 // ("(1) static source check ... (2) live process ENV check", of which only (1) is safe/appropriate
 // to automate here; (2) is a live-machine check for Phase 2b/3, not a node:test unit test).
 //
-// Deliberately NEVER executes the `ensure_brain` function bodies themselves (that would actually
-// try to spawn `franklin proxy` / `clawrouter` / run `npm install -g` for real) and NEVER reads
-// runtime/anicca-daemon.sh's self-update (`git fetch`/`git merge`) or telemetry-poster sections.
+// The lifecycle test executes a copied daemon against fake node/curl/pkill binaries and a temporary
+// repository only. It never starts a real proxy, performs network I/O, or reads production state.
 //
 // RED PHASE: today (behavioral-spec.md Root cause B), `INSTANCE=franklin` resolves
 // PORT="${FRANKLIN_PROXY_PORT:-8403}" (line 27) and the franklin ensure_brain branch (lines 67-71)
@@ -59,34 +58,31 @@ function runPortSnippet(env) {
   });
 }
 
-test('REQ-004(a): INSTANCE=franklin resolves PORT to ClawRouter\'s 8402 (matching the non-franklin branch), not 8403', () => {
+test('ARCH-11: each Franklin-family instance resolves to its own repository-proxy port', () => {
   const result = runPortSnippet({ ANICCA_INSTANCE: 'franklin' });
   assert.equal(result.status, 0, `snippet must run cleanly (stderr: ${result.stderr})`);
-  assert.equal(
-    result.stdout.trim(),
-    'PORT=8402',
-    'today this resolves PORT=8403 via FRANKLIN_PROXY_PORT (behavioral-spec.md Root cause B) — REQ-004(a) requires 8402',
-  );
+  assert.equal(result.stdout.trim(), 'PORT=18403');
+  assert.equal(runPortSnippet({ ANICCA_INSTANCE: 'franklin2' }).stdout.trim(), 'PORT=18404');
+  assert.equal(runPortSnippet({ ANICCA_INSTANCE: 'franklin08' }).stdout.trim(), 'PORT=18410');
+  assert.equal(runPortSnippet({ ANICCA_INSTANCE: 'franklin10' }).stdout.trim(), 'PORT=18412');
 });
 
-test('REQ-004(c): even with FRANKLIN_PROXY_PORT=8403 set (mirroring the deployed plist\'s current value), PORT still resolves 8402 for franklin', () => {
+test('ARCH-11: retired FRANKLIN_PROXY_PORT cannot redirect Franklin to the external router', () => {
   const result = runPortSnippet({ ANICCA_INSTANCE: 'franklin', FRANKLIN_PROXY_PORT: '8403' });
   assert.equal(result.status, 0, `stderr: ${result.stderr}`);
-  assert.equal(
-    result.stdout.trim(),
-    'PORT=8402',
-    'daemon.sh must no longer derive franklin\'s PORT from FRANKLIN_PROXY_PORT at all (REQ-004(c))',
-  );
+  assert.equal(result.stdout.trim(), 'PORT=18403');
 });
 
-test('regression: non-franklin (INSTANCE unset / clawrouter) still resolves PORT=8402 via COMPUTE_PROXY_PORT (unchanged)', () => {
+test('ARCH-11: non-franklin uses a dedicated repository-proxy port, never Franklin ClawRouter :8402', () => {
   const unsetResult = runPortSnippet({});
-  assert.equal(unsetResult.stdout.trim(), 'PORT=8402');
+  assert.equal(unsetResult.stdout.trim(), 'PORT=18402');
   const clawrouterResult = runPortSnippet({ ANICCA_INSTANCE: 'clawrouter' });
-  assert.equal(clawrouterResult.stdout.trim(), 'PORT=8402');
+  assert.equal(clawrouterResult.stdout.trim(), 'PORT=18402');
+  const invalidFranklinResult = runPortSnippet({ ANICCA_INSTANCE: 'franklin2x' });
+  assert.equal(invalidFranklinResult.stdout.trim(), 'PORT=18402');
 });
 
-test('REQ-004(a): OPENAI_BASE_URL (the SAME $PORT variable line 117 already uses) resolves to http://127.0.0.1:8402/v1 for franklin', () => {
+test('ARCH-11: OPENAI_BASE_URL resolves to Franklin\'s own repository proxy', () => {
   const exportLine = extractLine(source, 'export OPENAI_BASE_URL=');
   const result = spawnSync('/bin/bash', ['-c', `${PORT_SNIPPET}\n${exportLine}\necho "URL=$OPENAI_BASE_URL"`], {
     env: { PATH: '/usr/bin:/bin', ANICCA_INSTANCE: 'franklin' },
@@ -94,32 +90,81 @@ test('REQ-004(a): OPENAI_BASE_URL (the SAME $PORT variable line 117 already uses
     timeout: 5000,
   });
   assert.equal(result.status, 0, `stderr: ${result.stderr}`);
-  assert.equal(result.stdout.trim(), 'URL=http://127.0.0.1:8402/v1');
+  assert.equal(result.stdout.trim(), 'URL=http://127.0.0.1:18403/v1');
 });
 
-test('REQ-004(b)/REQ-005/PROP-016 (static): step-2 franklin branch never spawns `franklin proxy` or `clawrouter`, never reads $HOME/.local/state/life-manager/.env or BLOCKRUN_WALLET_KEY, but keeps AT MOST a curl readiness probe', () => {
+test('ARCH-11: step 2 has one shared repository compute path and no external router path', () => {
   const step2 = extractBetween(source, '# 2. brain:', '# 3. telemetry poster');
-  // franklin2-daemon-identity rewired the literal `"$INSTANCE" = "franklin"` comparison to the shared
-  // is_franklin_instance() predicate (so franklin2/franklin3/… route the same way) — the condition text
-  // changed, the franklin-branch BODY this test inspects did not.
-  const franklinBranchMatch = step2.match(/if is_franklin_instance "\$INSTANCE"; then([\s\S]*?)\nelse\b/);
-  assert.ok(franklinBranchMatch, 'expected an `if is_franklin_instance "$INSTANCE"; then ... else` block inside daemon.sh step 2');
-  const franklinBranch = franklinBranchMatch[1];
-
-  assert.ok(!/franklin proxy/.test(franklinBranch), 'must NEVER spawn `franklin proxy` (REQ-004(b)) — today it does (line ~69)');
-  assert.ok(!/\bclawrouter\b/i.test(franklinBranch), 'must NEVER spawn a clawrouter process for franklin (REQ-005)');
-  assert.ok(!/\.openclaw\/\.env/.test(franklinBranch), 'must NEVER read $HOME/.local/state/life-manager/.env for franklin (REQ-005/PROP-016)');
-  assert.ok(!/BLOCKRUN_WALLET_KEY/.test(franklinBranch), 'must NEVER read/export BLOCKRUN_WALLET_KEY for franklin (REQ-005/PROP-016)');
-  assert.ok(/curl/.test(franklinBranch), 'the franklin branch must still be AT MOST a curl readiness probe (REQ-004(b)), not deleted entirely');
+  assert.doesNotMatch(step2, /if is_franklin_instance/);
+  assert.match(step2, /runtime\/compute-proxy\/start-local\.sh" --proxy-only/);
+  assert.doesNotMatch(step2, /franklin proxy|\bclawrouter\b|\.openclaw/i);
+  assert.match(step2, /env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY/);
 });
 
-test('regression/REQ-005: the non-franklin ensure_brain branch (its own, separately-designed $HOME/.local/state/life-manager/.env use) is untouched and structurally distinct from the franklin branch', () => {
+test('ARCH-11: the non-franklin brain starts the repository-owned compute proxy without OpenClaw or a global ClawRouter', () => {
   const step2 = extractBetween(source, '# 2. brain:', '# 3. telemetry poster');
-  // The two branches must remain textually distinct: exactly one `if is_franklin_instance "$INSTANCE"`
-  // conditional inside step 2, with its own `else` — never collapsed into one ensure_brain (REQ-005).
-  // (franklin2-daemon-identity: condition text rewired from a literal comparison to the shared predicate.)
   const franklinConditionals = (step2.match(/if is_franklin_instance "\$INSTANCE"; then/g) || []).length;
-  assert.equal(franklinConditionals, 1, 'step 2 must have exactly one franklin/else conditional (branches not collapsed, REQ-005)');
-  assert.ok(/\$HOME\/\.openclaw\/\.env/.test(step2), 'the non-franklin branch\'s own $HOME/.local/state/life-manager/.env use must remain (unchanged, out of scope)');
-  assert.ok(/BLOCKRUN_WALLET_KEY/.test(step2), 'the non-franklin branch\'s own BLOCKRUN_WALLET_KEY use must remain (unchanged, out of scope)');
+  assert.equal(franklinConditionals, 0, 'compute ownership is shared; only port and instance state differ');
+  assert.match(step2, /runtime\/compute-proxy\/start-local\.sh" --proxy-only/);
+  assert.doesNotMatch(step2, /npm install -g|command -v clawrouter|\bclawrouter\s*>>/i);
+  assert.doesNotMatch(step2, /\.openclaw|OpenClaw instance|OpenClaw gateway/i);
+  assert.match(step2, /env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY/);
+  assert.doesNotMatch(step2, /BLOCKRUN_WALLET_KEY=/);
+});
+
+test('ARCH-11: daemon owns and reaps only the repository proxy process it started', () => {
+  assert.match(source, /BRAIN_PID="\$!"/);
+  assert.match(source, /kill -TERM "\$BRAIN_PID"/);
+  assert.match(source, /wait "\$BRAIN_PID"/);
+  assert.match(source, /trap 'stop_owned_processes; exit 143' TERM INT/);
+  assert.doesNotMatch(source, /exec node "\$REPO\/runtime\/loop\/index\.mjs"/);
+});
+
+test('ARCH-11: a naturally exiting loop reaps the daemon-owned proxy process', () => {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'lm-daemon-reap-'));
+  const repo = path.join(root, 'repo');
+  const bin = path.join(root, 'bin');
+  const home = path.join(root, 'home');
+  const ready = path.join(root, 'ready');
+  const stopped = path.join(root, 'stopped');
+  fs.mkdirSync(path.join(repo, 'runtime', 'compute-proxy'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'runtime', 'dashboard'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'runtime', 'loop'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'skills'), { recursive: true });
+  fs.mkdirSync(bin, { recursive: true });
+  fs.copyFileSync(DAEMON_PATH, path.join(repo, 'runtime', 'anicca-daemon.sh'));
+  fs.writeFileSync(path.join(repo, 'runtime', 'compute-proxy', 'start-local.sh'), `#!/bin/sh
+touch "$READY_FILE"
+trap 'touch "$STOPPED_FILE"; exit 0' TERM INT
+while :; do sleep 1; done
+`);
+  fs.writeFileSync(path.join(bin, 'curl'), '#!/bin/sh\n[ -f "$READY_FILE" ]\n');
+  fs.writeFileSync(path.join(bin, 'pkill'), '#!/bin/sh\nexit 0\n');
+  fs.writeFileSync(path.join(bin, 'node'), `#!/bin/sh
+case "$1" in
+  */runtime/loop/index.mjs) sleep 0.2; exit 0 ;;
+  *) exit 0 ;;
+esac
+`);
+  for (const file of [
+    path.join(repo, 'runtime', 'anicca-daemon.sh'),
+    path.join(repo, 'runtime', 'compute-proxy', 'start-local.sh'),
+    path.join(bin, 'curl'), path.join(bin, 'pkill'), path.join(bin, 'node'),
+  ]) fs.chmodSync(file, 0o755);
+
+  const result = spawnSync('/bin/bash', [path.join(repo, 'runtime', 'anicca-daemon.sh')], {
+    env: {
+      HOME: home,
+      ANICCA_HOME: path.join(home, '.anicca'),
+      ANICCA_REPO: repo,
+      READY_FILE: ready,
+      STOPPED_FILE: stopped,
+      PATH: `${bin}:/usr/bin:/bin`,
+    },
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(fs.existsSync(ready));
+  assert.ok(fs.existsSync(stopped));
 });

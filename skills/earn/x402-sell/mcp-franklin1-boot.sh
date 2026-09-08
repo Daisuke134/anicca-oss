@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # KeepAlive entrypoint for franklin1's MonetizedMCP adapter.
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
-set -a; . /Users/anicca/.openclaw/.env 2>/dev/null || true; set +a
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 export ANICCA_HOME="$HOME/.blockrun"
 unset BLOCKRUN_WALLET_KEY
 export X402_PAYTO="0x3EcCAD24794ca298D25378E9902A251322ea8749"

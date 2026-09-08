@@ -21,7 +21,7 @@ fi
 export HOME="$CANONICAL_HOME"
 
 SCRIPT_DIR="${0:A:h}"
-DISK_GUARD="${SCRIPT_DIR:h:h:h}/skills/earn/gig/scripts/gig_disk_guard.py"
+DISK_GUARD="${SCRIPT_DIR:h:h:h}/runtime/host/disk_admission.py"
 PORT_OWNER="${JOB_SEARCH_BROWSER_PORT_OWNER-${SCRIPT_DIR:h:h:h}/runtime/host/browser_port_owner.py}"
 if [[ ! -f "$DISK_GUARD" || -L "$DISK_GUARD" || ! -r "$DISK_GUARD" ]]; then
   print -u2 "job-search browser: disk guard is missing or unsafe"
@@ -30,9 +30,13 @@ fi
 
 unset GIG_IGNORE_DISK_PRESSURE_BLOCK \
   GIG_IGNORE_DISK_WRITERS_STOP \
+  LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK \
+  LIFE_MANAGER_IGNORE_DISK_WRITERS_STOP \
+  GIG_DISK_HEADROOM_KIB \
+  GIG_HOST_STATE_DIR \
+  GIG_STATE_DIR \
   DISK_CONTROL_STATE_DIR \
-  OPENCLAW_STATE_DIR \
-  LIFE_MANAGER_HOST_STATE_DIR
+  OPENCLAW_STATE_DIR
 if [[ "${LIFE_MANAGER_LOOP_ID:-}" == "job-search-mercor-browser" ]]; then
   if [[ -n "${JOB_SEARCH_BROWSER_STATE_NAME+x}" && "$JOB_SEARCH_BROWSER_STATE_NAME" != "mercor-browser" ]]; then
     print -u2 "job-search browser: Mercor loop requires mercor-browser state"
@@ -49,16 +53,16 @@ if [[ ! "$BROWSER_STATE_NAME" =~ '^[A-Za-z0-9][A-Za-z0-9._-]*$' ]]; then
   exit 2
 fi
 if [[ "$BROWSER_STATE_NAME" == "mercor-browser" ]]; then
-  export GIG_IGNORE_DISK_PRESSURE_BLOCK=1
+  export LIFE_MANAGER_IGNORE_DISK_PRESSURE_BLOCK=1
 fi
-GIG_DISK_HEADROOM_KIB=524288
-GIG_HOST_STATE_DIR="$CANONICAL_HOME/.openclaw/state"
+LIFE_MANAGER_DISK_HEADROOM_KIB=524288
+LIFE_MANAGER_HOST_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/state"
 if [[ "$BROWSER_STATE_NAME" == "job-search-browser" ]]; then
-  GIG_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/job-search-browser"
+  LIFE_MANAGER_PRODUCER_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/job-search-browser"
 else
-  GIG_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/$BROWSER_STATE_NAME"
+  LIFE_MANAGER_PRODUCER_STATE_DIR="$CANONICAL_HOME/.local/state/life-manager/$BROWSER_STATE_NAME"
 fi
-export GIG_DISK_HEADROOM_KIB GIG_HOST_STATE_DIR GIG_STATE_DIR
+export LIFE_MANAGER_DISK_HEADROOM_KIB LIFE_MANAGER_HOST_STATE_DIR LIFE_MANAGER_PRODUCER_STATE_DIR
 
 if ! /usr/bin/python3 -I "$DISK_GUARD" /usr/bin/true; then
   print -u2 "job-search browser: disk guard blocked browser start"

@@ -14,7 +14,7 @@
 // Test-Money Safety Rule (behavioral-spec.md sec5 / verification-architecture.md): every wallet used
 // here is a FRESH, randomly generated, unfunded keypair (Keypair.generate()) — never Franklin's real
 // production secret at /home/life-manager/.blockrun, never any real network/RPC/x402 call. Skill execution
-// is always a mock script under a tmp ANICCA_HOME, never a real skills/*/run.sh.
+// is always a mock script under a temporary skills root, never a real skills/*/run.sh.
 
 import { promises as fsp } from 'node:fs';
 import fs from 'node:fs';
@@ -227,8 +227,20 @@ export function startMockBrainServer(responseFactory) {
 // ── Spawn / ledger helpers (mirrors integration.test.mjs verbatim) ─────────
 
 export function spawnLoop(env) {
+  const fixtureSkills = env.LIFE_MANAGER_SKILLS_ROOT
+    || (env.ANICCA_HOME ? path.join(env.ANICCA_HOME, 'skills') : undefined);
+  const fixtureLedger = env.EARN_LEDGER
+    || (env.ANICCA_HOME ? path.join(env.ANICCA_HOME, 'skills', 'earn', 'state', 'earn-ledger.jsonl') : undefined);
+  const registryPath = env.ALWAYS_ACT_REGISTRY_PATH_OVERRIDE
+    || path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', '..', 'skills', 'registry.json');
   return spawn(process.execPath, [LOOP_ENTRY], {
-    env: { ...process.env, ...env },
+    env: {
+      ...process.env,
+      ...env,
+      ...(fixtureSkills ? { LIFE_MANAGER_SKILLS_ROOT: fixtureSkills } : {}),
+      ...(fixtureLedger ? { EARN_LEDGER: fixtureLedger } : {}),
+      ALWAYS_ACT_REGISTRY_PATH_OVERRIDE: registryPath,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }

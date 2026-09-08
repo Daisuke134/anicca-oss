@@ -12,6 +12,8 @@ regexes = [
   '''YOUR_[A-Z0-9_]+''',
   '''<[A-Za-z0-9_ .:/-]+>''',
   '''(?i)example|placeholder|your-|changeme|xxxx''',
+  '''e66dc8de6083d2d2d716d99a81358e2672d965c07cbff1f923c86703172c4c9d''',
+  '''LM_ANICCA_JP4_TIKTOK_APPROVAL_REF''',
 ]
 
 [[allowlists]]

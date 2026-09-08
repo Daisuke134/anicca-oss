@@ -13,12 +13,13 @@
 #   publish-substack-mermaid.sh enable-publish | disable-publish
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # .../scripts
+# shellcheck source=../writer-runtime-env.sh
+source "$DIR/writer-runtime-env.sh"
 . "$DIR/substack-publish/substack-curl.sh"
-VC="${VC:-$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3}"   # only for the verify-preview vision gate
-WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
+VC="${VC:-$WRITER_BROWSER_PYTHON}"   # only for the verify-preview vision gate
+WORK="$NOTE_WORK_ROOT"; mkdir -p "$WORK"
 
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
-SUBSTACK_PUBLICATION="${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}"
+SUBSTACK_PUBLICATION="${SUBSTACK_PUBLICATION:?SUBSTACK_PUBLICATION is required}"
 
 cmd="${1:-}"; shift || true
 case "$cmd" in

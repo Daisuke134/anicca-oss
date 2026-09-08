@@ -8,39 +8,35 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
 
 RUN_SH = Path(__file__).with_name("run.sh")
 EXPECTED_CALLS = [
+    "fund_via_bridge.py",
     "redeem.py",
     "merge.py",
     "bundle_arb.py",
     "market_maker.py",
+    "pinnacle_observe.py",
     "pick.py",
 ]
 
 
-def _build_harness(tmp_path: Path) -> tuple[Path, Path, Path]:
-    skill_dir = tmp_path / "earn" / "polymarket-trade"
-    skill_dir.mkdir(parents=True)
-    run_sh = skill_dir / "run.sh"
-    shutil.copy2(RUN_SH, run_sh)
-
-    for name in EXPECTED_CALLS:
-        (skill_dir / name).touch()
-
-    agent_home = tmp_path / "agent"
-    fake_python = agent_home / ".venv" / "bin" / "python"
+def _build_harness(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    fake_python = tmp_path / "bin" / "python"
     fake_python.parent.mkdir(parents=True)
     fake_python.write_text(
         """#!/bin/bash
 set -u
+if [ "$#" -eq 0 ]; then exec /usr/bin/python3; fi
+if [ "$1" = -c ]; then exec /usr/bin/python3 "$@"; fi
 script_name="$(basename "$1")"
+if [ "$script_name" = bounded-exec.py ]; then shift 3; exec "$0" "$@"; fi
 printf '%s\\n' "$script_name" >> "$PM_TEST_CALLS"
 case "$script_name" in
+  fund_via_bridge.py) ;;
   redeem.py) echo "redeem-ok" ;;
   merge.py)
     echo "merge-result"
@@ -48,6 +44,7 @@ case "$script_name" in
     ;;
   bundle_arb.py) echo "arb-ok" ;;
   market_maker.py) echo "market-maker-ok" ;;
+  pinnacle_observe.py) ;;
   pick.py) printf '%s\\n' '{"action":"WAIT","reason":"controlled-test"}' ;;
   *) echo "unexpected script: $script_name" >&2; exit 90 ;;
 esac
@@ -55,22 +52,38 @@ esac
     )
     fake_python.chmod(0o755)
 
+    fake_node = tmp_path / "bin" / "node"
+    fake_node.write_text(
+        "#!/bin/sh\ncase \"$*\" in *resolve-identity.mjs*) printf '0x%s\\n' '" + ("1" * 64) + "' ;; esac\n"
+    )
+    fake_node.chmod(0o755)
+
+    wallet_home = tmp_path / "wallet"
+    wallet_home.mkdir()
+    env_file = tmp_path / "life-manager.env"
+    env_file.write_text("")
+
     calls_file = tmp_path / "calls.txt"
-    return run_sh, agent_home, calls_file
+    return fake_python, wallet_home, env_file, calls_file
 
 
 def _run_live_pass(tmp_path: Path, merge_rc: int = 0) -> tuple[subprocess.CompletedProcess[str], list[str], list[dict]]:
-    run_sh, agent_home, calls_file = _build_harness(tmp_path)
+    fake_python, wallet_home, env_file, calls_file = _build_harness(tmp_path)
+    state_root = tmp_path / "state"
     env = {
         **os.environ,
         "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "PM_TRADE_AGENT_HOME": str(agent_home),
-        "POLYGON_WALLET_PRIVATE_KEY": "0x" + ("1" * 64),
+        "LIFE_MANAGER_ENV_FILE": str(env_file),
+        "LIFE_MANAGER_PYTHON": str(fake_python),
+        "LIFE_MANAGER_NODE": str(fake_python.parent / "node"),
+        "LIFE_MANAGER_STATE_ROOT": str(state_root),
+        "LIFE_MANAGER_WALLET_HOME": str(wallet_home),
+        "PM_DEPOSIT_WALLET": "0x" + ("2" * 40),
         "PM_TEST_CALLS": str(calls_file),
         "PM_TEST_MERGE_RC": str(merge_rc),
     }
     result = subprocess.run(
-        ["/bin/bash", str(run_sh)],
+        ["/bin/bash", str(RUN_SH)],
         capture_output=True,
         text=True,
         timeout=20,
@@ -78,7 +91,7 @@ def _run_live_pass(tmp_path: Path, merge_rc: int = 0) -> tuple[subprocess.Comple
         check=False,
     )
     calls = calls_file.read_text().splitlines()
-    trace_file = run_sh.parent.parent / "state" / "pm-trade.trace.jsonl"
+    trace_file = state_root / "pm-trade.trace.jsonl"
     traces = [
         json.loads(line)
         for line in trace_file.read_text().splitlines()

@@ -22,7 +22,7 @@ from article_completion import (
     validate_live_set,
 )
 from publication_resume import InvariantError as PublicationInvariantError
-from publication_resume import PublicationStore
+from publication_resume import PublicationStore, inside_host_temp
 from publication_remote import probe as publication_probe
 
 
@@ -32,6 +32,13 @@ class InvariantError(ValueError):
 
 class TransientError(RuntimeError):
     """Retryable canonical remote access failure."""
+
+
+def zenn_account() -> str:
+    account = os.environ.get("ZENN_ACCOUNT", "")
+    if re.fullmatch(r"[A-Za-z0-9_-]+", account) is None:
+        raise InvariantError("ZENN_ACCOUNT is required and invalid")
+    return account
 
 
 def atomic_write(path: Path, data: dict[str, Any]) -> None:
@@ -103,7 +110,7 @@ def validate_artifact(artifact: dict[str, Any], repo: Path, run_id: str | None =
         raise InvariantError("invalid deferred Zenn slug")
     if not isinstance(artifact.get("title"), str) or not artifact["title"].strip():
         raise InvariantError("invalid deferred Zenn title")
-    if artifact.get("live_url") != f"https://zenn.dev/anicca/articles/{slug}":
+    if artifact.get("live_url") != f"https://zenn.dev/{zenn_account()}/articles/{slug}":
         raise InvariantError("invalid deferred Zenn live URL")
     expected = (repo / "articles" / f"{slug}.md").resolve()
     declared = Path(str(artifact.get("markdown_file", ""))).resolve()
@@ -137,7 +144,7 @@ def load_api(path: str | None) -> dict[str, Any]:
     if path:
         return read_json(Path(path))
     request = urllib.request.Request(
-        "https://zenn.dev/api/articles?username=anicca&order=latest",
+        f"https://zenn.dev/api/articles?username={zenn_account()}&order=latest",
         headers={"User-Agent": "Mozilla/5.0"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -186,7 +193,7 @@ def create(args: argparse.Namespace) -> int:
         "status": "waiting",
         "slug": args.slug,
         "title": title,
-        "live_url": f"https://zenn.dev/anicca/articles/{args.slug}",
+        "live_url": f"https://zenn.dev/{zenn_account()}/articles/{args.slug}",
         "markdown_file": str(markdown.resolve()),
     })
     return 0
@@ -308,7 +315,7 @@ def record(args: argparse.Namespace) -> int:
             if (
                 not args.allow_local_source
                 or os.environ.get("ARTICLE_TEST_ONLY") != "1"
-                or not str(readback_path).startswith(("/tmp/", "/private/tmp/"))
+                or not inside_host_temp(readback_path)
             ):
                 raise InvariantError("test public readback injection is forbidden")
             evidence = read_json(readback_path)
@@ -350,14 +357,14 @@ def main() -> int:
     plan_parser.add_argument("--publication-state")
     plan_parser.add_argument("--api-json")
     plan_parser.add_argument("--now")
-    plan_parser.add_argument("--repo", default=str(Path.home() / ".openclaw/workspace/zenn-articles"))
+    plan_parser.add_argument("--repo", default=os.environ.get("ZENN_REPO_PATH", str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles")))
     plan_parser.add_argument("--test-allow-local-source", dest="allow_local_source", action="store_true", help=argparse.SUPPRESS)
     handoff_parser = sub.add_parser("handoff")
     handoff_parser.add_argument("--ledger", required=True)
     handoff_parser.add_argument("--run-id", required=True)
     handoff_parser.add_argument("--artifact", required=True)
     handoff_parser.add_argument("--publication-state")
-    handoff_parser.add_argument("--repo", default=str(Path.home() / ".openclaw/workspace/zenn-articles"))
+    handoff_parser.add_argument("--repo", default=os.environ.get("ZENN_REPO_PATH", str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles")))
     handoff_parser.add_argument("--test-allow-local-source", dest="allow_local_source", action="store_true", help=argparse.SUPPRESS)
     record_parser = sub.add_parser("record")
     record_parser.add_argument("--ledger", required=True)
@@ -370,7 +377,7 @@ def main() -> int:
         "--test-public-readback-json",
         help=argparse.SUPPRESS,
     )
-    record_parser.add_argument("--repo", default=str(Path.home() / ".openclaw/workspace/zenn-articles"))
+    record_parser.add_argument("--repo", default=os.environ.get("ZENN_REPO_PATH", str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles")))
     record_parser.add_argument("--test-allow-local-source", dest="allow_local_source", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     return {"create": create, "plan": plan, "handoff": handoff, "record": record}[args.command](args)

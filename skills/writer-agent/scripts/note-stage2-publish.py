@@ -1,13 +1,15 @@
 # NOTE (VSDD F3 FIND-011): this path is DRAFT-ONLY by construction — it calls note-mcp update_article →
 # draft_save?is_temp_saved=true (status=DRAFT); it never calls publish_article(). No public publish here.
 import sys, json, time, asyncio, urllib.request, os, subprocess, re
-sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", "/Users/anicca/.openclaw/external/note-mcp/src"))
+from pathlib import Path
+sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", str(Path(__file__).resolve().parents[1] / "vendor/note-mcp/src")))
 from note_mcp.models import Session, ArticleInput
 from note_mcp.api.articles import update_article, generate_image_html
 from note_s3_upload import upload_body_image
 from note_stage2_assets import resolve_mermaid_images
-WORK=os.path.expanduser(os.environ.get("NOTE_WORK","~/.cloak/note-work/note-stage")); os.makedirs(WORK, exist_ok=True)
-mf=json.load(open(f"{WORK}/note-manifest.json")); ck=json.load(open(os.path.expanduser("~/.cloak/note-work/note-cookies.json")))
+STATE=os.path.expanduser(os.environ.get("WRITER_STATE_DIR","~/.local/state/life-manager/writer"))
+WORK=os.path.expanduser(os.environ.get("NOTE_WORK",f"{STATE}/note-work/note-stage")); os.makedirs(WORK, exist_ok=True)
+mf=json.load(open(f"{WORK}/note-manifest.json")); ck=json.load(open(f"{STATE}/note-work/note-cookies.json"))
 NUM=os.environ.get("NOTE_NUM","166686292"); title=mf["title"]; body=mf["body"]
 # NOTE_KEY (article key, e.g. "n1234567890ab"): when set, used for update_article INSTEAD of NUM.
 # Works around a real note-mcp bug (note_mcp/api/articles.py update_article, verified by reading
@@ -52,7 +54,7 @@ figpaths=resolve_mermaid_images(
     os.environ.get("ARTICLE_PUBLICATION_STATE", ""),
     render_remote_mermaid,
 )
-sess=Session(cookies=ck, user_id=os.environ.get("NOTE_USER_ID", "14651590"), username=os.environ.get("NOTE_URLNAME", "anicca123"), created_at=int(time.time()))
+sess=Session(cookies=ck, user_id=os.environ["NOTE_USER_ID"], username=os.environ["NOTE_URLNAME"], created_at=int(time.time()))
 async def main():
     nb=body  # no body hero (the cover is the note eyecatch, set separately) — avoids the duplicate
     total=0; ok=0; failed=[]   # embed accounting — this is what makes a partial failure visible to the caller

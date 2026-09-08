@@ -21,7 +21,9 @@ import time
 
 from playwright.sync_api import sync_playwright
 
-ACCOUNT = os.environ.get("X_ACCOUNT", "diceai0")
+ACCOUNT = os.environ.get("X_ACCOUNT_HANDLE", "").strip().lstrip("@")
+if not ACCOUNT:
+    raise SystemExit("X_ACCOUNT_HANDLE is required")
 
 # X renames this control between locales and releases; match the family, not
 # one exact string.

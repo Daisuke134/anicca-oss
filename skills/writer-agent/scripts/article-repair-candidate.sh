@@ -21,22 +21,24 @@ set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
 
 ARTICLE_ROOT="${ARTICLE_ROOT:-${ARTICLE_SKILL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$ARTICLE_ROOT/state}"
-LOG="${ARTICLE_REPAIR_LOG:-$HOME/.openclaw/logs/article-repair-candidate.log}"
+# shellcheck source=writer-runtime-env.sh
+source "$ARTICLE_ROOT/scripts/writer-runtime-env.sh" || exit $?
+STATE_DIR="$WRITER_STATE_DIR"
+LOG="${ARTICLE_REPAIR_LOG:-$WRITER_LOG_DIR/article-repair-candidate.log}"
 MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"
 BASE_REF="${ARTICLE_REPAIR_BASE_REF:-HEAD}"
-# Candidate worktrees live outside the repository on purpose: regenerable, and
-# incapable of showing up in the source tree's own porcelain status.
-REPAIR_ROOT="${ARTICLE_REPAIR_ROOT:-$HOME/.cache/anicca-writer-repair}"
+# Candidate worktrees are regenerable Writer runtime state, outside the source
+# checkout but inside the one shared local/cloud state contract.
+REPAIR_ROOT="${ARTICLE_REPAIR_ROOT:-$WRITER_STATE_DIR/self-heal/repair-candidates}"
 
 mkdir -p "$(dirname "$LOG")"
 
 QUEUE="$STATE_DIR/self-heal/incident-queue.json"
 [ -f "$QUEUE" ] || exit 0
 
-REPO="${ARTICLE_REPAIR_REPO:-$(git -C "$ARTICLE_ROOT" rev-parse --show-toplevel 2>/dev/null || true)}"
-if [ -z "$REPO" ]; then
-  echo "article-repair-candidate: no git checkout above $ARTICLE_ROOT" >>"$LOG"
+REPO="${ARTICLE_REPAIR_REPO:-${LIFE_MANAGER_SOURCE_REPO:-}}"
+if [ -z "$REPO" ] || ! git -C "$REPO" rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "article-repair-candidate: LIFE_MANAGER_SOURCE_REPO is not a git checkout" >>"$LOG"
   exit 0
 fi
 

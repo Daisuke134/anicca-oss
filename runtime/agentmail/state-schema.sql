@@ -1,7 +1,7 @@
 -- runtime/agentmail/state-schema.sql
 -- Spec 10 — microtask 10.T6. Reply-Zero analog state for AgentMail inboxes.
 -- Designed to live alongside Conway state.db (SQLite). Apply with:
---   sqlite3 ~/.openclaw/state/inbox.db < state-schema.sql
+--   sqlite3 ~/.local/state/life-manager/agentmail/state/agentmail.db < state-schema.sql
 -- All timestamps are ISO-8601 strings (UTC) for sortability + cross-tool diff.
 
 PRAGMA journal_mode = WAL;

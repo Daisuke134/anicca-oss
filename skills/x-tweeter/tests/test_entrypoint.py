@@ -16,7 +16,7 @@ class XTweeterEntrypointTests(unittest.TestCase):
         shared = SHARED.read_text(encoding="utf-8")
 
         self.assertIn("X_LOOP_ROLE=original", wrapper)
-        self.assertIn("loops/x-tweeter", wrapper)
+        self.assertIn(".local/state/life-manager/social-x/x-tweeter", wrapper)
         self.assertIn("X_REPOST_FORCE_KIND=original", wrapper)
         self.assertIn("X_REPOST_DISABLE_AFFILIATE=1", wrapper)
         self.assertIn("original_contract.py", shared)

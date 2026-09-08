@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { agentMailSemanticDir } from "./paths.ts";
 
 export type SemanticDecision = { action: "reply" | "ignore"; reply: string | null };
 
@@ -10,14 +10,13 @@ export function semanticDecision(loopId: string, prompt: string): SemanticDecisi
   const runner = process.env.AGENT_RUNNER_BIN
     ?? fileURLToPath(new URL("../agent-runner/agent_runner.py", import.meta.url));
   const schema = fileURLToPath(new URL("./semantic-reply.schema.json", import.meta.url));
-  const evidenceRoot = process.env.AGENTMAIL_SEMANTIC_STATE_DIR
-    ?? join(homedir(), ".openclaw/state/agentmail-semantic");
+  const evidenceRoot = agentMailSemanticDir;
   const evidence = join(evidenceRoot, `${Date.now()}-${process.pid}`);
   const run = spawnSync("/usr/bin/python3", [
     runner, "--task-class", "reply-semantic-agent", "--prompt-stdin",
     "--schema", schema, "--evidence-dir", evidence,
     "--task-label", `${loopId}-decision`, "--loop", loopId,
-    "--workdir", homedir(), "--read-only",
+    "--workdir", fileURLToPath(new URL("../..", import.meta.url)), "--read-only",
   ], { input: prompt, encoding: "utf8", timeout: 150_000 });
   if (run.status !== 0) {
     throw new Error(`semantic runner failed (${run.status}): ${run.stderr || run.stdout}`);

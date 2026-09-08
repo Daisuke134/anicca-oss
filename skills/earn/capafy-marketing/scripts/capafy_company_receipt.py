@@ -26,7 +26,7 @@ from skills._shared.telegram import TelegramClient, TelegramDeliveryUnknown, Tel
 
 
 STATE_HOME = Path(os.environ.get("LIFE_MANAGER_STATE_HOME", Path.home() / ".local/state/life-manager")).expanduser()
-OPENCLAW_STATE = Path.home() / ".openclaw/state"
+CAPAFY_STATE = STATE_HOME / "state"
 DEFAULT_OUTBOX = STATE_HOME / "state/capafy-telegram-outbox.sqlite"
 DEFAULT_RECEIPTS = STATE_HOME / "state/capafy-company-receipts"
 
@@ -259,7 +259,7 @@ def _live_sources() -> dict:
     if not candidates:
         raise ValueError("candidate backlog has no receipt candidate")
     candidate = sorted(candidates, key=lambda item: item["candidate_id"])[0]
-    marketing = _load(OPENCLAW_STATE / "capafy-marketing-terminal.json")
+    marketing = _load(CAPAFY_STATE / "capafy-marketing-terminal.json")
     outcome = marketing.get("outcome") or {}
     media_path = Path(str(outcome.get("media_path") or ""))
     if media_path.is_file():

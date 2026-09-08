@@ -19,7 +19,6 @@ Inputs (env preferred, positional argv fallback):
   POLYGON_WALLET_PRIVATE_KEY  this instance's signer key (read via the
                               agent's own .env, same as fund_via_bridge.py)
   MAX_BET_SIZE (default 2)   hard cap on AMOUNT (money-safety, not judgment)
-  PM_TRADE_AGENT_HOME        override for the base agent home (default below)
 
 Output: exactly one line of JSON on the REAL stdout (guaranteed clean — see below):
   {"token_id","amount","order_id","post_result","ok"}
@@ -45,7 +44,6 @@ import json
 import contextlib
 import requests
 from eth_account import Account
-from dotenv import load_dotenv
 
 _REAL_STDOUT = sys.stdout  # capture BEFORE any import/work that might print
 
@@ -54,12 +52,6 @@ def _emit(obj):
     """The ONLY function allowed to write to the real, captured stdout."""
     print(json.dumps(obj), file=_REAL_STDOUT, flush=True)
 
-
-AGENT_HOME = os.environ.get(
-    "PM_TRADE_AGENT_HOME",
-    os.path.expanduser("~/.anicca-founder/agents/polymarket-agent"),
-)
-load_dotenv(os.path.join(AGENT_HOME, ".env"))
 
 PUSD = "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB"
 NEG_EXCH = "0xe2222d279d744050d28e00520010520000310F59"

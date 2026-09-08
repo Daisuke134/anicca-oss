@@ -14,6 +14,17 @@ MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(MODULE)
 
+IDENTITIES = {
+    "note/ja": "writer-note",
+    "zenn-article/ja": "writer-zenn",
+    "devto/en": "writer_devto",
+    "substack/ja": "writer-ja.substack.com",
+    "substack/en": "writer-en.substack.com",
+    "x-article/ja": "writer_x",
+    "x-article/en": "writer_x",
+    "x-post/ja": "writer_x",
+}
+
 
 def _state(tmp_path: Path) -> tuple[Path, Path, dict]:
     run = tmp_path / "runs" / "daily-2026-08-21"
@@ -21,7 +32,7 @@ def _state(tmp_path: Path) -> tuple[Path, Path, dict]:
     gates.mkdir(parents=True)
     ledger = tmp_path / "articles.jsonl"
     state_path = gates / "publication-state.json"
-    identities = dict(MODULE.EXPECTED_DESTINATION_IDENTITIES)
+    identities = dict(IDENTITIES)
     identities["substack/en"] = identities["substack/ja"]
     pairs = {
         pair: {
@@ -61,7 +72,7 @@ def _state(tmp_path: Path) -> tuple[Path, Path, dict]:
 
 
 def test_unquarantined_conflation_fails_closed() -> None:
-    identities = dict(MODULE.EXPECTED_DESTINATION_IDENTITIES)
+    identities = dict(IDENTITIES)
     identities["substack/en"] = identities["substack/ja"]
     with pytest.raises(MODULE.InvariantError, match="unquarantined"):
         MODULE.validate_persisted_destination_identities(
@@ -70,7 +81,7 @@ def test_unquarantined_conflation_fails_closed() -> None:
 
 
 def test_quarantined_identity_set_must_remain_complete() -> None:
-    identities = dict(MODULE.EXPECTED_DESTINATION_IDENTITIES)
+    identities = dict(IDENTITIES)
     identities["substack/en"] = identities["substack/ja"]
     identities.pop("x-post/ja")
     state = {
@@ -79,7 +90,7 @@ def test_quarantined_identity_set_must_remain_complete() -> None:
             "version": 1,
             "pair": "substack/en",
             "reason": MODULE.IDENTITY_CONFLICT_REASON,
-            "previous_identity": "aniccabuddha.substack.com",
+            "previous_identity": "writer-ja.substack.com",
             "recorded_at": "2026-08-21T00:00:00Z",
         },
         "pairs": {"substack/en": {"status": "unavailable", "error": MODULE.IDENTITY_CONFLICT_REASON}},
@@ -96,7 +107,7 @@ def test_quarantine_is_idempotent_and_allows_persisted_boundary(tmp_path: Path, 
     remote = {
         "status": "not-live",
         "verified": True,
-        "destination_identity": "aniccabuddha.substack.com",
+        "destination_identity": "writer-ja.substack.com",
         "identity_verified": True,
         "identity_source": "protected-substack-authenticated-draft-api",
         "source": "substack-draft-api",
@@ -127,7 +138,7 @@ def test_quarantine_refuses_live_readback_or_any_same_run_ledger_row(
     remote = {
         "status": "not-live",
         "verified": True,
-        "destination_identity": "aniccabuddha.substack.com",
+        "destination_identity": "writer-ja.substack.com",
         "identity_verified": True,
         "identity_source": "protected-substack-authenticated-draft-api",
         "source": "substack-draft-api",
@@ -165,7 +176,7 @@ def test_quarantine_allows_explicit_no_effect_staging_row(
     remote = {
         "status": "not-live",
         "verified": True,
-        "destination_identity": "aniccabuddha.substack.com",
+        "destination_identity": "writer-ja.substack.com",
         "identity_verified": True,
         "identity_source": "protected-substack-authenticated-draft-api",
         "source": "substack-draft-api",
@@ -185,12 +196,20 @@ def test_quarantined_en_identity_migrates_only_into_configured_reinitialization(
         "version": 1,
         "pair": "substack/en",
         "reason": MODULE.IDENTITY_CONFLICT_REASON,
-        "previous_identity": "aniccabuddha.substack.com",
+        "previous_identity": "writer-ja.substack.com",
         "recorded_at": "2026-08-21T00:00:00Z",
     }
     state_path.write_text(json.dumps(state), encoding="utf-8")
-    monkeypatch.setenv("SUBSTACK_PUBLICATION_JA", "aniccabuddha.substack.com")
-    monkeypatch.setenv("SUBSTACK_PUBLICATION_EN", "aniccaai2026.substack.com")
+    configured = {
+        "NOTE_URLNAME": "writer-note",
+        "ZENN_ACCOUNT": "writer-zenn",
+        "DEVTO_ACCOUNT_HANDLE": "writer_devto",
+        "SUBSTACK_PUBLICATION_JA": "writer-ja.substack.com",
+        "SUBSTACK_PUBLICATION_EN": "writer-new-en.substack.com",
+        "X_ACCOUNT_HANDLE": "writer_x",
+    }
+    for key, value in configured.items():
+        monkeypatch.setenv(key, value)
     store = MODULE.PublicationStore(state_path, ledger)
     monkeypatch.setattr(
         store,
@@ -199,13 +218,13 @@ def test_quarantined_en_identity_migrates_only_into_configured_reinitialization(
     )
 
     result = store.migrate_quarantined_substack_en_identity(
-        "aniccaai2026.substack.com"
+        "writer-new-en.substack.com"
     )
 
     persisted = store.read()
-    assert result["previous_identity"] == "aniccabuddha.substack.com"
-    assert result["new_identity"] == "aniccaai2026.substack.com"
-    assert persisted["destination_identities"]["substack/en"] == "aniccaai2026.substack.com"
+    assert result["previous_identity"] == "writer-ja.substack.com"
+    assert result["new_identity"] == "writer-new-en.substack.com"
+    assert persisted["destination_identities"]["substack/en"] == "writer-new-en.substack.com"
     assert "substack/en" not in persisted["pairs"]
     MODULE.validate_persisted_destination_identities(persisted)
 
@@ -248,7 +267,7 @@ def test_quarantine_rejects_unknown_or_effect_capable_ledger_schema(
     remote = {
         "status": "not-live",
         "verified": True,
-        "destination_identity": "aniccabuddha.substack.com",
+        "destination_identity": "writer-ja.substack.com",
         "identity_verified": True,
         "identity_source": "protected-substack-authenticated-draft-api",
         "source": "substack-draft-api",
@@ -276,7 +295,7 @@ def test_guard_cli_reaches_legacy_migration_before_normal_identity_validation(
     remote = {
         "status": "not-live",
         "verified": True,
-        "destination_identity": "aniccabuddha.substack.com",
+        "destination_identity": "writer-ja.substack.com",
         "identity_verified": True,
         "identity_source": "protected-substack-authenticated-draft-api",
         "source": "substack-draft-api",

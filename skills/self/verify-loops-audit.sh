@@ -76,7 +76,7 @@ reddit_account_banned(){ local user="$1"; [ -n "$user" ] || { echo "NO-USER"; re
   fi
 }
 CAP="$LIFE_MANAGER_REPO/skills/capafy-autopublish/state/published.jsonl"
-POSTS="$SELF/reddit-loop/state/posts.jsonl"
+POSTS="${REDDIT_STATE_DIR:-$HOME/.local/state/life-manager/reddit/state}/posts.jsonl"
 LMHB="$HOME/.local/state/life-manager/state/.life-manager-loop-last-pass"
 
 # capafy_live_verdict (self-fix 2026-07-19): consult the daily loop's OWN server-truth verdict
@@ -112,7 +112,7 @@ if [ -n "$REDDIT_USER" ]; then
   REDDIT_BAN_STATUS="$(reddit_account_banned "$REDDIT_USER")"
   case "$REDDIT_BAN_STATUS" in BANNED*) REDDIT_BANNED=1;; esac
 fi
-{ [ "$NACC" -ge 1 ] 2>/dev/null && { [ "$REDDIT_STALE" = 1 ] || [ "$REDDIT_DEAD" = 1 ] || [ "$REDDIT_BANNED" = 1 ]; }; } && bash "$SELF/self-fix.sh" reddit "audit: reddit has an account but no real post in >30h (posts.jsonl stale=$REDDIT_STALE) or the newest post URL is DEAD (dead=$REDDIT_DEAD) or the account itself is BANNED/suspended (banned=$REDDIT_BANNED, $REDDIT_BAN_STATUS). If banned, posting more from this same account cannot work -- get a new honest disclosed account (see reddit-loop/loop.sh's NO-REDDIT-ACCOUNT heal path) rather than retrying the dead one; otherwise make it post one honest disclosed contribution and log the URL." >> "$LOG" 2>&1 || true
+{ [ "$NACC" -ge 1 ] 2>/dev/null && { [ "$REDDIT_STALE" = 1 ] || [ "$REDDIT_DEAD" = 1 ] || [ "$REDDIT_BANNED" = 1 ]; }; } && bash "$SELF/self-fix.sh" reddit "audit: reddit has an account but no real post in >30h (posts.jsonl stale=$REDDIT_STALE) or the newest post URL is DEAD (dead=$REDDIT_DEAD) or the account itself is BANNED/suspended (banned=$REDDIT_BANNED, $REDDIT_BAN_STATUS). If banned, posting more from this same account cannot work -- get a new honest disclosed account (see skills/reddit/loop.sh's NO-REDDIT-ACCOUNT heal path) rather than retrying the dead one; otherwise make it post one honest disclosed contribution and log the URL." >> "$LOG" 2>&1 || true
 
 # G2 item2 (2026-07-11 loop-arch redesign / LOOPS-TRUTH-AUDIT.md "video: 2つの state file(warmup_day
 # 4 vs 0)の整合性チェックが無い"): video's warmup_day is tracked in TWO independently-written

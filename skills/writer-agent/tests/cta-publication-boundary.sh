@@ -6,6 +6,13 @@ HELPER="$ROOT/skills/writer-agent/scripts/publication_resume.py"
 MEDIA="$ROOT/skills/writer-agent/scripts/canonical_media.py"
 TMP="$(mktemp -d /tmp/article-cta-boundary.XXXXXX)"
 trap 'rm -rf -- "$TMP"' EXIT
+export NOTE_URLNAME=writer-note
+export ZENN_ACCOUNT=writer-zenn
+export DEVTO_ACCOUNT_HANDLE=writer-devto
+export SUBSTACK_PUBLICATION_JA=writer-ja.substack.com
+export SUBSTACK_PUBLICATION_EN=writer-en.substack.com
+export X_ACCOUNT_HANDLE=writer-x
+export ARTICLE_PRODUCT_LANDING_URL=https://writer.example/product
 
 make_run() {
   local run_dir="$1"
@@ -17,9 +24,9 @@ make_run() {
   printf '%s\n' '---' 'title: "CTA fixture"' 'tags: ai, agents' '---' '# EN' '' 'Body' \
     >"$run_dir/article-en.md"
   printf '短文\n' >"$run_dir/x-post-ja.txt"
-  [ "$missing_artifact" = ja ] || printf '\nhttps://aniccaai.com/?product_id=anicca&run_id=%s&artifact_id=article-ja&variant_id=fixture-ja&click_id=%s-article-ja\n' "$run_id" "$run_id" >>"$run_dir/article-ja.md"
-  [ "$missing_artifact" = en ] || printf '\nhttps://aniccaai.com/?product_id=anicca&run_id=%s&artifact_id=article-en&variant_id=fixture-en&click_id=%s-article-en\n' "$run_id" "$run_id" >>"$run_dir/article-en.md"
-  [ "$missing_artifact" = x-post-ja ] || printf '\nhttps://aniccaai.com/?product_id=anicca&run_id=%s&artifact_id=x-post-ja&variant_id=fixture-x&click_id=%s-x-post-ja\n' "$run_id" "$run_id" >>"$run_dir/x-post-ja.txt"
+  [ "$missing_artifact" = ja ] || printf '\nhttps://writer.example/product?product_id=writer&run_id=%s&artifact_id=article-ja&variant_id=fixture-ja&click_id=%s-article-ja\n' "$run_id" "$run_id" >>"$run_dir/article-ja.md"
+  [ "$missing_artifact" = en ] || printf '\nhttps://writer.example/product?product_id=writer&run_id=%s&artifact_id=article-en&variant_id=fixture-en&click_id=%s-article-en\n' "$run_id" "$run_id" >>"$run_dir/article-en.md"
+  [ "$missing_artifact" = x-post-ja ] || printf '\nhttps://writer.example/product?product_id=writer&run_id=%s&artifact_id=x-post-ja&variant_id=fixture-x&click_id=%s-x-post-ja\n' "$run_id" "$run_id" >>"$run_dir/x-post-ja.txt"
   python3 "$MEDIA" attach --file "$run_dir/article-ja.md" >/dev/null
   python3 "$MEDIA" attach --file "$run_dir/article-en.md" >/dev/null
   printf 'headline\n' >"$run_dir/headline-image.png"

@@ -15,11 +15,12 @@ The calling agent reads the JSON and makes the final call; this script decides n
 by itself and never touches the browser.
 
 Usage:
-  price-check.py --query "Claude Code" [--my-urlname anicca123] [--size 20] [--like-floor 100]
+  price-check.py --query "Claude Code" [--my-urlname your-note-name] [--size 20] [--like-floor 100]
 stdout: one JSON object. Diagnostics on stderr. Non-zero exit on API failure.
 """
 import argparse
 import json
+import os
 import statistics
 import sys
 import urllib.parse
@@ -54,10 +55,12 @@ def creator(urlname: str):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--query", required=True)
-    ap.add_argument("--my-urlname", default="anicca123")
+    ap.add_argument("--my-urlname", default=os.environ.get("NOTE_URLNAME", ""))
     ap.add_argument("--size", type=int, default=20)
     ap.add_argument("--like-floor", type=int, default=100)
     a = ap.parse_args()
+    if not a.my_urlname:
+        ap.error("NOTE_URLNAME or --my-urlname is required")
 
     items = search_notes(a.query, a.size)
     paid = []

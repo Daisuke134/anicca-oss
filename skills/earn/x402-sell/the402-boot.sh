@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 PIDS="$(lsof -ti tcp:8096 2>/dev/null || true)"
 [ -n "$PIDS" ] && kill $PIDS 2>/dev/null || true
 sleep 1

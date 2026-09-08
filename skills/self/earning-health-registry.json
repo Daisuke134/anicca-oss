@@ -26,7 +26,8 @@
       "probe": {
         "kind": "trace",
         "tracePath": "skills/earn/state/pm-trade.trace.jsonl",
-        "killPath": "skills/earn/polymarket-trade/KILL",
+        "killPath": ".local/state/life-manager/polymarket/KILL",
+        "killPathBase": "home",
         "maxAgeSeconds": 10800
       }
     },

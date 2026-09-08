@@ -18,6 +18,7 @@ from typing import Any
 
 from article_completion import REQUIRED_LIVE, terminal_artifact_complete, validate_live_set
 from publication_resume import PublicationStore
+from writer_report_worker import telegram_api_transport
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -137,25 +138,16 @@ def retain_pending(artifact: Path, action: str, error: str | None = None, **fiel
 
 
 def notify(args: argparse.Namespace, message: str) -> bool:
-    if args.notify_bin:
-        command = [args.notify_bin, message]
-    else:
-        command = [
-            "openclaw",
-            "message",
-            "send",
-            "--channel",
-            "telegram",
-            "--target",
-            os.environ.get("TELEGRAM_TARGET_ID", "8547730585"),
-            "--message",
-            message,
-            "--json",
-        ]
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
+        if args.notify_bin:
+            subprocess.run(
+                [args.notify_bin, message], check=True, capture_output=True, text=True
+            )
+        else:
+            target = os.environ.get("TELEGRAM_TARGET_ID", "8547730585")
+            telegram_api_transport(target)(message)
         return True
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError):
         return False
 
 
@@ -349,8 +341,10 @@ def prepare_remote_retry(args: argparse.Namespace, artifact: dict[str, Any], slu
         ).stdout.strip()
     commit_env = os.environ.copy()
     commit_env.update({
-        "GIT_AUTHOR_NAME": "anicca", "GIT_AUTHOR_EMAIL": "anicca@aniccaai.com",
-        "GIT_COMMITTER_NAME": "anicca", "GIT_COMMITTER_EMAIL": "anicca@aniccaai.com",
+        "GIT_AUTHOR_NAME": os.environ["ZENN_GIT_NAME"],
+        "GIT_AUTHOR_EMAIL": os.environ["ZENN_GIT_EMAIL"],
+        "GIT_COMMITTER_NAME": os.environ["ZENN_GIT_NAME"],
+        "GIT_COMMITTER_EMAIL": os.environ["ZENN_GIT_EMAIL"],
     })
     commit = subprocess.run(
         ["git", "-C", str(repo), "commit-tree", tree, "-p", base,
@@ -742,8 +736,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ledger", type=Path, default=skill_root / "state/articles.jsonl")
     parser.add_argument("--runs-root", type=Path, default=skill_root / "state/runs")
-    parser.add_argument("--repo", type=Path, default=Path.home() / ".openclaw/workspace/zenn-articles")
-    parser.add_argument("--expected-remote", default="https://github.com/Daisuke134/zenn-articles.git")
+    parser.add_argument("--repo", type=Path, default=Path(os.environ.get("ZENN_REPO_PATH", str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles"))))
+    parser.add_argument("--expected-remote", default=os.environ.get("ZENN_REPOSITORY_URL", ""))
     parser.add_argument("--before-push-hook", type=Path)
     parser.add_argument("--test-allow-local-source", dest="allow_local_source", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--test-public-readback-json", help=argparse.SUPPRESS)
@@ -752,9 +746,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--now")
     parser.add_argument("--reality-gate", type=Path, default=SCRIPT_DIR / "reality-gate.sh")
     parser.add_argument("--complete-bin", type=Path, default=SCRIPT_DIR / "article-run-complete.py")
-    parser.add_argument("--heartbeat", type=Path, default=Path.home() / ".openclaw/state/.article-loop-last-pass")
+    parser.add_argument("--heartbeat", type=Path, default=Path(os.environ.get("WRITER_STATE_DIR", str(Path.home() / ".local/state/life-manager/writer"))) / ".article-loop-last-pass")
     parser.add_argument("--notify-bin")
-    parser.add_argument("--log", type=Path, default=Path.home() / ".openclaw/logs/article-zenn-retry.log")
+    parser.add_argument("--log", type=Path, default=Path(os.environ.get("WRITER_LOG_DIR", str(Path.home() / ".local/state/life-manager/writer/logs"))) / "article-zenn-retry.log")
     parser.add_argument("--lock-file", type=Path, default=skill_root / "state/.zenn-deferred-worker.lock")
     parser.add_argument(
         "--publication-lock-dir",

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # KeepAlive entrypoint for franklin2's demand-proven x402 image resale product.
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
-set -a; . /Users/anicca/.openclaw/.env 2>/dev/null || true; set +a
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 # The shared env carries a legacy wallet. This service must spend upstream and receive revenue only
 # through franklin2's own wallet/home.
 export ANICCA_HOME="$HOME/.franklin2-home/.blockrun"

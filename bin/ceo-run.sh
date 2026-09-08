@@ -97,7 +97,7 @@ PY
   exit 0
 fi
 
-RUN_AGENT="${CEO_RUN_AGENT_BIN:-$HOME/anicca/skills/earn/marketing-engine/run_agent.sh}"
+RUN_AGENT="${CEO_RUN_AGENT_BIN:-$HERE/skills/earn/marketing-engine/run_agent.sh}"
 SCHEMA="$HERE/config/ceo-weekly-evaluation.schema.json"
 EVIDENCE_DIR="$BASE/ledgers/.ceo-weekly-evidence/$(date +%s)-$$"
 RESULT="$(mktemp "${TMPDIR:-/tmp}/ceo-weekly-result.XXXXXX")"

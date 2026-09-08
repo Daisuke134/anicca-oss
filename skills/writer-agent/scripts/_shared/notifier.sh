@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 # notifier.sh — env-driven notification for the article loop (spec #70, OSS self-containment).
 #
-# Replaces the `openclaw message send` / telegram_notify() dependency (openclaw CLI +
-# an active OpenClaw gateway session), which only exists on the live Anicca instance and
-# is not something an OSS installer has. This talks to the Telegram Bot API directly —
-# every installer that wants alerts creates their own bot (@BotFather, 30 seconds, no
-# approval) and points these two env vars at it. No env vars set = silent no-op (never
+# Delegates to Life Manager's shared Telegram client. No env vars set = silent no-op (never
 # blocks or crashes the caller; the loop must run with zero notification configured).
 #
-# Setup (put in ~/.openclaw/.env or wherever this repo's installer sources env from):
+# Setup (put in ~/.local/state/life-manager/.env):
 #   TELEGRAM_BOT_TOKEN=<token from @BotFather>
 #   TELEGRAM_CHAT_ID=<your chat id, e.g. from @userinfobot>
 #
@@ -24,14 +20,21 @@
 
 notify() {
   local text="$1"
-  if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
-    echo "[notifier] TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID not set -- no-op (this is the documented default, not an error)" >&2
-    return 0
+  local script_dir repo_root sender env_file
+  env_file="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+  if [ -f "$env_file" ]; then
+    set -a; . "$env_file" 2>/dev/null || true; set +a
   fi
-  curl -sS --max-time 10 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-    -d chat_id="${TELEGRAM_CHAT_ID}" \
-    --data-urlencode text="${text}" \
-    -o /dev/null -w '%{http_code}' | grep -q '^200$'
+  if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+    if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_ALERT_CHAT_ID:-}" ]; then
+      echo "[notifier] Telegram configuration not set -- no-op (this is the documented default, not an error)" >&2
+      return 0
+    fi
+  fi
+  script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  repo_root="$(cd "$script_dir/../../../.." && pwd)"
+  sender="$repo_root/skills/_shared/send-telegram.sh"
+  "$sender" "$text" "${TELEGRAM_CHAT_ID:-$TELEGRAM_ALERT_CHAT_ID}" >/dev/null
 }
 
 # Only run as a standalone CLI when NOT sourced (mirrors the `source ...; notify ...`

@@ -197,10 +197,6 @@ def _git(repo: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
             "git",
             "-C",
             str(repo),
-            "-c",
-            "user.email=anicca@aniccaai.com",
-            "-c",
-            "user.name=anicca",
             *arguments,
         ],
         env=environment,
@@ -246,14 +242,8 @@ def _raw_media_base(repo: Path) -> str:
     override = os.environ.get("ARTICLE_MEDIA_RAW_BASE", "").rstrip("/")
     if override:
         return override
-    commit_sha = _checked_git(repo, "rev-parse", "HEAD").strip()
-    if re.fullmatch(r"[0-9a-f]{40}", commit_sha) is None:
-        raise ZennCurrentRunRefused(
-            "Zenn post-push commit SHA is invalid"
-        )
-    return (
-        "https://raw.githubusercontent.com/"
-        f"Daisuke134/zenn-articles/{commit_sha}/images"
+    raise ZennCurrentRunRefused(
+        "ARTICLE_MEDIA_RAW_BASE is required for Zenn media"
     )
 
 
@@ -530,8 +520,12 @@ def main() -> int:
         child.add_argument(
             "--repo",
             type=Path,
-            default=Path.home()
-            / ".openclaw/workspace/zenn-articles",
+        default=Path(
+            os.environ.get(
+                "ZENN_REPO_PATH",
+                str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles"),
+            )
+        ),
         )
         if command == "publish":
             child.add_argument(

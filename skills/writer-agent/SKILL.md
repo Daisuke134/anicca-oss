@@ -2,7 +2,7 @@
 name: writer-agent
 description: Research, write, publish, monetize, measure, and improve evidence-backed articles on any subject that serves a concrete reader job. The running Agent selects cited demand, verifies claims, writes native Japanese and English, publishes across configured destinations, attributes received money, and operates without daily human approval. Goal: first verified writing revenue, then $10k monthly and $10k MRR with autonomous profitable scaling.
 metadata:
-  spec: ~/anicca-project/docs/writer-agent/WRITER-AGENT-SSOT.md
+  spec: docs/writer-agent/WRITER-AGENT-SSOT.md
   topic_queue_runtime: state/topics/queue/  # ★ canonical at runtime: select-next-topic.sh claims one card from here. The daily prompt calls this the only operational topic state.
   raw_ideas: state/raw-ideas/            # fallback candidates only, used when the runtime queue is empty
   topic_queue: state/topic-queue.md      # index over raw-ideas/ (human-readable summary only)
@@ -41,7 +41,7 @@ publishers actually pay. Writing about the loop itself is allowed only when an
 external reader job and new cited evidence make that subject useful; the
 Writer's own internal operation is never a default topic.
 
-This skill is the crystallized, repeatable version of the hand-crafted process used for the Automaton piece (`~/anicca-project/docs/articles/2026-06-11-automaton-jp.md`). It is meant to be ITERATED: every time we learn something about good writing, add it to the PLAYBOOK below.
+This skill is the crystallized, repeatable version of the hand-crafted Automaton article process. It is meant to be ITERATED: every time we learn something about good writing, add it to the PLAYBOOK below.
 
 ## The moat (why this is not AI slop)
 1. **Deepest search** — multi-source, primary-source, verified. Use **context7** for library/framework docs and **firecrawl** for web pages. Read the actual repo/code/spec, not summaries-of-summaries.
@@ -177,7 +177,7 @@ JP と EN の書き分けは `reference/title-best-practices.md` §2.5 が正本
 1. **冒頭に読者への約束を書く**（この記事を読むと何が分かるようになるか。「この記事でわかること」という自己言及フレームは禁止 — rule 52/65 のまま、約束は普通の文で書く）
 2. **構成は調査の時系列でなく読者の関心順**（「最初に確かめたかったのは」のような作業ログ順は禁止 — rule 41/65 と同じ理由）
 3. **jargon は初出で1行定義する。カタカナ化（バーチャルズ等）は翻訳であって定義ではない** — 初出の一文で「それが何をするものか」を言う（rule 2/51 の運用強化）
-4. **内輪文脈の漏出禁止** — Dais個人の発言引用、社内 spec 名、`~/.openclaw` 等の私物パス、社内チャットのやり取りを記事本文に出さない（rule 14 と同じ精神、対象を明確化）
+4. **内輪文脈の漏出禁止** — Dais個人の発言引用、社内 spec 名、private host path、社内チャットのやり取りを記事本文に出さない（rule 14 と同じ精神、対象を明確化）
 
 ## THE WRITING PLAYBOOK (generalized — apply to EVERY piece, keep adding)
 
@@ -197,7 +197,7 @@ JP と EN の書き分けは `reference/title-best-practices.md` §2.5 が正本
 11. **Don't kill gradations / nuance.** Show spectrums (e.g. how-much-human: A → B → hero at the end).
 12. **Reframe weak rhetorical questions** into the one the reader actually has ("how does it pay its own compute?" not "is AI already circulating money?").
 13. **No footnote-number anxiety.** Title footnotes by topic; reference gently/un-numbered ("…は記事末に補足").
-14. **Comparisons = EXTERNAL public docs of each item, never our private installs.** Research each thing's PUBLIC repo/docs (context7 per library/standard). NEVER read or cite our own ~/.openclaw, ~/.hermes, or any private instance state, and never name our own アニッチャ in the COMPARISON/landscape blocks (the ONE allowed place to name it is the closing [8] 最後に about-us/CTA). (Real failure 2026-06-16: compared harnesses by reading our private installs → wrong + had to redo.)
+14. **Comparisons = EXTERNAL public docs of each item, never our private installs.** Research each thing's PUBLIC repo/docs (context7 per library/standard). NEVER read or cite private runtime homes or instance state, and never name our own アニッチャ in the COMPARISON/landscape blocks (the ONE allowed place to name it is the closing [8] 最後に about-us/CTA). (Real failure 2026-06-16: compared harnesses by reading our private installs → wrong + had to redo.)
 15. **GENERALIZE.** These rules transfer to every future topic/repo. When a new lesson appears, append it here.
 
 2026-07-18 self-improve meta-improve addition (spec 47 §7, axis=lead, baseline_avg=8.0/20, experiment testing until 2026-07-25): Find real lead by deletion: read draft, locate first sentence doing real work (hard fact, stake, number reader could not write themselves). Cut everything above it — 70% of drafts bury lead 2-4 paragraphs in. Test it alone: would stranger read sentence two? If not, rewrite; don't pad with 'I hope this finds you well' or 'we are thrilled to announce.'
@@ -533,7 +533,7 @@ X, dev.to, and video surfaces use their own product/channel reward contracts; no
 ### note conversion preview derivative — always through the shared script
 Never hand-truncate. Generate with `scripts/_shared/make-free-version.py --markdown-file <original.md>
 --note-url <url> --price <int> --paid-contents "<有料側見出しの正確な名指し>" --summary-file <bullets.md>
---out <free.md>` (proven shape: `~/.cloak/note-work/2026-07-12-agent-economy-jp-x-free.md`). The agent writes
+--out <free.md>` (write the derivative under `$WRITER_STATE_DIR/note-work/`). The agent writes
 and hands in `--summary-file` (3-5 まとめ bullets, no slop) and `--paid-contents` — the script only cuts+assembles,
 mechanically, at `--after-chars` (default 2500, same as `note-publish/publish-paid.py`'s PAYWALL_AFTER_CHARS;
 re-measure per article, the default rarely matches where you actually want to cut — see the script's own docstring).
@@ -582,8 +582,8 @@ both directly (our 10k MRR) and by selling the engine.
    demotes "the first h3" can accidentally hit h2 — after demoting, RE-VERIFY h2 count == your big-title count
    and re-promote any wrongly-demoted title with `Meta+Alt+2` (大見出し). Verified on the Automaton article
    2026-06-24: 29 h3 → 0, auto-目次 = 10 big titles only.
-8. **All scripts + cookies + screenshots in REAL persistent files** (skill `scripts/note-publish/` + `~/.cloak/
-   note-work/`), NEVER /tmp (reboot/disk-cleanup wipes it mid-task). cookies = mock-keychain decrypt of the
+8. **All scripts + cookies + screenshots in REAL persistent files** (skill `scripts/note-publish/` +
+   `$WRITER_STATE_DIR/note-work/`), NEVER /tmp (reboot/disk-cleanup wipes it mid-task). cookies = mock-keychain decrypt of the
    daily-driver `Default/Cookies` via /opt/homebrew/bin/python3 (has `cryptography`).
 
 ## NOTE — DRAFTS OK / PUBLIC NEVER UNATTENDED (Dais 2026-06-24)
@@ -602,7 +602,7 @@ violation; only a PUBLIC post is.
   it wiped ~25 diagrams/tables once). Re-render the body from markdown (rebuild-note-body.py / note-stage).
 - ALWAYS verify after any structural body edit BEFORE publishing: editor img count + screenshot every section
   + Read them. Image count dropped → STOP, do not publish.
-- Persistent assets only: render tables (HTML→PNG) + mermaid (kroki) to ~/.cloak/note-work/automaton-assets,
+- Persistent assets only: render tables (HTML→PNG) + mermaid (kroki) to `$WRITER_STATE_DIR/note-work/<slug>-assets`,
   NEVER /tmp. rebuild-note-body.py uploads them and places each at its @@TBLn@@/@@FIGn@@/@@FUNDn@@ marker.
 
 ## ★ ONE-SHOT NOTE PUBLISH PIPELINE (canonical order — get the clean state on the FIRST pass) ★ (2026-06-24)
@@ -611,8 +611,8 @@ The broken multi-day session happened because steps were scattered/ad-hoc + a ke
   0. WRITE (writer-agent) emits markdown with: `##` = section titles ONLY (these become the auto-目次);
      sub-points = `**bold**`, NEVER `###` (so the auto-目次 stays short); NO in-article infographic; tables as
      markdown, diagrams as ```mermaid; setup screenshots as ![](images/automaton/<file>.png).
-  1. cookies: extract from the daily-driver profile → ~/.cloak/note-work/note-cookies.json (NEVER /tmp).
-  2. render assets → ~/.cloak/note-work/<slug>-assets/ : each markdown table → PNG (HTML, uniform 1080px width),
+  1. cookies: extract from the daily-driver profile → `$WRITER_STATE_DIR/note-work/note-cookies.json` (NEVER /tmp).
+  2. render assets → `$WRITER_STATE_DIR/note-work/<slug>-assets/` : each markdown table → PNG (HTML, uniform 1080px width),
      each ```mermaid → kroki PNG. Persistent dir, NEVER /tmp.
   3. rebuild-note-body.py: upload every asset, place at its @@TBLn@@/@@FIGn@@/@@FUNDn@@ marker; NO infographic,
      NO body-hero; update_article (DRAFT). (This is the image-safe path — do structure in markdown, not the editor.)
@@ -628,7 +628,7 @@ image-count verify. The scripts are still Automaton-hardcoded — parameterize (
 
 ## ★ ZENN ONE-SHOT PUBLISH (git-based sibling of the note pipeline) ★ (2026-06-24, built+verified)
 Zenn = funnel（正本）: 全文無料を恒久維持。役割は発見面と信頼構築、note/Substack subscription への導線。常に有料化対象ではない。
-Scripts: scripts/zenn-publish/ (zenn-adapt.py + publish-to-zenn.sh). Zenn = `git push` to the configured Zenn articles repo (remote comes from ZENN_REPO_PATH; never write the operator's handle into an article)
+Scripts: scripts/zenn-publish/ (zenn-adapt.py + publish-to-zenn.sh). Zenn = `git push` to the configured Zenn articles repo. The checkout is Life Manager-managed at `$WRITER_STATE_DIR/checkouts/zenn-articles`; its remote and public identity come from `ZENN_REPOSITORY_URL` and `ZENN_ACCOUNT` (never write the operator's handle into an article).
 (SSH remote, NO inline PAT) deploys the article; mermaid + markdown tables render NATIVELY (NO image upload).
 The article is a FREE HONEST explainer — it must NEVER claim a run/result (that lives only in the paid note).
   1. ADAPT (zenn-adapt.py): source md → zenn md. Frontmatter (single emoji, type tech/idea, ≤5 topics, stable

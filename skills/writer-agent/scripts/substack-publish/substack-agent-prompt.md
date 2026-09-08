@@ -4,7 +4,7 @@ oversized image go public. A deterministic script does the hands; YOU are the ey
 important thing you do is LOOK at the rendered preview with your own vision and judge it before anything is published.
 
 Tools: Bash, Read, Write, Edit. Scripts in $ARTICLE_ROOT/scripts/substack-publish/ .
-Data/screenshots in ~/.cloak/note-work/. The preview is read on the daily-driver via CDP :9222 (never close it).
+Data/screenshots in $WRITER_STATE_DIR/note-work/. The preview is read on the daily-driver via CDP :9222 (never close it).
 
 INPUTS at the end (MD, TITLE, PAID_FROM, AUTONOMY).
 
@@ -18,7 +18,7 @@ LOOP:
 3. Verify the REAL preview:
    `$ARTICLE_ROOT/scripts/substack-publish/publish-to-substack.sh verify <DRAFT_ID>`
    → opens the actual Substack desktop preview, measures every image px, exits nonzero on any >950, screenshots to
-   ~/.cloak/note-work/preview-<DRAFT_ID>.png. Note the path + the printed sizes (a nonzero exit = oversized = FAIL).
+   $WRITER_STATE_DIR/note-work/preview-<DRAFT_ID>.png. Note the path + the printed sizes (a nonzero exit = oversized = FAIL).
 4. ★ LOOK ★: Read the preview screenshot. Judge each CHECKLIST item and cite what you see:
    SUBSTACK VERIFY CHECKLIST:
    - every body image ≤ ~950px on screen — NO image fills the whole page (substack stretches all imgs to the 728px

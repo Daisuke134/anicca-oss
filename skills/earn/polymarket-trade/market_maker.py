@@ -10,8 +10,6 @@ Fee-aware; only quotes bundles with a positive margin. Fail-closed.
 import os, json, sys
 import requests
 from eth_account import Account
-from dotenv import load_dotenv
-load_dotenv("/home/life-manager/.anicca-founder/agents/polymarket-agent/.env")
 
 KEY=os.getenv("POLYGON_WALLET_PRIVATE_KEY"); KEY=KEY if KEY.startswith("0x") else "0x"+KEY
 acct=Account.from_key(KEY); ADDR=acct.address

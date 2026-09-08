@@ -7,11 +7,12 @@ import argparse
 import hashlib
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from writer_report_worker import telegram_api_transport
 
 
 Transport = Callable[[str], str]
@@ -204,35 +205,8 @@ def deliver(
     return sent
 
 
-def openclaw_transport(target: str) -> Transport:
-    if not target:
-        raise ValueError("Telegram target is required")
-
-    def send(message: str) -> str:
-        result = subprocess.run(
-            [
-                "openclaw",
-                "message",
-                "send",
-                "--channel",
-                "telegram",
-                "--target",
-                target,
-                "--message",
-                message,
-                "--json",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        payload = json.loads(result.stdout)
-        message_id = str(payload.get("messageId", "")).strip()
-        if payload.get("dryRun") is True or not message_id:
-            raise RuntimeError("OpenClaw returned no Telegram message receipt")
-        return message_id
-
-    return send
+def writer_telegram_transport(target: str) -> Transport:
+    return telegram_api_transport(target)
 
 
 def main() -> int:
@@ -260,7 +234,7 @@ def main() -> int:
         transport = (
             (lambda _message: str(args.fixture_receipt))
             if args.fixture_receipt
-            else openclaw_transport(args.target)
+            else writer_telegram_transport(args.target)
         )
         result = deliver(outbox, event, transport)
     except (
@@ -268,7 +242,6 @@ def main() -> int:
         ValueError,
         RuntimeError,
         json.JSONDecodeError,
-        subprocess.CalledProcessError,
     ) as error:
         print(f"self-improve notification pending: {error}", file=sys.stderr)
         return 75

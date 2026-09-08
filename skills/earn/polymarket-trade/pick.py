@@ -27,7 +27,6 @@ Env (all optional, defaults shown — self-improve loop tunes these, spec §4):
   MAX_BET_SIZE=2           USD hard cap on the sized bet (money-safety, #26/#28)
   MAX_CANDIDATES=5         how many resolve-soonest candidates to run
                            consensus+whale analysis on (cost bound, not judgment)
-  PM_TRADE_AGENT_HOME      override for the base agent home (default below)
 
 Output: exactly one line of JSON on the REAL stdout (guaranteed clean — see below).
   qualifying candidate found ->
@@ -62,21 +61,14 @@ def _emit(obj):
     print(json.dumps(obj), file=_REAL_STDOUT, flush=True)
 
 
-AGENT_HOME = os.environ.get(
-    "PM_TRADE_AGENT_HOME",
-    os.path.expanduser("~/.anicca-founder/agents/polymarket-agent"),
-)
-sys.path.insert(0, AGENT_HOME)
+VENDOR_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor", "polymarket_agent_src")
+sys.path.insert(0, VENDOR_ROOT)
 
 with contextlib.redirect_stdout(sys.stderr):
-    from dotenv import load_dotenv  # noqa: E402
-
-    load_dotenv(os.path.join(AGENT_HOME, ".env"))
-
-    from src.market.polymarket import fetch_active_markets  # noqa: E402
-    from src.analysis.ai_analyzer import get_analyzer  # noqa: E402
-    from src.signals.trades import get_smart_money_summary  # noqa: E402
-    from src.utils.kelly import KellyCriterion  # noqa: E402
+    from market.polymarket import fetch_active_markets  # noqa: E402
+    from analysis.ai_analyzer import get_analyzer  # noqa: E402
+    from signals.trades import get_smart_money_summary  # noqa: E402
+    from utils.kelly import KellyCriterion  # noqa: E402
 
     # Lives next to this file (the skill dir), not in the vendored agent tree.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

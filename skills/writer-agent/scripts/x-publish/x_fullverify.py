@@ -1,6 +1,9 @@
 import os,time,sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from writer_runtime_paths import note_work_dir
 from playwright.sync_api import sync_playwright
-W=os.path.expanduser("~/.cloak/note-work")
+W=str(note_work_dir())
 DRAFT=sys.argv[1] if len(sys.argv)>1 else "https://x.com/compose/articles/edit/2070058979993010176"
 MAX_H=int(sys.argv[2]) if len(sys.argv)>2 else 650   # X col=587px; a readable diagram tops out ~601px
 MIN_H=110                                            # <110 = diagram squished flat → text microscopic

@@ -21,10 +21,10 @@
 # so the fix is just pointing this seller's advertised URL at that node instead of running a second,
 # broken tunnel of its own.
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 # load CDP facilitator creds (existing account, same as the other boot scripts) — never echoed
-set -a; . /Users/anicca/.openclaw/.env 2>/dev/null || true; set +a
-# .openclaw/.env injects ANICCA_HOME=~/.openclaw + BLOCKRUN_WALLET_KEY=0xB9dd (machine-legacy), which
+# A shared legacy env can inject the wrong ANICCA_HOME and BLOCKRUN_WALLET_KEY, which
 # made the resale route pay the upstream (Exa) from 0xB9dd instead of franklin1 (measured 2026-07-18:
 # franklin1 got the sale, 0xB9dd paid Exa — wrong wallet). This store IS franklin1: force its identity
 # so resolve-identity() derives franklin1's own key (0x3EcCAD24) for upstream payments + float guard.

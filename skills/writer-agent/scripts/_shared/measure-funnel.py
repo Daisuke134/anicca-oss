@@ -103,9 +103,9 @@ def measure_x(entry: dict) -> dict:
     if not handle:
         return {"error": "no 'handle' in manifest entry -- X status URL needs it"}
     url = entry.get("live_url") or f"https://x.com/{handle}/status/{status_id}"
-    vc = os.path.expanduser("~/.openclaw/skills/_shared/venv-cloak/bin/python3")
+    vc = os.environ.get("WRITER_BROWSER_PYTHON", sys.executable)
     if not os.path.exists(vc):
-        return {"error": f"venv-cloak python not found at {vc}"}
+        return {"error": f"Writer browser Python not found at {vc}"}
     script = f"""
 import sys, time
 from playwright.sync_api import sync_playwright
@@ -149,8 +149,10 @@ def measure_substack(entry: dict) -> dict:
     post_id = entry["id"]
     cookie = os.environ.get("SUBSTACK_SESSION_COOKIE", "")
     if not cookie:
-        return {"error": "SUBSTACK_SESSION_COOKIE missing (source ~/.openclaw/.env first)"}
-    pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+        return {"error": "SUBSTACK_SESSION_COOKIE missing (configure LIFE_MANAGER_ENV_FILE first)"}
+    pub = (os.environ.get("SUBSTACK_PUBLICATION_JA") or os.environ.get("SUBSTACK_PUBLICATION", "")).strip()
+    if not pub:
+        return {"error": "SUBSTACK_PUBLICATION missing (configure LIFE_MANAGER_ENV_FILE first)"}
     data = http_get_json(f"https://{pub}/api/v1/drafts/{post_id}", headers={"Cookie": cookie})
     if not data:
         return {"error": f"{pub}/api/v1/drafts/{post_id} unreachable or malformed response"}

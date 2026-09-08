@@ -35,6 +35,15 @@ class ScheduledRunnerTests(unittest.TestCase):
                 if len(command) > 1 and command[1].endswith((".py", ".sh")):
                     self.assertTrue(pathlib.Path(command[1]).exists())
 
+    def test_dashboard_uses_repository_owned_cli(self):
+        command = scheduled_runner.resolve_command(
+            scheduled_runner.load_registry()["dashboard"]["command"]
+        )
+        self.assertEqual(
+            pathlib.Path(command[0]).resolve(),
+            scheduled_runner.REPO_ROOT / "marketing/engine/bin/marketing",
+        )
+
     def test_managed_loop_defaults_are_outside_the_immutable_release(self):
         state, evidence = scheduled_runner.default_roots({
             "LIFE_MANAGER_STATE_ROOT": "/tmp/marketing-dashboard",

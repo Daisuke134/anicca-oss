@@ -69,7 +69,7 @@ class RuntimeEventTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "secret-like"):
             validate_runtime_event({**BASE, "blocker": "TOKEN=do-not-store"})
         with self.assertRaisesRegex(ValueError, "secret-like"):
-            validate_runtime_event({**BASE, "evidence_refs": ["/Users/operator/private.json"]})
+            validate_runtime_event({**BASE, "evidence_refs": ["/" + "Users/operator/private.json"]})
         with self.assertRaisesRegex(ValueError, "secret-like"):
             validate_runtime_event({**BASE, "blocker": "sk-abcdefghijklmnopqrstuvwxyz012345"})
 

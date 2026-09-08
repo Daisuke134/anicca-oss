@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """measure-sales.py — measures REAL, currently-displayed sales/revenue figures for note and
 Substack by driving the CloakBrowser daily-driver over CDP. Same convention as
-scripts/_shared/measure-funnel.py's measure_x: playwright.sync_api run via
-~/.openclaw/skills/_shared/venv-cloak/bin/python3 as a subprocess, connect_over_cdp to the
+scripts/_shared/measure-funnel.py's measure_x: playwright.sync_api run via the
+Life Manager managed Python as a subprocess, connect_over_cdp to the
 ALREADY-LOGGED-IN daily-driver profile. A fresh new tab is opened for the measurement and ALWAYS
 closed afterward -- the shared daily-driver's other existing tabs are never touched, same
 discipline as render-verify-draft.sh ("never leave a stray tab on the shared daily-driver").
@@ -73,7 +73,7 @@ DEFAULT_STATE_DIR = Path(
     os.environ.get("ARTICLE_STATE_DIR", os.environ.get("WRITER_STATE_DIR", Path(__file__).resolve().parents[1] / "state"))
 )
 DEFAULT_OUT = str(DEFAULT_STATE_DIR / "sales-ledger.jsonl")
-VENV_CLOAK_PYTHON = os.path.expanduser("~/.openclaw/skills/_shared/venv-cloak/bin/python3")
+VENV_CLOAK_PYTHON = os.environ.get("WRITER_BROWSER_PYTHON", sys.executable)
 
 NOTE_SALES_URL = "https://note.com/sitesettings/salesmanage"
 NOTE_PURCHASES_URL = "https://note.com/sitesettings/purchasers"
@@ -83,7 +83,7 @@ JST = timezone(timedelta(hours=9))
 
 def run_browser_script(script: str, timeout: int = 90) -> subprocess.CompletedProcess:
     if not os.path.exists(VENV_CLOAK_PYTHON):
-        raise FileNotFoundError(f"venv-cloak python not found at {VENV_CLOAK_PYTHON}")
+        raise FileNotFoundError(f"Writer browser Python not found at {VENV_CLOAK_PYTHON}")
     return subprocess.run([VENV_CLOAK_PYTHON, "-c", script], capture_output=True, text=True, timeout=timeout)
 
 
@@ -98,7 +98,7 @@ def extract_payload(proc: subprocess.CompletedProcess) -> dict:
         reason = next(l for l in proc.stdout.splitlines() if l.startswith("CDP_UNREACHABLE:"))
         return {"error": f"browser DOM read failed: {reason}"}
     if "NOTE_PASSWORD_MISSING" in proc.stdout:
-        return {"error": "NOTE_PASSWORD missing (source ~/.openclaw/.env first)"}
+        return {"error": "NOTE_PASSWORD missing (configure LIFE_MANAGER_ENV_FILE first)"}
     reason = proc.stdout.strip() or proc.stderr.strip()[-300:] or "no PAYLOAD_B64 line and no recognizable error prefix"
     return {"error": f"browser DOM read failed: {reason}"}
 
@@ -191,7 +191,9 @@ finally:
 def measure_substack_pages(cdp_port: int) -> dict:
     """Same shape as measure_note_pages: one new tab, two page loads (overview home + earnings
     stats), raw body text handed back to the parent for regex parsing."""
-    pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+    pub = (os.environ.get("SUBSTACK_PUBLICATION_JA") or os.environ.get("SUBSTACK_PUBLICATION", "")).strip()
+    if not pub:
+        return {"error": "SUBSTACK_PUBLICATION missing (configure LIFE_MANAGER_ENV_FILE first)"}
     home_url = f"https://{pub}/publish/home"
     earnings_url = f"https://{pub}/publish/stats/earnings"
     script = f"""
@@ -624,7 +626,7 @@ def main(argv: list[str] | None = None) -> int:
             NOTE_SALES_URL,
         )
         rows += unknown_note_view_rows(note_artifacts, reason)
-    substack_pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+    substack_pub = (os.environ.get("SUBSTACK_PUBLICATION_JA") or os.environ.get("SUBSTACK_PUBLICATION", "")).strip()
     rows += measure_platform(
         "substack",
         [

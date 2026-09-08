@@ -2,7 +2,7 @@
 # ensure-browser.sh — generic CDP-browser watchdog (spec #70b, OSS self-containment).
 #
 # Bundled, pluggable alternative to the Anicca-instance-specific
-# ~/anicca/skills/browser/ensure_browser.sh, which depends on CloakBrowser (a private,
+# the legacy private browser watchdog, which depends on CloakBrowser (a private,
 # stealth-focused Chromium fork that is NOT part of this OSS repo) plus three more
 # helper scripts (session_vault.py / cdp_context_lease.py / cdp_tab_gc.py) for cookie
 # session recovery and idle-tab garbage collection. Those are legitimate needs for a
@@ -20,9 +20,8 @@
 #   BROWSER_PROFILE_DIR (default ~/.article-loop-browser-profile) -- MUST be a persistent
 #     user-data-dir, not a fresh one every run: the publish scripts in this repo assume
 #     an already-logged-in session (note/zenn/substack/x/devto cookies), and a blank
-#     profile has none. Log in by hand once with this exact profile dir before the loop
-#     runs unattended, or point it at a profile #64impl's self-signup bootstrap already
-#     created for you.
+#     profile has none. Provision this persistent profile through the repository-owned
+#     browser runtime and log in once before the loop runs unattended.
 #
 # Usage: bash ensure-browser.sh   -> prints ALIVE (already up) / RECOVERED (relaunched) /
 #                                     FAILED (could not confirm a live CDP endpoint)

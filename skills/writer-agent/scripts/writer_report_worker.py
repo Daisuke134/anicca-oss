@@ -25,6 +25,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from writer_report import JST, build_snapshot, render_html, render_message  # noqa: E402
+from writer_runtime_paths import life_manager_env_file  # noqa: E402
 
 
 Transport = Callable[[str], str]
@@ -176,11 +177,14 @@ def _env_value(path: Path, key: str) -> str:
 
 
 def telegram_api_transport(
-    target: str, *, env_file: Path = Path.home() / ".openclaw/.env",
+    target: str, *, env_file: Path | None = None,
 ) -> Transport:
     if not target:
         raise ValueError("Telegram target is required")
-    token = _env_value(env_file, "TELEGRAM_BOT_TOKEN")
+    configured_env = env_file or life_manager_env_file()
+    token = _env_value(configured_env, "LM_TELEGRAM_BOT_TOKEN")
+    if not token:
+        token = _env_value(configured_env, "TELEGRAM_BOT_TOKEN")
     if not token:
         raise RuntimeError("Telegram Bot API token is unavailable")
     endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -436,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fixture-receipt", help=argparse.SUPPRESS)
     parser.add_argument(
         "--telegram-env", type=Path,
-        default=Path.home() / ".openclaw/.env", help=argparse.SUPPRESS,
+        default=life_manager_env_file(), help=argparse.SUPPRESS,
     )
     parser.add_argument("--now")
     args = parser.parse_args(argv)

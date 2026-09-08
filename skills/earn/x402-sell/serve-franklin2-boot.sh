@@ -14,9 +14,9 @@
 # reason; franklin2 had an inflow-watcher (ai.anicca.x402-inflow-watch-franklin2) expecting a
 # seller to exist, but no seller-boot job was ever created. This completes that pattern.
 set -u
-DIR=/Users/anicca/anicca/skills/earn/x402-sell
+source "$(dirname "$0")/runtime-env.sh"
+DIR="$X402_SKILL_DIR"
 # load CDP facilitator creds (existing account, same as the other two boot scripts) — never echoed
-set -a; . /Users/anicca/.openclaw/.env 2>/dev/null || true; set +a
 # force franklin2's identity (see serve-franklin1-boot.sh: .openclaw/.env injects the wrong home+key)
 export ANICCA_HOME="$HOME/.franklin2-home/.blockrun"
 unset BLOCKRUN_WALLET_KEY

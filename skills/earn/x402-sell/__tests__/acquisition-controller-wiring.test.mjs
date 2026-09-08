@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 test('acquisition controller is a five-minute one-shot LaunchAgent with a private action log', () => {
   const runner = readFileSync(new URL('../acquisition-controller.mjs', import.meta.url), 'utf8');
   const boot = readFileSync(new URL('../acquisition-controller-boot.sh', import.meta.url), 'utf8');
-  const plist = readFileSync(new URL('../launchd/ai.anicca.x402-acquisition-controller.plist', import.meta.url), 'utf8');
+  const registry = JSON.parse(readFileSync(new URL('../../../../config/loop-registry.json', import.meta.url), 'utf8'));
+  const job = registry.loops['x402-acquisition-controller'];
 
   assert.match(runner, /runAcquisitionCycle/);
   assert.match(runner, /the402-inbox\.sqlite/);
@@ -13,8 +14,8 @@ test('acquisition controller is a five-minute one-shot LaunchAgent with a privat
   assert.match(runner, /0o600/);
   assert.doesNotMatch(runner, /Moltbook|posts\/.*comments|create.*post/i);
   assert.match(boot, /exec \/usr\/bin\/env node "\$DIR\/acquisition-controller\.mjs"/);
-  assert.match(plist, /<string>ai\.anicca\.x402-acquisition-controller<\/string>/);
-  assert.match(plist, /<key>RunAtLoad<\/key><true\/>/);
-  assert.match(plist, /<key>StartInterval<\/key><integer>300<\/integer>/);
-  assert.doesNotMatch(plist, /<key>KeepAlive<\/key>/);
+  assert.equal(job.label, 'ai.anicca.x402-acquisition-controller');
+  assert.equal(job.entrypoint, 'skills/earn/x402-sell/acquisition-controller-boot.sh');
+  assert.equal(job.cadence.start_interval_seconds, 300);
+  assert.equal(job.cadence.keep_alive, undefined);
 });

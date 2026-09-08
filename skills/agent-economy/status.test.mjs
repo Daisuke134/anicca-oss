@@ -47,7 +47,7 @@ test("status sums verified external net, compute, and shelter costs over the las
   assert.equal(result.graduation.eligible, true);
 });
 
-test("status counts compute receipt cost_usdc and defaults to the instance journal", () => {
+test("status counts compute receipt cost_usdc and defaults to the Life Manager journal", () => {
   const result = summarizeEconomyStatus({
     nowMs: NOW,
     earnRows: [],
@@ -57,12 +57,12 @@ test("status counts compute receipt cost_usdc and defaults to the instance journ
   });
   assert.equal(result.compute_cost_30d, 0.002);
   const paths = resolveStatusPaths({
-    env: { ANICCA_HOME: "/tmp/agent-economy-instance", HOME: "/tmp/owner" },
+    env: { HOME: "/tmp/owner" },
   });
-  assert.equal(paths.computePath, "/tmp/agent-economy-instance/.blockrun/compute-receipts.jsonl");
+  assert.equal(paths.computePath, "/tmp/owner/.local/state/life-manager/agent-economy/compute-receipts.jsonl");
   const overridden = resolveStatusPaths({
     env: {
-      ANICCA_HOME: "/tmp/agent-economy-instance", HOME: "/tmp/owner",
+      HOME: "/tmp/owner",
       COMPUTE_COST_LOG: "/tmp/explicit-compute.jsonl",
     },
   });
@@ -99,6 +99,10 @@ test("canonical receipt journal rows are consumed by status", async () => {
   await reconcileRevenueReceipts({ journalPath, receipts: [normalizeRevenueReceipt({
     ...VERIFIED,
     gross: "2.000000",
+    gross_decimal: undefined,
+    fee_decimal: undefined,
+    refund_decimal: undefined,
+    signed_net_decimal: undefined,
     proof: { provider_receipt_id: "status-flow-1", verified: true },
     idempotency_key: undefined,
     signed_net: undefined,
@@ -128,6 +132,10 @@ test("inbox -> reconcile CLI -> journal -> status CLI is replay-zero", async () 
       schema_version: undefined,
       kind: undefined,
       signed_net: undefined,
+      gross_decimal: undefined,
+      fee_decimal: undefined,
+      refund_decimal: undefined,
+      signed_net_decimal: undefined,
       idempotency_key: undefined,
       gross: "2.000000",
       proof: { provider_receipt_id: "subprocess-flow-1", verified: true },
@@ -143,7 +151,7 @@ test("inbox -> reconcile CLI -> journal -> status CLI is replay-zero", async () 
   assert.equal((await readFile(journalPath, "utf8")).trim().split("\n").length, 1);
   const status = JSON.parse((await execFileAsync(process.execPath, ["skills/agent-economy/status.mjs", ledgerPath, correctionPath, computePath, shelterPath, journalPath], { cwd: process.cwd(), timeout: 5_000, env: { ...process.env, ANICCA_HOME: home, HOME: home } })).stdout.trim());
   assert.equal(status.external_realized_net_30d, 2);
-  const run = JSON.parse((await execFileAsync("bash", ["skills/agent-economy/run.sh"], { cwd: process.cwd(), timeout: 5_000, env: { ...process.env, ANICCA_HOME: home, HOME: home } })).stdout.trim());
+  const run = JSON.parse((await execFileAsync("bash", ["skills/agent-economy/run.sh"], { cwd: process.cwd(), timeout: 5_000, env: { ...process.env, AGENT_ECONOMY_STATE_ROOT: state, HOME: home } })).stdout.trim());
   assert.equal(run.external_realized_net_30d, 2);
   assert.equal((await readFile(journalPath, "utf8")).trim().split("\n").length, 1);
 });
@@ -210,9 +218,9 @@ test("reconcile CLI errors contain only a stable class, never candidate values",
   );
 });
 
-test("status discovers its ledger from ANICCA_HOME when no paths are supplied", async () => {
+test("status discovers its ledger from AGENT_ECONOMY_STATE_ROOT when no paths are supplied", async () => {
   const home = await mkdtemp(join(tmpdir(), "agent-economy-status-home-"));
-  const state = join(home, "skills", "earn", "state");
+  const state = join(home, "agent-economy");
   await mkdir(state, { recursive: true });
   await writeFile(join(state, "earn-ledger.jsonl"), `${JSON.stringify(VERIFIED)}\n`);
   await writeFile(join(state, "revenue-receipts.jsonl"), "");
@@ -220,20 +228,17 @@ test("status discovers its ledger from ANICCA_HOME when no paths are supplied", 
   const result = JSON.parse((await execFileAsync(process.execPath, ["skills/agent-economy/status.mjs"], {
     cwd: process.cwd(),
     timeout: 5_000,
-    env: { ...process.env, ANICCA_HOME: home },
+    env: { ...process.env, AGENT_ECONOMY_STATE_ROOT: state, HOME: home },
   })).stdout.trim());
   assert.equal(result.external_realized_net_30d, 15);
 });
 
-test("status discovers compute from the instance journal and shelter from the owner default", async () => {
+test("status discovers compute and shelter from the shared Life Manager state", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-economy-status-owner-"));
-  const home = join(root, "instance-home");
-  const state = join(home, "skills", "earn", "state");
-  const ownerCompute = join(home, ".blockrun", "compute-receipts.jsonl");
-  const ownerShelter = join(root, ".hermes", "state", "shelter-cost.jsonl");
+  const state = join(root, "life-manager", "agent-economy");
+  const ownerCompute = join(state, "compute-receipts.jsonl");
+  const ownerShelter = join(state, "shelter-cost.jsonl");
   await mkdir(state, { recursive: true });
-  await mkdir(join(home, ".blockrun"), { recursive: true });
-  await mkdir(join(root, ".hermes", "state"), { recursive: true });
   await Promise.all([
     writeFile(join(state, "earn-ledger.jsonl"), ""),
     writeFile(join(state, "revenue-receipts.jsonl"), ""),
@@ -243,15 +248,17 @@ test("status discovers compute from the instance journal and shelter from the ow
   const result = JSON.parse((await execFileAsync(process.execPath, ["skills/agent-economy/status.mjs"], {
     cwd: process.cwd(),
     timeout: 5_000,
-    env: { ...process.env, HOME: root, ANICCA_HOME: home },
+    env: { ...process.env, HOME: root, AGENT_ECONOMY_STATE_ROOT: state },
   })).stdout.trim());
   assert.equal(result.compute_cost_30d, 6);
   assert.equal(result.shelter_cost_30d, 4);
 });
 
-test("status with neither explicit paths nor ANICCA_HOME exits 2 with a stable secret-free config diagnostic", async () => {
+test("status with neither explicit paths nor a state root exits 2 with a stable secret-free config diagnostic", async () => {
   const env = { ...process.env };
-  delete env.ANICCA_HOME;
+  delete env.HOME;
+  delete env.LIFE_MANAGER_STATE_ROOT;
+  delete env.AGENT_ECONOMY_STATE_ROOT;
   await assert.rejects(
     () => execFileAsync(process.execPath, ["skills/agent-economy/status.mjs"], {
       cwd: process.cwd(),
@@ -264,18 +271,16 @@ test("status with neither explicit paths nor ANICCA_HOME exits 2 with a stable s
   );
 });
 
-test("status rejects ANICCA_HOME discovery without owner HOME or explicit cost ledgers", () => {
+test("status rejects discovery without HOME or an explicit state root", () => {
   assert.throws(
-    () => resolveStatusPaths({ env: { ANICCA_HOME: "/tmp/instance-only" } }),
+    () => resolveStatusPaths({ env: {} }),
     (error) => error?.code === "STATUS_CONFIG_MISSING",
   );
 });
 
-test("status rejects an explicit earn path without explicit compute and shelter paths when ANICCA_HOME is absent", () => {
-  assert.throws(
-    () => resolveStatusPaths({ args: ["/tmp/earn-ledger.jsonl"], env: { HOME: "/tmp/owner" } }),
-    (error) => error?.code === "STATUS_CONFIG_MISSING",
-  );
+test("status combines an explicit earn path with the standard cost paths", () => {
+  const standard = resolveStatusPaths({ args: ["/tmp/earn-ledger.jsonl"], env: { HOME: "/tmp/owner" } });
+  assert.equal(standard.computePath, "/tmp/owner/.local/state/life-manager/agent-economy/compute-receipts.jsonl");
   const paths = resolveStatusPaths({
     args: ["/tmp/earn-ledger.jsonl"],
     env: { COMPUTE_COST_LOG: "/tmp/compute.jsonl", SHELTER_COST_LEDGER: "/tmp/shelter.jsonl" },
@@ -285,12 +290,11 @@ test("status rejects an explicit earn path without explicit compute and shelter 
   assert.equal(paths.shelterPath, "/tmp/shelter.jsonl");
 });
 
-test("run.sh counts cost_usdc from the instance-scoped compute journal by default", async () => {
+test("run.sh counts cost_usdc from the Life Manager compute journal by default", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-economy-run-instance-compute-"));
-  const state = join(root, "skills", "earn", "state");
-  const instanceCompute = join(root, ".blockrun", "compute-receipts.jsonl");
+  const state = join(root, "agent-economy");
+  const instanceCompute = join(state, "compute-receipts.jsonl");
   const owner = join(root, "owner-home");
-  await mkdir(join(root, ".blockrun"), { recursive: true });
   await mkdir(state, { recursive: true });
   await Promise.all([
     writeFile(join(state, "earn-ledger.jsonl"), ""),
@@ -299,7 +303,7 @@ test("run.sh counts cost_usdc from the instance-scoped compute journal by defaul
     writeFile(join(state, "revenue-receipts.jsonl"), ""),
     writeFile(instanceCompute, `${JSON.stringify({ ts: Date.now() / 1000, cost_usdc: 0.002 })}\n`),
   ]);
-  const env = { ...process.env, ANICCA_HOME: root, HOME: owner };
+  const env = { ...process.env, AGENT_ECONOMY_STATE_ROOT: state, HOME: owner };
   delete env.COMPUTE_COST_LOG;
   delete env.SHELTER_COST_LEDGER;
   const result = JSON.parse((await execFileAsync("bash", ["skills/agent-economy/run.sh"], {

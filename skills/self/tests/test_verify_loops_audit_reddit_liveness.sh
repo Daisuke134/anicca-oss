@@ -18,8 +18,9 @@ setup(){
   FAKE_SELF="$(mktemp -d)"
   FAKE_HOME="$(mktemp -d)"
   FAKE_BIN="$(mktemp -d)"
+  REDDIT_STATE="$FAKE_HOME/.local/state/life-manager/reddit/state"
   mkdir -p "$FAKE_HOME/.openclaw/state" "$FAKE_HOME/.openclaw/logs" \
-           "$FAKE_SELF/reddit-loop/state" "$FAKE_SELF/life-manager-loop/state"
+           "$REDDIT_STATE" "$FAKE_SELF/life-manager-loop/state"
 
   cat > "$FAKE_SELF/verify-loops.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -64,12 +65,12 @@ run(){
   # VERIFY_LOOPS_AUDIT_CURL_BIN: the script's own PATH= line always puts the REAL system curl
   # ahead of anything a test could put on PATH, so this test-only seam (added alongside the fix)
   # is the only reliable way to stub the HTTP outcome without hitting the real network.
-  HOME="$FAKE_HOME" VERIFY_LOOPS_SELF_DIR="$FAKE_SELF" VERIFY_LOOPS_AUDIT_CURL_BIN="$FAKE_BIN/fake-curl" bash "$REAL_SCRIPT" >/dev/null 2>&1
+  HOME="$FAKE_HOME" REDDIT_STATE_DIR="$REDDIT_STATE" VERIFY_LOOPS_SELF_DIR="$FAKE_SELF" VERIFY_LOOPS_AUDIT_CURL_BIN="$FAKE_BIN/fake-curl" bash "$REAL_SCRIPT" >/dev/null 2>&1
 }
 
 # --- scenario 1: FRESH posts.jsonl (mtime=now, stale_hrs<30) + curl LIVE(200) -> NO escalation ---
 setup; mkroot
-echo '{"url": "https://old.reddit.com/r/test/comments/live/x/"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+echo '{"url": "https://old.reddit.com/r/test/comments/live/x/"}' > "$REDDIT_STATE/posts.jsonl"
 fake_curl 200
 run
 [ "$(reddit_call_count)" = 0 ] && ok "fresh + LIVE(200) -> 0 reddit self-fix calls (no false escalation)" \
@@ -79,7 +80,7 @@ rm -rf "$FAKE_SELF" "$FAKE_HOME" "$FAKE_BIN"
 # --- scenario 2 (THE FIX): FRESH posts.jsonl (stale_hrs<30, would NOT escalate under the old
 # stale_hrs-only condition) + curl DEAD(403, the real reddit incident) -> escalation MUST fire ---
 setup; mkroot
-echo '{"url": "https://old.reddit.com/r/test/comments/dead/x/"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+echo '{"url": "https://old.reddit.com/r/test/comments/dead/x/"}' > "$REDDIT_STATE/posts.jsonl"
 fake_curl 403
 run
 [ "$(reddit_call_count)" = 1 ] && ok "fresh + DEAD(403) -> 1 reddit self-fix call (the fix: OR liveurl==DEAD)" \
@@ -89,9 +90,9 @@ rm -rf "$FAKE_SELF" "$FAKE_HOME" "$FAKE_BIN"
 # --- scenario 3 (pre-existing behavior preserved): STALE posts.jsonl (mtime old, stale_hrs>=30)
 # + curl LIVE(200) -> escalation still fires via the stale_hrs arm ---
 setup; mkroot
-echo '{"url": "https://old.reddit.com/r/test/comments/stale/x/"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+echo '{"url": "https://old.reddit.com/r/test/comments/stale/x/"}' > "$REDDIT_STATE/posts.jsonl"
 OLD=$(( $(date +%s) - 3600*40 ))
-python3 -c "import os,sys; t=float(sys.argv[1]); os.utime(sys.argv[2], (t,t))" "$OLD" "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+python3 -c "import os,sys; t=float(sys.argv[1]); os.utime(sys.argv[2], (t,t))" "$OLD" "$REDDIT_STATE/posts.jsonl"
 fake_curl 200
 run
 [ "$(reddit_call_count)" = 1 ] && ok "stale(40h) + LIVE(200) -> 1 reddit self-fix call (pre-existing stale_hrs arm intact)" \
@@ -102,7 +103,7 @@ rm -rf "$FAKE_SELF" "$FAKE_HOME" "$FAKE_BIN"
 # (legitimately pre-provision, per the existing NACC guard) ---
 setup
 rm -f "$FAKE_HOME/.cloak/reddit-accounts.json"
-echo '{"url": "https://old.reddit.com/r/test/comments/noacct/x/"}' > "$FAKE_SELF/reddit-loop/state/posts.jsonl"
+echo '{"url": "https://old.reddit.com/r/test/comments/noacct/x/"}' > "$REDDIT_STATE/posts.jsonl"
 fake_curl 403
 run
 [ "$(reddit_call_count)" = 0 ] && ok "no account + DEAD(403) -> 0 reddit self-fix calls (NACC guard intact)" \

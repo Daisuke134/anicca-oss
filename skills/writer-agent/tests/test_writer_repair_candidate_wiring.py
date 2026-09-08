@@ -24,7 +24,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import plistlib
 import subprocess
 import time
 from pathlib import Path
@@ -36,8 +35,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 RUNNER = ROOT / "runtime" / "model-runner.sh"
 DRIVER = SCRIPTS / "article-repair-candidate.sh"
-PLIST = SCRIPTS / "ai.anicca.article-repair-candidate.plist"
-LABEL = "ai.anicca.article-repair-candidate"
 
 
 def _module(name: str):
@@ -308,6 +305,8 @@ def test_the_repair_driver_contains_no_publication_or_creation_path() -> None:
         ".openclaw/.env",              # the runtime credential file
     ):
         assert forbidden not in body, forbidden
+    assert "$WRITER_STATE_DIR/self-heal/repair-candidates" in body
+    assert "$HOME/.cache" not in body
 
 
 def test_the_resume_tick_still_never_calls_the_repair_channel() -> None:
@@ -321,40 +320,14 @@ def test_the_resume_tick_still_never_calls_the_repair_channel() -> None:
 # RED 2 -- R6: one daily creator, one same-run recovery owner
 # ---------------------------------------------------------------------------
 
-def _plists() -> dict[str, dict]:
-    return {
-        path.name: plistlib.loads(path.read_bytes())
-        for path in sorted(SCRIPTS.glob("*.plist"))
-    }
-
-
-def test_r6_still_holds_after_adding_the_repair_label() -> None:
-    creators, recovery_owners = [], []
-    for name, value in _plists().items():
-        argv = " ".join(value.get("ProgramArguments", []))
-        if argv.endswith("article-daily.sh"):
-            creators.append(name)
-        if argv.endswith("article-resume-pending.sh"):
-            recovery_owners.append(name)
-    assert creators == ["ai.anicca.article-daily.plist"], creators
-    assert recovery_owners == ["ai.anicca.article-resume.plist"], recovery_owners
-
-
-def test_the_repair_label_is_neither_role_and_cannot_publish() -> None:
-    value = plistlib.loads(PLIST.read_bytes())
-    assert value["Label"] == LABEL
-    assert value["ProgramArguments"][-1] == str(
-        ROOT / "scripts" / "article-repair-candidate.sh"
-    )
-    assert value["RunAtLoad"] is False
-    # It is not the creator and not the recovery owner.
-    assert "article-daily.sh" not in " ".join(value["ProgramArguments"])
-    assert "article-resume-pending.sh" not in " ".join(value["ProgramArguments"])
-    # It cannot publish: the one environment switch that authorises publication
-    # is absent, and the channel it drives asserts the same three invariants
-    # that the queue's only accepting consumer requires.
-    assert "ARTICLE_AUTOPUBLISH" not in (value.get("EnvironmentVariables") or {})
-    assert candidate.NEXT_ACTION == "VERIFY_SENSITIVE_REPAIR_IN_ISOLATED_FIXTURE"
+def test_r6_creator_and_recovery_owners_come_only_from_registry() -> None:
+    registry = json.loads((ROOT.parents[1] / "config/loop-registry.json").read_text())
+    creators = [key for key, row in registry["loops"].items()
+                if row["entrypoint"].endswith("article-daily.sh")]
+    recovery_owners = [key for key, row in registry["loops"].items()
+                       if row["entrypoint"].endswith("article-resume-pending.sh")]
+    assert creators == ["article-daily"], creators
+    assert recovery_owners == ["article-resume"], recovery_owners
 
 
 def test_a_verified_candidate_is_never_deployed_published_or_resolved(
@@ -660,7 +633,7 @@ def test_the_launchd_driver_runs_the_repair_end_to_end(
         "ARTICLE_STATE_DIR": str(state_root),
         "ARTICLE_REPAIR_LOG": str(log),
         "ARTICLE_MODEL_RUNNER": str(RUNNER),
-        "ARTICLE_REPAIR_REPO": str(repo),
+        "LIFE_MANAGER_SOURCE_REPO": str(repo),
         "ARTICLE_REPAIR_BASE_REF": "main",
         "ARTICLE_REPAIR_ROOT": str(tmp_path / "repairs"),
         "ARTICLE_REPAIR_BUDGET_SECONDS": "120",

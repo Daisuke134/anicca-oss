@@ -3,10 +3,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE_DIR="${ARTICLE_STATE_DIR:-$SCRIPT_DIR/../state}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 LOCK_DIR="$STATE_DIR/.sales-measure.lock"
 LOCK_PID="$LOCK_DIR/pid"
-CLOAK_PYTHON="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
+CLOAK_PYTHON="${WRITER_BROWSER_PYTHON:-$(command -v python3)}"
 
 acquire_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -26,13 +27,6 @@ acquire_lock() {
 
 acquire_lock || exit 0
 trap 'rm -f -- "$LOCK_PID"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
-
-if [ -f "$HOME/.openclaw/.env" ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$HOME/.openclaw/.env"
-  set +a
-fi
 
 [ -x "$CLOAK_PYTHON" ] || {
   printf 'sales measurement unavailable: cloak runtime missing\n' >&2

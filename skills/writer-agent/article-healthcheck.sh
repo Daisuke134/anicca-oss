@@ -21,11 +21,14 @@
 # extract PROMPT for inspection). This script only ever READS the log as plain text.
 set -u
 export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/writer-runtime-env.sh
+source "$SCRIPT_DIR/scripts/writer-runtime-env.sh"
 
-LOG="${ARTICLE_DAILY_LOG:-$HOME/.openclaw/logs/article-daily.log}"     # override for testing
-STATE_DIR="${ARTICLE_HEALTHCHECK_STATE_DIR:-$HOME/.openclaw/state}"    # override for testing
+LOG="${ARTICLE_DAILY_LOG:-$WRITER_LOG_DIR/article-daily.log}"     # override for testing
+STATE_DIR="${ARTICLE_HEALTHCHECK_STATE_DIR:-$WRITER_STATE_DIR}"    # override for testing
 mkdir -p "$STATE_DIR"
-. "$HOME/.openclaw/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || exit 0
+. "$LIFE_MANAGER_REPO/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || exit 0
 
 TODAY="$(TZ=Asia/Tokyo date +%F)"
 NOW_HHMM="${ARTICLE_HEALTHCHECK_NOW_HHMM:-$(TZ=Asia/Tokyo date +%H%M)}"

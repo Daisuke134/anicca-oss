@@ -11,6 +11,7 @@ set -uo pipefail
 RUN_DIR="${1:?usage: judge-broker.sh <run-dir>}"
 BROKER_DIR="$RUN_DIR/gates/judge-broker"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${LIFE_MANAGER_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd -P)}"
 RUNNER="${ARTICLE_MODEL_RUNNER:-$SCRIPT_DIR/model-runner.sh}"
 POLL_SECONDS="${ARTICLE_JUDGE_BROKER_POLL_SECONDS:-1}"
 
@@ -92,7 +93,7 @@ serve_one() {
         >"$BROKER_DIR/responses/$id.out" 2>"$err_snap"
     else
       ARTICLE_NESTED_SANDBOX= ARTICLE_JUDGE_BROKER_SERVER=1 \
-        python3 "$SCRIPT_DIR/bounded-exec.py" "$exec_timeout" "$RUNNER" "${args[@]}" \
+        python3 "$REPO_ROOT/runtime/loop/bounded-exec.py" "$exec_timeout" "$RUNNER" "${args[@]}" \
         >"$BROKER_DIR/responses/$id.out" 2>"$err_snap"
     fi
     rc=$?

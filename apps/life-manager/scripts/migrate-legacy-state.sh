@@ -14,9 +14,10 @@
 #   dest   : ${LM_DATA_DIR:-$HOME/.local/state/life-manager}/state/
 #
 # Idempotent: re-running skips files that already exist at the destination.
-# Every run verifies, by readback, that each migrated file's byte size at the
-# destination is at least the legacy source's size (append-only ledgers may
-# legitimately grow at the destination; they may never be smaller).
+# Every run verifies copied files byte-for-byte. Pre-existing mutable files are
+# verified semantically: append-only JSONL rows and the issue snapshot must be
+# supersets, while the seven-day snapshot must be at least as recent. An
+# unrelated differing file fails closed instead of guessing from byte size.
 set -euo pipefail
 
 LEGACY_RUNTIME_SEGMENT=".open""claw"
@@ -24,9 +25,71 @@ LEGACY_STATE_ROOT="${LM_LEGACY_STATE_ROOT:-$HOME/$LEGACY_RUNTIME_SEGMENT/state}"
 DATA_ROOT="${LM_DATA_DIR:-$HOME/.local/state/life-manager}"
 DEST_ROOT="$DATA_ROOT/state"
 
-file_size() {
-  # macOS (BSD stat) first, GNU stat fallback.
-  stat -f%z "$1" 2>/dev/null || stat -c%s "$1"
+verify_existing() {
+  local source_file="$1"
+  local target="$2"
+  local relative="$3"
+
+  if cmp -s "$source_file" "$target"; then
+    return 0
+  fi
+
+  python3 - "$source_file" "$target" "$relative" <<'PY'
+import datetime
+import json
+import sys
+
+source_path, target_path, relative = sys.argv[1:]
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+def jsonl_rows(path):
+    rows = []
+    with open(path, encoding="utf-8") as handle:
+        for number, line in enumerate(handle, 1):
+            if line.strip():
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError as error:
+                    raise SystemExit(f"invalid JSONL at {path}:{number}: {error}")
+    return rows
+
+if relative.endswith(".jsonl"):
+    source = {canonical(row) for row in jsonl_rows(source_path)}
+    target = {canonical(row) for row in jsonl_rows(target_path)}
+    if source <= target:
+        raise SystemExit(0)
+    raise SystemExit(f"{target_path} does not contain every legacy JSONL row from {source_path}")
+
+if relative not in {
+    "life-manager-dev/issues.json",
+    "life-manager-dev/seven-day-status.json",
+}:
+    raise SystemExit(f"{target_path} differs from legacy {source_path}; no safe merge rule exists")
+
+with open(source_path, encoding="utf-8") as handle:
+    source = json.load(handle)
+with open(target_path, encoding="utf-8") as handle:
+    target = json.load(handle)
+
+if relative == "life-manager-dev/issues.json":
+    if not isinstance(source, list) or not isinstance(target, list):
+        raise SystemExit("issues.json must contain a JSON array")
+    if {canonical(item) for item in source} <= {canonical(item) for item in target}:
+        raise SystemExit(0)
+    raise SystemExit(f"{target_path} does not contain every legacy issue from {source_path}")
+
+if relative == "life-manager-dev/seven-day-status.json":
+    try:
+        source_time = datetime.datetime.fromisoformat(source["evaluated_at"].replace("Z", "+00:00"))
+        target_time = datetime.datetime.fromisoformat(target["evaluated_at"].replace("Z", "+00:00"))
+    except (KeyError, AttributeError, TypeError, ValueError) as error:
+        raise SystemExit(f"invalid seven-day snapshot: {error}")
+    if source.get("schema_version") == target.get("schema_version") and target_time >= source_time:
+        raise SystemExit(0)
+    raise SystemExit(f"{target_path} is older than or incompatible with legacy snapshot {source_path}")
+PY
 }
 
 total_copied=0
@@ -48,18 +111,15 @@ for name in lm-video life-manager-dev; do
     target="$dst/$relative"
     if [ -e "$target" ]; then
       skipped=$((skipped + 1))
+      verify_existing "$source_file" "$target" "$name/$relative"
     else
       mkdir -p "$(dirname "$target")"
       cp -p "$source_file" "$target"
       copied=$((copied + 1))
-    fi
-    # Readback verification for every legacy file, copied or pre-existing.
-    src_size="$(file_size "$source_file")"
-    dst_size="$(file_size "$target")"
-    if [ "$dst_size" -lt "$src_size" ]; then
-      printf '%s (%s bytes) is smaller than legacy %s (%s bytes): destination is stale or partial (legacy grew since migration or copy was interrupted); inspect and remove destination before re-running\n' \
-        "$target" "$dst_size" "$source_file" "$src_size" >&2
-      exit 1
+      if ! cmp -s "$source_file" "$target"; then
+        printf '%s differs from newly copied source %s\n' "$target" "$source_file" >&2
+        exit 1
+      fi
     fi
     total_verified=$((total_verified + 1))
   done < <(find "$src" -type f -print0)
@@ -69,5 +129,5 @@ for name in lm-video life-manager-dev; do
   total_skipped=$((total_skipped + skipped))
 done
 
-printf 'done: %s copied, %s skipped, %s verified by size readback; legacy store untouched at %s\n' \
+printf 'done: %s copied, %s skipped, %s verified by content readback; legacy store untouched at %s\n' \
   "$total_copied" "$total_skipped" "$total_verified" "$LEGACY_STATE_ROOT"

@@ -3,6 +3,7 @@
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:${PATH:-}"
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 if [ "${CAPAFY_IG_ACCOUNT_MANAGER_PROBE_ONLY:-0}" = "1" ]; then
   printf 'task_class=marketing-agent interval=300 terminal_owner=capafy-marketing-handoff.sh\n'
   exit 0
@@ -19,13 +20,13 @@ ENGINE="$HERE/../marketing-engine"
 . "$ENGINE/provision_prompt.sh"
 LIFECYCLE="${CAPAFY_IG_LIFECYCLE:-$HERE/scripts/capafy_ig_lifecycle.py}"
 ACCOUNTS="${CAPAFY_IG_ACCOUNTS_FILE:-$HOME/.cloak/clip-accounts-capafy.json}"
-STATE_DIR="${CAPAFY_OUTCOME_STATE_DIR:-$HOME/.openclaw/state}"
+STATE_DIR="${CAPAFY_OUTCOME_STATE_DIR:-$HOME/.local/state/life-manager/state}"
 STATE="${CAPAFY_IG_LIFECYCLE_STATE:-$STATE_DIR/capafy-ig-lifecycle.json}"
 RESULT="${CAPAFY_MARKETING_RESULT:-$STATE_DIR/capafy-account-manager-result.json}"
 HANDOFF="${CAPAFY_MARKETING_HANDOFF:-$HERE/capafy-marketing-handoff.sh}"
 RUN_AGENT="${CAPAFY_RUN_AGENT:-$ENGINE/run_agent.sh}"
 BROWSER="${CAPAFY_PROVISION_BROWSER:-$HERE/../../browser/ensure_provision_browser.sh}"
-GUARD="${CAPAFY_BROWSER_GUARD:-$HOME/.config/ai/bin/browser-guard.sh}"
+GUARD="${CAPAFY_BROWSER_GUARD:-$REPO_ROOT/skills/browser/browser-guard.sh}"
 VERIFY_SESSION="${CAPAFY_IG_SESSION_VERIFY:-$HERE/scripts/capafy_ig_session_verify.py}"
 KICKSTART="${CAPAFY_LAUNCHCTL:-launchctl}"
 LOCK="${CAPAFY_ACCOUNT_MANAGER_LOCK_DIR:-$STATE_DIR/capafy-ig-account-manager.lock}"

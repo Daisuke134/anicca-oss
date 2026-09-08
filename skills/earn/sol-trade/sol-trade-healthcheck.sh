@@ -30,7 +30,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PAT
 set -uo pipefail
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF_DIR="${SOL_TRADE_HC_SELF_DIR:-$SKILL_DIR/../../self}"
-TRACE="${SOL_TRADE_HC_TRACE:-$SKILL_DIR/../state/sol-trade.trace.jsonl}"
+STATE_ROOT="${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}"
+TRACE="${SOL_TRADE_HC_TRACE:-$STATE_ROOT/sol-trade.trace.jsonl}"
 MIN_RUN="${SOL_TRADE_HC_MIN_RUN:-20}"
 STATE_DIR="${SOL_TRADE_HC_STATE_DIR:-$HOME/.local/state/life-manager/state}"; mkdir -p "$STATE_DIR" 2>/dev/null || true
 LOG="${SOL_TRADE_HC_LOG:-$HOME/.local/state/life-manager/logs/sol-trade-healthcheck.log}"; mkdir -p "$(dirname "$LOG")" 2>/dev/null || true

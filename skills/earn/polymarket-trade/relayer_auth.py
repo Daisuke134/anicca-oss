@@ -40,13 +40,18 @@ import datetime as _dt
 import json
 import os
 import time as _time
+from pathlib import Path
 
 import requests
 from eth_account.messages import encode_defunct
+from state_paths import external_state_path
 
 GAMMA = "https://gamma-api.polymarket.com"
 RELAYER = "https://relayer-v2.polymarket.com"
-DEFAULT_CACHE_PATH = os.path.expanduser("~/.anicca-founder/.pm-relayer-apikey")
+
+def default_cache_path() -> str:
+    state_root = Path(os.environ.get("LIFE_MANAGER_STATE_ROOT", Path.home() / ".local/state/life-manager/earn-watch"))
+    return os.environ.get("LIFE_MANAGER_RELAYER_CACHE", str(state_root / "relayer-apikey"))
 
 
 def _pick_existing_key(list_response_json, address: str):
@@ -68,7 +73,7 @@ def _pick_existing_key(list_response_json, address: str):
     return None
 
 
-def mint_relayer_api_key(acct, cache_path: str = DEFAULT_CACHE_PATH, force: bool = False) -> str:
+def mint_relayer_api_key(acct, cache_path: str | None = None, force: bool = False) -> str:
     """Return a usable Polymarket relayer API key for `acct` (an eth_account
     LocalAccount), REUSING a cached/existing key whenever possible so this
     address never hits the relayer's 100-key-per-address cap.
@@ -85,6 +90,10 @@ def mint_relayer_api_key(acct, cache_path: str = DEFAULT_CACHE_PATH, force: bool
 
     Raises RuntimeError if all 4 attempts fail.
     """
+    cache_path = external_state_path(
+        cache_path or default_cache_path(), Path(__file__).resolve().parents[3],
+        "LIFE_MANAGER_RELAYER_CACHE",
+    )
     if not force:
         try:
             with open(cache_path) as f:

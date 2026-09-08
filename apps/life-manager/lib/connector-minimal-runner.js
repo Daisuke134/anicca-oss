@@ -1,12 +1,13 @@
 "use strict";
 
+const { connectorPageWebsocketTargetId } = require("./connector-browser-target-controller.js");
+
 const PURPOSE = /^(?:navigate|observe|fill|submit|readback)$/;
 const METHOD = /^[a-z][a-z0-9_]{1,63}$/;
 const SAFE_REASON = /^[a-z0-9][a-z0-9_:-]{1,99}$/;
 // Bounded, non-sensitive: a JS class/constructor name only, never a message,
 // stack, URL, or env value.
 const ERROR_CLASS = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
-const PAGE_WEBSOCKET = /^ws:\/\/(?:127\.0\.0\.1|\[::1\]):9222\/devtools\/page\/([A-Za-z0-9._-]{3,128})$/;
 const FALLBACK_COMPLETION_RESERVE_MS = 160_000;
 
 function invalid() {
@@ -67,12 +68,13 @@ function config(input) {
 function verifiedOwned(value) {
   const targetId = String(value && value.target_id || "");
   const pageWebsocket = String(value && value.page_websocket || "");
-  const websocketMatch = PAGE_WEBSOCKET.exec(pageWebsocket);
+  let websocketTargetId;
+  try { websocketTargetId = connectorPageWebsocketTargetId(pageWebsocket); } catch { invalid(); }
   if (
     !value || typeof value !== "object" || Array.isArray(value)
     || !/^[A-Za-z0-9._-]{3,128}$/.test(String(value.session_id || ""))
     || !/^[A-Za-z0-9._-]{3,128}$/.test(targetId)
-    || !websocketMatch || websocketMatch[1] !== targetId
+    || websocketTargetId !== targetId
     || !value.page || typeof value.page !== "object"
   ) invalid();
   return value;

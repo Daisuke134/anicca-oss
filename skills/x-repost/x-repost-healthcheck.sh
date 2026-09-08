@@ -11,13 +11,13 @@ SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "${LIFE_MANAGER_LOOP_ID:-}" = "x-repost-ja-healthcheck" ]; then
   DEFAULT_LOOP_NAME="x-repost-ja"
   DEFAULT_LABEL="ai.anicca.x-repost-ja-pass"
-  DEFAULT_STATE="$HOME/loops/x-repost-ja"
+  DEFAULT_STATE="$HOME/.local/state/life-manager/social-x/x-repost/ja"
   DEFAULT_MAX_AGE_SECONDS=5400
   DEFAULT_INITIAL_GRACE_SECONDS=3600
 else
   DEFAULT_LOOP_NAME="x-repost"
   DEFAULT_LABEL="ai.anicca.x-repost-pass"
-  DEFAULT_STATE="$HOME/loops/x-repost-en"
+  DEFAULT_STATE="$HOME/.local/state/life-manager/social-x/x-repost/en"
   DEFAULT_MAX_AGE_SECONDS=10800
   DEFAULT_INITIAL_GRACE_SECONDS=0
 fi
@@ -30,8 +30,8 @@ HEARTBEAT="${X_REPOST_STATE_DIR:-$DEFAULT_STATE}/.last-pass"
 MAX_AGE_SECONDS="${X_REPOST_MAX_PASS_AGE:-$DEFAULT_MAX_AGE_SECONDS}"
 INITIAL_GRACE_SECONDS="${X_LOOP_INITIAL_GRACE_SECONDS:-$DEFAULT_INITIAL_GRACE_SECONDS}"
 
-# shellcheck source=/dev/null
-source "$HOME/.openclaw/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || \
+# shellcheck source=../_shared/scripts/telegram-notify.sh
+source "$SKILL/../_shared/scripts/telegram-notify.sh" 2>/dev/null || \
   telegram_notify() { echo "telegram_notify unavailable: $1" >&2; }
 
 problems=()

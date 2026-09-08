@@ -23,7 +23,7 @@ _pii_sys.path.insert(0, str(next(
 from pii_gate import gate_files, gate_run_dir, gate_text  # noqa: E402,F401
 
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from zoneinfo import ZoneInfo
 
 
@@ -159,12 +159,12 @@ def reconcile_existing_effect(
     return result
 
 
-def _account_url() -> str:
-    account = (
-        os.environ.get("X_ACCOUNT_HANDLE")
-        or os.environ.get("X_USERNAME")
-        or "diceai0"
-    ).strip().lstrip("@")
+def _account_url(state: dict[str, Any]) -> str:
+    identities = state.get("destination_identities", {})
+    account = str(identities.get("x-post/ja", "")).strip().lstrip("@") \
+        if isinstance(identities, dict) else ""
+    if not account:
+        raise XPostRefused("persisted X Post destination identity is required")
     if not account.isascii() or not re.fullmatch(r"[A-Za-z0-9_]+", account):
         raise XPostRefused("configured X account is invalid")
     return f"https://x.com/{account}"
@@ -180,6 +180,12 @@ def _same_account(url: str, expected: str) -> bool:
         and segments[0].lower()
         == expected_parsed.path.strip("/").lower()
     )
+
+
+def _authenticated_profile_matches(page: Any, expected: str) -> bool:
+    profile = page.locator('[data-testid="AppTabBar_Profile_Link"]')
+    href = profile.first.get_attribute("href") if profile.count() else ""
+    return bool(href) and _same_account(urljoin("https://x.com", href), expected)
 
 
 def _timeline_rows(page) -> list[dict[str, str]]:
@@ -232,7 +238,7 @@ def publish() -> dict[str, Any]:
     decision = _guard("preflight")
     if decision.get("action") == "skip-live":
         return decision
-    account_url = _account_url()
+    account_url = _account_url(state)
 
     from playwright.sync_api import sync_playwright
 
@@ -245,6 +251,8 @@ def publish() -> dict[str, Any]:
         page.wait_for_timeout(4000)
         if not _same_account(page.url, account_url):
             raise XPostRefused("authenticated X timeline identity does not match")
+        if not _authenticated_profile_matches(page, account_url):
+            raise XPostRefused("authenticated X profile identity does not match persisted destination")
         rows = _timeline_rows(page)
         ids = [
             status

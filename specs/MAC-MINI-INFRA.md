@@ -426,7 +426,7 @@ GC 自体は正常に動く。削除途中の残骸 `<release>.gc-trash.<pid>` �
 |---|---|---|
 | 4.2GB | `/private/var/folders/.../X/com.google.Chrome.code_sign_clone` | Chrome 起動中に自動生成される一時クローン。**Chrome を落とせば消えるが、落としてはいけない**（下記） |
 
-**Google Chrome は削除も終了もしない。** `~/.config/ai/registry/browsers.toml` の daily-driver エントリが `launched_by = "dd-keepalive.py"`、`notes = "Human/main-session browsing. MUST be its own Chrome process."` と宣言している。CloakBrowser の daily-driver は Chrome 本体のプロセスそのもので、Chromium とは別物。2026-07-26 にデバッグポートが production と同一ブラウザへ解決されて衝突した事故の当事者がこのエントリ。`code_sign_clone` の 4.2GB はその副産物なので、Chrome が動いている限り常に存在する。回収対象から外す。
+**Google Chrome は削除も終了もしない。** Life Manager registry の `life-manager-daily-driver` が `skills/browser/owned-persistent-context` を唯一のprocess ownerとして宣言し、`interactive:dais` の `~/.cloak/profiles/daily-driver` を独立したChrome processとして管理する。CloakBrowser の daily-driver は Chrome 本体のプロセスそのもので、Chromium とは別物。2026-07-26 にデバッグポートが production と同一ブラウザへ解決されて衝突した事故の当事者がこのエントリ。`code_sign_clone` の 4.2GB はその副産物なので、Chrome が動いている限り常に存在する。回収対象から外す。
 | 19.4GB | `~/.cloak` | **不可侵** |
 | 10.7GB | `~/.openclaw` | 稼働中。`.git` が 3GB だが `git gc` は10分でタイムアウト |
 | 9.1GB | `~/.local` | state 5GB（loop の state、保護対象）+ share 2.7GB |

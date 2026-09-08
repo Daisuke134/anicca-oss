@@ -40,7 +40,7 @@ function fixture(overrides = {}) {
         return Object.freeze({
           session_id: "session-owned-1",
           target_id: "TARGETOWNED1",
-          page_websocket: "ws://[::1]:9222/devtools/page/TARGETOWNED1",
+          page_websocket: "ws://127.0.0.1:9222/devtools/page/TARGETOWNED1",
           page,
         });
       },
@@ -739,7 +739,7 @@ test("a failed direct action invokes at most ten agent steps on the exact same p
   const state = fixture({
     async runAgentFallback(input) {
       assert.equal(input.page.page_id, "page-owned-1");
-      assert.equal(input.pageWebsocket, "ws://[::1]:9222/devtools/page/TARGETOWNED1");
+      assert.equal(input.pageWebsocket, "ws://127.0.0.1:9222/devtools/page/TARGETOWNED1");
       assert.equal(input.maxSteps, 10);
       assert.equal(Object.hasOwn(input, "browser"), false);
       state.calls.push(["agent", input.candidate.event_ref, input.page.page_id, input.maxSteps]);
@@ -1567,7 +1567,7 @@ test("registered parent pre-readback composes real evidence recovery with zero s
   const artifactSha = createHash("sha256").update(png).digest("hex"); const evidenceStore = { async record(input) { evidenceRecords += 1; const id = createHash("sha256").update(`${input.tenantId}\n${input.eventRef}\n${input.observedAt}\n${artifactSha}`).digest("hex"); return { external_receipt_ref: `provider-receipt://peatix/${id}`, artifact_ref: `object://sha256/${artifactSha}` }; }, async readExternalReceipt(tenant, ref) { return { kind: "provider_response", provider_id: String(ref).split("/").at(-1) }; }, async readArtifact() { return png; } };
   const page = { async goto() {}, url() { return "about:blank"; }, async evaluate() { return true; }, async screenshot() { return png; } };
   const wake = (times, sendMessage, sendPhoto) => runMinimalConnectorWake({ ownerToken: "owner-token-runner-evidence", providers: ["peatix"] }, {
-    now: () => "2026-08-07T02:00:00.000Z", browserRail: { async open() { return { session_id: "session-runner-evidence", target_id: "TARGETRUNNEREVIDENCE", page_websocket: "ws://[::1]:9222/devtools/page/TARGETRUNNEREVIDENCE", page }; }, async navigate() {}, async close() {} },
+    now: () => "2026-08-07T02:00:00.000Z", browserRail: { async open() { return { session_id: "session-runner-evidence", target_id: "TARGETRUNNEREVIDENCE", page_websocket: "ws://127.0.0.1:9222/devtools/page/TARGETRUNNEREVIDENCE", page }; }, async navigate() {}, async close() {} },
     async readCalendarGaps() { return []; }, async discoverCandidates() { return [candidate]; }, async readProviderState() { registered.add(candidate.event_ref); return { status: "registered" }; },
     async runCachedAction() { cacheCalls += 1; throw new Error("cache must not run"); }, async runDirectAction() { directCalls += 1; throw new Error("direct must not run"); }, async runAgentFallback() { harnessCalls += 1; throw new Error("Harness must not run"); },
     async completeEvidence(input) { let index = 0; const chain = createMinimalEvidenceChain({ stateDir, tenantId: "dais-local", calendar, calendarId: "primary", telegramTarget: "private-target", peatixEvidenceStore: evidenceStore, now: () => new Date(times[Math.min(index++, times.length - 1)]), sendMessage, sendPhoto }); lastBundle = await chain.completeEvidence(input); return lastBundle; },

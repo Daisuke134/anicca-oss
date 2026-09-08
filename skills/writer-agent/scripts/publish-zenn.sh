@@ -6,6 +6,9 @@
 # Strategy: copy md to the managed Writer Agent draft dir, then invoke post-zenn.py
 
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 MD_FILE=""
 TITLE=""
@@ -35,7 +38,7 @@ fi
 # Nothing operator-identifying may reach the PUBLIC zenn-articles repository (a push is public even at published:false). ANY non-zero exit from the gate -- a finding,
 # an unconfigured blocklist, or an internal scanner error -- aborts this publish. Gate output
 # goes to stderr so it cannot pollute this script's single-line stdout contract.
-python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pii-gate.py" --stage publish-zenn "$MD_FILE" >&2 || exit $?
+python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-zenn "$MD_FILE" >&2 || exit $?
 
 
 # Initial staging is always draft-only. Zenn renders an article publicly when
@@ -43,7 +46,7 @@ python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pii-gate.py" --stage publ
 # on a copy. The dedicated deferred worker may later flip only the registered
 # slug after the measured platform interval and exact8 readback gates pass.
 TODAY="$(date +%Y-%m-%d)"
-DRAFT_DIR="$HOME/.openclaw/workspace/writer-agent/drafts/$TODAY"
+DRAFT_DIR="$WRITER_STATE_DIR/drafts/$TODAY"
 mkdir -p "$DRAFT_DIR"
 cp "$MD_FILE" "$DRAFT_DIR/ja.md"
 
@@ -61,8 +64,6 @@ if grep -qE '^published:[[:space:]]*true[[:space:]]*$' "$DRAFT_DIR/ja.md"; then
 fi
 
 # Invoke existing post-zenn.py with explicit ARTICLE_DATE
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
-
 # The managed exact8 package publishes its immutable media bytes to the
 # already-public Zenn repository before any downstream staging. Dev.to then
 # references these content-addressed run paths; Zenn itself keeps native
@@ -72,11 +73,7 @@ if [[ -n "${ARTICLE_RUN_DIR:-}" || -n "${ARTICLE_PUBLICATION_STATE:-}" ]]; then
     echo "FATAL: managed Zenn staging requires run directory and publication state" >&2
     exit 2
   }
-  ZENN_REPO_PATH="${ZENN_REPO_PATH:-$HOME/.openclaw/workspace/zenn-articles}"
-  [[ -d "$ZENN_REPO_PATH/.git" ]] || {
-    echo "FATAL: Zenn repository is missing: $ZENN_REPO_PATH" >&2
-    exit 3
-  }
+  "$WRITER_BROWSER_PYTHON" "$SCRIPT_DIR/zenn_checkout.py" >/dev/null || exit 3
   RUN_ID="$(jq -r '.run_id // empty' "$ARTICLE_PUBLICATION_STATE")"
   [[ "$RUN_ID" == "$(basename "$ARTICLE_RUN_DIR")" && "$RUN_ID" =~ ^(daily-[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{8}-[0-9]{6})$ ]] || {
     echo "FATAL: Zenn media run identity is invalid" >&2
@@ -108,13 +105,12 @@ if [[ -n "${ARTICLE_RUN_DIR:-}" || -n "${ARTICLE_PUBLICATION_STATE:-}" ]]; then
   }
   if ! git -C "$ZENN_REPO_PATH" diff --cached --quiet -- "$MEDIA_REL"; then
     git -C "$ZENN_REPO_PATH" \
-      -c user.email=anicca@aniccaai.com -c user.name=anicca \
       commit -m "media: exact8 $RUN_ID" -- "$MEDIA_REL" >/dev/null || exit 3
     GIT_SSH_COMMAND="ssh -i ${ZENN_SSH_KEY:-$HOME/.ssh/id_ed25519} -o IdentitiesOnly=yes" \
       git -C "$ZENN_REPO_PATH" push origin HEAD:main >/dev/null || exit 3
   fi
   python3 - "$ARTICLE_PUBLICATION_STATE" "$ARTICLE_RUN_DIR/gates/media-urls.json" \
-    "${ARTICLE_MEDIA_RAW_BASE:-https://raw.githubusercontent.com/Daisuke134/zenn-articles/main/images}" <<'PY'
+    "${ARTICLE_MEDIA_RAW_BASE:?ARTICLE_MEDIA_RAW_BASE is required for Zenn media}" <<'PY'
 import json, os, sys
 from pathlib import Path
 state = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
