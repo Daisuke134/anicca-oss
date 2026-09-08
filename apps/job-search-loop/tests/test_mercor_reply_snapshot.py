@@ -339,6 +339,7 @@ def test_gmail_inventory_retries_one_transient_thread_timeout(monkeypatch):
 
 def test_gmail_inventory_retries_one_transient_search_timeout(monkeypatch):
     inbound_attempts = 0
+    sleeps = []
 
     def run(argv, **_kwargs):
         nonlocal inbound_attempts
@@ -351,9 +352,35 @@ def test_gmail_inventory_retries_one_transient_search_timeout(monkeypatch):
         raise AssertionError("empty inventory must not fetch a thread")
 
     monkeypatch.setattr(snapshot.subprocess, "run", run)
+    monkeypatch.setattr(snapshot.time, "sleep", sleeps.append)
 
     assert snapshot._gmail("owner@example.com", "gog") == []
     assert inbound_attempts == 2
+    assert sleeps == [1]
+
+
+def test_gmail_inventory_reports_secret_free_attempt_outcomes(monkeypatch):
+    attempts = 0
+
+    def run(argv, **_kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise subprocess.TimeoutExpired(argv, 30)
+        return subprocess.CompletedProcess(
+            argv, 75, "", "private provider error for owner@example.com"
+        )
+
+    monkeypatch.setattr(snapshot.subprocess, "run", run)
+    monkeypatch.setattr(snapshot.time, "sleep", lambda _seconds: None)
+
+    try:
+        snapshot._gmail("owner@example.com", "gog")
+    except RuntimeError as exc:
+        assert str(exc) == "mercor_gmail_inventory_unavailable:timeout,exit_75"
+        assert "owner@example.com" not in str(exc)
+    else:
+        raise AssertionError("two failed attempts must fail closed")
 
 
 def test_snapshot_retries_one_transient_official_source_miss(monkeypatch):
