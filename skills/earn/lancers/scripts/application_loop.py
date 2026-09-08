@@ -922,7 +922,13 @@ def run_loop(*, exhaustive: bool = False, state_path: Path = DEFAULT_STATE_PATH,
                 observed_total = max(observed_total, result.observed_count or 0) if source is None and query is None else observed_total + (result.observed_count or 0)
                 decision_reports.extend(result.decision_reports or ())
                 result = replace(result, observed_count=observed_total, decision_reports=tuple(decision_reports) or None)
-                if result.reason != "no_eligible_project":
+                # Both of these mean "this slice of twenty held nothing to act on", which is
+                # exactly when the next slice should be read. Only no_eligible_project continued,
+                # so a wake whose first twenty rows were all already claimed stopped there.
+                # Harmless while the union was about twenty rows; measured 2026-09-07, once
+                # category traversal took the union to roughly a hundred, five wakes in a row
+                # ended on duplicate_project having never looked at the other eighty.
+                if result.reason not in ("no_eligible_project", "duplicate_project"):
                     break
     finally:
         if result.error not in RETAIN_EVIDENCE_ERRORS:
