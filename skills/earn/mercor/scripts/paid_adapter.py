@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 """Mercor boundary for the shared marketplace Paid kernel."""
 from __future__ import annotations
-import argparse, json
+import argparse, hashlib, json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import urlparse
 
-ACTIVE_STATES = frozenset({"selected", "contracted", "authorized_work", "work_submitted", "needs_human"})
+ACTIVE_STATES = frozenset({"selected", "contracted", "authorized_work", "work_submitted", "needs_human", "provider_review_required"})
 TERMINAL_STATES = frozenset({"accepted", "paid_settled", "bank_matched", "revenue_recorded", "rejected"})
 
 class MercorPaidWait(RuntimeError):
     def __init__(self, reason: str, remaining_work: list[str]):
         super().__init__(reason); self.paid_wait_reason = reason; self.paid_remaining_work = remaining_work
 
+def _timestamp(value: Any) -> datetime:
+    if not isinstance(value, str) or not value.strip(): raise RuntimeError("mercor_paid_inventory_unavailable")
+    try: parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError: raise RuntimeError("mercor_paid_inventory_unavailable") from None
+    if parsed.tzinfo is None: raise RuntimeError("mercor_paid_inventory_unavailable")
+    return parsed.astimezone(timezone.utc)
+
 def _rows(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
-        raise MercorPaidWait("official_work_inventory_unavailable", ["resume the official Mercor observer and obtain an identity-bound work event"])
+        return []
     rows = []
     try: lines = path.read_text(encoding="utf-8").splitlines()
     except OSError: raise RuntimeError("mercor_paid_inventory_unavailable") from None
@@ -26,6 +34,7 @@ def _rows(path: Path) -> list[dict[str, Any]]:
         if not isinstance(value, Mapping) or any(not isinstance(value.get(field), str) or not value[field].strip() for field in required):
             raise RuntimeError("mercor_paid_inventory_unavailable")
         if value["state"] not in ACTIVE_STATES | TERMINAL_STATES: raise RuntimeError("mercor_paid_inventory_unavailable")
+        _timestamp(value["observed_at"])
         evidence = urlparse(value["evidence_ref"])
         if evidence.scheme != "https" or evidence.hostname != "work.mercor.com":
             raise MercorPaidWait(
@@ -35,14 +44,42 @@ def _rows(path: Path) -> list[dict[str, Any]]:
         rows.append(dict(value))
     return rows
 
+def _official_contracts(path: Path, *, max_age_seconds: int = 900) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise MercorPaidWait("official_work_inventory_unavailable", ["resume the shared Mercor Reply observer and obtain its official contract snapshot"])
+    try: value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError): raise RuntimeError("mercor_paid_inventory_unavailable") from None
+    contracts = value.get("contracts") if isinstance(value, Mapping) else None
+    observed_at = value.get("observed_at") if isinstance(value, Mapping) else None
+    if value.get("version") != 1 or not isinstance(contracts, list):
+        raise RuntimeError("mercor_paid_inventory_unavailable")
+    observed = _timestamp(observed_at)
+    age = (datetime.now(timezone.utc) - observed).total_seconds()
+    if age < -300 or age > max_age_seconds:
+        raise MercorPaidWait("official_work_inventory_stale", ["wait for the shared Mercor Reply observer to refresh its official contract snapshot"])
+    rows = []
+    states = {"active":"contracted", "contracted":"contracted", "selected":"selected"}
+    for contract in contracts:
+        if not isinstance(contract, Mapping): raise RuntimeError("mercor_paid_inventory_unavailable")
+        work_id = contract.get("jobId") or contract.get("contractId") or contract.get("id")
+        if not isinstance(work_id, str) or not work_id.strip(): raise RuntimeError("mercor_paid_inventory_unavailable")
+        status = str(contract.get("status") or "").strip().casefold()
+        state = states.get(status, "provider_review_required")
+        payload = json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        rows.append({"work_id":work_id.strip(), "event_id":hashlib.sha256(payload.encode()).hexdigest(),
+                     "state":state, "evidence_ref":"https://work.mercor.com/home?tab=contracts",
+                     "observed_at":observed_at.strip(), "official_contract":dict(contract)})
+    return rows
+
 class MercorPaidAdapter:
-    def __init__(self, *, account_id: str, work_events: Path):
+    def __init__(self, *, account_id: str, official_snapshot: Path, work_events: Path):
         if not isinstance(account_id, str) or not account_id.strip(): raise ValueError("mercor_account_id_invalid")
-        self.account_id = account_id.strip(); self.work_events = work_events.expanduser().resolve(); self._contexts = {}
+        self.account_id = account_id.strip(); self.official_snapshot = official_snapshot.expanduser().resolve(); self.work_events = work_events.expanduser().resolve(); self._contexts = {}
     def _inventory(self) -> list[dict[str, Any]]:
         latest, histories = {}, {}
-        for row in _rows(self.work_events):
-            work_id = row["work_id"].strip(); histories.setdefault(work_id, []).append(row); latest[work_id] = row
+        for row in _official_contracts(self.official_snapshot) + _rows(self.work_events):
+            work_id = row["work_id"].strip(); histories.setdefault(work_id, []).append(row)
+            if work_id not in latest or _timestamp(row["observed_at"]) >= _timestamp(latest[work_id]["observed_at"]): latest[work_id] = row
         self._contexts = {key: {"events": value, "latest": latest[key]} for key, value in histories.items()}
         return [{"provider":"mercor", "account_id":self.account_id, "work_id":work_id,
                  "latest_event_id":row["event_id"], "provider_state":row["state"], "observed_at":row["observed_at"]}
@@ -65,10 +102,11 @@ def decide(row: Mapping[str, Any]) -> dict[str, Any]:
     if state == "needs_human": return {"action":"wait", "reason":"mercor_human_action_required", "remaining_work":["complete the identity-bound task and resume this exact work item"]}
     if state in {"selected", "contracted"}: return {"action":"wait", "reason":"mercor_work_authorization_required", "remaining_work":["read the official contract and record explicit AI work authorization"]}
     if state == "authorized_work": return {"action":"wait", "reason":"mercor_human_submission_required", "remaining_work":["prepare the artifact and obtain the required human submission receipt"]}
+    if state == "provider_review_required": return {"action":"wait", "reason":"mercor_contract_state_review_required", "remaining_work":["read the official contract state and classify the exact next work or payment action"]}
     raise RuntimeError("mercor_paid_state_unavailable")
 
 def build(argv: list[str]):
-    parser=argparse.ArgumentParser(description=__doc__); parser.add_argument("--account-id",required=True); parser.add_argument("--work-events",required=True,type=Path); args=parser.parse_args(argv)
-    return MercorPaidAdapter(account_id=args.account_id,work_events=args.work_events), decide
+    parser=argparse.ArgumentParser(description=__doc__); parser.add_argument("--account-id",required=True); parser.add_argument("--official-snapshot",required=True,type=Path); parser.add_argument("--work-events",required=True,type=Path); args=parser.parse_args(argv)
+    return MercorPaidAdapter(account_id=args.account_id,official_snapshot=args.official_snapshot,work_events=args.work_events), decide
 
 __all__=["MercorPaidAdapter","MercorPaidWait","build","decide"]
