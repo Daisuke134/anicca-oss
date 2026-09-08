@@ -30,6 +30,11 @@ _ENDPOINT = "https://www.lancers.jp/work/search"
 _USER_AGENT = "anicca-lancers-public-discovery/1.0"
 _MAX_BODY_BYTES = 8 * 1024 * 1024
 _MAX_QUERY_LENGTH = 200
+# Lancers exposes its own category facet as a path. Measured 2026-09-07 with type[]=project: one
+# category page returns 12-30 project postings where one keyword returns 3, so five category
+# requests see roughly three times what twelve keyword requests do. The board already knows which
+# postings are which; asking it is cheaper and more complete than guessing nouns.
+_CATEGORY_RE = re.compile(r"^[a-z][a-z0-9_-]{1,30}$")
 _MISSING = object()
 _DETAIL_RE = re.compile(r"^/work/detail/([1-9][0-9]{0,511})$")
 _CLIENT_RE = re.compile(r"^/client/([A-Za-z0-9_.-]{1,128})$")
@@ -406,7 +411,15 @@ def _canonical_detail_url(value: object) -> str:
     return f"{origin.scheme}://{origin.netloc}{parsed.path}"
 
 
-def fetch_public_html(*, query: Optional[str], limit: int, timeout: float, _detail_url: Optional[str] = None, _client_id: Optional[str] = None) -> str:
+def _category(value: object) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str) or _CATEGORY_RE.fullmatch(value.strip()) is None:
+        _fail("lancers_invalid_argument")
+    return value.strip()
+
+
+def fetch_public_html(*, query: Optional[str], limit: int, timeout: float, category: Optional[str] = None, _detail_url: Optional[str] = None, _client_id: Optional[str] = None) -> str:
     """Fetch one bounded public page with no cookies or auth headers."""
 
     query = _query(query)
@@ -430,7 +443,9 @@ def fetch_public_html(*, query: Optional[str], limit: int, timeout: float, _deta
         if not isinstance(_client_id, str) or _CLIENT_RE.fullmatch("/client/" + _client_id) is None:
             _fail("lancers_invalid_argument")
         client_url = "https://www.lancers.jp/client/" + _client_id
-    url = _detail_url or client_url or _ENDPOINT + "?" + encoded
+    category = _category(category)
+    endpoint = _ENDPOINT + ("/" + category if category else "")
+    url = _detail_url or client_url or endpoint + "?" + encoded
     request = urllib.request.Request(
         url,
         headers={"User-Agent": _USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
@@ -538,6 +553,7 @@ def run_discovery(
     query: Optional[str],
     limit: int,
     timeout: float,
+    category: Optional[str] = None,
     fetcher: Optional[Callable[..., str]] = None,
     observed_at: Optional[Callable[[], object] | str] = None,
 ) -> Dict[str, object]:
@@ -548,7 +564,10 @@ def run_discovery(
         limit = _limit(limit)
         timeout = _timeout(timeout)
         acquire = fetch_public_html if fetcher is None else fetcher
-        html = acquire(query=query, limit=limit, timeout=timeout)
+        # A fetcher injected by a test may predate the category argument, so only pass it when
+        # there is one to pass. A discovery that crashed on its own test double would be worse
+        # than one that cannot browse categories.
+        html = acquire(query=query, limit=limit, timeout=timeout, category=_category(category)) if category else acquire(query=query, limit=limit, timeout=timeout)
         cards = parse_search_html(html)
         # Some public pages ignore the ``limit`` query parameter. Keep the
         # returned observation bounded even when the provider sends a larger
