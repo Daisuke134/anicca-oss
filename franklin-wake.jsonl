@@ -43453,3 +43453,8 @@
 {"ts":1788902878,"wake_id":"00MTT6L2QRC0E67862C91047F6","kind":"narrate","sleep_s":120,"model":"auto"}
 {"ts":1788903111,"wake_id":"00MTT6Q2LS45EDC4FE36B1413E","kind":"narrate","sleep_s":120,"model":"auto"}
 {"ts":1788903357,"wake_id":"00MTT6VCLB1AC62AAB80DC4B7E","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788903565,"wake_id":"00MTT6ZT5W31837A4541424939","kind":"skill_timeout","sleep_s":120,"model":"auto","slot":"cook","result":"cook skill timeout"}
+{"ts":1788903864,"wake_id":"00MTT767R17C048BB24E044B08","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788904024,"wake_id":"00MTT79N6ZD470F93ABB0D4EAB","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788904179,"wake_id":"00MTT7CZCQC5F4A829DFF241D7","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
+{"ts":1788904316,"wake_id":"00MTT7FX23DBC9D5A164EE4ABF","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
