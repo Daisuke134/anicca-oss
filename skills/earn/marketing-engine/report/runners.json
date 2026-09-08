@@ -17,7 +17,7 @@
       "quarantine_reason": null
     },
     "dashboard": {
-      "command": ["{home}/profitable-claude/marketing/engine/bin/marketing", "dashboard", "--root", "{home}/Library/Application Support/AniccaMarketing", "--output", "{home}/Library/Application Support/AniccaMarketing/dashboard/index.html"],
+      "command": ["{repo}/marketing/engine/bin/marketing", "dashboard", "--root", "{home}/Library/Application Support/AniccaMarketing", "--output", "{home}/Library/Application Support/AniccaMarketing/dashboard/index.html"],
       "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
       "quarantine_reason": null
     },
