@@ -211,6 +211,22 @@ def test_semantic_composer_passes_multiple_verified_applications_without_guessin
     assert calls[1][1] == {"official_context": {"applications": applications}}
 
 
+def test_semantic_composer_preserves_official_sending_restriction_as_wait():
+    class Adapter:
+        def semantic_dom(self, _thread_id):
+            raise AssertionError("restricted thread must not invoke the model")
+
+    result = adapter_module.CoconalaSemanticComposer(
+        Adapter(), lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError())
+    )({"thread_id": "12", "provider_sending_unavailable": True})
+
+    assert result == {
+        "action": "wait",
+        "reason": "provider_sending_unavailable",
+        "remaining_work": ["Wait for the provider message control to become available"],
+    }
+
+
 def _estimate_intent():
     return {
         "action": "estimate", "thread_id": "12", "effect_key": "effect",
