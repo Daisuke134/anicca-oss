@@ -1037,3 +1037,5 @@ e2e9da6102334442d247067f47c876267b4012db:apps/life-manager/lib/event-source-hand
 f3af5177d37815397631de6ce45a886f1d4e3a66:apps/life-manager/lib/outbound-guardian.test.js:generic-api-key:78
 f3af5177d37815397631de6ce45a886f1d4e3a66:apps/life-manager/lib/outbound-guardian.test.js:generic-api-key:87
 f3af5177d37815397631de6ce45a886f1d4e3a66:skills/connector/test/wake-report-outbox.test.js:generic-api-key:32
+3cbe6ca09b824769964f1a98aea36f7a6dc98bb8:runtime/earn/lib/__tests__/resolve-identity.test.mjs:generic-api-key:152
+3cbe6ca09b824769964f1a98aea36f7a6dc98bb8:runtime/earn/lib/__tests__/resolve-identity.test.mjs:generic-api-key:163
