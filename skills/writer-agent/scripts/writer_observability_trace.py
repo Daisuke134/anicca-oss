@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
-"""Build one local OpenTelemetry trace from immutable Writer receipts."""
+"""Build one local trace from immutable Writer receipts."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import secrets
 from pathlib import Path
 import sys
 from typing import Any
-
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from opentelemetry.trace import Status, StatusCode
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import publication_contract  # noqa: E402
@@ -77,10 +73,7 @@ def build_trace(run_dir: Path, observed_at: str) -> dict[str, Any]:
         for phase, path in paths.items() if path.exists()
     }
     invalid_receipts: set[str] = set()
-    provider = TracerProvider()
-    exporter = InMemorySpanExporter()
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
-    tracer = provider.get_tracer("writer-agent")
+    trace_id = secrets.token_hex(16)
     records: list[dict[str, Any]] = []
 
     lifecycle_names = {
@@ -153,17 +146,16 @@ def build_trace(run_dir: Path, observed_at: str) -> dict[str, Any]:
     phases.extend(("readback", "metrics", "money",
                    "learning", "reporting"))
     downstream = {"readback", "metrics", "money", "learning", "reporting"}
-    with tracer.start_as_current_span("writer.run"):
-        for phase in phases:
-            state = "observed"
-            reason = None
-            destination: dict[str, Any] | None = None
-            outcome: Any = events.get(phase, {}).get("outcome")
-            if phase in invalid_receipts:
-                state, reason = "error", "invalid_receipt"
-            elif phase == "research" and phase not in events:
-                state, reason = "error", "expected_receipt_missing"
-            if phase == "publication":
+    for phase in phases:
+        state = "observed"
+        reason = None
+        destination: dict[str, Any] | None = None
+        outcome: Any = events.get(phase, {}).get("outcome")
+        if phase in invalid_receipts:
+            state, reason = "error", "invalid_receipt"
+        elif phase == "research" and phase not in events:
+            state, reason = "error", "expected_receipt_missing"
+        if phase == "publication":
                 if quality.get("action") == "block_freeze":
                     state, reason = "not_expected", "quality_block_freeze"
                 elif publication is None:
@@ -175,7 +167,7 @@ def build_trace(run_dir: Path, observed_at: str) -> dict[str, Any]:
                         for key, value in pairs.items()
                         if isinstance(value, dict)
                     } if isinstance(pairs, dict) else {}
-            elif phase.startswith("destination:"):
+        elif phase.startswith("destination:"):
                 pair = phase.removeprefix("destination:")
                 entry = destination_pairs.get(pair, {})
                 status = entry.get("status") if isinstance(entry, dict) else None
@@ -206,48 +198,32 @@ def build_trace(run_dir: Path, observed_at: str) -> dict[str, Any]:
                     )
                 if state == "error":
                     destination = {**destination, "error_signature": reason}
-            elif phase in downstream and phase not in invalid_receipts:
-                if quality.get("action") == "block_freeze":
-                    state, reason = "not_expected", "quality_block_freeze"
-                elif phase not in events:
-                    state, reason = "error", "expected_receipt_missing"
-            with tracer.start_as_current_span(f"writer.{phase}") as span:
-                span.set_attribute("writer.run_id", run_dir.name)
-                span.set_attribute("writer.phase", phase)
-                span.set_attribute("writer.state", state)
-                if reason:
-                    span.set_attribute("writer.reason", reason)
-                if state == "error":
-                    span.set_status(Status(StatusCode.ERROR, reason))
-                records.append({"phase": phase, "state": state, "reason": reason,
-                                "outcome": outcome,
-                                "destination": destination,
-                                "source_event_id": events.get(phase, {}).get("event_id"),
-                                "source_receipt": (
-                                    events.get(phase, {}).get("source_receipt")
-                                    or (
-                                        {
-                                            "path": str(phase_source_paths[phase].relative_to(run_dir)),
-                                            "sha256": hashlib.sha256(
-                                                phase_source_paths[phase].read_bytes()
-                                            ).hexdigest(),
-                                        }
-                                        if phase in phase_source_paths
-                                        else None
-                                    )
-                                ),
-                                "release_commit": events.get(phase, {}).get("release_commit"),
-                                "_span": span})
-    provider.shutdown()
-    finished = {span.name: span for span in exporter.get_finished_spans()}
-    spans = []
-    for record in records:
-        span = finished[f"writer.{record.pop('phase')}"]
-        phase = span.name.removeprefix("writer.")
-        spans.append({"phase": phase,
-                      "trace_id": f"{span.context.trace_id:032x}",
-                      "span_id": f"{span.context.span_id:016x}",
-                      **{key: value for key, value in record.items() if key != "_span"}})
+        elif phase in downstream and phase not in invalid_receipts:
+            if quality.get("action") == "block_freeze":
+                state, reason = "not_expected", "quality_block_freeze"
+            elif phase not in events:
+                state, reason = "error", "expected_receipt_missing"
+        records.append({"phase": phase, "trace_id": trace_id,
+                        "span_id": secrets.token_hex(8),
+                        "state": state, "reason": reason,
+                        "outcome": outcome,
+                        "destination": destination,
+                        "source_event_id": events.get(phase, {}).get("event_id"),
+                        "source_receipt": (
+                            events.get(phase, {}).get("source_receipt")
+                            or (
+                                {
+                                    "path": str(phase_source_paths[phase].relative_to(run_dir)),
+                                    "sha256": hashlib.sha256(
+                                        phase_source_paths[phase].read_bytes()
+                                    ).hexdigest(),
+                                }
+                                if phase in phase_source_paths
+                                else None
+                            )
+                        ),
+                        "release_commit": events.get(phase, {}).get("release_commit")})
+    spans = records
     health = ("error" if any(s["state"] == "error" for s in spans)
               else "blocked_by_quality" if quality.get("action") == "block_freeze"
               else "observed")
