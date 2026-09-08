@@ -1,19 +1,7 @@
 "use strict";
 
-function dailyDriverEndpoint(value = process.env.CLOAK_CDP_BASE_URL || "http://127.0.0.1:9222") {
-  let parsed;
-  try { parsed = new URL(String(value)); } catch { throw new Error("Connector browser endpoint invalid"); }
-  if (
-    parsed.protocol !== "http:"
-    || !["127.0.0.1", "[::1]"].includes(parsed.hostname)
-    || parsed.port !== "9222"
-    || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash
-  ) throw new Error("Connector browser endpoint invalid");
-  return parsed.origin;
-}
-
-const CONNECTOR_CDP_ENDPOINT = dailyDriverEndpoint();
-const CONNECTOR_CDP_WEBSOCKET_ORIGIN = CONNECTOR_CDP_ENDPOINT.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+const CONNECTOR_CDP_ENDPOINT = "http://127.0.0.1:9222";
+const CONNECTOR_CDP_WEBSOCKET_ORIGIN = "ws://127.0.0.1:9222";
 
 function unavailable(message) {
   throw new Error(message || "Connector browser target controller unavailable");
@@ -147,5 +135,4 @@ module.exports = {
   CONNECTOR_CDP_WEBSOCKET_ORIGIN,
   connectorPageWebsocketTargetId,
   createConnectorBrowserTargetController,
-  dailyDriverEndpoint,
 };

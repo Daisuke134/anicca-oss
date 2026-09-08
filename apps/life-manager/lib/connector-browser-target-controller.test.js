@@ -1,43 +1,26 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 
 const {
+  CONNECTOR_CDP_ENDPOINT,
+  CONNECTOR_CDP_WEBSOCKET_ORIGIN,
+  connectorPageWebsocketTargetId,
   createConnectorBrowserTargetController,
-  dailyDriverEndpoint,
 } = require("./connector-browser-target-controller.js");
 
-test("resolves only the shared loopback daily-driver endpoint", () => {
-  assert.equal(dailyDriverEndpoint("http://127.0.0.1:9222"), "http://127.0.0.1:9222");
-  assert.equal(dailyDriverEndpoint("http://[::1]:9222"), "http://[::1]:9222");
-  for (const endpoint of [
-    "http://127.0.0.1:9223", "https://127.0.0.1:9222", "http://example.com:9222",
-    "http://user:secret@127.0.0.1:9222", "http://127.0.0.1:9222/json/version",
-  ]) assert.throws(() => dailyDriverEndpoint(endpoint), /endpoint invalid/i);
-});
-
-test("fresh Connector modules consume one configured endpoint and exact websocket origin", () => {
-  const script = `
-    const controller = require(${JSON.stringify(require.resolve("./connector-browser-target-controller.js"))});
-    const runner = require(${JSON.stringify(require.resolve("./connector-minimal-runner.js"))});
-    process.stdout.write(JSON.stringify({
-      endpoint: controller.CONNECTOR_CDP_ENDPOINT,
-      target: controller.connectorPageWebsocketTargetId("ws://[::1]:9222/devtools/page/TARGET123"),
-      runner_loaded: typeof runner.runMinimalConnectorWake === "function",
-    }));
-  `;
-  const result = spawnSync(process.execPath, ["-e", script], {
-    env: { ...process.env, CLOAK_CDP_BASE_URL: "http://[::1]:9222" },
-    encoding: "utf8",
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), {
-    endpoint: "http://[::1]:9222",
-    target: "TARGET123",
-    runner_loaded: true,
-  });
+test("uses only the reachable IPv4 daily-driver endpoint and exact page websocket origin", () => {
+  assert.equal(CONNECTOR_CDP_ENDPOINT, "http://127.0.0.1:9222");
+  assert.equal(CONNECTOR_CDP_WEBSOCKET_ORIGIN, "ws://127.0.0.1:9222");
+  assert.equal(
+    connectorPageWebsocketTargetId("ws://127.0.0.1:9222/devtools/page/TARGET123"),
+    "TARGET123",
+  );
+  assert.throws(
+    () => connectorPageWebsocketTargetId("ws://[::1]:9222/devtools/page/TARGET123"),
+    /websocket invalid/i,
+  );
 });
 
 function fixture({ baselineCount = 1, delayedOwnedInsertion = false } = {}) {
