@@ -26,6 +26,13 @@ const DEFAULT_PROVIDERS = Object.freeze([
   "kokuchpro",
 ]);
 
+function providersForSlot(nowMs) {
+  const slot = Math.floor(nowMs / 1_800_000);
+  return Object.freeze(slot % 2 === 0
+    ? [...DEFAULT_PROVIDERS]
+    : ["connpass", "luma", ...DEFAULT_PROVIDERS.slice(2)]);
+}
+
 function unavailable() {
   throw new Error("Connector minimal pass unavailable");
 }
@@ -176,6 +183,8 @@ async function runNativePass(options = {}) {
     : runMinimalConnectorWake;
   const createDependencies = typeof options.createDependencies === "function"
     ? options.createDependencies : createMinimalProductionDependencies;
+  const nowMs = Number((options.now || Date.now)());
+  if (!Number.isFinite(nowMs) || nowMs < 0) unavailable();
   const dependencies = options.dependencies || createDependencies(
     productionConfig(options, stateDir, ownerToken),
   );
@@ -184,7 +193,7 @@ async function runNativePass(options = {}) {
   return runWake(Object.freeze({
     ownerToken,
     stateDir,
-    providers: DEFAULT_PROVIDERS,
+    providers: providersForSlot(nowMs),
     maxConsecutiveFailures: 3,
     maxWakeMs: 600_000,
     maxAgentSteps: 15,
