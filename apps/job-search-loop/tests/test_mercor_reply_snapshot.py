@@ -335,3 +335,23 @@ def test_gmail_inventory_retries_one_transient_thread_timeout(monkeypatch):
     result = snapshot._gmail("owner@example.com", "gog")
     assert result[0]["messages"][0]["id"] == "in_1"
     assert thread_attempts == 2
+
+
+def test_snapshot_retries_one_transient_official_source_miss(monkeypatch):
+    attempts = 0
+
+    async def capture(_ws_url):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("mercor_reply_sources_missing:applications")
+        return {name: {"ok": True} for name in snapshot.ENDPOINTS}
+
+    monkeypatch.setattr(snapshot, "_capture", capture)
+    monkeypatch.setattr(snapshot, "_gmail", lambda *_args: [])
+
+    result = snapshot.snapshot(ws_url="ws://127.0.0.1/devtools/page/1",
+                               gmail_account="owner@example.com", gog="gog")
+
+    assert attempts == 2
+    assert result["applications"] == {"ok": True}

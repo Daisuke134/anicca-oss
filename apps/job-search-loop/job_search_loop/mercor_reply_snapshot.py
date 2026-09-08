@@ -268,7 +268,13 @@ def _gmail(account: str, executable: str,
 
 def snapshot(*, ws_url: str, gmail_account: str, gog: str,
              previous_gmail: list[dict[str, object]] | None = None) -> dict[str, object]:
-    value = asyncio.run(_capture(ws_url))
+    for attempt in range(2):
+        try:
+            value = asyncio.run(_capture(ws_url))
+            break
+        except RuntimeError as exc:
+            if attempt or not str(exc).startswith("mercor_reply_sources_missing:"):
+                raise
     value["gmail"] = _gmail(gmail_account, gog, previous_gmail)
     value["observed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     value["version"] = 1
