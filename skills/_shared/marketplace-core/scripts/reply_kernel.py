@@ -262,7 +262,23 @@ def _run_locked(
                       "observation": refreshed, "intent": intent,
                       "status": "intent_persisted"})
         return _pending(row, "pre_effect_reconcile_unknown")
-    adapter.mutate(intent)
+    try:
+        adapter.mutate(intent)
+    except Exception as error:
+        classify = getattr(adapter, "classify_mutation_error", None)
+        classified = classify(error) if callable(classify) else None
+        if not isinstance(classified, Mapping):
+            raise
+        reason = _text(classified.get("reason"), "reason")
+        remaining = classified.get("remaining_work")
+        if not isinstance(remaining, list) or not remaining or not all(
+            isinstance(item, str) and item.strip() for item in remaining
+        ):
+            raise ValueError("remaining_work_invalid") from error
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": refreshed, "status": "waiting_external",
+                      "blocker": reason, "remaining_work": remaining})
+        return _pending(row, reason)
     official = adapter.readback(intent)
     if official.get("verified") is not True:
         _write(path, {"version": 1, "inventory_event_id": inventory_event_id,

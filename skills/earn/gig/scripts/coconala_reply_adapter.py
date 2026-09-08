@@ -219,6 +219,15 @@ class CoconalaReplyAdapter:
             intent["thread_id"], body.strip(), intent["latest_event_id"],
         )
 
+    @staticmethod
+    def classify_mutation_error(error: Exception) -> dict[str, Any] | None:
+        if str(error) != "submit_rejected_sending_unavailable":
+            return None
+        return {
+            "reason": "provider_sending_unavailable",
+            "remaining_work": ["Wait for the provider message control to become available"],
+        }
+
     def readback(self, intent: dict[str, Any]) -> dict[str, Any]:
         cached = self._receipts.get(intent["effect_key"])
         if cached is not None:
