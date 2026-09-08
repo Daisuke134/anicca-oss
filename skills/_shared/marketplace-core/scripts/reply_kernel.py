@@ -162,6 +162,14 @@ def _run_locked(
     state = _load(path)
     retry_at = state.get("next_eligible_at")
     prior_observation = state.get("observation")
+    same_source_event = (
+        isinstance(prior_observation, Mapping)
+        and prior_observation.get("latest_event_id") == row["latest_event_id"]
+    )
+    prior_status = state.get("status")
+    if same_source_event and prior_status in NO_EFFECT:
+        return {"thread_id": row["thread_id"], "status": prior_status,
+                "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
     if (isinstance(retry_at, str) and isinstance(prior_observation, Mapping)
             and prior_observation.get("latest_event_id") == row["latest_event_id"]):
         try:

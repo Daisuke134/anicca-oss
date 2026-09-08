@@ -1007,6 +1007,10 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    validation errors. Treat every model-output validation error as correctable exactly once and feed its
    contract code back to the correction prompt; collector, authentication, runner and official-page errors
    remain outside that retry. Require exact copying of source message identities to prevent hash typos.
+   The shared kernel also re-ran semantic judgement for every unchanged `no_reply`, `closed` and
+   `awaiting_buyer` room on every five-minute wake; only mutation intents had replay-zero. Fence an
+   unchanged no-effect classification by the official inbox latest-event identity. A new buyer event changes
+   that identity and reopens judgement, while unchanged rooms perform zero browser/thread/model work.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
