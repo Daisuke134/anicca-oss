@@ -1855,7 +1855,7 @@ def run() -> int:
         result_fresh = result_path.is_file() and result_path.stat().st_mtime_ns >= attempt_started_ns
         schema_valid = False
         schema_errors: list[str] = []
-        if rc == 0 and not timed_out and result_fresh:
+        if result_fresh and (rc == 0 or (provider == "codex" and timed_out)):
             try:
                 result = parse_contract_result(
                     result_path.read_text(encoding="utf-8"),
@@ -1885,7 +1885,8 @@ def run() -> int:
                 "pass_consumed_after_tokens": settlement["pass_consumed_after_tokens"],
                 "daily_consumed_after_tokens": settlement["daily_consumed_after_tokens"],
             }
-        error_class = None if (rc == 0 and schema_valid) else classify_provider_error(
+        accepted_result = schema_valid and (rc == 0 or (provider == "codex" and timed_out))
+        error_class = None if accepted_result else classify_provider_error(
             rc, timed_out, stdout_text, stderr_text, launch_error, provider=provider,
         )
 
@@ -1954,7 +1955,7 @@ def run() -> int:
             "model": effective_candidate.get("model"),
             "upstream_model": usage.get("upstream_model"),
             "effort": effective_candidate.get("effort"),
-            "status": "success" if rc == 0 and schema_valid else "failed",
+            "status": "success" if accepted_result else "failed",
             "error_class": error_class,
             "duration_ms": row["duration_ms"],
             "measurement": usage["measurement"],
@@ -1981,7 +1982,7 @@ def run() -> int:
         with attempts_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
         attempts.append(row)
-        if rc == 0 and schema_valid:
+        if accepted_result:
             selected = row
             break
         # A valid response with a schema/contract error is deterministic and

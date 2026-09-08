@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
@@ -96,6 +97,9 @@ class CodexProfileBoundaryTest(unittest.TestCase):
                     return 1
                 if behavior == "timeout":
                     return 124
+                if behavior == "timeout_fresh":
+                    completion_path.write_text('{"ok":true}', encoding="utf-8")
+                    raise subprocess.TimeoutExpired(command, 20)
                 if behavior == "busy":
                     raise ProviderLeaseBusy("codex automation home is busy")
                 if behavior == "success":
@@ -265,6 +269,14 @@ class CodexProfileBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(status, 0)
         self.assertEqual(calls, [("codex", "acct1", "quota"), ("codex", "acct2", "success")])
+
+    def test_run_accepts_fresh_schema_valid_codex_result_written_before_timeout(self):
+        status, calls = self._run_candidate_fixture(
+            {("codex", "acct1"): "timeout_fresh"},
+            include_claude=True,
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(calls, [("codex", "acct1", "timeout_fresh")])
 
     def test_run_acct1_timeout_or_unavailable_skips_acct2_and_calls_claude_once(self):
         for failure in ("timeout", "unavailable"):
