@@ -27,6 +27,6 @@ curl -fsS --max-time 2 http://127.0.0.1:9222/json/version >/dev/null || {
 }
 
 LIFE_MANAGER_SOURCE_REPO="$ROOT" bash "$ROOT/bin/cut-loop-release.sh" HEAD
-"$HOME/loops/current/bin/lm-loop" apply "$LOOP_ID"
+LIFE_MANAGER_APPLY_TARGET="$LOOP_ID" "$HOME/loops/current/bin/lm-loop" apply
 "$HOME/loops/current/bin/lm-loop" start "$LOOP_ID"
 "$HOME/loops/current/bin/lm-loop" status "$LOOP_ID"
