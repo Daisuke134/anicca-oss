@@ -158,20 +158,17 @@ def _run_locked(
     notify=None,
 ) -> dict[str, Any]:
     row = _observation(source)
+    inventory_event_id = row["latest_event_id"]
     path = _state_path(state_root, row)
     state = _load(path)
     retry_at = state.get("next_eligible_at")
     prior_observation = state.get("observation")
-    same_source_event = (
-        isinstance(prior_observation, Mapping)
-        and prior_observation.get("latest_event_id") == row["latest_event_id"]
-    )
+    same_source_event = state.get("inventory_event_id") == inventory_event_id
     prior_status = state.get("status")
     if same_source_event and prior_status in NO_EFFECT:
         return {"thread_id": row["thread_id"], "status": prior_status,
                 "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
-    if (isinstance(retry_at, str) and isinstance(prior_observation, Mapping)
-            and prior_observation.get("latest_event_id") == row["latest_event_id"]):
+    if isinstance(retry_at, str) and same_source_event:
         try:
             eligible = datetime.fromisoformat(retry_at.replace("Z", "+00:00"))
         except ValueError:
@@ -196,7 +193,8 @@ def _run_locked(
             notification = _notify_verified(
                 notify, prior_intent, receipt, state.get("notification")
             )
-            _write(path, {"version": 1, "observation": row, "intent": prior_intent,
+            _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                          "observation": row, "intent": prior_intent,
                           "receipt": receipt, "notification": notification,
                           "status": "verified"})
             result = {"thread_id": row["thread_id"], "status": "verified",
@@ -220,7 +218,8 @@ def _run_locked(
         classification = str(decision.get("classification") or "noop").strip()
         if classification not in NO_EFFECT:
             raise ValueError("reply_noop_classification_invalid")
-        _write(path, {"version": 1, "observation": row, "status": classification})
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": row, "status": classification})
         return {"thread_id": row["thread_id"], "status": classification,
                 "reason": "no_effect_required", "effect": 0, "readback": 1, "failed": 0}
     if action in {"wait", "human"}:
@@ -230,23 +229,27 @@ def _run_locked(
             isinstance(item, str) and item.strip() for item in remaining
         ):
             raise ValueError("remaining_work_invalid")
-        _write(path, {"version": 1, "observation": row,
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": row,
                       "status": "waiting_human" if action == "human" else "waiting_external",
                       "blocker": reason, "remaining_work": remaining})
         return _pending(row, reason)
 
     intent = _intent(row, decision)
-    _write(path, {"version": 1, "observation": row, "intent": intent,
+    _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                  "observation": row, "intent": intent,
                   "status": "intent_persisted"})
     refreshed = _observation(adapter.observe_one(row["thread_id"]))
     if refreshed["latest_event_id"] != row["latest_event_id"]:
-        _write(path, {"version": 1, "observation": refreshed, "status": "context_stale"})
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": refreshed, "status": "context_stale"})
         return _pending(row, "newer_provider_event")
     existing = adapter.readback(intent)
     if existing.get("verified") is True:
         receipt = _receipt(intent, existing)
         notification = _notify_verified(notify, intent, receipt)
-        _write(path, {"version": 1, "observation": refreshed, "intent": intent,
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": refreshed, "intent": intent,
                       "receipt": receipt, "notification": notification,
                       "status": "verified"})
         result = {"thread_id": row["thread_id"], "status": "verified",
@@ -255,19 +258,22 @@ def _run_locked(
             result["notification"] = notification
         return result
     if existing.get("authoritative_absent") is not True:
-        _write(path, {"version": 1, "observation": refreshed, "intent": intent,
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": refreshed, "intent": intent,
                       "status": "intent_persisted"})
         return _pending(row, "pre_effect_reconcile_unknown")
     adapter.mutate(intent)
     official = adapter.readback(intent)
     if official.get("verified") is not True:
-        _write(path, {"version": 1, "observation": refreshed, "intent": intent,
+        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "observation": refreshed, "intent": intent,
                       "status": "reconcile_unknown"})
         return {"thread_id": row["thread_id"], "status": "pending",
                 "reason": "reconcile_unknown", "effect": 1, "readback": 0, "failed": 0}
     receipt = _receipt(intent, official)
     notification = _notify_verified(notify, intent, receipt)
-    _write(path, {"version": 1, "observation": refreshed, "intent": intent,
+    _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                  "observation": refreshed, "intent": intent,
                   "receipt": receipt, "notification": notification,
                   "status": "verified"})
     result = {"thread_id": row["thread_id"], "status": "verified",
@@ -291,6 +297,7 @@ def _run_one(adapter, decide, state_root, source, notify=None):
             next_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
             _write(path, {
                 "version": 1,
+                "inventory_event_id": row["latest_event_id"],
                 "observation": row,
                 "status": "retry_wait",
                 "retry_count": retry_count,
