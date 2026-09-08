@@ -62,7 +62,4 @@ fi
 export ANICCA_REPO="$CODE_ROOT" ANICCA_CODE_ROOT="$CODE_ROOT"
 export ANICCA_RELEASE_ROOT
 export ANICCA_RELEASE_ID="$RELEASE_ID" ANICCA_RELEASE_SHA="$RELEASE_SHA"
-if [ "${ANICCA_ECONOMY_CREATE_EVM_WALLET:-0}" = "1" ]; then
-  /usr/bin/env node "$REPO/runtime/compute-proxy/ensure-wallet.mjs" >/dev/null
-fi
 exec /bin/bash "$REPO/runtime/anicca-daemon.sh"

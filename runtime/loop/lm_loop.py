@@ -444,6 +444,7 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                         "AGENTMAIL_ADAPTER_STATE_DIR", "AGENTMAIL_SEMANTIC_STATE_DIR",
                     ),
                     "agent-economy-loop": (
+                        "ANICCA_ECONOMY_CREATE_EVM_WALLET",
                         "ANICCA_RELEASE_ID",
                         "ANICCA_RELEASE_SHA",
                         "CEO_EFFECTIVE_CRON_DIR",

@@ -43,7 +43,9 @@ class CleanUserInstallTest(unittest.TestCase):
             }
 
             accepted = subprocess.run(
-                [str(launcher)], env=env, capture_output=True, text=True)
+                [str(launcher)], env={
+                    **env, "ANICCA_ECONOMY_CREATE_EVM_WALLET": "1",
+                }, capture_output=True, text=True)
             self.assertEqual(accepted.returncode, 0, accepted.stderr)
             self.assertIn(release.name, accepted.stdout)
 
