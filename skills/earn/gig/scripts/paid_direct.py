@@ -2001,6 +2001,7 @@ def _targeted(args, item, index):
     room = _text(item.get("talkroom_id")); base = args.evidence_dir / "paid-direct" / "targeted" / room
     item_path, snapshot = base / "item.json", base / "snapshot.json"
     _write(item_path, item)
+    _reclaim_browser_owner(args, f"paid-direct-{room}")
     started_ns = time.time_ns()
     environment = _fresh_child_env(args, owner=f"paid-direct-{room}")
     try:
