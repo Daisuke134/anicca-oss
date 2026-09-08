@@ -5,7 +5,8 @@
 # compute_feature_stats with synthetic {title, role, beat_rate} fixtures.
 set -uo pipefail
 
-SCRIPT_DIR="${ARTICLE_SKILL_DIR:-$HOME/profitable-claude/skills/writer-agent}/scripts"
+TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="${ARTICLE_SKILL_DIR:-$(cd "$TEST_DIR/.." && pwd)}/scripts"
 PY=/opt/homebrew/bin/python3
 command -v "$PY" >/dev/null 2>&1 || PY=python3
 TMP="$(mktemp -d)"

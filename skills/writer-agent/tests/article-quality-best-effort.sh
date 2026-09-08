@@ -25,8 +25,18 @@ rg -q 'alternate topic|different alternate topic' "$DAILY"
 rg -q 'platform.*independent|independent.*platform' "$DAILY"
 rg -q 'reality-gate.*PASS|reality_gate.*PASS' "$DAILY"
 rg -q 'published:true' "$DAILY"
-rg -q 'article-run-complete\.py' "$DAILY"
-rg -q -- '--run-id' "$DAILY"
+python3 - "$DAILY" <<'PY'
+import re
+import sys
+
+text = open(sys.argv[1], encoding="utf-8").read()
+assert re.search(
+    r'python3 "\$ARTICLE_ROOT/scripts/article-run-complete\.py"\s*\\\n'
+    r'\s*--ledger "\$LEDGER" --run-id "\$RUN_TS" --armed "\$AUTOPUBLISH"',
+    text,
+), "completion validator must remain scoped to the current immutable run"
+PY
+rg -q 'platform-dispatch\.sh' "$DAILY"
 rg -q 'publication-guard\.py' "$DAILY"
 
 echo 'PASS: daily writer treats quality as advisory, safety as blocking, and platforms independently'
