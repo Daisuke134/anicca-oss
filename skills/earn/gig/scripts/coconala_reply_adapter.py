@@ -43,6 +43,7 @@ def _load_shared(name: str):
 
 
 reply_planner = _load_shared("reply_planner")
+reply_grounding = _load_shared("reply_grounding")
 
 
 def _now() -> str:
@@ -425,6 +426,14 @@ def build(argv: list[str]):
     parser.add_argument("--runner", required=True, type=Path)
     parser.add_argument("--schema", required=True, type=Path)
     parser.add_argument("--estimate-schema", required=True, type=Path)
+    parser.add_argument(
+        "--candidate-profile", type=Path,
+        default=Path.home() / ".config/anicca/job-search/profile.json",
+    )
+    parser.add_argument(
+        "--provider-profile", type=Path,
+        default=Path.home() / ".config/anicca/crowdworks/public-profile.json",
+    )
     args = parser.parse_args(argv)
     root = args.state_root.expanduser().resolve()
     adapter = CoconalaReplyAdapter(
@@ -434,9 +443,14 @@ def build(argv: list[str]):
             temp_root=root / "estimate-model-tmp",
         ),
     )
+    grounding = reply_grounding.build_reply_grounding(
+        candidate_profile_path=args.candidate_profile,
+        provider_profile_path=args.provider_profile,
+    )
     semantic = requested_estimate.SemanticJudge(
         runner=args.runner, schema=args.schema, workdir=REPO_ROOT,
         evidence_root=root / "semantic-evidence",
+        seller_facts=grounding["prompt_facts"],
     )
     return adapter, reply_planner.ReplyPlanner(
         CoconalaSemanticComposer(adapter, semantic)

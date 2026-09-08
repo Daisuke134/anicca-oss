@@ -984,6 +984,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `observed=5`, `effect=0`, `readback=5`, `failed=0`, `pending=0`; board `9058411` is now
    `awaiting_buyer`. The correction and its replay-zero are complete. The next work remains inside
    `SHARED-REPLY-1`: prove Coconala consumes the same grounding/decision contract before advancing.
+   The Coconala source slice now consumes the same `reply_grounding.py` packet as Lancers. Candidate
+   gender, age band, base, public availability, occupation, skills and verified work claims are projected
+   once under `marketplace-core` and passed into Coconala's existing semantic judge; Coconala retains only
+   its official DOM, application/estimate context and mutation/readback ceremony. Grounding, Coconala
+   adapter and semantic regressions pass 46/46. This remains source evidence until a main-derived immutable
+   release produces a natural Coconala terminal with official effect separation and a following replay-zero.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
