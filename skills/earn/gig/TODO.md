@@ -925,6 +925,19 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    an authenticated hidden tab in 0.26 seconds. No login, Mac, Aqua or browser restart occurred.
    `SHARED-REPLY-1` remains unchecked until a later natural Coconala terminal proves complete official
    inventory and effect separation, followed by replay-zero where an effect exists.
+   The repeated Coconala failure was then traced below the Reply code: the preserved launchd
+   environment still routed this label to the dedicated Gig CDP on `:9223`. Its Chromium PID and TCP
+   listener existed, but both `/json/version` and `/json/list` timed out; PID liveness had hidden a
+   non-serving browser. No browser restart was used. A read-only isolated probe instead seeded the
+   existing Gig auth vault into the healthy shared CDP on `:9222` and authenticatedly observed all 174
+   official direct-message threads. PR `#4606` therefore changes only the Coconala Reply launch
+   environment: healthy CDP `:9222`, the existing Gig auth vault, and Reply-specific lease/target
+   ledgers. Apply generation passes 47 tests and production immutable release
+   `20260908T105930-8b062814` is installed only for `hf-gig-reply-detector`. Its first natural wake has
+   crossed inventory and is processing the full backlog independently; at the latest checkpoint 24 of
+   174 threads have durable states, including one official reply/readback, while closed, no-reply,
+   external-wait and retry-wait threads remain separated. The wake is still running, so this is progress
+   evidence, not terminal acceptance, and the atom remains unchecked.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
