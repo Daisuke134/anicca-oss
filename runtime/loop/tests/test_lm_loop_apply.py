@@ -1530,6 +1530,53 @@ class LmLoopApplyTest(unittest.TestCase):
                 self.assertTrue(retired.isdisjoint(environment))
                 self.assertEqual(environment["AGENTMAIL_WEBHOOK_PORT"], "8810")
 
+    def test_writer_targets_retire_only_legacy_log_environment(self):
+        retired = {"ARTICLE_DAILY_LOG", "ARTICLE_MODEL_LOG", "GIG_LOG_DIR"}
+        loop_ids = (
+            "article-audit-7day", "article-daily", "article-healthcheck",
+            "article-learn-whitelist", "article-resume", "article-self-improve",
+            "article-zenn-retry", "writer-claim-loop", "writer-craft-train",
+            "writer-money-sync", "writer-opportunity-discovery",
+            "writer-opportunity-response", "writer-report", "writer-sales-measure",
+        )
+        for loop_id in loop_ids:
+            with self.subTest(loop_id=loop_id):
+                release = self._release(f"release-{loop_id}").resolve()
+                registry_value = registry()
+                entry = registry_value["loops"].pop("example")
+                entry["label"] = f"ai.anicca.{loop_id}"
+                registry_value["loops"][loop_id] = entry
+                (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+                current = self.root / f"current-{loop_id}"
+                current.symlink_to(release)
+                values = self._apply_kwargs(
+                    current,
+                    self.root / f"apply-{loop_id}.lock",
+                    [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+                    label=f"ai.anicca.{loop_id}",
+                    agents_dir_name=f"LaunchAgents-{loop_id}",
+                )
+                rendered = build_apply_plan(registry_value, release, SHA)[0]
+                target = values["agents_dir"] / f"ai.anicca.{loop_id}.plist"
+                installed = plistlib.loads(rendered["plist_bytes"])
+                installed["EnvironmentVariables"].update({
+                    key: f"/legacy/openclaw/{key.lower()}" for key in retired
+                })
+                installed["EnvironmentVariables"]["WRITER_CUSTOM_OPERATIONAL_SETTING"] = "kept"
+                target.write_bytes(plistlib.dumps(
+                    installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+                result = apply_live(
+                    release, values["agents_dir"], values["launchctl_safe"],
+                    target=loop_id, current=current, lock_path=values["lock_path"],
+                    event_writer=lambda *_: None,
+                )
+
+                self.assertTrue(result[0]["changed"])
+                environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+                self.assertTrue(retired.isdisjoint(environment))
+                self.assertEqual(environment["WRITER_CUSTOM_OPERATIONAL_SETTING"], "kept")
+
     def test_polymarket_target_retires_legacy_home_and_signer_environment(self):
         release = self._release("release-pm-live").resolve()
         registry_value = registry()
