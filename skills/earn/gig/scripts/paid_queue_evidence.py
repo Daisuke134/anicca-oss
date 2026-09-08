@@ -204,13 +204,11 @@ def validate_paid_queue(
         elif hashlib.sha256(seller_message.encode("utf-8")).hexdigest() != message_hash:
             errors.append("paid_answer_message_hash_mismatch")
         return not errors, errors
-    if linked_asset_delivery:
+    if linked_asset_delivery and attachment is None:
         expected_message = str(expected_evidence.get("customer_message") or "").strip()
         observed_message = str(live_dom.get("latest_seller_message") or "").strip()
         if not expected_message or observed_message != expected_message:
             errors.append("linked_asset_message_readback_mismatch")
-        if attachment is not None:
-            errors.append("linked_asset_unexpected_attachment")
     elif not isinstance(attachment, dict):
         errors.append("latest_seller_attachment_missing")
     else:
