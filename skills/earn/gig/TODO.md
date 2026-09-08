@@ -211,9 +211,9 @@ case lists below are historical evidence and do not reopen completed work or reo
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
-contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` is
-complete. The active engineering atom is `CROWDWORKS-REPLY-1`; its fixed next atom is
-`MERCOR-REPLY-1` by Dais's explicit order change.
+contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` and
+`CROWDWORKS-REPLY-1` are complete. The active engineering atom is `MERCOR-REPLY-1`; its fixed next
+atom is `NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -1117,24 +1117,31 @@ complete. The active engineering atom is `CROWDWORKS-REPLY-1`; its fixed next at
    observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
    verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
    while the missing Reply observer is the current visibility and response gap.
-9. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
+9. [x] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
    PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
    shared event, decision, receipt or retry lifecycle.
-   In progress: the authenticated official received-message API currently returns 10 unique rows and
+   Initial evidence: the authenticated official received-message API returned 10 unique rows and
    all 10 report `is_replied=false`; seven are still `proposal_status=talking`. Message `425906697`
    officially redirects to proposal `304795711`, where the full buyer event, reply textarea and post
    control are available. The thin repo adapter now normalizes that inventory and conversation into
    the existing shared grounding/planner/kernel without copying lifecycle, retry or effect fencing.
    Its authenticated no-mutation smoke represented all 10 threads exactly once and classified the
-   latest event in thread `303996182` as a buyer event requiring a decision. Remaining acceptance is
-   main-derived production apply, one appropriate real reply with exact official readback and
-   Telegram delivery, then a following natural replay with effect zero.
+   latest event in thread `303996182` as a buyer event requiring a decision.
    The first main-derived natural wake did send one appropriate Java opportunity reply at the
    official timestamp `2026-09-08 16:59`, but its immediate readback selected the now-visible
    collapsed buyer digest instead of the hidden full message body. The provider therefore showed
    the exact seller reply while the aggregate incorrectly ended `effect=0`, `failed=8`. No second
    seller reply exists. The bounded correction selects the provider's full body node independent of
-   collapsed visibility; acceptance remains open until a natural official reconciliation and replay-zero.
+   collapsed visibility and preserves post-effect intents until official reconciliation.
+   Complete: the shared owner sent five appropriate replies and the official provider read back five
+   distinct seller message receipts (`426101291`, `426101743`, `426102072`, `426102609`,
+   `426102951`). The shared Telegram outbox delivered each receipt exactly once as provider messages
+   `69320` through `69324`. Release `460851bf030106635b95fdf7138a01ea8ee15984` then ended a
+   natural terminal with `observed=10`, `effect=0`, `readback=10`, `failed=0`, `pending=0`; all five
+   reply receipts were `replay_zero` and all five no-reply events were also replay-zero. The provider
+   adapter retains only authenticated inventory, CrowdWorks IDs/DOM, mutation and official readback;
+   event lifecycle, model decision, grounding, intent fencing, retry, receipts and notification remain
+   shared. The active cursor advances to `MERCOR-REPLY-1` without reordering.
 10. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
