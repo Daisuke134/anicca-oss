@@ -894,6 +894,54 @@ def test_targeted_readback_reclaims_its_stale_owner_before_open(tmp_path, monkey
     ]
 
 
+def test_file_presend_reclaims_targeted_owner_before_open(tmp_path, monkeypatch):
+    paid = load("paid_direct")
+    root = tmp_path / "project"
+    root.mkdir()
+    feedback = "a" * 64
+    requirements_sha = "b" * 64
+    events = []
+
+    monkeypatch.setattr(paid, "_paid_project_root", lambda *_args: root)
+    monkeypatch.setattr(paid, "_file_mode", lambda *_args: True)
+    monkeypatch.setattr(
+        paid.paid_remote_result, "requirements_digest", lambda *_args: requirements_sha,
+    )
+    monkeypatch.setattr(paid.delivery_queue, "evidence_path", lambda *_args: tmp_path / "stable.json")
+    monkeypatch.setattr(
+        paid, "_validate_file_authorization", lambda *_args: {
+            "artifact_version": "v1", "package_sha256": "c" * 64,
+        },
+    )
+    monkeypatch.setattr(
+        paid, "_reclaim_browser_owner",
+        lambda _args, owner: events.append(("reclaim", owner)),
+    )
+    monkeypatch.setattr(paid, "_collector", lambda *_args: ["collector"])
+
+    def stop_after_open(_command, _step, **kwargs):
+        events.append(("open", kwargs.get("env", {}).get("CLOAK_BROWSER_OWNER")))
+        raise RuntimeError("stop after presend open")
+
+    monkeypatch.setattr(paid, "_run", stop_after_open)
+    args = SimpleNamespace(
+        evidence_dir=tmp_path, delivery_evidence_dir=tmp_path,
+        projects_root=tmp_path, cdp_lock_dir=tmp_path / "locks",
+    )
+    prepared = {
+        "talkroom_id": "18223833", "buyer_feedback_sha256": feedback,
+        "requirements_sha256": requirements_sha,
+    }
+
+    with pytest.raises(RuntimeError, match="stop after presend open"):
+        paid._write_file_effect(args, tmp_path / "item.json", tmp_path / "result.json", prepared)
+
+    assert events == [
+        ("reclaim", "paid-direct-18223833"),
+        ("open", "paid-direct-18223833"),
+    ]
+
+
 def test_remote_verifier_prompt_persists_decision_before_optional_exploration(tmp_path):
     paid = load("paid_direct")
     root, feedback, _digest = blocked_project(tmp_path)
