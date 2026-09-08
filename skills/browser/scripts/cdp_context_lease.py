@@ -300,7 +300,8 @@ def acquire(task, url="about:blank", no_seed=False):
         current_holder = _holder_pid()
         holder_pid_state = _pid_alive(held.get("pid")) if held and not parked else None
         if (held and not parked and held.get("pid") != current_holder
-                and holder_pid_state is not False):
+                and holder_pid_state is not False
+                and held.get("cleanup_pending") is not True):
             raise RuntimeError("lease_busy")
         holder_dead = bool(held) and not parked and holder_pid_state is False
         if held and (holder_dead or not target_responds(
