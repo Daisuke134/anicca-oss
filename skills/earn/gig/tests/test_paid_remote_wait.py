@@ -585,6 +585,60 @@ def test_paid_queue_accepts_completed_linked_formal_readback():
     assert evidence._formal_transaction_state_ready("取引完了") is True
 
 
+def test_paid_queue_accepts_linked_contract_when_dom_proves_uploaded_attachment(tmp_path):
+    evidence = load("paid_queue_evidence")
+    artifact = tmp_path / "review-v3.zip"
+    artifact.write_bytes(b"review package")
+    screenshot = tmp_path / "paid-queue-screenshot.png"
+    screenshot.write_bytes(b"png")
+    live_dom = tmp_path / "paid-queue-live-dom.json"
+    write_json(live_dom, {
+        "url": "https://coconala.com/talkrooms/18223833",
+        "sent": True,
+        "formal_delivery_control_checked": False,
+        "latest_seller_attachment": {
+            "filename": artifact.name,
+            "size_bytes": artifact.stat().st_size,
+            "message": "review package uploaded",
+        },
+    })
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    delta = ["review package uploaded"]
+    write_json(tmp_path / "paid-queue-evidence.json", {
+        "sent": True,
+        "formal_delivery_checkbox": False,
+        "captured_at": "2026-09-08T15:00:00Z",
+        "screenshot_path": str(screenshot),
+        "live_dom_path": str(live_dom),
+        "artifact_basename": artifact.name,
+        "artifact_version": "v3",
+        "package_sha256": digest,
+        "acceptance_delta": delta,
+        "talkroom_id": "18223833",
+        "expected_url": "https://coconala.com/talkrooms/18223833",
+    })
+    expected = {
+        "talkroom_id": "18223833",
+        "marketplace_url": "https://coconala.com/talkrooms/18223833",
+        "delivery_action": "progress",
+        "delivery_evidence": {
+            "artifact_path": str(artifact),
+            "artifact_version": "v3",
+            "package_sha256": digest,
+            "acceptance_delta": delta,
+            "customer_message": "review package uploaded",
+            "required_assets": [
+                {"asset_id": "package", "kind": "linked_asset", "minimum_count": 1},
+            ],
+            "artifact_assets": [
+                {"asset_id": "package", "type": "linked_asset", "path": str(artifact)},
+            ],
+        },
+    }
+
+    assert evidence.validate_paid_queue(tmp_path, expected) == (True, [])
+
+
 def test_reported_formal_cycle_accepts_exact_linked_message_readback(tmp_path, monkeypatch):
     paid = load("paid_direct")
     projects = tmp_path / "projects"
