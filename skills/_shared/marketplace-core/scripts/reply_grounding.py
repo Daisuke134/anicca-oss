@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
+PRIVATE_IDENTITY_FIELDS = (
+    "full_name", "name", "name_ja", "preferred_name", "name_kana",
+    "application_email", "email", "phone", "mailing_address", "mailing_address_ja",
+)
+
+
 def _object(path: Path | None) -> Mapping[str, Any]:
     if path is None:
         return {}
@@ -29,6 +35,27 @@ def _age_band(value: Any, today: date) -> str | None:
     return f"{age // 10 * 10}代" if 0 <= age < 100 else None
 
 
+def _private_identity_values(candidate: Mapping[str, Any]) -> list[str]:
+    values = set()
+    for field in PRIVATE_IDENTITY_FIELDS:
+        value = candidate.get(field)
+        if isinstance(value, str) and value.strip():
+            values.add(value.strip())
+    for field in ("name_ja_parts", "name_romaji_parts"):
+        parts = candidate.get(field)
+        if isinstance(parts, Mapping):
+            values.update(
+                value.strip() for value in parts.values()
+                if isinstance(value, str) and value.strip()
+            )
+    return sorted(values, key=lambda value: (value.casefold(), value))
+
+
+def _contains_private_identity(text: str, values: list[str]) -> bool:
+    folded = text.casefold()
+    return any(value.casefold() in folded for value in values)
+
+
 def build_reply_grounding(
     *, candidate_profile_path: Path,
     provider_profile_path: Path | None = None,
@@ -39,6 +66,7 @@ def build_reply_grounding(
     facts_raw = private.get("facts")
     if not isinstance(candidate_raw, Mapping) or not isinstance(facts_raw, list):
         raise ValueError("reply_grounding_invalid")
+    private_identity_values = _private_identity_values(candidate_raw)
 
     candidate: dict[str, Any] = {}
     age_band = _age_band(candidate_raw.get("date_of_birth"), today or date.today())
@@ -54,14 +82,15 @@ def build_reply_grounding(
         if not isinstance(raw, Mapping):
             continue
         identifier, claim, evidence = raw.get("id"), raw.get("claim"), raw.get("evidence")
-        if all(isinstance(value, str) and value.strip()
-               for value in (identifier, claim, evidence)):
+        if (all(isinstance(value, str) and value.strip()
+                for value in (identifier, claim, evidence))
+                and not _contains_private_identity(claim, private_identity_values)):
             verified_facts.append({"id": identifier.strip(), "claim": claim.strip()})
 
     provider_raw = _object(provider_profile_path)
     provider_facts = {
         key: provider_raw[key]
-        for key in ("hours_limit", "status", "occupation", "skills")
+        for key in ("display_name", "hours_limit", "status", "occupation", "skills")
         if key in provider_raw
     }
     prompt_facts = list(verified_facts)
@@ -104,6 +133,7 @@ def build_reply_grounding(
         "candidate": candidate,
         "verified_facts": verified_facts,
         "provider_public_facts": provider_facts,
+        "private_identity_values": private_identity_values,
         "missing_candidate_fields": ["gender"] if "gender" not in candidate else [],
         "prompt_facts": prompt_facts,
     }

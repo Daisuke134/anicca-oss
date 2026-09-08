@@ -66,11 +66,25 @@ class ReplyPlanner:
                 isinstance(item, str) and item.strip() for item in remaining
             ):
                 raise ValueError("remaining_work_invalid")
-            return {
+            result = {
                 "action": action,
                 "reason": reason.strip(),
                 "remaining_work": [item.strip() for item in remaining],
             }
+            if action == "human":
+                handoff = value.get("handoff")
+                if not isinstance(handoff, Mapping):
+                    raise ValueError("reply_human_handoff_invalid")
+                if any(
+                    not isinstance(handoff.get(field), str) or not handoff[field].strip()
+                    for field in ("title", "url", "deadline")
+                ):
+                    raise ValueError("reply_human_handoff_invalid")
+                result["handoff"] = {
+                    field: handoff[field].strip()
+                    for field in ("title", "url", "deadline")
+                }
+            return result
         raise ValueError("reply_action_invalid")
 
     def __call__(self, row: dict[str, Any]) -> dict[str, Any]:
