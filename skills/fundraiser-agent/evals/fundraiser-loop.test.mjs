@@ -305,7 +305,11 @@ test("run lock recovers an abandoned owner and refuses a live owner", async () =
   const root = await mkdtemp(join(tmpdir(), "fundraiser-run-lock-"));
   const lock = join(root, "run.lock");
   const script = join(root, "check.sh");
-  await writeFile(script, `#!/bin/bash\nset -eu\nsource ${JSON.stringify(runLock.pathname)}\nacquire_run_lock ${JSON.stringify(lock)}\n! acquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\nprintf '999999999\\n' > ${JSON.stringify(join(lock, "owner.pid"))}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\n`);
+  const winners = join(root, "winners");
+  const worker = join(root, "worker.sh");
+  await writeFile(worker, `#!/bin/bash\nsource ${JSON.stringify(runLock.pathname)}\nif acquire_run_lock ${JSON.stringify(lock)}; then echo "$$" >> ${JSON.stringify(winners)}; sleep 1; release_run_lock ${JSON.stringify(lock)}; fi\n`);
+  await writeFile(script, `#!/bin/bash\nset -eu\nsource ${JSON.stringify(runLock.pathname)}\nacquire_run_lock ${JSON.stringify(lock)}\n! acquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\nprintf '999999999\\ndead-start\\n' > ${JSON.stringify(join(lock, "owner"))}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\nprintf '%s\\n%s\\n' "$$" 'reused-pid-start' > ${JSON.stringify(join(lock, "owner"))}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\n! acquire_run_lock ${JSON.stringify(lock)}\nrmdir ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\ntouch -t 200001010000 ${JSON.stringify(lock)}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\n: > ${JSON.stringify(winners)}\n/bin/bash ${JSON.stringify(worker)} &\n/bin/bash ${JSON.stringify(worker)} &\nwait\n[ "$(wc -l < ${JSON.stringify(winners)} | tr -d ' ')" = 1 ]\n`);
+  await chmod(worker, 0o700);
   await chmod(script, 0o700);
   const result = spawnSync("/bin/bash", [script], { encoding: "utf8" });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
