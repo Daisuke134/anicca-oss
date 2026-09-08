@@ -138,11 +138,24 @@ def _pending(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
+def _notify_verified(notify, intent, receipt, prior=None) -> dict[str, Any] | None:
+    if notify is None:
+        return None
+    if isinstance(prior, Mapping) and prior.get("delivery") == "delivered":
+        return dict(prior)
+    try:
+        value = notify(dict(intent), dict(receipt))
+    except Exception as error:
+        return {"delivery": "failed", "error": type(error).__name__}
+    return dict(value) if isinstance(value, Mapping) else {"delivery": "failed"}
+
+
 def _run_locked(
     adapter: ReplyAdapter,
     decide: Callable[[dict[str, Any]], Mapping[str, Any]],
     state_root: Path,
     source: Mapping[str, Any],
+    notify=None,
 ) -> dict[str, Any]:
     row = _observation(source)
     path = _state_path(state_root, row)
@@ -172,10 +185,17 @@ def _run_locked(
         official = adapter.readback(dict(prior_intent))
         if official.get("verified") is True:
             receipt = _receipt(prior_intent, official)
+            notification = _notify_verified(
+                notify, prior_intent, receipt, state.get("notification")
+            )
             _write(path, {"version": 1, "observation": row, "intent": prior_intent,
-                          "receipt": receipt, "status": "verified"})
-            return {"thread_id": row["thread_id"], "status": "verified",
-                    "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
+                          "receipt": receipt, "notification": notification,
+                          "status": "verified"})
+            result = {"thread_id": row["thread_id"], "status": "verified",
+                      "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
+            if notification is not None:
+                result["notification"] = notification
+            return result
         if state.get("status") == "reconcile_unknown":
             return _pending(row, "reconcile_unknown")
         if official.get("authoritative_absent") is not True:
@@ -217,10 +237,15 @@ def _run_locked(
     existing = adapter.readback(intent)
     if existing.get("verified") is True:
         receipt = _receipt(intent, existing)
+        notification = _notify_verified(notify, intent, receipt)
         _write(path, {"version": 1, "observation": refreshed, "intent": intent,
-                      "receipt": receipt, "status": "verified"})
-        return {"thread_id": row["thread_id"], "status": "verified",
-                "reason": "reconciled", "effect": 0, "readback": 1, "failed": 0}
+                      "receipt": receipt, "notification": notification,
+                      "status": "verified"})
+        result = {"thread_id": row["thread_id"], "status": "verified",
+                  "reason": "reconciled", "effect": 0, "readback": 1, "failed": 0}
+        if notification is not None:
+            result["notification"] = notification
+        return result
     if existing.get("authoritative_absent") is not True:
         _write(path, {"version": 1, "observation": refreshed, "intent": intent,
                       "status": "intent_persisted"})
@@ -233,18 +258,23 @@ def _run_locked(
         return {"thread_id": row["thread_id"], "status": "pending",
                 "reason": "reconcile_unknown", "effect": 1, "readback": 0, "failed": 0}
     receipt = _receipt(intent, official)
+    notification = _notify_verified(notify, intent, receipt)
     _write(path, {"version": 1, "observation": refreshed, "intent": intent,
-                  "receipt": receipt, "status": "verified"})
-    return {"thread_id": row["thread_id"], "status": "verified",
-            "reason": "submitted", "effect": 1, "readback": 1, "failed": 0}
+                  "receipt": receipt, "notification": notification,
+                  "status": "verified"})
+    result = {"thread_id": row["thread_id"], "status": "verified",
+              "reason": "submitted", "effect": 1, "readback": 1, "failed": 0}
+    if notification is not None:
+        result["notification"] = notification
+    return result
 
 
-def _run_one(adapter, decide, state_root, source):
+def _run_one(adapter, decide, state_root, source, notify=None):
     row = _observation(source)
     path = _state_path(state_root, row)
     with _lock(path):
         try:
-            return _run_locked(adapter, decide, state_root, row)
+            return _run_locked(adapter, decide, state_root, row, notify)
         except Exception as error:
             state = _load(path)
             retry_count = min(int(state.get("retry_count", 0)) + 1, 10)
@@ -265,7 +295,7 @@ def _run_one(adapter, decide, state_root, source):
 
 def run_wake(*, adapter: ReplyAdapter,
              decide: Callable[[dict[str, Any]], Mapping[str, Any]],
-             state_root: Path, max_workers: int = 4) -> dict[str, Any]:
+             state_root: Path, max_workers: int = 4, notify=None) -> dict[str, Any]:
     try:
         rows = adapter.observe_threads()
         if not isinstance(rows, list):
@@ -279,11 +309,11 @@ def run_wake(*, adapter: ReplyAdapter,
         if workers == 1:
             # Sync browser adapters are thread-affine: even a one-worker pool moves
             # their Playwright page to another thread and invalidates every call.
-            items = [_run_one(adapter, decide, Path(state_root), row)
+            items = [_run_one(adapter, decide, Path(state_root), row, notify)
                      for row in normalized]
         else:
             with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = [pool.submit(_run_one, adapter, decide, Path(state_root), row)
+                futures = [pool.submit(_run_one, adapter, decide, Path(state_root), row, notify)
                            for row in normalized]
                 items = []
                 for row, future in zip(normalized, futures):
@@ -331,19 +361,70 @@ def _load_provider(path: Path, argv: list[str]):
     return adapter, decide
 
 
+def _load_notification():
+    path = Path(__file__).with_name("effect_notification.py")
+    spec = importlib.util.spec_from_file_location("marketplace_reply_notification", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("reply_notification_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _notifier(*, database: Path, chat_id: str, env_file: Path):
+    notification = _load_notification()
+
+    def send(intent: dict[str, Any], receipt: dict[str, Any]) -> dict[str, Any]:
+        provider = str(intent["provider"]).strip()
+        action = "見積り" if intent["action"] == "estimate" else "返信"
+        message = (
+            f"Life Manager::: {provider}で購入者へ{action}しました\n\n"
+            f"状態\n公式送信履歴で確認済みです。\n\n"
+            f"案件ID\n{intent['thread_id']}\n\n"
+            "次に自動で行うこと\n追加メッセージまたは契約を確認します。"
+        )
+        return notification.notify_effect(
+            database=database,
+            event_key=f"reply:{intent['effect_key']}",
+            message=message,
+            observed_at=receipt["observed_at"],
+            chat_id=chat_id,
+            env_file=env_file,
+            repeat_after_seconds=None,
+        )
+
+    return send
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider-adapter", required=True, type=Path)
     parser.add_argument("--state-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--max-workers", type=int, default=4)
+    parser.add_argument("--telegram-chat-id", default=os.environ.get("GIG_REPORT_CHAT", ""))
+    parser.add_argument(
+        "--telegram-database", type=Path,
+        default=Path(os.environ.get("LIFE_MANAGER_STATE_ROOT", ".")) / "telegram-outbox.sqlite3",
+    )
+    parser.add_argument(
+        "--telegram-env-file", type=Path,
+        default=Path(os.environ.get("GIG_ENV_FILE", "~/.local/state/life-manager/.env")),
+    )
     args, provider_argv = parser.parse_known_args(argv)
     if provider_argv[:1] == ["--"]:
         provider_argv = provider_argv[1:]
     adapter, decide = _load_provider(args.provider_adapter, provider_argv)
+    notify = None
+    if args.telegram_chat_id.strip():
+        notify = _notifier(
+            database=args.telegram_database.expanduser().resolve(),
+            chat_id=args.telegram_chat_id.strip(),
+            env_file=args.telegram_env_file.expanduser().resolve(),
+        )
     result = run_wake(adapter=adapter, decide=decide,
                       state_root=args.state_root.expanduser().resolve(),
-                      max_workers=args.max_workers)
+                      max_workers=args.max_workers, notify=notify)
     _write(args.output.expanduser().resolve(), result)
     return int(result["failed"] > 0)
 

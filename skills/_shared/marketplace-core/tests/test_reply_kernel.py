@@ -66,6 +66,27 @@ def test_reply_effect_is_fenced_read_back_and_replay_zero(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_verified_effect_notifies_once_and_replay_does_not_duplicate(tmp_path):
+    adapter = Adapter()
+    reports = []
+
+    def notify(intent, receipt):
+        reports.append((intent["effect_key"], receipt["provider_receipt_id"]))
+        return {"delivery": "delivered", "provider_message_id": "tg-1"}
+
+    arguments = dict(
+        adapter=adapter,
+        decide=lambda _context: {"action": "reply", "payload": {"body": "Thanks"}},
+        state_root=tmp_path,
+        notify=notify,
+    )
+    first = reply_kernel.run_wake(**arguments)
+    replay = reply_kernel.run_wake(**arguments)
+
+    assert first["items"][0]["notification"]["delivery"] == "delivered"
+    assert replay["effect"] == 0
+    assert reports == [(adapter.effects[0]["effect_key"], "message-1")]
+
 def test_new_buyer_event_gets_a_distinct_reply(tmp_path):
     adapter = Adapter()
     bodies = iter(("first", "second"))
