@@ -428,7 +428,15 @@ class CoconalaSemanticComposer:
             conversation = context.get("conversation") or []
             source = next((row for row in reversed(conversation) if row.get("message_id") in evidence_ids), None)
             estimate_url = requested_estimate.sanitize_estimate_url(raw.get("estimate_url"))
-            if not isinstance(source, Mapping) or estimate_url is None:
+            if estimate_url is None:
+                return {
+                    "action": "wait",
+                    "reason": "provider_estimate_control_unavailable",
+                    "remaining_work": [
+                        "Wait for the official estimate control to become available"
+                    ],
+                }
+            if not isinstance(source, Mapping):
                 raise RuntimeError("coconala_estimate_source_invalid")
             result["estimate_terms"] = {
                 **dict(terms),
