@@ -45,7 +45,7 @@ test("public Connector package installs, renders, runs one no-effect wake, and u
     const installedPlist = path.join(launchAgents, LABEL);
     fs.copyFileSync(renderedPlist, installedPlist, fs.constants.COPYFILE_EXCL);
     const plist = fs.readFileSync(installedPlist, "utf8");
-    assert.match(plist, /<key>StartInterval<\/key>\s*<integer>3600<\/integer>/);
+    assert.match(plist, /<key>StartInterval<\/key>\s*<integer>1800<\/integer>/);
     assert.equal((plist.match(/<key>Label<\/key>/g) || []).length, 1);
 
     let wakeCalls = 0;

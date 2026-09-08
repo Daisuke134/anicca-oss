@@ -1788,7 +1788,7 @@
     },
     "life-manager-connector-native": {
       "cadence": {
-        "start_interval_seconds": 3600
+        "start_interval_seconds": 1800
       },
       "cleanup": {
         "max_age_days": 14,

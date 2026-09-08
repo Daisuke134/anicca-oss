@@ -82,6 +82,8 @@ test("Connpass official API discovery reads 28 Tokyo dates without navigating pr
   assert.equal(result[0].discovery_source, "official_api_v2");
   assert.equal(result[0].description.length, 8_000);
   assert.match(result[0].description, /^AI builders meetup /);
+  assert.equal(result[0].starts_at, "2026-08-10T10:00:00.000Z");
+  assert.equal(result[0].ends_at, "2026-08-10T12:00:00.000Z");
   assert.deepEqual({
     participation_slot_status: result[0].participation_slot_status,
     lightning_talk_status: result[0].lightning_talk_status,

@@ -1,8 +1,8 @@
 # Life Manager Connector
 
-Connector maintains a rolling 28-day view of a user's real calendar and runs one bounded pass every hour. It ranks Tokyo events in this order: YC hackathons, open lightning-talk opportunities, AI, crypto, startup. It applies only to verified strong or moderate matches.
+Connector maintains a rolling 28-day view of a user's real calendar and runs one bounded pass every 30 minutes. It ranks Tokyo events in this order: YC hackathons, open lightning-talk opportunities, AI, crypto, startup. It applies only to verified strong or moderate matches.
 
-Luma is the primary actionable source. connpass discovery uses only the official v2 API. Until connpass explicitly permits automated participation for the user's own account, Connector performs zero connpass submissions and sends normalized candidate URLs and slot facts to Telegram. Other sources are fallback inventory after Luma and connpass.
+Luma is the primary actionable source and connpass is the fallback lane. Connpass discovery uses only the official v2 API. Until connpass explicitly permits automated participation for the user's own account, Connector performs zero connpass submissions and sends normalized candidate URLs and slot facts to Telegram.
 
 ## Public profile
 
@@ -36,7 +36,7 @@ cp "$HOME/.local/state/life-manager/rendered-launchd/ai.anicca.life-manager-conn
 bin/launchctl-safe bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/ai.anicca.life-manager-connector-native.plist"
 ```
 
-The installed plist owns exactly one label and uses `StartInterval=3600`. Use only `bin/launchctl-safe` for live launchd operations.
+The installed plist owns exactly one label and uses `StartInterval=1800`. Use only `bin/launchctl-safe` for live launchd operations.
 
 ## Uninstall
 
