@@ -1481,6 +1481,50 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
         self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
 
+    def test_agentmail_targets_retire_only_legacy_state_environment(self):
+        retired = {
+            "AGENTMAIL_QUEUE_PATH",
+            "AGENTMAIL_DB_PATH",
+            "AGENTMAIL_ADAPTER_STATE_DIR",
+            "AGENTMAIL_SEMANTIC_STATE_DIR",
+        }
+        loop_id = "agentmail-webhook"
+        release = self._release(f"release-{loop_id}").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = f"ai.anicca.{loop_id}"
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / f"current-{loop_id}"
+        current.symlink_to(release)
+        expected_arguments = [
+            str(release / "bin/lm-loop-run"), loop_id, str(release),
+        ]
+        values = self._apply_kwargs(
+            current, self.root / f"apply-{loop_id}.lock", expected_arguments,
+            label=f"ai.anicca.{loop_id}",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / f"ai.anicca.{loop_id}.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            key: f"/legacy/openclaw/{key.lower()}" for key in retired
+        })
+        installed["EnvironmentVariables"]["AGENTMAIL_WEBHOOK_PORT"] = "8810"
+        target.write_bytes(plistlib.dumps(
+            installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target=loop_id, current=current, lock_path=values["lock_path"],
+            event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertTrue(retired.isdisjoint(environment))
+        self.assertEqual(environment["AGENTMAIL_WEBHOOK_PORT"], "8810")
+
     def test_polymarket_target_retires_legacy_home_and_signer_environment(self):
         release = self._release("release-pm-live").resolve()
         registry_value = registry()
