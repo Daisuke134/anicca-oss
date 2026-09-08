@@ -1045,6 +1045,12 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    provider ID is absent, bind attachments only to one exact, unique buyer-body match; preserve the
    verified byte count and SHA-256 requirements and continue to fail closed on zero or multiple matches.
    Reordered and ambiguous-message regressions pass with the wider semantic suite, 39/39.
+   `collector_unhealthy:ambiguous_application` was a shared-adapter regression: the established
+   dedicated reader already returns every verified application when the same buyer has multiple offers,
+   but the shared Coconala adapter called the older singular reader and failed instead of grounding the
+   model. Reuse the plural official reader; expose one result as `application` and multiple results as
+   `applications`, without guessing which offer the conversation means. Adapter and semantic checks pass
+   50/50.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

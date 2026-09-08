@@ -191,14 +191,17 @@ class CoconalaReplyAdapter:
         with reply_browser.CoconalaCdpReplyBrowser(
             self.cdp_helper, url, hidden=True, background=False,
         ) as browser:
-            browser.required_official_context = "application"
-            context, _bounded = browser.read_before()
-            if not isinstance(browser.raw, dict):
-                raise RuntimeError("coconala_thread_dom_missing")
-            self._raw_threads[thread_id] = browser.raw
-            self._contexts[thread_id] = context
-        value = context.get("verified_application")
-        return dict(value) if isinstance(value, Mapping) else None
+            context, _bounded = browser._read()
+            applications = browser._find_verified_applications(
+                context["counterparty_user_id"], context.get("_own_user_path"),
+            )
+        if not applications:
+            return None
+        return (
+            {"application": applications[0]}
+            if len(applications) == 1
+            else {"applications": applications}
+        )
 
     def mutate(self, intent: dict[str, Any]) -> None:
         if intent.get("action") == "estimate":
@@ -387,12 +390,12 @@ class CoconalaSemanticComposer:
         if not isinstance(judgement, Mapping):
             raise RuntimeError("coconala_semantic_receipt_invalid")
         if judgement.get("required_official_context") == "application":
-            application = self.adapter.official_application_context(thread_id)
-            if application is None:
+            official_context = self.adapter.official_application_context(thread_id)
+            if official_context is None:
                 return dict(judgement)
             receipt = self.judge(
                 self.adapter.semantic_dom(thread_id), url,
-                official_context={"application": application},
+                official_context=official_context,
             )
             judgement = receipt.get("judgement") if isinstance(receipt, Mapping) else None
             if not isinstance(judgement, Mapping):
