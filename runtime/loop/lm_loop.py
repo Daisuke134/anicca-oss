@@ -418,6 +418,17 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 target_path = agents_dir / f"{item['label']}.plist"
                 result = None
                 existing_bytes = target_path.read_bytes() if target_path.is_file() else None
+                writer_loop_ids = {
+                    "article-audit-7day", "article-daily", "article-healthcheck",
+                    "article-learn-whitelist", "article-resume", "article-self-improve",
+                    "article-zenn-retry", "writer-claim-loop", "writer-craft-train",
+                    "writer-money-sync", "writer-opportunity-discovery",
+                    "writer-opportunity-response", "writer-report", "writer-sales-measure",
+                }
+                writer_retired_environment_keys = (
+                    ("ARTICLE_DAILY_LOG", "ARTICLE_MODEL_LOG", "GIG_LOG_DIR")
+                    if item["loop_id"] in writer_loop_ids else ()
+                )
                 retired_environment_keys = {
                     "life-manager-cfo-hourly": ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR"),
                     "agentmail-webhook": (
@@ -453,7 +464,7 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                         "ANICCA_EVM_PRIVATE_KEY", "BASE_CHAIN_WALLET_KEY", "BLOCKRUN_WALLET_KEY",
                         "POLYGON_WALLET_PRIVATE_KEY",
                     ),
-                }.get(item["loop_id"], ())
+                }.get(item["loop_id"], writer_retired_environment_keys)
                 retired_operational_keys = (
                     ("WorkingDirectory",)
                     if item["loop_id"] == "life-manager-cfo-hourly" else ()
