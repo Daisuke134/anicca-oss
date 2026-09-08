@@ -36,6 +36,7 @@ KEYS = frozenset({
     "ARTICLE_SELF_OWNED_BASE_URL",
     "ARTICLE_INTERNAL_LINK_URLS",
     "ARTICLE_CTA_URLS",
+    "ARTICLE_CLIPROXY_CONFIG",
 })
 LINE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 

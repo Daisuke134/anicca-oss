@@ -111,6 +111,18 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
             MODULE.configure(target, ["NOTE_URLNAME=writer"])
             self.assertEqual(os.stat(target).st_mode & 0o777, 0o600)
 
+    def test_configure_accepts_explicit_cliproxy_config_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "life-manager.env"
+            result = MODULE.configure(
+                target, ["ARTICLE_CLIPROXY_CONFIG=/etc/life-manager/cliproxy.conf"]
+            )
+            self.assertEqual(result, {"configured": 1, "skipped": 0})
+            self.assertIn(
+                "ARTICLE_CLIPROXY_CONFIG=/etc/life-manager/cliproxy.conf\n",
+                target.read_text(encoding="utf-8"),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
