@@ -76,10 +76,18 @@ USER_ID="${NOTE_BROWSER_PROFILE_ID:-note-publisher}"
 SESSION_KEY="${ANICCA_NOTE_SESSION_KEY:-note-daily}"
 
 # Always probe live cookies first — if session is already alive, skip login.
-# Camoufox/Playwright profiles in this environment live under /private/tmp,
-# not /var/folders, so search both and pick the newest matching profile.
-PROFILE="$(python3 "$SCRIPT_DIR/find-note-browser-profile.py" \
-  --root /private/tmp:1 --root /var/folders:4)"
+# Search an explicitly configured profile root first, then the host temporary
+# directory and portable /tmp fallback. The first root containing a profile
+# wins; within that root, use its newest matching profile.
+find_note_browser_profile() {
+  local roots=()
+  [[ -n "${NOTE_BROWSER_PROFILE_ROOT:-}" ]] \
+    && roots+=(--ordered-root "$NOTE_BROWSER_PROFILE_ROOT:4")
+  roots+=(--ordered-root "${TMPDIR:-/tmp}:4")
+  [[ "${TMPDIR:-/tmp}" != "/tmp" ]] && roots+=(--ordered-root /tmp:1)
+  python3 "$SCRIPT_DIR/find-note-browser-profile.py" "${roots[@]}"
+}
+PROFILE="$(find_note_browser_profile)"
 COOKIE_DB=""
 if [[ -n "$PROFILE" && -f "$PROFILE/cookies.sqlite" ]]; then
   COOKIE_DB="/tmp/note-publish-cookies-$$.sqlite"
@@ -140,8 +148,7 @@ if [[ "$NEED_LOGIN" == "true" ]]; then
     sleep 8
   fi
   # Re-extract cookies
-  PROFILE="$(python3 "$SCRIPT_DIR/find-note-browser-profile.py" \
-    --root /private/tmp:1 --root /var/folders:4)"
+  PROFILE="$(find_note_browser_profile)"
   # camofox tab-based login is a best-effort fast path only. If no profile shows up
   # (camofox naming drift, timing, or a note.com login-page DOM change breaking the
   # ref-based type/click), fall through with no cookie: the block below already sets

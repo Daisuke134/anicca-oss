@@ -85,6 +85,14 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
             self.assertNotIn("OK no history", result.stdout)
             self.assertIn("refuses legacy", result.stderr)
 
+    def test_note_profile_discovery_uses_portable_or_configured_temp_roots(self):
+        body = (SCRIPTS / "publish-note.sh").read_text(encoding="utf-8")
+        self.assertIn("NOTE_BROWSER_PROFILE_ROOT", body)
+        self.assertIn("${TMPDIR:-/tmp}", body)
+        self.assertIn("--ordered-root", body)
+        self.assertNotIn("/private/tmp", body)
+        self.assertNotIn("/var/folders", body)
+
     def test_entrypoints_have_no_operator_identity_defaults(self):
         paths = (
             SCRIPTS / "propose.sh",

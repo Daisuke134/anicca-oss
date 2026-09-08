@@ -40,10 +40,26 @@ def main() -> int:
     parser.add_argument(
         "--root",
         action="append",
-        required=True,
+        default=[],
         help="root:max_depth",
     )
+    parser.add_argument(
+        "--ordered-root",
+        action="append",
+        default=[],
+        help="root:max_depth; first root containing a profile wins",
+    )
     args = parser.parse_args()
+    if not args.root and not args.ordered_root:
+        parser.error("at least one --root or --ordered-root is required")
+    for item in args.ordered_root:
+        root_text, separator, depth_text = item.rpartition(":")
+        if not separator:
+            raise SystemExit(f"invalid --ordered-root value: {item}")
+        found = list(candidates(Path(root_text), int(depth_text)))
+        if found:
+            print(max(found, key=lambda value: value[0])[1])
+            return 0
     found = []
     for item in args.root:
         root_text, separator, depth_text = item.rpartition(":")
