@@ -1554,6 +1554,42 @@ class LmLoopApplyTest(unittest.TestCase):
                 self.assertTrue(retired.isdisjoint(environment))
                 self.assertEqual(environment["AGENTMAIL_WEBHOOK_PORT"], "8810")
 
+    def test_agent_economy_apply_retires_legacy_cron_environment(self):
+        loop_id = "agent-economy-loop"
+        release = self._release("release-agent-economy").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.agent-economy-loop"
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-agent-economy"
+        current.symlink_to(release)
+        values = self._apply_kwargs(
+            current,
+            self.root / "apply-agent-economy.lock",
+            [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+            label="ai.anicca.agent-economy-loop",
+            agents_dir_name="LaunchAgents-agent-economy",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.agent-economy-loop.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"]["CEO_EFFECTIVE_CRON_DIR"] = "/legacy/cron"
+        installed["EnvironmentVariables"]["AGENT_ECONOMY_OPERATIONAL_SETTING"] = "kept"
+        target.write_bytes(plistlib.dumps(
+            installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target=loop_id, current=current, lock_path=values["lock_path"],
+            event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
+        self.assertEqual(environment["AGENT_ECONOMY_OPERATIONAL_SETTING"], "kept")
+
     def test_writer_targets_retire_only_legacy_log_environment(self):
         retired = {"ARTICLE_DAILY_LOG", "ARTICLE_MODEL_LOG", "GIG_LOG_DIR"}
         loop_ids = (

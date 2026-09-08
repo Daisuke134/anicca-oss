@@ -54,7 +54,7 @@ chmod 700 "$TARGET"
 copy_once() {
   local source="$1" target="$2" temporary
   [ -f "$source" ] || return 0
-  [ ! -L "$source" ] || fail_destination "source file is a symlink"
+  reject_symlink_components "$source"
   mkdir -p "$(dirname "$target")"
   chmod 700 "$(dirname "$target")"
   if [ ! -e "$target" ]; then

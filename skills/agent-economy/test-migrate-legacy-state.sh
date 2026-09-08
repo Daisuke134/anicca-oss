@@ -65,6 +65,16 @@ if AGENT_ECONOMY_LEGACY_INSTANCE_HOME="$INSTANCE" AGENT_ECONOMY_LEGACY_OWNER_HOM
 fi
 test "$(stat -f%Lp "$OUTSIDE")" = 755
 
+SYMLINK_INSTANCE="$TMP_ROOT/symlink-instance"
+mkdir -p "$SYMLINK_INSTANCE/skills/earn/state" "$SYMLINK_INSTANCE/.blockrun"
+ln -s "$OUTSIDE" "$SYMLINK_INSTANCE/identity"
+printf '%s\n' outside-genesis > "$OUTSIDE/genesis.md"
+if AGENT_ECONOMY_LEGACY_INSTANCE_HOME="$SYMLINK_INSTANCE" AGENT_ECONOMY_LEGACY_OWNER_HOME="$OWNER" AGENT_ECONOMY_STATE_ROOT="$OWNER/.local/state/life-manager/source-link-fail" \
+  "$(dirname "$0")/migrate-legacy-state.sh" >/dev/null 2>&1; then
+  echo "symlink source parent was accepted" >&2
+  exit 1
+fi
+
 FAKE_BIN="$TMP_ROOT/fake-bin"
 mkdir "$FAKE_BIN"
 printf '%s\n' '#!/usr/bin/env bash' 'exit 9' > "$FAKE_BIN/cp"
