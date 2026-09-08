@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -11,6 +12,7 @@ SPEC = importlib.util.spec_from_file_location("migrate_x_social", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader
 SPEC.loader.exec_module(MODULE)
+import legacy_state_mirror
 
 
 class XSocialMigrationTest(unittest.TestCase):
@@ -40,7 +42,9 @@ class XSocialMigrationTest(unittest.TestCase):
         MODULE.migrate(source, target)
         legacy = source / "x-repost-en" / "ledger.jsonl"
         legacy.write_text('{"id":1}\n{"id":2}\n')
-        result = MODULE.migrate(source, target)
+        with self.assertRaisesRegex(ValueError, "sealed idle cutover"):
+            MODULE.migrate(source, target)
+        result = MODULE.migrate(source, target, seal=True)
         self.assertEqual(result["copied"], 1)
         self.assertEqual((target / "x-repost/en/ledger.jsonl").read_text(), legacy.read_text())
 
@@ -83,3 +87,41 @@ class XSocialMigrationTest(unittest.TestCase):
         (source / "current").symlink_to(source / "x-repost-en", target_is_directory=True)
         result = MODULE.migrate(source, target)
         self.assertEqual(result["verified"], 6)
+
+    def test_first_copy_resumes_after_interruption(self):
+        temp, source, target = self.stores()
+        self.addCleanup(temp.cleanup)
+        real_copy = legacy_state_mirror.stable_copy
+        calls = 0
+
+        def interrupted_copy(
+            source_path, source_root, target_root, target_path, expected_target_digest
+        ):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("simulated interruption")
+            return real_copy(
+                source_path, source_root, target_root, target_path, expected_target_digest
+            )
+
+        with mock.patch.object(legacy_state_mirror, "stable_copy", side_effect=interrupted_copy):
+            with self.assertRaisesRegex(RuntimeError, "simulated interruption"):
+                MODULE.migrate(source, target)
+        self.assertTrue((target / MODULE.MARKER).exists())
+        result = MODULE.migrate(source, target)
+        self.assertEqual(result["verified"], 6)
+        self.assertEqual(result["copied"], 5)
+        self.assertEqual(result["skipped"], 1)
+
+    def test_dangling_allowlisted_source_is_rejected(self):
+        temp, source, target = self.stores()
+        self.addCleanup(temp.cleanup)
+        doomed = source / "x-repost-en"
+        for path in sorted(doomed.rglob("*"), reverse=True):
+            path.unlink() if path.is_file() else path.rmdir()
+        doomed.rmdir()
+        doomed.symlink_to(source / "missing", target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "symlink legacy source"):
+            MODULE.migrate(source, target)
+        self.assertFalse((target / MODULE.MARKER).exists())
