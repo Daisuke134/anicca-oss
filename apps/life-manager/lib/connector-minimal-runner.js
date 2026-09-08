@@ -87,6 +87,7 @@ function verifiedCandidates(value, provider) {
       || typeof candidate.canonical_url !== "string"
       || !candidate.canonical_url.startsWith("https://")
       || typeof candidate.event_ref !== "string"
+      || (candidate.reconciliation_only != null && candidate.reconciliation_only !== true)
     ) invalid();
   }
   return value;
@@ -403,6 +404,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           phase: "pre_submit",
         }));
         if (deadlineReached() && !registered(providerState)) return finish("circuit_open", "wake_deadline");
+        if (selected.reconciliation_only === true && !registered(providerState)) continue;
         let usedFallback = false;
         let ambiguousAgentEffect = false;
         let directFailureReason = null;

@@ -10,6 +10,7 @@ const {
 const { createConnectorTabOwner } = require("./connector-tab-owner.js");
 const { createConnectorTargetLease } = require("./connector-target-lease.js");
 const { createConnectorActionCache } = require("./connector-action-cache.js");
+const { createConnectorReconciliationStore } = require("./connector-reconciliation-store.js");
 const { eligibleRankedCandidates, inferProviderCandidateRanking } = require("./event-preference-ranking.js");
 const { inferEventTalkOpportunity, isVerifiedEventTalkOpportunity } = require("./event-talk-opportunity.js");
 const { generateGroundedTalkPack } = require("./grounded-talk-pack.js");
@@ -299,6 +300,7 @@ function createProductionProviderRouter(options = {}) {
   const techplayWorkflow = options.techplayWorkflow;
   const kokuchproWorkflow = options.kokuchproWorkflow;
   const actionCache = options.actionCache;
+  const reconciliationStore = options.reconciliationStore || Object.freeze({ list: () => [], save: () => {}, remove: () => false });
   const browserHarness = options.browserHarness;
   const performAction = options.performAction;
   const rankCandidates = options.rankCandidates;
@@ -334,6 +336,8 @@ function createProductionProviderRouter(options = {}) {
       || typeof kokuchproWorkflow.readProviderState !== "function"))
     || !actionCache || typeof actionCache.replay !== "function"
     || typeof actionCache.saveVerifiedRepair !== "function"
+    || !reconciliationStore || typeof reconciliationStore.list !== "function"
+    || typeof reconciliationStore.save !== "function" || typeof reconciliationStore.remove !== "function"
     || !browserHarness || typeof browserHarness.runFallback !== "function"
     || typeof performAction !== "function" || typeof now !== "function"
     || (rankCandidates != null && typeof rankCandidates !== "function")
@@ -364,13 +368,36 @@ function createProductionProviderRouter(options = {}) {
     });
   }
 
+  function rememberConnpass(result, route) {
+    const remember = (value) => {
+      if (route.input.provider === "connpass" && value && value.status === "completed") {
+        reconciliationStore.save(route.input.candidate, exactNow(now()).toISOString());
+      }
+      return value;
+    };
+    return result && typeof result.then === "function" ? result.then(remember) : remember(result);
+  }
+
   return Object.freeze({
     discoverCandidates(provider, calendar, page) {
       const route = selected({ provider });
       const discovered = route.workflow.discoverCandidates({ page, calendar });
-      if (rankCandidates == null) return discovered;
       return (async () => {
-        const candidates = await discovered;
+        const discoveredCandidates = await discovered;
+        const pendingReconciliation = provider === "connpass" ? reconciliationStore.list(provider) : [];
+        const queueOffset = pendingReconciliation.length === 0 ? 0
+          : Math.floor(exactNow(now()).getTime() / 1_800_000) % pendingReconciliation.length;
+        const rotatedReconciliation = Object.freeze([
+          ...pendingReconciliation.slice(queueOffset), ...pendingReconciliation.slice(0, queueOffset),
+        ]);
+        const queued = rotatedReconciliation.map((candidate) => Object.freeze({
+          ...candidate,
+          registration_status: "registered",
+          reconciliation_only: true,
+        }));
+        const queuedRefs = new Set(queued.map((candidate) => candidate.event_ref));
+        const candidates = Object.freeze([...queued, ...discoveredCandidates.filter((candidate) => !queuedRefs.has(candidate.event_ref))]);
+        if (rankCandidates == null) return candidates;
         if (candidates.length === 0) return candidates;
         const reconcile = candidates.filter((candidate) => (
           candidate.rsvp_status === "registered" || candidate.registration_status === "registered"
@@ -428,7 +455,7 @@ function createProductionProviderRouter(options = {}) {
       if (route.input.provider === "connpass" && !connpassAutomatedSubmitAllowed) {
         return Object.freeze({ status: "failed", safe_reason: "connpass_action_permission_required" });
       }
-      return actionCache.replay({
+      return rememberConnpass(actionCache.replay({
         provider: route.input.provider,
         workflowVersion: route.workflowVersion,
         pageState: LUMA_PAGE_STATE,
@@ -439,7 +466,7 @@ function createProductionProviderRouter(options = {}) {
           page,
           candidate: route.input.candidate,
         }),
-      });
+      }), route);
     },
 
     runDirectAction(input) {
@@ -447,7 +474,7 @@ function createProductionProviderRouter(options = {}) {
       if (route.input.provider === "connpass" && !connpassAutomatedSubmitAllowed) {
         return Object.freeze({ status: "failed", safe_reason: "connpass_action_permission_required" });
       }
-      return route.workflow.runDirectAction({ page: route.input.page, candidate: route.input.candidate });
+      return rememberConnpass(route.workflow.runDirectAction({ page: route.input.page, candidate: route.input.candidate }), route);
     },
 
     runAgentFallback(input) {
@@ -458,19 +485,27 @@ function createProductionProviderRouter(options = {}) {
       if (!Number.isInteger(route.input.maxSteps) || route.input.maxSteps < 1) invalid();
       const maxSteps = route.input.provider === "techplay"
         ? route.input.maxSteps : Math.min(route.input.maxSteps, 10);
-      return browserHarness.runFallback({
+      return rememberConnpass(browserHarness.runFallback({
         provider: route.input.provider,
         candidate: route.input.candidate,
         page: route.input.page,
         pageWebsocket: route.input.pageWebsocket,
         maxSteps,
         expectedState: route.input.expectedState,
-      });
+      }), route);
     },
 
     readProviderState(input) {
       const route = selected(input);
-      return route.workflow.readProviderState({ page: route.input.page, candidate: route.input.candidate });
+      const result = route.workflow.readProviderState({ page: route.input.page, candidate: route.input.candidate });
+      const settle = (value) => {
+        if (route.input.provider === "connpass" && route.input.candidate.reconciliation_only === true
+          && value && value.status === "absent") {
+          reconciliationStore.remove(route.input.provider, route.input.candidate.event_ref);
+        }
+        return value;
+      };
+      return result && typeof result.then === "function" ? result.then(settle) : settle(result);
     },
 
     saveRepairedActions(input) {
@@ -669,6 +704,9 @@ function createMinimalProductionDependencies(options = {}) {
   const actionCache = options.actionCache || createConnectorActionCache({
     path: path.join(stateDir, "action-cache.json"),
   });
+  const reconciliationStore = options.reconciliationStore || createConnectorReconciliationStore({
+    path: path.join(stateDir, "reconciliation-candidates.json"),
+  });
   const proposeAction = options.proposeAction || createBoundedActionProposer({
     repoRoot,
     evidenceDir: lunaEvidenceDir,
@@ -703,6 +741,7 @@ function createMinimalProductionDependencies(options = {}) {
     techplayWorkflow,
     kokuchproWorkflow,
     actionCache,
+    reconciliationStore,
     browserHarness,
     performAction: browserHarness.performAction,
     connpassAutomatedSubmitAllowed: options.connpassAutomatedSubmitAllowed === true,
@@ -722,7 +761,14 @@ function createMinimalProductionDependencies(options = {}) {
     runAgentFallback: providerRouter.runAgentFallback,
     readProviderState: providerRouter.readProviderState,
     saveRepairedActions: providerRouter.saveRepairedActions,
-    completeEvidence: evidenceChain.completeEvidence,
+    completeEvidence: async (input) => {
+      const bundle = await evidenceChain.completeEvidence(input);
+      if (bundle && bundle.status === "applied_bundle" && String(bundle.bundle_id || "")
+        && ["created", "reused"].includes(bundle.completion_disposition)) {
+        reconciliationStore.remove(input.provider, input.candidate.event_ref);
+      }
+      return bundle;
+    },
     runTalkApplication: talkApplicationWorkflow.run,
     completeTalkEvidence: talkEvidenceChain.completeTalkEvidence,
     reportConnpassActionBoundary: options.connpassAutomatedSubmitAllowed === true

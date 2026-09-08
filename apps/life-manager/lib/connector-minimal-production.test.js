@@ -198,7 +198,12 @@ test("official production factory exposes the complete minimal wake dependency c
       discoverCandidates() {}, runCachedAction() {}, runDirectAction() {}, runAgentFallback() {},
       readProviderState() {}, saveRepairedActions() {},
     });
-    const evidenceChain = Object.freeze({ completeEvidence() {} });
+    let evidenceCalls = 0;
+    const evidenceChain = Object.freeze({ completeEvidence() { evidenceCalls += 1; return evidenceCalls === 1
+      ? { status: "applied_bundle" }
+      : { status: "applied_bundle", bundle_id: "bundle-1", completion_disposition: "created" }; } });
+    let removed = null;
+    const reconciliationStore = Object.freeze({ list() { return []; }, save() {}, remove(provider, eventRef) { removed = [provider, eventRef]; } });
     const operations = Object.freeze({ reportWake() {}, recordAction() {} });
     const dependencies = createMinimalProductionDependencies({
       repoRoot: "/private/repo",
@@ -215,6 +220,7 @@ test("official production factory exposes the complete minimal wake dependency c
       calendarReader,
       providerRouter,
       evidenceChain,
+      reconciliationStore,
       operations,
       now: () => new Date("2026-08-07T08:30:00.000Z"),
     });
@@ -227,7 +233,12 @@ test("official production factory exposes the complete minimal wake dependency c
     ]);
     assert.deepEqual(await dependencies.readCalendarGaps(), await calendarReader.readCalendarGaps());
     assert.equal(dependencies.discoverCandidates, providerRouter.discoverCandidates);
-    assert.equal(dependencies.completeEvidence, evidenceChain.completeEvidence);
+    const evidenceInput = { provider: "connpass", candidate: { event_ref: "connpass-event://event/1" } };
+    await dependencies.completeEvidence(evidenceInput);
+    assert.equal(removed, null);
+    await dependencies.completeEvidence(evidenceInput);
+    assert.equal(evidenceCalls, 2);
+    assert.deepEqual(removed, ["connpass", "connpass-event://event/1"]);
     assert.equal(dependencies.reportWake, operations.reportWake);
     assert.equal(dependencies.now(), "2026-08-07T08:30:00.000Z");
   } finally {
@@ -370,6 +381,53 @@ test("production provider router ranks only twelve candidates round-robin across
   assert.equal(rankingInputs[0].some((candidate) => candidate.event_ref.endsWith("august-12")), false);
   assert.deepEqual(result.slice(0, 2).map((candidate) => candidate.event_ref), reconcile.map((candidate) => candidate.event_ref));
   assert.equal(result.slice(2).length, 12);
+});
+
+test("production router prioritizes a durable Connpass reconciliation candidate and records completed submit", async () => {
+  const queued = rankingCandidate("queued", "2026-09-10T09:00:00.000Z", {
+    title: "Queued AI event", ends_at: "2026-09-10T10:00:00.000Z", venue_name: "Tokyo",
+  });
+  const ordinary = rankingCandidate("ordinary", "2026-09-11T09:00:00.000Z");
+  const saved = [];
+  const removed = [];
+  const emptyWorkflow = { async discoverCandidates() { return []; }, async runDirectAction() {}, async readProviderState() { return { status: "absent" }; } };
+  const connpassWorkflow = { ...emptyWorkflow, async discoverCandidates() { return [ordinary, queued]; }, async runDirectAction() { return { status: "completed" }; } };
+  const router = createProductionProviderRouter({
+    now: () => new Date("2026-09-08T19:13:34.232Z"),
+    lumaWorkflow: emptyWorkflow,
+    connpassWorkflow,
+    connpassAutomatedSubmitAllowed: true,
+    actionCache: { async replay() {}, async saveVerifiedRepair() {} },
+    browserHarness: { async runFallback() {} },
+    async performAction() {},
+    reconciliationStore: {
+      list(provider) { assert.equal(provider, "connpass"); return [queued]; },
+      save(candidate, observedAt) { saved.push([candidate.event_ref, observedAt]); },
+      remove(provider, eventRef) { removed.push([provider, eventRef]); },
+    },
+  });
+
+  const candidates = await router.discoverCandidates("connpass", [], {});
+  assert.deepEqual(candidates.map((candidate) => candidate.event_ref), [queued.event_ref, ordinary.event_ref]);
+  assert.equal(candidates[0].registration_status, "registered");
+  assert.equal(candidates[0].reconciliation_only, true);
+  await router.readProviderState({ provider: "connpass", candidate: candidates[0], page: {} });
+  assert.deepEqual(removed, [["connpass", queued.event_ref]]);
+  await router.runDirectAction({ provider: "connpass", candidate: ordinary, page: {} });
+  assert.deepEqual(saved, [[ordinary.event_ref, "2026-09-08T19:13:34.232Z"]]);
+});
+
+test("production router rotates durable Connpass reconciliation candidates every half hour", async () => {
+  const queue = [rankingCandidate("queue-a", "2026-09-10T09:00:00.000Z"), rankingCandidate("queue-b", "2026-09-11T09:00:00.000Z")];
+  const workflow = { async discoverCandidates() { return []; }, async runDirectAction() {}, async readProviderState() { return { status: "absent" }; } };
+  const firstRefs = [];
+  for (const now of ["2026-09-08T19:00:00.000Z", "2026-09-08T19:30:00.000Z"]) {
+    const router = createProductionProviderRouter({ now: () => new Date(now), lumaWorkflow: workflow, connpassWorkflow: workflow,
+      actionCache: { async replay() {}, async saveVerifiedRepair() {} }, browserHarness: { async runFallback() {} }, async performAction() {},
+      reconciliationStore: { list() { return queue; }, save() {}, remove() {} } });
+    firstRefs.push((await router.discoverCandidates("connpass", [], {}))[0].event_ref);
+  }
+  assert.notEqual(firstRefs[0], firstRefs[1]);
 });
 
 test("production provider router samples the full candidate window instead of starving later weeks", async () => {
