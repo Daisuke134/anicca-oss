@@ -34,18 +34,19 @@ from pathlib import Path
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SKILL_DIR)  # so `import pinnacle_edge` / `import pinnacle_observe` resolve
-STATE_DIR = os.path.join(SKILL_DIR, "..", "state")
+STATE_DIR = os.environ.get(
+    "LIFE_MANAGER_STATE_ROOT", os.path.expanduser("~/.local/state/life-manager/pm-decision-loop")
+)
 DECISIONS_PATH = os.path.join(STATE_DIR, "pm-decisions.jsonl")
 KILL_FILE = os.environ.get(
     "PM_KILL_SWITCH", os.path.expanduser("~/.local/state/life-manager/polymarket/KILL")
 )
 TELEGRAM_SCRIPT = os.path.join(SKILL_DIR, "..", "..", "_shared", "send-telegram.sh")
-LEDGER_PATH = os.path.expanduser("~/anicca/skills/earn/state/earn-ledger.jsonl")
-
-AGENT_HOME = os.environ.get(
-    "PM_TRADE_AGENT_HOME", os.path.expanduser("~/.anicca-founder/agents/polymarket-agent")
+LEDGER_PATH = os.environ.get(
+    "LIFE_MANAGER_EARN_LEDGER_PATH",
+    os.path.expanduser("~/.local/state/life-manager/earn/earn-ledger.jsonl"),
 )
-VENV_PY = os.path.join(AGENT_HOME, ".venv", "bin", "python")
+VENV_PY = os.environ.get("LIFE_MANAGER_PYTHON", sys.executable)
 
 import daily_loss_guard  # noqa: E402  (same-dir import, needs SKILL_DIR on sys.path first)
 from state_paths import external_state_path  # noqa: E402
@@ -66,7 +67,6 @@ def _live_confirmed() -> bool:
 
 def child_env() -> dict:
     env = dict(os.environ)
-    env["PM_TRADE_AGENT_HOME"] = AGENT_HOME
     if not _live_confirmed():
         env["PM_DRY_RUN"] = "1"
     # same BRAIN ENV run.sh exports for pick.py's consensus analyzer
@@ -80,7 +80,7 @@ def child_env() -> dict:
 def run_py(script_name: str, timeout: int, extra_env: dict | None = None) -> dict:
     """Run one strategy script under the agent venv, exactly like run.sh does. Never raises —
     a timeout/crash is data (an error record), not a fatal loop failure."""
-    py = VENV_PY if os.path.exists(VENV_PY) else sys.executable
+    py = VENV_PY
     path = os.path.join(SKILL_DIR, script_name)
     env = child_env()
     if extra_env:

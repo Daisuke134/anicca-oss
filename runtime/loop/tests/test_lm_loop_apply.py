@@ -3,6 +3,7 @@ import io
 import json
 import os
 import plistlib
+import shutil
 import shlex
 import stat
 import subprocess
@@ -204,6 +205,7 @@ class LmLoopApplyTest(unittest.TestCase):
             environment["LIFE_MANAGER_PYTHON"],
             str(Path.home() / ".local/share/life-manager/venv/bin/python"),
         )
+
         repository = Path(__file__).resolve().parents[3]
         runtime_contract = repository / "skills/writer-agent/scripts/writer-runtime-env.sh"
         runtime = subprocess.run(
@@ -222,6 +224,32 @@ class LmLoopApplyTest(unittest.TestCase):
         )
         self.assertEqual(runtime.returncode, 0, runtime.stderr)
         self.assertEqual(runtime.stdout, environment["LIFE_MANAGER_PYTHON"])
+
+    def test_polymarket_plists_project_managed_python_and_install_env(self):
+        for loop_id, entrypoint in (
+            ("pm-decision-loop", "skills/earn/polymarket-trade/run_decision_loop.sh"),
+            ("pm-live-trade", "skills/earn/polymarket-trade/run.sh"),
+        ):
+            with self.subTest(loop_id=loop_id):
+                script = self.root / entrypoint
+                script.parent.mkdir(parents=True, exist_ok=True)
+                script.write_text("#!/bin/sh\nexit 0\n")
+                script.chmod(0o755)
+                value = registry(entrypoint)
+                value["loops"][loop_id] = value["loops"].pop("example")
+                environment = plistlib.loads(
+                    build_apply_plan(value, self.root, SHA)[0]["plist_bytes"]
+                )["EnvironmentVariables"]
+                self.assertEqual(
+                    environment["LIFE_MANAGER_ENV_FILE"],
+                    str(Path.home() / ".local/state/life-manager/.env"),
+                )
+                self.assertEqual(
+                    environment["LIFE_MANAGER_PYTHON"],
+                    str(Path.home() / ".local/share/life-manager/venv/bin/python"),
+                )
+                self.assertEqual(environment["LIFE_MANAGER_NODE"], shutil.which("node"))
+                self.assertTrue(Path(environment["LIFE_MANAGER_NODE"]).is_absolute())
 
     def test_browser_owner_is_projected_into_shared_runtime_environment(self):
         value = registry()
@@ -1387,6 +1415,54 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("CFO_STATE_DIR", environment)
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
         self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
+
+    def test_polymarket_target_retires_legacy_home_and_signer_environment(self):
+        release = self._release("release-pm-live").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.pm-live-trade"
+        registry_value["loops"]["pm-live-trade"] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-pm-live"
+        current.symlink_to(release)
+        expected_arguments = [
+            str(release / "bin/lm-loop-run"), "pm-live-trade", str(release),
+        ]
+        values = self._apply_kwargs(
+            current, self.root / "apply-pm-live.lock", expected_arguments,
+            label="ai.anicca.pm-live-trade",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.pm-live-trade.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "ANICCA_HOME": "/legacy/.anicca-founder",
+            "PM_TRADE_AGENT_HOME": "/legacy/polymarket-agent",
+            "PKVAR": "BORROWED_KEY",
+            "BORROWED_KEY": "kept-but-unused",
+            "BASE_CHAIN_WALLET_KEY": "retired-base-signer",
+            "POLYGON_WALLET_PRIVATE_KEY": "retired-signer",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin",
+        })
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target="pm-live-trade", current=current,
+            lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        for key in (
+            "ANICCA_HOME", "PM_TRADE_AGENT_HOME", "PKVAR",
+            "ANICCA_EVM_PRIVATE_KEY", "BASE_CHAIN_WALLET_KEY", "BLOCKRUN_WALLET_KEY",
+            "POLYGON_WALLET_PRIVATE_KEY",
+        ):
+            self.assertNotIn(key, environment)
+        self.assertEqual(environment["BORROWED_KEY"], "kept-but-unused")
+        self.assertEqual(environment["PATH"], "/opt/homebrew/bin:/usr/bin:/bin")
+        self.assertEqual(environment["LIFE_MANAGER_NODE"], shutil.which("node"))
 
     def test_gig_apply_direct_target_retires_stale_disk_headroom_kib(self):
         # hf-gig-apply-direct's plist was installed while it was still rendered from

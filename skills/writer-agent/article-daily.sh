@@ -1049,7 +1049,7 @@ run_model_pass() {
   local active_prompt_file="${1:-$PROMPT_FILE}" rc
   BOUNDED_EXEC_STOP_PATHS="${LIFE_MANAGER_HOST_STATE_DIR:-$HOME/.local/state/life-manager/state}/disk-writers.stop" \
   ARTICLE_RUN_ID="$RUN_TS" ARTICLE_MODEL_LOG="$LOG" \
-    python3 "$ARTICLE_ROOT/runtime/bounded-exec.py" \
+    python3 "$ARTICLE_ROOT/../../runtime/loop/bounded-exec.py" \
       "$ARTICLE_MODEL_AGENT_TIMEOUT_SECONDS" \
       "$ARTICLE_MODEL_RUNNER" agent --prompt-file "$active_prompt_file" &
   MODEL_PASS_PID=$!

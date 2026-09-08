@@ -40,6 +40,7 @@ KEYS = frozenset({
     "LIFE_MANAGER_WALLET_HOME",
     "PM_DEPOSIT_WALLET",
     "EARN_WATCH_PAYEE",
+    "ODDS_API_KEY",
     "REINVEST_ANICCA_HOME",
 })
 LINE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")

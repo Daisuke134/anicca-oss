@@ -6,6 +6,7 @@ import json
 import os
 import plistlib
 import re
+import shutil
 import tempfile
 import time
 from pathlib import Path
@@ -89,6 +90,17 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
                 Path.home() / ".local/share/life-manager/venv/bin/python"
             ),
             "LIFE_MANAGER_REPO": str(release_root),
+        })
+    if loop_id in {"pm-decision-loop", "pm-live-trade"}:
+        node = shutil.which("node")
+        if not node or not Path(node).is_absolute():
+            raise ValueError(f"{loop_id}: managed node executable is unavailable")
+        value["EnvironmentVariables"].update({
+            "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
+            "LIFE_MANAGER_NODE": node,
+            "LIFE_MANAGER_PYTHON": str(
+                Path.home() / ".local/share/life-manager/venv/bin/python"
+            ),
         })
     return plistlib.dumps(value, fmt=plistlib.FMT_XML, sort_keys=True)
 

@@ -431,6 +431,16 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                     # widens the blast radius of this change.
                     "hf-gig-apply-direct": ("GIG_DISK_HEADROOM_KIB",),
                     "hf-gig-reply-detector": ("GIG_DISK_HEADROOM_KIB",),
+                    "pm-decision-loop": (
+                        "ANICCA_HOME", "PM_TRADE_AGENT_HOME", "PKVAR",
+                        "ANICCA_EVM_PRIVATE_KEY", "BASE_CHAIN_WALLET_KEY", "BLOCKRUN_WALLET_KEY",
+                        "POLYGON_WALLET_PRIVATE_KEY",
+                    ),
+                    "pm-live-trade": (
+                        "ANICCA_HOME", "PM_TRADE_AGENT_HOME", "PKVAR",
+                        "ANICCA_EVM_PRIVATE_KEY", "BASE_CHAIN_WALLET_KEY", "BLOCKRUN_WALLET_KEY",
+                        "POLYGON_WALLET_PRIVATE_KEY",
+                    ),
                 }.get(item["loop_id"], ())
                 retired_operational_keys = (
                     ("WorkingDirectory",)

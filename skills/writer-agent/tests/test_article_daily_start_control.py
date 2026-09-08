@@ -97,7 +97,7 @@ class ArticleStartPolicyTest(unittest.TestCase):
             bounded = subprocess.Popen(
                 [
                     sys.executable,
-                    str(ROOT / "skills/writer-agent/runtime/bounded-exec.py"),
+                    str(ROOT / "runtime/loop/bounded-exec.py"),
                     "10",
                     sys.executable,
                     str(provider),
@@ -162,7 +162,7 @@ class ArticleStartPolicyTest(unittest.TestCase):
             preexisting = subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "skills/writer-agent/runtime/bounded-exec.py"),
+                    str(ROOT / "runtime/loop/bounded-exec.py"),
                     "10",
                     sys.executable,
                     "-c",

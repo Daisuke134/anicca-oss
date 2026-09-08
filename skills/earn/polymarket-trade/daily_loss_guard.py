@@ -38,7 +38,10 @@ from pathlib import Path
 
 from state_paths import external_state_path
 
-LEDGER_PATH_DEFAULT = os.path.expanduser("~/anicca/skills/earn/state/earn-ledger.jsonl")
+LEDGER_PATH_DEFAULT = os.environ.get(
+    "LIFE_MANAGER_EARN_LEDGER_PATH",
+    os.path.expanduser("~/.local/state/life-manager/earn/earn-ledger.jsonl"),
+)
 KILL_SWITCH = os.environ.get(
     "PM_KILL_SWITCH",
     os.path.expanduser("~/.local/state/life-manager/polymarket/KILL"),

@@ -7,14 +7,14 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_bounded_exec_terminates_a_hung_model_process_group() -> None:
     result = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "runtime" / "bounded-exec.py"),
+            str(REPO_ROOT / "runtime" / "loop" / "bounded-exec.py"),
             "0.1",
             sys.executable,
             "-c",

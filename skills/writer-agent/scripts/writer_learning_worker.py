@@ -171,7 +171,7 @@ def _extract_json(output: str) -> dict[str, Any]:
 
 def _model_call(skill_dir: Path, mode: str, prompt: str, run_id: str) -> str:
     runner = Path(os.environ.get("ARTICLE_MODEL_RUNNER", skill_dir / "runtime/model-runner.sh"))
-    bounded = skill_dir / "runtime/bounded-exec.py"
+    bounded = skill_dir.parents[1] / "runtime/loop/bounded-exec.py"
     completed = subprocess.run(
         [sys.executable, str(bounded), "900", str(runner), mode, "--prompt-file", "-"],
         input=prompt,

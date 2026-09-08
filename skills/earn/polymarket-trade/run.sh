@@ -6,25 +6,17 @@
 # registration → one real live pass (NO dry-run, HARD 0.24) → structured trace (H1).
 set -u
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
-REPO_ROOT="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=False))' "$REPO_ROOT")" || exit 2
-STATE_DIR="${POLYMARKET_STATE_ROOT:-${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}}"; mkdir -p "$STATE_DIR"
+REPO_ROOT="$(cd "$SKILL_DIR/../../.." && pwd -P)"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/runtime/earn/polymarket-runtime-env.sh" || exit $?
+STATE_DIR="$LIFE_MANAGER_STATE_ROOT"
 TRACE="$STATE_DIR/pm-trade.trace.jsonl"
-KILL_SWITCH="${PM_KILL_SWITCH:-$HOME/.local/state/life-manager/polymarket/KILL}"
-case "$KILL_SWITCH" in
-  /*) ;;
-  *) echo "PM_KILL_SWITCH must be absolute" >&2; exit 2 ;;
-esac
-KILL_SWITCH="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=False))' "$KILL_SWITCH")" || exit 2
-case "$KILL_SWITCH/" in
-  "$REPO_ROOT/"*) echo "PM_KILL_SWITCH must resolve outside the repository" >&2; exit 2 ;;
-esac
-AGENT_HOME="${PM_TRADE_AGENT_HOME:-$HOME/.anicca-founder/agents/polymarket-agent}"
-export PM_TRADE_AGENT_HOME="$AGENT_HOME"
+KILL_SWITCH="$PM_KILL_SWITCH"
+BOUNDED_EXEC="$REPO_ROOT/runtime/loop/bounded-exec.py"
 
 # BRAIN ENV for pick.py's blockrun_llm consensus analyzer (FIX 2026-07-12: pick.py always
 # returned WAIT "analyzer-unavailable" because these were unset + the SDK was missing → the
-# directional +EV engine never ran. SDK now installed in .venv-pysdk; point it at the shared
+# directional +EV engine never ran. The SDK is now pinned in the managed runtime; point it at the shared
 # ClawRouter :8402 (free models = $0) so multi-model consensus actually runs each wake.
 export OPENAI_BASE_URL="${OPENAI_BASE_URL:-http://127.0.0.1:8402/v1}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-x402-local}"
@@ -39,53 +31,6 @@ if [ -f "$KILL_SWITCH" ]; then
   exit 0
 fi
 
-if [ ! -d "$AGENT_HOME" ]; then
-  echo "{\"ts\":\"$(now)\",\"slot\":\"earn/pm-trade\",\"action\":\"error\",\"error\":\"agent home missing: $AGENT_HOME\"}" >> "$TRACE"
-  echo "agent home missing: $AGENT_HOME" >&2
-  exit 1
-fi
-
-# --- per-instance identity resolution (#26 EQUALIZE, R3; #27 fix, 2026-07-05) ----------
-# BUG FIXED (#27, cross-instance money leak): the OLD order skipped resolve-identity
-# whenever the SHARED agent .env already had a POLYGON_WALLET_PRIVATE_KEY (claude-p's own
-# 0x810f) — so automaton/Franklin, which run this SAME script via their own body copies
-# WITHOUT an explicit key export, would fall through to that shared key and sign/trade on
-# claude-p's wallet, not their own. Fix: resolve THIS instance's OWN key FIRST.
-#
-# ANICCA_HOME-gated (not "call resolve-identity unconditionally and trust it comes back
-# empty for claude-p" — VERIFIED that assumption is false on this shared machine): with
-# ANICCA_HOME unset, resolve-identity.mjs's OWN default derivation falls back to
-# $HOME/.anicca, which — on THIS box — IS automaton's real home, so an unset-ANICCA_HOME
-# call does NOT come back empty, it returns automaton's key. So we only ATTEMPT
-# resolve-identity when ANICCA_HOME is EXPLICITLY set in the environment — which is true
-# for automaton (com.anicca.daemon.plist exports ANICCA_HOME=~/.anicca) and Franklin
-# (ai.anicca.franklin-loop.plist exports ANICCA_HOME=~/.blockrun), and NEVER true for
-# claude-p (its only production pm-trade job, ai.anicca.pm-earner.plist, has no
-# EnvironmentVariables and calls run_earner.sh directly, bypassing this file entirely; an
-# ad-hoc run of THIS file with ANICCA_HOME unset now safely falls through to the agent
-# .env below instead of silently grabbing automaton's key). resolve-identity itself is
-# still EFFECTIVE_HOME-gated (#28) so a foreign home never returns the wrong instance's key.
-if [ -z "${POLYGON_WALLET_PRIVATE_KEY:-}" ]; then
-  RESOLVE_IDENTITY="$SKILL_DIR/../lib/resolve-identity.mjs"
-  RESOLVED_EVM_KEY=""
-  if [ -n "${ANICCA_HOME:-}" ] && [ -f "$RESOLVE_IDENTITY" ]; then
-    RESOLVED_EVM_KEY="$(node "$RESOLVE_IDENTITY" evm 2>/dev/null || true)"
-  fi
-  if [ -n "$RESOLVED_EVM_KEY" ]; then
-    export POLYGON_WALLET_PRIVATE_KEY="$RESOLVED_EVM_KEY"   # this instance's OWN EOA
-  elif ! grep -q '^POLYGON_WALLET_PRIVATE_KEY=.\+' "$AGENT_HOME/.env" 2>/dev/null; then
-    # neither an explicit-ANICCA_HOME per-instance key NOR an agent .env key -> fail
-    # closed: skip + warn (R5, money-safety) instead of letting the agent crash mid-run.
-    echo "{\"ts\":\"$(now)\",\"slot\":\"earn/pm-trade\",\"action\":\"skip\",\"reason\":\"no-identity-key\"}" >> "$TRACE"
-    echo "no EVM identity key resolvable (env / \$ANICCA_HOME / agent .env) — skipping pm-trade pass" >&2
-    exit 0
-  fi
-  # else: ANICCA_HOME unset (or resolve came back empty) BUT the agent .env has a key ->
-  # claude-p/founder path, python's load_dotenv() uses it (0x810f = its OWN EOA).
-  # PRESERVED — zero behavior change from before this fix.
-  unset RESOLVED_EVM_KEY
-fi
-
 # --- EVOLVE genome wiring (#19, 2026-07-05) --------------------------------------------------
 # load_genome (+ mutate on the exploration cadence) supplies pick.py's EXPLORATION knobs ONLY —
 # MIN_EDGE / MIN_CONF / RESOLVE_HORIZON_DAYS / MAX_CANDIDATES / EARN_CONSENSUS_MODELS (spec
@@ -95,8 +40,8 @@ fi
 # independent from the current baseline+override (never a compounding mutation-of-a-mutation).
 GENOME_LIB="$SKILL_DIR/../lib/genome.mjs"
 GENOME_COUNTER="$STATE_DIR/genome-pass-counter.json"
-if [ -f "$GENOME_LIB" ] && command -v node >/dev/null 2>&1; then
-  GENOME_ENV="$(EARN_GENOME_COUNTER_FILE="$GENOME_COUNTER" node "$GENOME_LIB" --maybe-mutate 2>>"$TRACE")"
+if [ -f "$GENOME_LIB" ]; then
+  GENOME_ENV="$(EARN_GENOME_COUNTER_FILE="$GENOME_COUNTER" "$LIFE_MANAGER_NODE" "$GENOME_LIB" --maybe-mutate 2>>"$TRACE")"
   if [ -n "$GENOME_ENV" ]; then eval "$GENOME_ENV"; fi
 fi
 # money-safety (HARD, spec §3): caps are NEVER part of the genome — genome.mjs's own
@@ -121,7 +66,7 @@ if [ -n "${EARN_GENOME_ID:-}" ]; then
   MIN_EDGE="${MIN_EDGE:-}" MIN_CONF="${MIN_CONF:-}" RESOLVE_HORIZON_DAYS="${RESOLVE_HORIZON_DAYS:-}" \
   MAX_CANDIDATES="${MAX_CANDIDATES:-}" EARN_CONSENSUS_MODELS="${EARN_CONSENSUS_MODELS:-}" \
   EARN_GENOME_ID="$EARN_GENOME_ID" EARN_GENOME_MUTATED="${EARN_GENOME_MUTATED:-0}" TRACE_FILE="$TRACE" \
-  python3 <<'PY'
+  "$LIFE_MANAGER_PYTHON" <<'PY'
 import json, os, datetime
 
 def num(v):
@@ -154,8 +99,8 @@ fi
 # gate is the CONFIRMED root cause of "error resolving address" — never raw-deploy + raw-transfer pUSD;
 # always fund THROUGH the bridge (see SKILL.md "DEPOSIT-WALLET REGISTRY GATE" + fund_via_bridge.py).
 # Best-effort / non-blocking: an already-registered wallet just re-approves; an unfunded one no-ops.
-if [ -f "$SKILL_DIR/fund_via_bridge.py" ] && [ -x "$AGENT_HOME/.venv/bin/python" ]; then
-  "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/fund_via_bridge.py" >> "$TRACE" 2>&1 \
+if [ -f "$SKILL_DIR/fund_via_bridge.py" ]; then
+  "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/fund_via_bridge.py" >> "$TRACE" 2>&1 \
     || echo "{\"ts\":\"$(now)\",\"slot\":\"earn/pm-trade\",\"action\":\"register-skip\"}" >> "$TRACE"
 fi
 
@@ -171,7 +116,7 @@ fi
 # strategies below (bundle_arb.py / market_maker.py print human-readable
 # text, not JSON, so we tail their output rather than re-parse it).
 append_strategy_trace() {
-  ACTION="$1" OUT_TEXT="$2" RC="$3" TRACE_FILE="$TRACE" python3 <<'PY'
+  ACTION="$1" OUT_TEXT="$2" RC="$3" TRACE_FILE="$TRACE" "$LIFE_MANAGER_PYTHON" <<'PY'
 import json, os, datetime
 rec = {
     "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -198,7 +143,7 @@ PY
 # A failed redeem never blocks the pass: an unreachable RPC must not stop the loop from
 # trading, and the next wake retries. Winnings free up cash -> cash funds the next bet.
 if [ -f "$SKILL_DIR/redeem.py" ]; then
-  REDEEM_OUT=$(timeout 200 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/redeem.py" 2>&1); REDEEM_RC=$?
+  REDEEM_OUT=$("$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 200 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/redeem.py" 2>&1); REDEEM_RC=$?
   echo "$REDEEM_OUT" | tail -6
   append_strategy_trace "redeem" "$REDEEM_OUT" "$REDEEM_RC"
 fi
@@ -210,7 +155,7 @@ fi
 # Fail-soft like redeem: a temporary RPC/relayer failure is traced and retried
 # next wake without suppressing the independent earning strategies below.
 if [ -f "$SKILL_DIR/merge.py" ]; then
-  MERGE_OUT=$(timeout 200 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/merge.py" 2>&1); MERGE_RC=$?
+  MERGE_OUT=$("$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 200 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/merge.py" 2>&1); MERGE_RC=$?
   echo "$MERGE_OUT" | tail -10
   append_strategy_trace "merge" "$MERGE_OUT" "$MERGE_RC"
 fi
@@ -219,7 +164,7 @@ fi
 # working alpha, unchanged — do not reinvent). Self-gating: no-ops ("no
 # risk-free bundle arb ≥0.5% right now") when the market is efficient; buys
 # both legs (FOK) only on a real locked edge.
-ARB_OUT=$(timeout 200 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/bundle_arb.py" 2>&1); ARB_RC=$?
+ARB_OUT=$("$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 200 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/bundle_arb.py" 2>&1); ARB_RC=$?
 echo "$ARB_OUT" | tail -10
 append_strategy_trace "bundle-arb" "$ARB_OUT" "$ARB_RC"
 
@@ -227,7 +172,7 @@ append_strategy_trace "bundle-arb" "$ARB_OUT" "$ARB_RC"
 # alpha, unchanged). Self-gating: HOLDs ("cash < one min bundle") instead of
 # spamming failed orders when underfunded; else cancel-and-replace resting
 # post-only quotes.
-MM_OUT=$(timeout 200 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/market_maker.py" 2>&1); MM_RC=$?
+MM_OUT=$("$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 200 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/market_maker.py" 2>&1); MM_RC=$?
 echo "$MM_OUT" | tail -10
 append_strategy_trace "market-maker" "$MM_OUT" "$MM_RC"
 
@@ -246,8 +191,8 @@ append_strategy_trace "market-maker" "$MM_OUT" "$MM_RC"
 # pinnacle_observe.py itself is fail-soft (missing ODDS_API_KEY -> silent skip, any fetch
 # exception -> a logged {"error":...} line, never a crash) -- the `|| true` here is a second,
 # independent layer so a pass can never be failed by this block.
-if [ -x "$AGENT_HOME/.venv/bin/python" ] && [ -f "$SKILL_DIR/pinnacle_observe.py" ]; then
-  timeout 60 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/pinnacle_observe.py" >> "$TRACE" 2>&1 || true
+if [ -f "$SKILL_DIR/pinnacle_observe.py" ]; then
+  "$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 60 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/pinnacle_observe.py" >> "$TRACE" 2>&1 || true
 fi
 
 # DIRECTIONAL AUTONOMOUS BUY (#25, NEW — the genuinely-missing piece): pick.py
@@ -256,7 +201,7 @@ fi
 # money-safety guard #2: per-trade cap enforced in pick.py (Kelly size, capped)
 # AND again in place_order.py (AMOUNT<=MAX_BET_SIZE, default $2). Neither the
 # market nor the side is ever decided here — only the model (pick.py) decides.
-PICK_OUT=$(timeout 300 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/pick.py" 2>>"$TRACE"); PICK_RC=$?
+PICK_OUT=$("$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 300 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/pick.py" 2>>"$TRACE"); PICK_RC=$?
 
 if [ "$PICK_RC" -ne 0 ] || [ -z "$PICK_OUT" ]; then
   echo "{\"ts\":\"$(now)\",\"slot\":\"earn/pm-trade\",\"action\":\"error\",\"error\":\"pick.py failed rc=$PICK_RC\"}" >> "$TRACE"
@@ -270,7 +215,7 @@ fi
 # guarantees clean stdout now, but run.sh still recovers defensively — a
 # polluted pick must never be misread as a false WAIT (that would silently
 # skip a real qualifying candidate).
-DECISION=$(PICK_JSON="$PICK_OUT" TRACE_FILE="$TRACE" python3 <<'PY'
+DECISION=$(PICK_JSON="$PICK_OUT" TRACE_FILE="$TRACE" "$LIFE_MANAGER_PYTHON" <<'PY'
 import json, os, datetime
 
 def now():
@@ -335,7 +280,7 @@ fi
 IFS=$'\t' read -r _ TOKEN_ID SIDE AMOUNT MARKET END_DATE EDGE CONFIDENCE CONSENSUS <<< "$DECISION"
 export TOKEN_ID SIDE AMOUNT
 
-ORDER_OUT=$(timeout 120 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/place_order.py" 2>>"$TRACE"); ORDER_RC=$?
+ORDER_OUT=$("$LIFE_MANAGER_PYTHON" "$BOUNDED_EXEC" 120 "$LIFE_MANAGER_PYTHON" "$SKILL_DIR/place_order.py" 2>>"$TRACE"); ORDER_RC=$?
 
 # DEFENSE (#25 adversary fix, accounting integrity): the SAME recover() as
 # above — this is the exact bug that mis-logged Franklin's real filled order
@@ -343,7 +288,7 @@ ORDER_OUT=$(timeout 120 "$AGENT_HOME/.venv/bin/python" "$SKILL_DIR/place_order.p
 # stdout had "[valid result JSON][trailing noise]" concatenated on one line, so
 # plain json.loads() choked and a real fill got recorded as a failure. place_order.py's
 # own root fix guarantees clean stdout now; this stays as a second, independent layer.
-ORDER_JSON="${ORDER_OUT:-{}}" MARKET="$MARKET" END_DATE="$END_DATE" EDGE="$EDGE" CONFIDENCE="$CONFIDENCE" CONSENSUS="$CONSENSUS" RC="$ORDER_RC" TRACE_FILE="$TRACE" EARN_GENOME_ID="${EARN_GENOME_ID:-}" python3 <<'PY'
+ORDER_JSON="${ORDER_OUT:-{}}" MARKET="$MARKET" END_DATE="$END_DATE" EDGE="$EDGE" CONFIDENCE="$CONFIDENCE" CONSENSUS="$CONSENSUS" RC="$ORDER_RC" TRACE_FILE="$TRACE" EARN_GENOME_ID="${EARN_GENOME_ID:-}" "$LIFE_MANAGER_PYTHON" <<'PY'
 import json, os, datetime
 
 def recover(raw):

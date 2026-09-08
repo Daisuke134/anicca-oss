@@ -149,6 +149,14 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
             self.assertIn("PM_DEPOSIT_WALLET=0x" + "a" * 40 + "\n", body)
             self.assertIn("EARN_WATCH_PAYEE=0x" + "b" * 40 + "\n", body)
 
+    def test_migrate_copies_only_allowlisted_polymarket_observation_key(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary).resolve() / "legacy.env"
+            target = Path(temporary).resolve() / "life-manager.env"
+            source.write_text("ODDS_API_KEY=odds-secret\nPOLYGON_WALLET_PRIVATE_KEY=never-copy\n")
+            self.assertEqual(MODULE.migrate(source, target)["copied"], 1)
+            self.assertEqual(target.read_text(), "ODDS_API_KEY=odds-secret\n")
+
 
 if __name__ == "__main__":
     unittest.main()

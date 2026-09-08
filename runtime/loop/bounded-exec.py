@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one command with a portable wall-clock bound and kill its process group."""
+"""Shared portable wall-clock bound that terminates the child process group."""
 
 from __future__ import annotations
 
