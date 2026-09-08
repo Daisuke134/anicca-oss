@@ -6,7 +6,10 @@ PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
 LEASE_PYTHON="${LIFE_MANAGER_LEASE_PYTHON:-/usr/bin/python3}"
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
 LEASE_SCRIPT="$ROOT/skills/browser/scripts/cdp_context_lease.py"
-TASK="mercor-revenue-reply"
+# Apply and Reply borrow one durable authenticated Mercor browser context. The
+# shared lease rejects a second live holder, so concurrent wakes fail transiently
+# instead of creating another logged-out context or touching the same page.
+TASK="mercor-revenue-application"
 SNAPSHOT="$STATE_ROOT/official-snapshot.json"
 LEASE_JSON="$STATE_ROOT/browser-lease.json"
 SESSION_READBACK_JSON="$STATE_ROOT/session-readback.json"
@@ -35,25 +38,8 @@ GENERATION=$(jq -r .generation "$LEASE_JSON")
 
 PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
   -m job_search_loop.mercor_page_ready --ws "$WS" --output "$STATE_ROOT/page-ready.json"
-if ! PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
-  -m job_search_loop.mercor_auth_readback --ws "$WS" --output "$SESSION_READBACK_JSON"; then
-  # A parked Reply context can predate the Apply-owned auth overlay. Dispose only
-  # this task's stale context and seed one fresh context from the latest overlay;
-  # never log in here and never retry more than once per wake.
-  "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" \
-    --token "$TOKEN" --generation "$GENERATION" >/dev/null
-  TOKEN="" GENERATION=""
-  "$LEASE_PYTHON" "$LEASE_SCRIPT" acquire "$TASK" \
-    'https://work.mercor.com/home?tab=applications' >"$LEASE_JSON"
-  chmod 600 "$LEASE_JSON"
-  WS=$(jq -r .ws "$LEASE_JSON")
-  TOKEN=$(jq -r .token "$LEASE_JSON")
-  GENERATION=$(jq -r .generation "$LEASE_JSON")
-  PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
-    -m job_search_loop.mercor_page_ready --ws "$WS" --output "$STATE_ROOT/page-ready.json"
-  PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
-    -m job_search_loop.mercor_auth_readback --ws "$WS" --output "$SESSION_READBACK_JSON"
-fi
+PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+  -m job_search_loop.mercor_auth_readback --ws "$WS" --output "$SESSION_READBACK_JSON"
 
 ACCOUNT=$("$LEASE_PYTHON" -c \
   'import json,sys; p=json.load(open(sys.argv[1])); print(p.get("candidate",{}).get("application_email") or p.get("application_email") or p.get("email") or "")' \

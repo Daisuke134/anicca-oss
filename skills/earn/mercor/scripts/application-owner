@@ -36,8 +36,6 @@ park_lease() {
   if [[ -n "$LEASE_TOKEN" && -n "$LEASE_GENERATION" ]]; then
     "$LEASE_PYTHON" "$LEASE_SCRIPT" park "$TASK" \
       --token "$LEASE_TOKEN" --generation "$LEASE_GENERATION" >/dev/null 2>&1 || true
-  else
-    "$LEASE_PYTHON" "$LEASE_SCRIPT" release "$TASK" >/dev/null 2>&1 || true
   fi
 }
 trap park_lease EXIT
