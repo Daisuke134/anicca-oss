@@ -102,9 +102,9 @@ disk_preflight() {
 
   actions=""
 
-  # $HOME/.cache/anicca-clones/: clear its contents, keep the directory itself. mindepth 1
+  # Regenerable research clones live inside Writer state; clear only their children.
   # maxdepth 1 + `-exec rm -rf {} +` never descends into or globs anything outside this one root.
-  local clones_dir="$HOME/.cache/anicca-clones"
+  local clones_dir="$WRITER_STATE_DIR/cache/research-clones"
   if [ -d "$clones_dir" ]; then
     local clones_count
     clones_count=$(find "$clones_dir" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
@@ -804,8 +804,6 @@ CURRENT BRAKE SNAPSHOT: the wrapper checked ARTICLE_PUBLICATION_PAUSE_FILE immed
 ★ DESTINATIONS ARE INDEPENDENT — HARD BOUNDARY. ★ A destination that cannot be staged after bounded retries (dead API credential, platform 4xx/5xx, editor unreachable) must never stop the others: run `python3 ARTICLE_ROOT_PLACEHOLDER/scripts/publication-guard.py mark-unavailable --pair <pair> --reason "<machine-readable reason>"` for only that pair, then continue every stageable destination; never abandon the remaining destinations. Editorial and reader findings are advisory under ARTICLE_PUBLICATION_POLICY=continuous: record them for the next learning cycle, but do not stop this run. Identity/safety, secret/PII, duplicate, payload-integrity, and platform-policy failures remain blocking.
 
 ★ JUDGE BROKER — HARD BOUNDARY. ★ Every judge/vision model call is served by the wrapper-side judge broker through the model runner. When invoking any gate or the model runner, never clear, unset, or override ARTICLE_NESTED_SANDBOX, ARTICLE_RUN_DIR, or ARTICLE_JUDGE_BROKER_SERVER, and never bypass the judge broker by spawning a provider CLI directly: a direct provider spawn inside the bounded sandbox always fails, poisons provider health for the whole run, and forces every later safety gate to fail closed. If a judge call returns no verdict, record the failure and leave the pair pending; do not retry with altered environment variables.
-
-STEP 0 (SELF-FIX RESULT CHECK -- existence-guarded, run before STEP 1): read ARTICLE_STATE_DIR_PLACEHOLDER/.self-fix-writer-agent.result if it exists (it will not exist until STEP 6.5 has spawned a fixer at least once -- if absent, skip this step silently and go to STEP 1). If its first word is FAIL, a previous pass hit a render-verify problem its self-fix attempt could not resolve -- read the rest of that line plus the tail of WRITER_LOG_DIR_PLACEHOLDER/self-fix-writer-agent.log for the real diagnosis, and stay extra alert to that same class of defect (which platform, which rule) while writing and staging todays article; this is context only, never a reason to skip or delay todays pass. If its first word is SUCCESS, a prior self-fix genuinely resolved something -- no action needed. If its first word is RUNNING, a fixer may still be active or may have crashed stale (article-self-fix.sh has its own staleness/respawn logic for that, nothing for you to do here).
 
 STEP 0.5 (SELF-IMPROVE TODO CHECK -- mandatory, spec docs/loop-engineering/47-writer-loop-quality-and-self-improvement.md §7 principle 7, run before STEP 1): run bash ARTICLE_ROOT_PLACEHOLDER/scripts/article-selfimprove-verify.sh. It inspects the most recently completed ARTICLE_STATE_DIR_PLACEHOLDER/runs/ generation against REAL file evidence (gate JSON content, articles.jsonl rows) -- never self-report, never mtime alone -- and writes ARTICLE_STATE_DIR_PLACEHOLDER/.selfimprove-todo.json. If its missing array is non-empty, treat every item as this passs first priority: e.g. if a prior run claims all gates passed but has no matching articles.jsonl row with a real staged editor URL, or a gate JSON that STEP 4/4.6/4.7 mandates is missing from a prior runs/ dir, that is a real gap in what got proven, not just reported -- make sure THIS pass writes every gate JSON into its own run dir (STEP 0.6) and its ledger row (STEP 7) without fail, so the same gap is not repeated. Do not skip this step because you believe everything is fine; self-report is not evidence, only real files are.
 

@@ -33,6 +33,9 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
         self.assertFalse((SCRIPTS / "install-zenn-deferred-worker.sh").exists())
         self.assertFalse((SCRIPTS / "note-publish/dd-keepalive.py").exists())
         self.assertFalse((SCRIPTS / "note-publish/test-de-automaton.py").exists())
+        self.assertFalse((SCRIPTS / "article-self-fix.sh").exists())
+        self.assertFalse((SCRIPTS / "rotation-effect-audit.sh").exists())
+        self.assertFalse((ROOT / "skills/writer-agent/topics/make-diary-digest.sh").exists())
 
     def test_active_content_paths_are_repository_or_writer_state_owned(self):
         paths = (

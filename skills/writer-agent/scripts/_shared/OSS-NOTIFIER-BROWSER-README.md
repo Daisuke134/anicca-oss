@@ -38,6 +38,5 @@ recovery browser without it.
 
 `BROWSER_PROFILE_DIR` must be a **persistent** profile, not a fresh one every run: the
 publish scripts in this repo assume an already-logged-in browser session (note / zenn /
-substack / X / dev.to cookies). Log in by hand once with this exact profile directory
-before letting the loop run unattended, or point it at whatever profile #64impl's
-self-signup bootstrap creates for you.
+substack / X / dev.to cookies). Provision the persistent profile through the
+repository-owned browser runtime, then log in once before enabling the loop.

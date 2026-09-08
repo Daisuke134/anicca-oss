@@ -27,9 +27,9 @@ STATE_DIR="$WRITER_STATE_DIR"
 LOG="${ARTICLE_REPAIR_LOG:-$WRITER_LOG_DIR/article-repair-candidate.log}"
 MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"
 BASE_REF="${ARTICLE_REPAIR_BASE_REF:-HEAD}"
-# Candidate worktrees live outside the repository on purpose: regenerable, and
-# incapable of showing up in the source tree's own porcelain status.
-REPAIR_ROOT="${ARTICLE_REPAIR_ROOT:-$HOME/.cache/anicca-writer-repair}"
+# Candidate worktrees are regenerable Writer runtime state, outside the source
+# checkout but inside the one shared local/cloud state contract.
+REPAIR_ROOT="${ARTICLE_REPAIR_ROOT:-$WRITER_STATE_DIR/self-heal/repair-candidates}"
 
 mkdir -p "$(dirname "$LOG")"
 

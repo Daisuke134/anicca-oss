@@ -305,6 +305,8 @@ def test_the_repair_driver_contains_no_publication_or_creation_path() -> None:
         ".openclaw/.env",              # the runtime credential file
     ):
         assert forbidden not in body, forbidden
+    assert "$WRITER_STATE_DIR/self-heal/repair-candidates" in body
+    assert "$HOME/.cache" not in body
 
 
 def test_the_resume_tick_still_never_calls_the_repair_channel() -> None:

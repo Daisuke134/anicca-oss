@@ -2,7 +2,7 @@
 # select-next-topic.sh — deterministic queue-card picker for article-daily.sh STEP 1.
 #
 # Why this exists: on 2026-07-17 a batch of 9 topic cards was created by
-# make-diary-digest.sh with identical filesystem mtimes (same second). STEP 1's
+# a retired batch generator with identical filesystem mtimes (same second). STEP 1's
 # prose instruction ("take the OLDEST one") had no deterministic tiebreak, so the
 # agent fell back to `ls` default (alphabetical) ordering -- a card starting with
 # a digit ("2026-07-17-devlog.md") was picked ahead of an actually-older card

@@ -20,9 +20,8 @@
 #   BROWSER_PROFILE_DIR (default ~/.article-loop-browser-profile) -- MUST be a persistent
 #     user-data-dir, not a fresh one every run: the publish scripts in this repo assume
 #     an already-logged-in session (note/zenn/substack/x/devto cookies), and a blank
-#     profile has none. Log in by hand once with this exact profile dir before the loop
-#     runs unattended, or point it at a profile #64impl's self-signup bootstrap already
-#     created for you.
+#     profile has none. Provision this persistent profile through the repository-owned
+#     browser runtime and log in once before the loop runs unattended.
 #
 # Usage: bash ensure-browser.sh   -> prints ALIVE (already up) / RECOVERED (relaunched) /
 #                                     FAILED (could not confirm a live CDP endpoint)

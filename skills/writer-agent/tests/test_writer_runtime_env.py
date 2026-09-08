@@ -270,7 +270,6 @@ class WriterRuntimeEnvTest(unittest.TestCase):
             "publish-substack.sh",
             "publish-zenn.sh",
             "publish-note.sh",
-            "rotation-effect-audit.sh",
             "_shared/publish-substack-mermaid.sh",
         )
         for relative in consumers:
@@ -282,7 +281,6 @@ class WriterRuntimeEnvTest(unittest.TestCase):
             "publish-substack.sh",
             "publish-zenn.sh",
             "publish-note.sh",
-            "rotation-effect-audit.sh",
             "_shared/publish-substack-mermaid.sh",
         ):
             self.assertIn("writer-runtime-env.sh", (SCRIPTS / relative).read_text())

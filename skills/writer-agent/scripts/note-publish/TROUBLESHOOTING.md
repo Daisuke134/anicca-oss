@@ -23,7 +23,7 @@ with sync_playwright() as p:
     b.close()
 ```
 
-Run with `~/.openclaw/skills/_shared/venv-cloak/bin/python3` (has playwright). This is read-only
+Run with `$WRITER_BROWSER_PYTHON` (the managed Writer runtime with Playwright). This is read-only
 against the live daily-driver — it does not open a new tab, close anything, or touch the existing
 session, so it is safe to run any time note-cookies.json looks stale or empty.
 
