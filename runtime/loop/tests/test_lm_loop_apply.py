@@ -1574,7 +1574,11 @@ class LmLoopApplyTest(unittest.TestCase):
         rendered = build_apply_plan(registry_value, release, SHA)[0]
         target = values["agents_dir"] / "ai.anicca.agent-economy-loop.plist"
         installed = plistlib.loads(rendered["plist_bytes"])
-        installed["EnvironmentVariables"]["CEO_EFFECTIVE_CRON_DIR"] = "/legacy/cron"
+        installed["EnvironmentVariables"].update({
+            "ANICCA_RELEASE_ID": "legacy-release",
+            "ANICCA_RELEASE_SHA": "b" * 40,
+            "CEO_EFFECTIVE_CRON_DIR": "/legacy/cron",
+        })
         installed["EnvironmentVariables"]["AGENT_ECONOMY_OPERATIONAL_SETTING"] = "kept"
         target.write_bytes(plistlib.dumps(
             installed, fmt=plistlib.FMT_XML, sort_keys=True))
@@ -1587,7 +1591,9 @@ class LmLoopApplyTest(unittest.TestCase):
 
         self.assertTrue(result[0]["changed"])
         environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
-        self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
+        self.assertTrue({
+            "ANICCA_RELEASE_ID", "ANICCA_RELEASE_SHA", "CEO_EFFECTIVE_CRON_DIR",
+        }.isdisjoint(environment))
         self.assertEqual(environment["AGENT_ECONOMY_OPERATIONAL_SETTING"], "kept")
 
     def test_writer_targets_retire_only_legacy_log_environment(self):
