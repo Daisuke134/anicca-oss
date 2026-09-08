@@ -977,6 +977,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    adapter compared raw strings. No retry was issued. Normalize only that fixed transport representation,
    bind the existing official message as the receipt, and require the next natural wake to remain
    replay-zero before checking this substep.
+   That transport normalization merged through main `61750a04f17a195f583c3338f25c695ec34feed8`
+   and was installed only for `lancers-revenue-negotiate`. The corrected adapter reads official
+   provider message `59145491` as `verified=true`. Its next natural wake used the same installed/event
+   SHA, ended `pass` with exit zero, represented all five boards exactly once, and reported
+   `observed=5`, `effect=0`, `readback=5`, `failed=0`, `pending=0`; board `9058411` is now
+   `awaiting_buyer`. The correction and its replay-zero are complete. The next work remains inside
+   `SHARED-REPLY-1`: prove Coconala consumes the same grounding/decision contract before advancing.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
