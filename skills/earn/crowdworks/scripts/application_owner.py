@@ -73,9 +73,21 @@ def _budget(text):
     return (low, int(match.group(2).replace(",", "")) if match.group(2) else low)
 
 def _priced(listing, text):
-    """The best tier that fits this job's stated fixed-price budget, or None if it cannot pay for us."""
+    """The best tier this job's stated budget can pay for, or the lowest tier when it states none.
+
+    Measured 2026-09-07: 「固定報酬の提示がありません」 was the single largest rejection reason --
+    306 against 70 for a budget that was genuinely too small -- and it was being read as "cannot
+    pay". A posting with no fixed price is asking for a quote. Sampling ten of them found
+    「【長期・フルリモート】AIを活用したWebエンジニア募集｜WordPress・PHP・既存システム改修」 among
+    them, which is the catalogue's own work, dropped without anyone looking at it.
+
+    Quoting the lowest tier is the honest answer to a request for a quote. The postings that
+    should not be bid on -- 500円 monitors, テレアポ, 求人代行 -- are refused by the work_fit
+    judge a few lines below on what they are, which is a better reason than a missing number.
+    """
     budget = _budget(text)
-    if budget is None: return None
+    if budget is None:
+        return listing["tiers"][0]
     affordable = [tier for tier in listing["tiers"] if tier["price_jpy"] <= budget[1]]
     return affordable[-1] if affordable else None
 
@@ -191,7 +203,7 @@ def _candidate(page, listings, rotation):
             if tier is None:
                 rejected["budget"]+=1
                 budget=_budget(text)
-                _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{listing['tiers'][0]['price_jpy']:,}円に届きません" if budget else "固定報酬の提示がありません")
+                _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{listing['tiers'][0]['price_jpy']:,}円に届きません" if budget else "報酬額を読み取れませんでした")
                 continue
             # The category label got this far; the posting text decides. Without this the lane
             # applied to 「採用支援事業のパートナー募集」 and two more like it on 2026-09-07 --
