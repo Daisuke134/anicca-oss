@@ -616,7 +616,10 @@ class CoconalaCdpReplyBrowser:
             self.tab.ws, collector.DIRECT_MESSAGE_EXPRESSION, self.thread_url,
         ))
         thread_id = direct_message_path(self.thread_url).rsplit("/", 1)[-1]
-        collector.merge_durable_dm_attachments(raw, thread_id)
+        collector.merge_or_refresh_durable_dm_attachments(
+            raw, helper=self.helper, thread_id=thread_id,
+            observed_at=datetime.now(timezone.utc).isoformat(),
+        )
         self.raw = raw
         return thread_state(raw, self.thread_url)
 
