@@ -105,9 +105,12 @@ class LancersReplyAdapter:
         board, detail, messages = self._boards[thread_id]
         conversation = []
         for row in sorted(messages, key=lambda item: int(work_sync._id(item.get("id"))))[-20:]:
+            sender = row.get("send_user")
+            if not isinstance(sender, Mapping) or type(sender.get("is_client")) is not bool:
+                raise work_sync.SourceFailure("message_sender_identity_unavailable")
             conversation.append({
                 "event_id": work_sync._id(row.get("id")),
-                "role": "buyer" if row.get("is_required_reply") is True else "seller",
+                "role": "buyer" if sender["is_client"] else "seller",
                 "body": str(row.get("description") or "").strip(),
             })
         proposal = None
@@ -123,7 +126,7 @@ class LancersReplyAdapter:
         return {
             "board": {"title": board.get("title"), "description": board.get("description")},
             "conversation": conversation,
-            "reply_required": bool(board.get("is_required_reply")),
+            "reply_required": bool(conversation and conversation[-1]["role"] == "buyer"),
             "verified_proposal": proposal,
         }
 

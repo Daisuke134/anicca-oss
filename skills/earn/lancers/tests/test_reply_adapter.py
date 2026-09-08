@@ -99,7 +99,8 @@ def test_unverified_proposal_does_not_discard_buyer_conversation(monkeypatch, tm
         "12": (
             {"id": "12", "title": "相談", "description": "詳細", "is_required_reply": True},
             {"id": "12", "with": {"proposal": {"id": "999"}}},
-            [{"id": "7", "board_id": "12", "description": "対応できますか", "is_required_reply": True}],
+            [{"id": "7", "board_id": "12", "description": "対応できますか",
+              "is_required_reply": False, "send_user": {"is_client": True}}],
         )
     }
     monkeypatch.setattr(
@@ -109,3 +110,25 @@ def test_unverified_proposal_does_not_discard_buyer_conversation(monkeypatch, tm
     context = adapter.context("12")
     assert context["verified_proposal"] is None
     assert context["conversation"][-1]["body"] == "対応できますか"
+    assert context["conversation"][-1]["role"] == "buyer"
+    assert context["reply_required"] is True
+
+
+def test_sender_identity_not_required_reply_flag_owns_role(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    adapter.page = object()
+    adapter._boards = {
+        "12": (
+            {"id": "12", "title": "相談", "description": "詳細", "is_required_reply": False},
+            {"id": "12"},
+            [
+                {"id": "7", "board_id": "12", "description": "よろしいですか？",
+                 "is_required_reply": False, "send_user": {"id": 10, "is_client": True}},
+            ],
+        )
+    }
+    context = adapter.context("12")
+    assert context["conversation"] == [{
+        "event_id": "7", "role": "buyer", "body": "よろしいですか？",
+    }]
+    assert context["reply_required"] is True

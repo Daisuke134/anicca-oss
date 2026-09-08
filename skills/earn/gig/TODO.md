@@ -901,6 +901,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    sends nothing; a post-effect unknown remains permanently readback-only. This closes both sides of
    the duplicate-effect boundary for messages and estimates. Focused planner/kernel/adapters pass
    30/30 and the wider Reply/estimate regression passes 153/153.
+   Dais's Lancers screenshots exposed a separate official-identity defect before release: buyer
+   messages from `9060780` and `9058411` were recorded as seller-last because the adapter treated
+   `is_required_reply=false` as sender identity. Official rows prove that flag is not identity; both
+   buyers have `send_user.is_client=true`, while Dais's own sent row has `is_client=false`. The
+   adapter now derives role only from that official sender field and derives `reply_required` from
+   the resulting latest role. A fresh read-only five-thread pass changes three threads to buyer-last,
+   including both screenshots. Shared-planner dry decisions produce one send-ready reply, one
+   truthful missing-fact human wait, and one semantic no-reply, without a provider mutation.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
