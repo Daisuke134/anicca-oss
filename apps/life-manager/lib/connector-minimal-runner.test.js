@@ -890,6 +890,44 @@ test("a parent readback after navigation skips every submit path when already re
   ]);
 });
 
+test("an existing verified registration completes evidence after pre-submit readback crosses the wake deadline", async () => {
+  const state = fixture({
+    async readProviderState() {
+      state.calls.push(["readback"]);
+      state.advance(600_001);
+      return Object.freeze({ status: "registered", provider_receipt_id: "receipt-existing-deadline" });
+    },
+    async completeEvidence() {
+      state.calls.push(["evidence"]);
+      return Object.freeze({ status: "applied_bundle", bundle_id: "existing-deadline-bundle", completion_disposition: "created" });
+    },
+  });
+
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-existing-deadline", providers: ["connpass"], maxWakeMs: 600_000 }, state.dependencies);
+  assert.deepEqual(result, { status: "applied_bundle", bundle_id: "existing-deadline-bundle", telegram_provider_id: "9001" });
+  assert.equal(state.calls.filter(([name]) => name === "evidence").length, 1);
+  assert.equal(state.calls.some(([name]) => ["cache", "direct", "agent"].includes(name)), false);
+});
+
+test("a verified cached registration completes evidence after the cache crosses the wake deadline", async () => {
+  const state = fixture({
+    async runCachedAction() {
+      state.calls.push(["cache"]);
+      state.advance(600_001);
+      return Object.freeze({ status: "completed", provider_state: { status: "pending", provider_receipt_id: "receipt-cache-deadline" } });
+    },
+    async completeEvidence() {
+      state.calls.push(["evidence"]);
+      return Object.freeze({ status: "applied_bundle", bundle_id: "cache-deadline-bundle", completion_disposition: "created" });
+    },
+  });
+
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-cache-deadline", providers: ["luma"], maxWakeMs: 600_000 }, state.dependencies);
+  assert.deepEqual(result, { status: "applied_bundle", bundle_id: "cache-deadline-bundle", telegram_provider_id: "9001" });
+  assert.equal(state.calls.filter(([name]) => name === "evidence").length, 1);
+  assert.equal(state.calls.some(([name]) => ["direct", "agent"].includes(name)), false);
+});
+
 function connpassRecoveryFixture(failure = null, preRegistered = false) {
   const canonicalUrl = "https://tokyo-builders.connpass.com/event/400028/";
   const joinUrl = "https://tokyo-builders.connpass.com/event/400028/join";

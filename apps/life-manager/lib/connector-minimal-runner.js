@@ -402,7 +402,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           page: owned.page,
           phase: "pre_submit",
         }));
-        if (deadlineReached()) return finish("circuit_open", "wake_deadline");
+        if (deadlineReached() && !registered(providerState)) return finish("circuit_open", "wake_deadline");
         let usedFallback = false;
         let ambiguousAgentEffect = false;
         let directFailureReason = null;
@@ -424,7 +424,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
         if (operation && operation.status === "completed" && registered(operation.provider_state)) {
           providerState = operation.provider_state;
         }
-        if (deadlineReached()) return finish("circuit_open", "wake_deadline");
+        if (deadlineReached() && !registered(providerState)) return finish("circuit_open", "wake_deadline");
         if (operation && operation.status === "failed"
           && operationSafeReason(operation, "cached_action_failed") === "effect_unknown") {
           consecutiveFailures += 1;
