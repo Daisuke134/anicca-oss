@@ -45,7 +45,7 @@ export ARTICLE_PUBLICATION_POLICY
 export TELEGRAM_ALERT_CHAT_ID="$TELEGRAM_TARGET_ID"
 # spec #22 self-heal L2: telegram_notify() is the shared out-of-band alert path 211 other
 # crons already use (see the script's own header) -- reused here rather than re-implementing
-# a second `openclaw message send` call site.
+# a second Telegram transport.
 . "$LIFE_MANAGER_REPO/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || true
 echo "=== article-daily run $(date '+%F %T %Z') ===" >>"$LOG"
 
@@ -866,7 +866,7 @@ STEP 7 (LEDGER -- one honest STAGING row per active destination, never fabricate
 
 STEP 8 (PLATFORMS ARE INDEPENDENT): if one platform fails (auth expired, selector changed, rate limit, etc), stage every other platform anyway and record the failed platform for retry. If the root cause is a tracked-source defect, record it under the current run gates and leave that pair pending for a reviewed source deployment. Never edit source, fake a URL, or let one platform short-circuit another.
 
-STEP 9 (TELEGRAM REPORT -- MANDATORY, every pass, success or failure): the built-in local push-notify tool does NOT reach Dais (it silently no-ops when Remote Control is inactive -- proven 2026-07-12). Use: openclaw message send --channel telegram --target 8547730585 --message "<your honest one-screen report>" --json. The message MUST contain: the topic chosen, all four active destination draft URLs (or the honest failure reason for any that failed), and what you personally verified on each page. The compatibility x-post artifact may be retained for the nonpublication CTA gate, but it is not a destination row or publication work. In unarmed mode, explicitly say these are DRAFTS awaiting manual publish and never live. In armed mode, STEP 20 replaces that reminder with immediate live and scheduled-pending evidence. Confirm the send returned a real messageId; if the send fails, retry once, then note the failure in your final report line.
+STEP 9 (REPORT EVIDENCE -- MANDATORY, every pass, success or failure): persist honest evidence containing the topic chosen, all four active destination draft URLs (or the honest failure reason for any that failed), and what you personally verified on each page. Do not invoke a gateway or Telegram CLI: after the model exits, the repository-owned article-completion-notify.py sends the durable receipt for this run through the shared Life Manager Telegram transport and records the real messageId. The compatibility x-post artifact may be retained for the nonpublication CTA gate, but it is not a destination row or publication work. In unarmed mode, record that these are DRAFTS awaiting manual publish and never live. In armed mode, STEP 20 replaces that reminder with immediate live and scheduled-pending evidence.
 
 STEP 10 (FINISH -- HONEST DELIVERY): completion requires identity safety clear, conscience ALLOW, every active platform attempted independently, and exact current-run ledger evidence. Editorial/reader FAIL is retried in the same run up to five iterations; after the fifth it may be an explicitly recorded force-publish advisory, never a hidden bypass. In armed mode article-run-complete.py requires four active live reality receipts; the four dormant skip receipts are not failures or SLO work. Until then report PENDING; never equate foreground exit with shipped.'
 

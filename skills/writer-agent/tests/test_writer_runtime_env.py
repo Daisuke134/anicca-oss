@@ -4,10 +4,15 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "skills/writer-agent/scripts/writer-runtime-env.sh"
+SCRIPTS = SCRIPT.parent
+sys.path.insert(0, str(SCRIPTS))
+from writer_runtime_paths import life_manager_env_file  # noqa: E402
+from writer_report_worker import telegram_api_transport  # noqa: E402
 
 
 class WriterRuntimeEnvTest(unittest.TestCase):
@@ -79,6 +84,59 @@ class WriterRuntimeEnvTest(unittest.TestCase):
                 self.assertNotIn("/.hermes", source)
                 self.assertEqual(row["state_root"], "~/.local/state/life-manager/writer")
                 self.assertEqual(row["log_root"], "~/.local/state/life-manager/writer/logs")
+
+    def test_python_contract_resolves_default_and_override_env(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            self.assertEqual(
+                life_manager_env_file({}, home=home),
+                home / ".local/state/life-manager/.env",
+            )
+            self.assertEqual(
+                life_manager_env_file(
+                    {"LIFE_MANAGER_ENV_FILE": "~/private/life-manager.env"}, home=home
+                ),
+                Path.home() / "private/life-manager.env",
+            )
+
+    def test_writer_credential_consumers_have_no_openclaw_env_dependency(self):
+        consumers = (
+            "opportunity_response.py",
+            "writer_report_worker.py",
+            "article-completion-notify.py",
+            "self-improve-notify.py",
+            "_shared/pii_scan.py",
+            "publish-devto.sh",
+            "publish-substack.sh",
+            "publish-zenn.sh",
+            "publish-note.sh",
+            "rotation-effect-audit.sh",
+            "_shared/publish-substack-mermaid.sh",
+        )
+        for relative in consumers:
+            with self.subTest(relative=relative):
+                body = (SCRIPTS / relative).read_text(encoding="utf-8")
+                self.assertNotIn(".openclaw/.env", body)
+        for relative in (
+            "publish-devto.sh",
+            "publish-substack.sh",
+            "publish-zenn.sh",
+            "publish-note.sh",
+            "rotation-effect-audit.sh",
+            "_shared/publish-substack-mermaid.sh",
+        ):
+            self.assertIn("writer-runtime-env.sh", (SCRIPTS / relative).read_text())
+        self.assertNotIn(
+            '"openclaw",\n                "message"',
+            (SCRIPTS / "self-improve-notify.py").read_text(),
+        )
+
+    def test_telegram_transport_accepts_canonical_life_manager_token_name(self):
+        with tempfile.TemporaryDirectory() as temp:
+            env_file = Path(temp) / "life-manager.env"
+            env_file.write_text("LM_TELEGRAM_BOT_TOKEN=fixture-token\n")
+            transport = telegram_api_transport("12345", env_file=env_file)
+            self.assertTrue(callable(transport))
 
 
 if __name__ == "__main__":

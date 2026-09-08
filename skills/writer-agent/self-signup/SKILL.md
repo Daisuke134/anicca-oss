@@ -50,7 +50,8 @@ different agent) can pick up exactly where this left off.
   shared browser.
 - OTP / magic-link read: `gog gmail search --account "$WRITER_GMAIL_ACCOUNT" "<query>
   in:anywhere newer_than:1h" --max 3 --plain` (needs `GOG_KEYRING_PASSWORD` in
-  `~/.openclaw/.env`). Verified working (2026-07-17, live test against the real inbox).
+  `LIFE_MANAGER_ENV_FILE`). The local default is
+  `~/.local/state/life-manager/.env`; cloud injects the same variable contract.
 
 ## Per-platform research (real, from crwl + one live pass — 2026-07-17)
 

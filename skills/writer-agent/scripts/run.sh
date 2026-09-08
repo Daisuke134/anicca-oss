@@ -78,7 +78,7 @@ run_quality_gate() {
 
 # spec §7.5 item 3 (OSS self-containment, 2026-07-17): these ACCOUNT values were the one
 # env-less identity spot in the whole pipeline (everything else already reads from
-# ~/.openclaw/.env). Env-fallback here preserves today's exact behavior byte-for-byte when
+# LIFE_MANAGER_ENV_FILE). Env-fallback here preserves current behavior when
 # the vars are unset (the live instance's .env does not set them yet), while letting an OSS
 # installer point this at their own accounts without editing this file.
 case "$CHANNEL" in

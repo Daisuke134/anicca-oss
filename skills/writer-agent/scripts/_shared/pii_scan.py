@@ -9,7 +9,7 @@ changed, both marked "PORT:" below:
   * the last-resort ledger path defaults to this skill's own state/ dir instead of
     ~/.local/share/writer-engine (that is a DIFFERENT engine's data dir);
   * load_blocklist() falls back to reading only the two WRITER_PII_* keys out of
-    ~/.openclaw/.env, because several publish scripts here are launched by launchd/agents
+    LIFE_MANAGER_ENV_FILE, because several publish scripts here are launched by schedulers
     that never source that file. It never reads, prints or returns any other key.
 
 Measured breach that motivated it: an operator-personal GitHub handle and a city-level
@@ -47,6 +47,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+SCRIPTS = Path(__file__).resolve().parent.parent
+if str(SCRIPTS) not in os.sys.path:
+    os.sys.path.insert(0, str(SCRIPTS))
+from writer_runtime_paths import life_manager_env_file  # noqa: E402
+
 BLOCKLIST_ENV = "WRITER_PII_BLOCKLIST"
 BLOCKLIST_FILE_ENV = "WRITER_PII_BLOCKLIST_FILE"
 LOG_ENV = "WRITER_PII_LOG"
@@ -57,16 +62,16 @@ MAX_SCAN_CHARS = 4_000_000
 # PORT: this skill's own state dir, used only as the last-resort ledger location when neither
 # WRITER_PII_LOG nor WRITER_DATA_DIR is set. `parents[2]` = skills/writer-agent.
 _SKILL_ROOT = Path(__file__).resolve().parents[2]
-# PORT: several publish scripts are launched without ~/.openclaw/.env sourced. Read ONLY the two
+# PORT: some callers do not source LIFE_MANAGER_ENV_FILE. Read ONLY the two
 # WRITER_PII_* keys out of it, and only when the process environment does not already carry them.
 # WRITER_PII_ENV_FILE overrides the path (tests point it at a path that does not exist, so they can
 # still assert the unconfigured-blocklist refusal on a machine whose real .env is configured).
 ENV_FILE_ENV = "WRITER_PII_ENV_FILE"
-_ENV_FILE = Path.home() / ".openclaw/.env"
+_ENV_FILE = life_manager_env_file()
 
 
 def _dotenv_fallback(values: Mapping[str, str]) -> dict[str, str]:
-    """Return {WRITER_PII_*: value} recovered from ~/.openclaw/.env, or {} when unavailable.
+    """Return {WRITER_PII_*: value} recovered from LIFE_MANAGER_ENV_FILE, or {} when unavailable.
 
     Never raises and never touches any other key: a missing/broken .env must leave the caller in
     the "blocklist not configured" state, which is itself a refusal, not a pass.
@@ -168,7 +173,7 @@ def summarize(findings: Iterable[Finding]) -> list[str]:
 def load_blocklist(environ: Mapping[str, str] | None = None) -> tuple[str, ...]:
     """Load operator identifiers from the environment. Missing configuration is an error."""
     values = os.environ if environ is None else environ
-    # PORT: recover the two WRITER_PII_* keys from ~/.openclaw/.env when the caller's environment
+    # PORT: recover the two WRITER_PII_* keys from LIFE_MANAGER_ENV_FILE when the caller environment
     # does not already carry them (launchd/agent-spawned publishers). Failure here is a no-op, so
     # the "not configured" refusal below still fires.
     fallback = _dotenv_fallback(values)

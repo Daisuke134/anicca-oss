@@ -10,7 +10,9 @@
 #
 # Spec: 2026-06-03-anicca-article-distribution-spec.md §4 Patch A-12.
 set -euo pipefail
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 SKILL_DIR="${ARTICLE_SKILL_DIR:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
 RANK_DIR="$HOME/.openclaw/skills/anicca-seo-rank-monitor/state"

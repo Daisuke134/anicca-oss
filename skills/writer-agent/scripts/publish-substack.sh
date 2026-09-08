@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # publish-substack.sh — publish article to aniccabuddha.substack.com via Substack API
 # Substack has an undocumented but working API at /api/v1/drafts that we POST to.
-# Uses session cookies stored in ~/.openclaw/.env SUBSTACK_SESSION_COOKIE
+# Uses SUBSTACK_SESSION_COOKIE loaded from LIFE_MANAGER_ENV_FILE.
 #
 # Usage:
 #   bash publish-substack.sh --markdown-file <f> --title <t> --subtitle <s>
@@ -9,6 +9,8 @@
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$DIR/writer-runtime-env.sh"
 . "$DIR/substack-publish/substack-curl.sh"
 
 MD_FILE=""
@@ -32,7 +34,6 @@ done
 python3 "$DIR/pii-gate.py" --stage publish-substack "$MD_FILE" >&2 || exit $?
 
 
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
 case "${ARTICLE_PUBLISH_PAIR:-}" in
   substack/ja)
     PUBLICATION="${SUBSTACK_PUBLICATION_JA:-${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}}"

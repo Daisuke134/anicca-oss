@@ -6,6 +6,9 @@
 # Strategy: copy md to the managed Writer Agent draft dir, then invoke post-zenn.py
 
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 MD_FILE=""
 TITLE=""
@@ -35,7 +38,7 @@ fi
 # Nothing operator-identifying may reach the PUBLIC zenn-articles repository (a push is public even at published:false). ANY non-zero exit from the gate -- a finding,
 # an unconfigured blocklist, or an internal scanner error -- aborts this publish. Gate output
 # goes to stderr so it cannot pollute this script's single-line stdout contract.
-python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pii-gate.py" --stage publish-zenn "$MD_FILE" >&2 || exit $?
+python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-zenn "$MD_FILE" >&2 || exit $?
 
 
 # Initial staging is always draft-only. Zenn renders an article publicly when
@@ -61,8 +64,6 @@ if grep -qE '^published:[[:space:]]*true[[:space:]]*$' "$DRAFT_DIR/ja.md"; then
 fi
 
 # Invoke existing post-zenn.py with explicit ARTICLE_DATE
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
-
 # The managed exact8 package publishes its immutable media bytes to the
 # already-public Zenn repository before any downstream staging. Dev.to then
 # references these content-addressed run paths; Zenn itself keeps native

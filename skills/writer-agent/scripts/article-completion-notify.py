@@ -284,7 +284,7 @@ def exact8_event(state_path: Path, ledger_path: Path) -> dict[str, Any] | None:
     }
 
 
-def openclaw_transport(target: str) -> Transport:
+def writer_telegram_transport(target: str) -> Transport:
     """Use the Writer-owned Telegram transport, not the gateway CLI.
 
     The completion owner already has a durable outbox. Reusing the report
@@ -293,7 +293,7 @@ def openclaw_transport(target: str) -> Transport:
     receipt has been written. The function name remains for compatibility with
     existing callers and fixtures.
     """
-    return telegram_api_transport(target, env_file=Path.home() / ".openclaw/.env")
+    return telegram_api_transport(target)
 
 
 def main() -> int:
@@ -319,7 +319,7 @@ def main() -> int:
             transport = (
                 (lambda _message: str(args.fixture_receipt))
                 if args.fixture_receipt
-                else openclaw_transport(args.target)
+                else writer_telegram_transport(args.target)
             )
             result = deliver_pending(outbox, event, transport)
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
@@ -337,7 +337,7 @@ def main() -> int:
         transport = (
             (lambda _message: str(args.fixture_receipt))
             if args.fixture_receipt
-            else openclaw_transport(args.target)
+            else writer_telegram_transport(args.target)
         )
         result = deliver(outbox, event, transport)
     except (

@@ -6,7 +6,7 @@
 # needing a disposable-email provider (which platforms auto-flag/suspend — proven failure
 # mode: agentmail.to killed @aiclipper.daily on Instagram). Read the code/magic-link back
 # with `gog gmail search --account <base> "<query>" --max 3 --plain` (needs
-# GOG_KEYRING_PASSWORD in env, see ~/.openclaw/.env).
+# GOG_KEYRING_PASSWORD in env, loaded through LIFE_MANAGER_ENV_FILE).
 #
 # Usage: bash gen-plus-address.sh <platform-tag>
 #   e.g. SELF_SIGNUP_GMAIL_BASE=owner bash gen-plus-address.sh substack

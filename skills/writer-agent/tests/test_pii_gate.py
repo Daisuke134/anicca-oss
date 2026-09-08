@@ -436,7 +436,7 @@ class WiringTest(unittest.TestCase):
         self.assertEqual(missing, [], f"publish paths with no PII gate: {missing}")
 
     def test_no_blocklist_literal_was_committed_into_the_gate(self):
-        """The blocklist is PII: it must exist only in ~/.openclaw/.env, never in this repo."""
+        """The blocklist is PII: it lives only in LIFE_MANAGER_ENV_FILE, never in this repo."""
         # pii_scan.py is the only loader, so it is the only file that must name the env var.
         # pii-gate.py / pii_gate.py delegate to it and deliberately hold no blocklist knowledge.
         self.assertIn("WRITER_PII_BLOCKLIST", (SHARED / "pii_scan.py").read_text(encoding="utf-8"))

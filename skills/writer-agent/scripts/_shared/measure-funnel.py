@@ -149,7 +149,7 @@ def measure_substack(entry: dict) -> dict:
     post_id = entry["id"]
     cookie = os.environ.get("SUBSTACK_SESSION_COOKIE", "")
     if not cookie:
-        return {"error": "SUBSTACK_SESSION_COOKIE missing (source ~/.openclaw/.env first)"}
+        return {"error": "SUBSTACK_SESSION_COOKIE missing (configure LIFE_MANAGER_ENV_FILE first)"}
     pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
     data = http_get_json(f"https://{pub}/api/v1/drafts/{post_id}", headers={"Cookie": cookie})
     if not data:

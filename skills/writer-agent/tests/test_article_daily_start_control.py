@@ -232,7 +232,7 @@ class ArticleStartPolicyTest(unittest.TestCase):
             )]
             self.assertEqual(run_model.count("BOUNDED_EXEC_STOP_PATHS="), 1)
             self.assertIn(
-                'BOUNDED_EXEC_STOP_PATHS="$HOME/.openclaw/state/disk-writers.stop"',
+                'BOUNDED_EXEC_STOP_PATHS="${LIFE_MANAGER_HOST_STATE_DIR:-$HOME/.local/state/life-manager/state}/disk-writers.stop"',
                 run_model,
             )
 

@@ -98,7 +98,7 @@ def extract_payload(proc: subprocess.CompletedProcess) -> dict:
         reason = next(l for l in proc.stdout.splitlines() if l.startswith("CDP_UNREACHABLE:"))
         return {"error": f"browser DOM read failed: {reason}"}
     if "NOTE_PASSWORD_MISSING" in proc.stdout:
-        return {"error": "NOTE_PASSWORD missing (source ~/.openclaw/.env first)"}
+        return {"error": "NOTE_PASSWORD missing (configure LIFE_MANAGER_ENV_FILE first)"}
     reason = proc.stdout.strip() or proc.stderr.strip()[-300:] or "no PAYLOAD_B64 line and no recognizable error prefix"
     return {"error": f"browser DOM read failed: {reason}"}
 

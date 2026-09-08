@@ -36,7 +36,7 @@ silently borrowed from another venv.
 
 Env (same names/source as scripts/publish-substack.sh): SUBSTACK_SESSION_COOKIE
 (required, full Cookie header value), SUBSTACK_PUBLICATION (default
-aniccabuddha.substack.com). Load from ~/.openclaw/.env before running, or export them.
+aniccabuddha.substack.com). Load from LIFE_MANAGER_ENV_FILE before running, or export them.
 
 Assets + the upload cache are PERSISTENT, never /tmp (repo rule): default assets dir is
 ~/.cloak/note-work/<slug>-substack-assets/, cache is
@@ -206,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cookie = os.environ.get("SUBSTACK_SESSION_COOKIE", "")
     if not cookie:
-        fatal("SUBSTACK_SESSION_COOKIE missing (source ~/.openclaw/.env first)")
+        fatal("SUBSTACK_SESSION_COOKIE missing (configure LIFE_MANAGER_ENV_FILE first)")
     publication = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
 
     slug = src_path.stem

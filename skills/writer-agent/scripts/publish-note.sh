@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # publish-note.sh — publish article to note.com via note-mcp Python lib
-# Auth: email + password (NOTE_EMAIL / NOTE_PASSWORD in ~/.openclaw/.env) → camofox session
+# Auth: NOTE_EMAIL / NOTE_PASSWORD from LIFE_MANAGER_ENV_FILE → browser session
 # → cookie. Task #31 (2026-07-16): the actual credentials used to live here in plaintext
 # (both in this comment and as a hardcoded default two lines below) -- removed. They still
 # exist in this file's git history until rotated; rotation is a Dais decision, not done here.
@@ -27,6 +27,8 @@ done
 [[ -f "$MD_FILE" && -n "$TITLE" ]] || { echo "FATAL: --markdown-file --title required" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 # --- fail-closed PII gate (scripts/pii-gate.py) ---------------------------------------
 # Nothing operator-identifying may reach note.com. ANY non-zero exit from the gate -- a finding,
@@ -35,8 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-note "$MD_FILE" >&2 || exit $?
 
 
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
-[[ -n "${NOTE_EMAIL:-}" && -n "${NOTE_PASSWORD:-}" ]] || { echo "FATAL: NOTE_EMAIL / NOTE_PASSWORD missing in ~/.openclaw/.env" >&2; exit 1; }
+[[ -n "${NOTE_EMAIL:-}" && -n "${NOTE_PASSWORD:-}" ]] || { echo "FATAL: NOTE_EMAIL / NOTE_PASSWORD missing from LIFE_MANAGER_ENV_FILE" >&2; exit 1; }
 # note-mcp's login_with_browser() unconditionally calls SessionManager().save()
 # after a successful login, and by default that goes through the macOS
 # Keychain. On this machine (unattended/background shell, no unlocked GUI
