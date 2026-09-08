@@ -938,6 +938,31 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    174 threads have durable states, including one official reply/readback, while closed, no-reply,
    external-wait and retry-wait threads remain separated. The wake is still running, so this is progress
    evidence, not terminal acceptance, and the atom remains unchecked.
+   A later natural Coconala wake from that same installed SHA ended `pass` with exit zero at
+   `2026-09-08T02:28:32Z`; process existence is no longer the blocker. However, Lancers board
+   `9058411` exposed a shared reply-grounding defect after its earlier durable human wait: the buyer
+   asked six ordinary applicant-profile questions, and seller message `59145214` told the buyer that
+   gender, age band, availability, work history, related experience and continuity could not be
+   answered because the conversation lacked that information. This was a real customer-visible effect,
+   not a draft. The private candidate SSOT already contains the age-band and verified work facts, and
+   the provider public profile contains weekly availability and reusable skills; only gender remains
+   genuinely absent. The exact source boundary is that the Lancers adapter passes only the verified
+   proposal into its composer and never supplies the shared candidate/profile grounding.
+   `SHARED-REPLY-1` therefore remains open and its next bounded work is, in order:
+   1. Add one provider-neutral reply-grounding reader under `marketplace-core` for the private candidate
+      SSOT, reusable verified facts and provider public-profile facts; adapters may add only verified
+      proposal/provider context.
+   2. Make the shared model contract answer every explicit buyer question from those verified facts and
+      return a structured human wait for only the facts still missing. Internal context absence must
+      never be rendered as a customer-facing answer. Do not replace model judgment with keyword/regex
+      classification.
+   3. Deliver that structured human wait once through the existing shared Telegram outbox, with provider,
+      thread, official link and exact missing fields, while all other threads continue independently.
+   4. After the sole missing gender fact is confirmed and persisted to the private SSOT, send one natural
+      corrective answer on board `9058411`, require the exact official message readback, then require a
+      following natural replay with zero duplicate effect.
+   5. Prove Coconala consumes the same grounding/decision contract. Mercor and CrowdWorks remain the later
+      fixed-order thin-adapter atoms; this correction does not pull either one forward.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
