@@ -93,18 +93,24 @@ def merge_verified_dm_attachments(dom: dict[str, Any], document: dict[str, Any])
         str(row.get("message_id") or ""): row
         for row in semantic_rows if row.get("message_id")
     }
-    for message_index, message in enumerate(document_rows):
+    for message in document_rows:
         if not isinstance(message, dict) or message.get("side") != "buyer":
             continue
         attachments = message.get("attachments") if isinstance(message.get("attachments"), list) else []
         if not attachments:
             continue
         target = semantic_messages.get(str(message.get("message_id") or ""))
-        if (target is None and not message.get("message_id")
-                and message_index < len(semantic_rows)):
-            indexed = semantic_rows[message_index]
-            if str(indexed.get("body") or "") == str(message.get("text") or ""):
-                target = indexed
+        if target is None and not message.get("message_id"):
+            exact = [
+                row for row in semantic_rows
+                if str(row.get("body") or "") == str(message.get("text") or "")
+                and (
+                    row.get("side") == "buyer"
+                    or row.get("author_path") != dom.get("own_user_path")
+                )
+            ]
+            if len(exact) == 1:
+                target = exact[0]
         if target is None:
             raise CollectorUnhealthy("dm_attachment_message_identity_changed")
         verified: list[dict[str, Any]] = []
