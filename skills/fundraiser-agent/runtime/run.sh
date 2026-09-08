@@ -14,6 +14,7 @@ SCHEMA="$REPO_ROOT/skills/fundraiser-agent/runtime/pass-result.schema.json"
 SENDER="$REPO_ROOT/skills/_shared/send-telegram.sh"
 PHOTO_SENDER="$REPO_ROOT/skills/_shared/send-telegram-photo.sh"
 LOOP_CLI="${LIFE_MANAGER_LOOP_CLI:-$REPO_ROOT/bin/lm-loop}"
+LOCK_CLI="$REPO_ROOT/runtime/host/owned_directory_lock.py"
 MIN_FREE_KIB=$((1536 * 1024))
 PRESSURE_FREE_KIB=$((2 * 1024 * 1024))
 
@@ -58,11 +59,25 @@ fi
 
 mkdir -p "$STATE_ROOT/evidence" "$EVIDENCE_DIR"
 chmod 700 "$STATE_ROOT" "$STATE_ROOT/evidence" "$EVIDENCE_DIR"
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-  echo "fundraiser: prior pass still owns the loop" >>"$LOG"
+[ -f "$LOCK_CLI" ] || { echo "fundraiser: lock control unavailable" >>"$LOG"; exit 2; }
+if LOCK_RESULT="$(python3 "$LOCK_CLI" acquire "$LOCK_DIR" "$$" "$RUN_ID")"; then
+  LOCK_RC=0
+else
+  LOCK_RC=$?
+fi
+if [ "$LOCK_RC" -eq 75 ]; then
+  echo "fundraiser: live prior pass still owns the loop; overlap suppressed" >>"$LOG"
   exit 0
 fi
-trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+[ "$LOCK_RC" -eq 0 ] || { echo "fundraiser: lock control unavailable" >>"$LOG"; exit 2; }
+case "$LOCK_RESULT" in
+  '{"status":"acquired"}'|'{"status":"reclaimed"}') ;;
+  *) echo "fundraiser: lock control unavailable" >>"$LOG"; exit 2 ;;
+esac
+release_lock() {
+  python3 "$LOCK_CLI" release "$LOCK_DIR" "$$" "$RUN_ID" >/dev/null 2>&1 || true
+}
+trap release_lock EXIT
 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export LIFE_MANAGER_REPO="$REPO_ROOT"
