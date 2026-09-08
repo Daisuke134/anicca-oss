@@ -152,3 +152,70 @@ def test_the_discovery_vocabulary_does_not_fetch_artwork_either():
     """Searching for work we now decline would only manufacture skips."""
     for term in fit.discovery_terms(("イラスト作成", "Live2Dモデリング", "業務システム")):
         assert fit.category_refusal(term) is None
+
+
+# --- building is not operating, 2026-09-07 ---------------------------------------------------
+
+def test_the_desktop_class_says_building_is_never_it():
+    """Promoted from Coconala the same afternoon, this class then refused, on Lancers:
+
+        RPAツール「アシロボ」シナリオ作成          -- building automation, the catalogue's core
+        Notesからサイボウズ Officeへの移行とアプリ開発 -- a migration plus an app
+        仮想通貨・Web3ライター（WordPress直接入稿）  -- an article, published through a tool
+
+    22 refusals, roughly half of them work the fleet sells. A class promoted into a lane with a
+    different catalogue has to be re-read against that catalogue, not assumed to transfer."""
+    text = fit.HARD_PROHIBITION_CLASSES["mandatory_desktop_or_browser_operations"]
+    assert "Building" in text and "migrating" in text
+    assert "is a delivery and is never this class" in text
+
+
+def test_the_class_still_names_what_it_is_for():
+    """Sharpening must not empty it: operating an account for hours is still refused."""
+    text = fit.HARD_PROHIBITION_CLASSES["mandatory_desktop_or_browser_operations"]
+    for phrase in ("data entry", "monitoring", "repeated logged-in", "deliverable"):
+        assert phrase in text, phrase
+
+
+def test_the_prompt_carries_the_sharpened_wording():
+    prompt = fit.build_judgement_prompt([{"posting_id": "1", "title": "t", "body": "b"}])
+    assert "is a delivery and is never this class" in prompt
+
+
+# --- the subject matter is not the deliverable, 2026-09-08 -----------------------------------
+
+def test_writing_about_video_is_not_producing_video():
+    """Dais found 「【動画ブランディング相談】初心者に寄り添い、ニッチな事業の魅力を一緒に整理して
+    くださる方募集」 sitting unapplied-to. Advice is a document."""
+    text = fit.HARD_PROHIBITION_CLASSES["video_or_animation"]
+    assert "producing the footage itself" in text
+    assert "is never this class" in text
+    for allowed in ("Advice", "strategy", "scripts", "subtitles"):
+        assert allowed in text, allowed
+
+
+def test_writing_about_music_is_not_producing_music():
+    """And 「音楽歌詞の多言語翻訳（ヒンディー語）」. Translating lyrics produces text."""
+    text = fit.HARD_PROHIBITION_CLASSES["music_or_audio_production"]
+    assert "producing the audio itself" in text
+    assert "Lyrics, translation, transcription" in text
+    assert "is never this class" in text
+
+
+def test_the_classes_still_refuse_the_production_they_were_written_for():
+    """Three classes now carry an 'is never this class' clause. None of them may be emptied by it."""
+    for name, must_keep in (
+        ("video_or_animation", ("video editing", "live-action filming", "animation")),
+        ("music_or_audio_production", ("music", "composition", "mixing", "mastering")),
+        ("mandatory_desktop_or_browser_operations", ("data entry", "monitoring")),
+    ):
+        text = fit.HARD_PROHIBITION_CLASSES[name]
+        assert "is never this class" in text, name
+        for phrase in must_keep:
+            assert phrase in text, f"{name}: {phrase}"
+
+
+def test_the_judge_prompt_carries_both_halves_of_each_line():
+    prompt = fit.build_judgement_prompt([{"posting_id": "1", "title": "t", "body": "b"}])
+    assert "producing the footage itself" in prompt
+    assert "producing the audio itself" in prompt

@@ -103,6 +103,17 @@ test("bounded specialist contains a post-dispatch exception as effect_unknown", 
   assert.equal(dispatches, 1);
 });
 
+test("bounded specialist preserves a secret-free parent action reason before dispatch", async () => {
+  const adapter = createBrowserHarnessAdapter({
+    async observePage() { return Object.freeze({ state: "form", controls: ["required"] }); },
+    async proposeAction() { return Object.freeze({ purpose: "fill", method: "ax_fill", control: "required" }); },
+    async performAction() { return Object.freeze({ status: "failed", safe_reason: "private_value_unavailable" }); },
+    async readExpectedState() { throw new Error("readback must not run"); },
+  });
+  const result = await adapter.runFallback({ provider: "luma", page: {}, pageWebsocket: PAGE_WS, expectedState: "registered_or_pending", maxSteps: 1 });
+  assert.equal(result.safe_reason, "private_value_unavailable");
+});
+
 test("adapter rejects browser-wide, Gig, credential-bearing, and non-page websocket endpoints", () => {
   const adapter = createBrowserHarnessAdapter({
     observePage() {}, proposeAction() {}, performAction() {}, readExpectedState() {},

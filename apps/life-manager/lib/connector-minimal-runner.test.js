@@ -653,6 +653,24 @@ test("an uncoded browser_harness throw still records the fallback reason and a p
   assert.equal(JSON.stringify(harnessFailure).includes("private stubbed harness failure detail"), false);
 });
 
+test("an unavailable Connpass registration page does not invoke browser fallback", async () => {
+  let state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate("connpass", "unavailable")];
+    },
+    async runDirectAction() {
+      const error = new Error("private provider detail");
+      error.code = "CONNPASS_REGISTRATION_UNAVAILABLE";
+      throw error;
+    },
+    async runAgentFallback() { throw new Error("browser fallback must not run"); },
+  });
+  await runMinimalConnectorWake({ ownerToken: "owner-token-connpass-unavailable", providers: ["connpass"] }, state.dependencies);
+  assert.equal(state.calls.some(([name]) => name === "agent"), false);
+  assert.equal(state.calls.some(([name, row]) => name === "history" && row.safe_reason === "unsafe_agent_action"), false);
+});
+
 test("a successful submit action row stays exactly the same shape as before (no provider/safe_reason/error_class)", async () => {
   const state = fixture();
 

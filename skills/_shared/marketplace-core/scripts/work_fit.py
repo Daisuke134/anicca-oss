@@ -36,7 +36,12 @@ __all__ = ["HARD_PROHIBITION_CLASSES", "PROHIBITED_CATEGORY_TERMS", "category_re
 # room, or lend a credential it does not have. Everything below follows from that, and nothing
 # below is about quality or preference.
 HARD_PROHIBITION_CLASSES = {
-    "video_or_animation": "video editing/production, live-action filming, AI video, animation, or MV",
+    # Sharpened 2026-09-08. Dais found 「【動画ブランディング相談】初心者に寄り添い、ニッチな事業の
+    # 魅力を一緒に整理してくださる方募集」 unapplied-to. Advising on video, writing a script, planning
+    # a channel or organising what a business should say are documents, and this class is about
+    # producing the footage. Same shape as mandatory_desktop_or_browser_operations: the subject
+    # matter is not the deliverable.
+    "video_or_animation": "producing the footage itself -- video editing, live-action filming, AI video generation, animation or an MV -- as the required deliverable. Advice, strategy, scripts, planning, subtitles or a written report about video is a document and is never this class",
     "physical_or_onsite": "on-site work or physical making/assembly/cleaning/repair/cooking/sewing/woodwork/model making/packing/shipping/delivery/receipt",
     "mandatory_human_presence": "human face appearance/performance/voice recording/phone support/mandatory live call or mandatory video interview",
     # 2026-09-07: applied to 「YouTube・SNS用オリジナルキャラクター制作（Live2D＋情報発信用素材
@@ -55,9 +60,19 @@ HARD_PROHIBITION_CLASSES = {
     # cannot be somebody's outreach team, and cannot sit inside a desktop app all day, on any
     # marketplace. Coconala meanwhile had no entry for 出品代行 or for original artwork, so it
     # would still have bid on both. One definition, read by all three, is the point.
-    "music_or_audio_production": "music, song, performance, singing, BGM, composition, arrangement, mixing, mastering, or other produced/edited audio as the required deliverable",
+    # Same line, drawn on 2026-09-08 for the same reason: Dais found 「音楽歌詞の多言語翻訳
+    # （ヒンディー語）」 unapplied-to. Translating lyrics produces text, and the class is about
+    # producing audio.
+    "music_or_audio_production": "producing the audio itself -- music, song, performance, singing, BGM, composition, arrangement, mixing or mastering -- as the required deliverable. Lyrics, translation, transcription, liner notes or any other text about music is a document and is never this class",
     "outreach_or_account_operations": "the required outcome is recruiting, lead sourcing, individualized bulk outreach, social DM operations, account warming, posting operations, or ongoing third-party account management rather than an asynchronous buyer-visible artifact",
-    "mandatory_desktop_or_browser_operations": "the required work must be performed through a desktop application or repeated logged-in browser operation, rather than delivering software, a landing page, an article, strategy, code, or another asynchronous file/document artifact",
+    # Sharpened 2026-09-07 after promotion. As written for Coconala this refused, on Lancers,
+    # 「RPAツール『アシロボ』シナリオ作成」, 「Notesからサイボウズ Officeへの移行とアプリ開発」 and a
+    # writing job whose only sin was 「WordPress直接入稿」 -- 22 refusals of which about half were
+    # the catalogue's own core work. Building automation inside a tool, migrating between tools, or
+    # publishing a finished artifact through one are all deliveries. The line is whether operating
+    # the software IS the deliverable, hour after hour, or merely how a built thing is made and
+    # handed over.
+    "mandatory_desktop_or_browser_operations": "operating software is itself the deliverable -- ongoing hours of data entry, checking, monitoring or repeated logged-in clicking inside a desktop application or someone else's account. Building, configuring, automating or migrating a system, or publishing a finished artifact through a tool, is a delivery and is never this class, however much software the work passes through",
     "illegal_or_unsafe": "illegal or unsafe work",
     # 2026-09-07: applied to 整理収納アドバイザー監修 and 防災士監修. Both name a certification the
     # persona does not hold, and both were read as allowed because the wording said "legally

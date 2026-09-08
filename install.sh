@@ -34,8 +34,12 @@ if [ "$#" -gt 0 ]; then
       shift
       exec zsh "$REPO_ROOT/apps/job-search-loop/scripts/install-oss.sh" "$@"
       ;;
+    connector)
+      shift
+      exec bash "$REPO_ROOT/skills/connector/install.sh" "$@"
+      ;;
     *)
-      echo "[install] unknown product '$1'; supported: coconala, job-hunter" >&2
+      echo "[install] unknown product '$1'; supported: coconala, connector, job-hunter" >&2
       exit 2
       ;;
   esac
