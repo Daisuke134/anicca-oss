@@ -971,6 +971,12 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    contract no longer tells a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
    Lancers adapter checks pass 26/26. This is pushed source evidence only, not production acceptance;
    the corrective official reply/readback and replay-zero remain open.
+   The corrective answer was then sent exactly once to board `9058411`; fresh official thread
+   inventory shows the complete six-answer seller message as provider message `59145491`. The first
+   adapter readback returned false only because Lancers stores submitted LF newlines as CRLF while the
+   adapter compared raw strings. No retry was issued. Normalize only that fixed transport representation,
+   bind the existing official message as the receipt, and require the next natural wake to remain
+   replay-zero before checking this substep.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

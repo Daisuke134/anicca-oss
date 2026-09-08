@@ -151,3 +151,19 @@ def test_context_carries_shared_candidate_grounding(monkeypatch, tmp_path):
     context = adapter.context("board-1")
 
     assert context["grounding"]["candidate"]["age_band"] == "20代"
+
+
+def test_readback_accepts_provider_crlf_normalization(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    adapter._fetch_messages = lambda _thread_id: [{
+        "id": "59145491",
+        "board_id": "9058411",
+        "description": "1．男性・20代です。\r\n2．週31〜40時間です。",
+    }]
+    result = adapter.readback({
+        "thread_id": "9058411",
+        "effect_key": "effect-1",
+        "payload": {"body": "1．男性・20代です。\n2．週31〜40時間です。"},
+    })
+    assert result["verified"] is True
+    assert result["provider_receipt_id"] == "59145491"
