@@ -557,6 +557,20 @@ test("production harness rejects unapproved Peatix radio before DOM action", asy
   assert.equal(result.status, "failed"); assert.equal(result.safe_reason, "agent_action_failed"); assert.equal(operated, 0);
 });
 
+test("Luma fallback reports an unavailable parent-owned form answer", async () => {
+  let operated = 0;
+  const harness = createProductionBrowserHarness({
+    lumaWorkflow: { async readProviderState() { return { status: "absent" }; } },
+    inspectControls: async () => [{ control: "required_answer", kind: "input", label: "Unknown required answer", required: true }],
+    proposeAction: async () => ({ control: "required_answer" }),
+    operateControl: async () => { operated += 1; return { status: "success" }; },
+    resolveValue: async () => null,
+  });
+  const result = await harness.runFallback({ provider: "luma", candidate: { event_ref: "luma-event://event/one" }, page: {}, pageWebsocket: "ws://127.0.0.1:9222/devtools/page/OWNEDTARGET1", maxSteps: 1, expectedState: "registered_or_pending" });
+  assert.equal(result.safe_reason, "private_value_unavailable");
+  assert.equal(operated, 0);
+});
+
 test("page observation exposes boolean completion without values", async () => {
   const make = (tagName, type, name, value, checked, innerText = "") => ({ tagName, type, name, value, checked, required: false, dataset: {}, labels: [], innerText, getAttribute(key) { return key === "name" ? name : ""; } });
   const elements = [make("INPUT", "text", "name", "secret-value", false), make("TEXTAREA", "", "notes", "", false), make("SELECT", "", "ticket", "option-1", false), make("INPUT", "checkbox", "agree", "on", true), make("INPUT", "radio", "choice", "one", false), make("INPUT", "radio", "choice", "two", true), make("INPUT", "radio", " choice ", "spaced", false, "Spaced option"), make("INPUT", "radio", "other", "yes", false), make("INPUT", "radio", "", "unnamed-one", false, "Unnamed one"), make("INPUT", "radio", "", "unnamed-two", true, "Unnamed two"), make("BUTTON", "submit", "", "", false, "Submit")];

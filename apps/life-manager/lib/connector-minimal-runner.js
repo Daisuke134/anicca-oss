@@ -455,7 +455,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
             consecutiveFailures += 1;
             return finish("circuit_open", "effect_unknown");
           }
-          try {
+          if (!(provider === "connpass" && directFailureReason === "connpass_registration_unavailable")) try {
             operation = await action(
               "submit", "browser_harness",
               () => deps.runAgentFallback({
