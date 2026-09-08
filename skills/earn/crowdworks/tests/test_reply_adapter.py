@@ -29,3 +29,9 @@ def test_adapter_contains_no_provider_lifecycle_copy():
     assert "def run_wake" not in source
     assert "next_eligible_at" not in source
     assert "effect_key" not in source
+
+
+def test_collapsed_message_uses_full_body_not_visible_digest():
+    source = MODULE.read_text(encoding="utf-8")
+    assert "find(item => item.querySelector('p'))" in source
+    assert "getComputedStyle(item).display" not in source

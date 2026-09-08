@@ -126,11 +126,11 @@ class CrowdWorksReplyAdapter:
             raise RuntimeError("crowdworks_thread_unavailable")
         values = self.page.locator('div[class*="_messageItem_"]').evaluate_all(
             """nodes => nodes.map(node => {
-              const visible=[...node.querySelectorAll('div[class*="_messageBody_"]')]
-                .find(item => getComputedStyle(item).display !== 'none');
-              const sender=visible?.querySelector('a[class*="_senderName_"]')?.textContent?.trim();
-              const time=visible?.querySelector('time')?.getAttribute('datetime');
-              const bodies=[...visible?.querySelectorAll('p') || []]
+              const full=[...node.querySelectorAll('div[class*="_messageBody_"]')]
+                .find(item => item.querySelector('p'));
+              const sender=full?.querySelector('a[class*="_senderName_"]')?.textContent?.trim();
+              const time=full?.querySelector('time')?.getAttribute('datetime');
+              const bodies=[...full?.querySelectorAll('p') || []]
                 .map(item => item.innerText.trim()).filter(Boolean).sort((a,b)=>b.length-a.length);
               return {sender, time, body:bodies[0] || ''};
             })"""
@@ -213,4 +213,3 @@ def build(argv: list[str]):
         lambda context: composer.compose(context, state_root=state_root,
                                          task_label="crowdworks-reply")
     )
-
