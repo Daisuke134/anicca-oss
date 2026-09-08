@@ -175,6 +175,19 @@ test("connector calendar rejects every non-canonical TECH PLAY identity before g
   assert.equal(calls, 0);
 });
 
+test("connector calendar accepts exact KokuchPro event identity with fixed source title", async () => {
+  const canonicalUrl = "https://www.kokuchpro.com/event/47e6fa813a96d11fa31c82f8e5752a18/";
+  const { run, calls } = recorder(JSON.stringify({ id: "kokuchpro-created", htmlLink: "https://calendar.google.com/calendar/event?eid=kokuchpro-created" }));
+  const result = await makeGogCalendar({ account: ACCT, run }).createConnectorEvent({
+    calendarId: "primary", idempotencyValue: "e".repeat(64), title: "Clay Club Tokyo",
+    startAt: "2026-09-10T10:00:00+09:00", endAt: "2026-09-10T11:00:00+09:00",
+    location: "Tokyo", canonicalUrl,
+  });
+  assert.deepEqual(result, { id: "kokuchpro-created", htmlLink: "https://calendar.google.com/calendar/event?eid=kokuchpro-created" });
+  assert.ok(calls[0].includes(`--source-url=${canonicalUrl}`));
+  assert.deepEqual(calls[0].filter((arg) => String(arg).startsWith("--source-title=")), ["--source-title=KokuchPro"]);
+});
+
 test("connector calendar accepts exact Connpass root and one-subdomain identities", async () => {
   const canonicalUrls = ["https://connpass.com/event/400028/", "https://tokyo-builders.connpass.com/event/400028/"];
   const { run, calls } = recorder((args) => JSON.stringify({ id: `connpass-created-${calls.length}`, htmlLink: "https://calendar.google.com/calendar/event?eid=connpass-created" }));
