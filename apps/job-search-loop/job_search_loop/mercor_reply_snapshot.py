@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import time
 from urllib.parse import urlsplit
 
 import websockets
@@ -136,20 +137,27 @@ def _gmail(account: str, executable: str,
     )
     for query in queries:
         search = None
+        failures = []
         argv = [executable, "gmail", "messages", "search", query, "--max", "100",
                 "--account", account, "--json", "--no-input"]
-        for _attempt in range(2):
+        for attempt in range(2):
+            if attempt:
+                time.sleep(1)
             try:
                 candidate = subprocess.run(
                     argv, capture_output=True, text=True, check=False, timeout=30,
                 )
             except subprocess.TimeoutExpired:
+                failures.append("timeout")
                 continue
             if candidate.returncode == 0:
                 search = candidate
                 break
+            failures.append(f"exit_{candidate.returncode}")
         if search is None:
-            raise RuntimeError("mercor_gmail_inventory_unavailable")
+            raise RuntimeError(
+                "mercor_gmail_inventory_unavailable:" + ",".join(failures)
+            )
         try:
             found = json.loads(search.stdout).get("messages", [])
         except (AttributeError, ValueError):
@@ -231,18 +239,25 @@ def _gmail(account: str, executable: str,
         argv = [executable, "gmail", "thread", "get", "--account", account, "--json",
                 "--wrap-untrusted", "--full", "--sanitize-content", thread_id]
         fetched = None
-        for _attempt in range(2):
+        failures = []
+        for attempt in range(2):
+            if attempt:
+                time.sleep(1)
             try:
                 candidate = subprocess.run(
                     argv, capture_output=True, text=True, check=False, timeout=30,
                 )
             except subprocess.TimeoutExpired:
+                failures.append("timeout")
                 continue
             if candidate.returncode == 0:
                 fetched = candidate
                 break
+            failures.append(f"exit_{candidate.returncode}")
         if fetched is None:
-            raise RuntimeError("mercor_gmail_thread_unavailable")
+            raise RuntimeError(
+                "mercor_gmail_thread_unavailable:" + ",".join(failures)
+            )
         try:
             thread = json.loads(fetched.stdout).get("thread", {})
             messages = thread.get("messages", [])
