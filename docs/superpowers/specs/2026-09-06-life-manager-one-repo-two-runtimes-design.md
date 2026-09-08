@@ -149,30 +149,29 @@ after required credentials and host capabilities are configured.
 
 ### 4.1 Current reuse truth
 
-The loops do not yet follow one common physical folder shape. Source is distributed across `skills/`, `apps/`,
-`runtime/`, `services/` and `tools/`. All 174 managed registry entrypoints exist, and the main local lifecycle and
-agent runner are shared, but four declaration/execution systems remain:
-
-1. `config/loop-registry.json` + `runtime/loop` for macOS release and lifecycle;
-2. `apps/life-manager/config/loop-adapters.json` + the Postgres job store for cloud adapters;
-3. `skills/registry.json` + `runtime/loop/index.mjs` for agent-economy slots;
-4. five legacy `loops/*/loop.toml` declarations + `bin/plistgen.py`.
+The loops do not yet follow one common physical folder shape. Source is still distributed across `skills/`, `apps/`,
+`runtime/`, `services/` and `tools/`, but the former five `loops/*/loop.toml` declarations and `bin/plistgen.py` have
+been deleted. `config/loop-registry.json` is the sole host scheduler registry. Cloud retains its thin adapter map and
+tenant job store; Agent Economy retains its product slot registry, but both consume repository-owned shared runtime
+contracts instead of constituting independent product implementations.
 
 Reuse already working:
 
 - immutable main-derived releases, `lm-loop`, runtime events and the shared agent runner;
 - repository-relative entrypoints and explicit state roots;
-- marketing generation/publication components for multiple Anicca iOS and Honne lanes;
-- the shared marketplace profile/contracts layer used by part of the gig family.
+- common job, event, effect, receipt, outbox and financial-record contracts across local and cloud persistence;
+- one product-aware mobile-app command and manifest for Anicca iOS, Honne and the other owned iOS lanes;
+- one adapter shell for the non-Coconala gig providers, with the four currently owned Coconala jobs protected;
+- shared browser ownership for migrated Connector and Job Hunter consumers;
+- repository-owned Telegram, disk-admission and compute-proxy boundaries.
 
 Reuse still missing:
 
-- one manifest and one lifecycle owner for every loop;
-- one job/effect/receipt/outbox contract across file, SQLite and Postgres backends;
-- one browser lease/target-owner contract across Connector, Gig and Job Hunter;
-- one generic mobile-app build/marketing boot path instead of many nearly identical wrappers;
-- one gig adapter shape across Coconala, Lancers and CrowdWorks;
-- removal of legacy installers, handwritten dispatch maps and external source paths.
+- production cutover of copied Bounty, Reddit, AgentMail, Agent Economy and generic per-instance state;
+- production cutover of both Franklin instances to their isolated repository-owned compute proxies;
+- removal of the remaining `:8402`, OpenClaw, Hermes, external checkout and stale state/log-root dependencies;
+- local/cloud replay-zero and provider-receipt proof for the shared loop contracts;
+- migration of the protected Coconala jobs only by their current owners, outside this cleanup pass.
 
 ### 4.2 Ideal common loop structure
 
@@ -327,6 +326,7 @@ shared-component or legacy-retirement atom is active.
   - [x] Franklin repository-compute code path: generic self-host and both Franklin-family loops use the same repository-owned compute adapter; only their isolated instance homes, payer wallets and ports differ (`18402`, `18403`, `18404`). Franklin no longer has a special external-ClawRouter brain branch or accepts the retired `FRANKLIN_PROXY_PORT`. Franklin telemetry now resolves its wallet, cost log and wake ledger from the exact `--home` supplied by its owning daemon, fixing Franklin2's cross-instance read, and derives its model and tier report through the proxy's shared model normalizer. Focused routing, lifecycle, wallet, model and telemetry tests pass 34/34, Bash syntax/diff checks pass and `lm-loop doctor` reports `ok=true`. Production cutover remains pending: the two KeepAlive labels still run the previous main-derived release and must be restarted individually with readiness/readback before their former `:8402` dependency is considered removed.
   - [ ] Bounty copy-only state cutover: both Bounty labels were confirmed loaded-idle with no PID before a pre-copy. The host migration copied and SHA-256-verified 424 legacy marker, evidence and log files into `~/.local/state/life-manager/bounty` and retained every source. The migration now rejects broad, relative, overlapping or symlinked destinations before mutation and enforces private `0700` directories and `0600` files; production readback reports zero hash or mode mismatches. The installed release still points both labels at `~/.openclaw`, whose scheduled health log can continue growing, so final convergence and targeted main-derived release reconcile remain pending; no Bounty job was started or stopped during the pre-copy.
   - [ ] Remaining `ARCH-11`: finish the Bounty copy/reconcile atom after this branch reaches main; execute the Reddit, AgentMail, Agent Economy, generic per-instance skill-state and Life Manager video/dev copy-only migrations at their release cutovers; cut over and read back `ai.anicca.franklin-loop` then `ai.anicca.franklin2-loop`; census every remaining `:8402` caller before retiring `ai.anicca.clawrouter`; remove stale OpenClaw/Hermes registry state/log roots; migrate the other active loops without touching the currently owned Coconala runtime.
+  - Current execution gate: all pre-main Bounty work is complete, including the verified 424-file private pre-copy and removal of its redundant Trash snapshot. Its final convergence requires a main-derived immutable release. The fixed TODO order does not presently permit starting Reddit before Bounty is complete, while the merge rule permits the branch to reach `main` only after the whole user outcome passes. Therefore execution is paused at this explicit policy cycle; resolving it requires either moving all production cutovers to one final release phase or allowing a Bounty-only intermediate merge. This records the current state and does not silently reorder the checklist.
 - [ ] `ARCH-12` Prove clean local and cloud runs use the same loop contracts with replay-zero and official provider receipts. Verify Financial Manager produces one concise, deduplicated report on both hosts and suppresses no-data Telegram noise.
 - [x] `DOC-01` Update English/Japanese README architecture and status from measured output; remove the Compose runtime claim and describe Mobile Apps as Anicca iOS, Honne and the other owned iOS build/marketing loops.
 - [x] `DOC-02` Bake the one-loop/two-host-adapter rule into `AGENTS.md`, make `skills/loop-engineering/SKILL.md` the implementation-boundary authority, and expose the same local/cloud reuse rule in both READMEs without duplicating the detailed spec.
