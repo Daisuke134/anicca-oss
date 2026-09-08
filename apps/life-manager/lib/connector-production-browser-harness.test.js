@@ -144,7 +144,33 @@ test("Connpass resolver approves only the exact safe radio predicates", async ()
   for (const [label, question, expected] of cases) {
     assert.equal(await resolver({ provider: "connpass", state: "connpass_join", control: { control: "safe_radio", kind: "radio", label, question, required: true } }), expected, label);
   }
-  assert.equal(privateReads, 0);
+  assert.equal(privateReads, cases.filter(([, , expected]) => expected == null).length);
+});
+
+test("Connpass fallback binds an arbitrary questionnaire radio to the exact private profile answer", async () => {
+  let step = 0;
+  const operated = [];
+  const page = Object.freeze({ url() { return "https://tokyo-builders.connpass.com/event/400029/join/"; } });
+  const controls = [
+    { control: "role_employee", kind: "radio", label: "Employee", question: "Career status", required: true, submittable: false },
+    { control: "role_founder", kind: "radio", label: "Founder", question: "Career status", required: true, submittable: false },
+    { control: "confirm_button", kind: "button", label: "申し込みを確定する", required: false, submittable: true },
+  ];
+  const harness = createProductionBrowserHarness({
+    lumaWorkflow: { async readProviderState() { throw new Error("wrong provider"); } },
+    connpassWorkflow: { async readProviderState() { return step === 2 ? { status: "registered" } : { status: "absent" }; } },
+    async inspectControls() { return controls.map((control) => ({ ...control, completed: control.kind === "radio" && step > 0 })); },
+    async proposeAction(input) { return { control: input.observation.controls.find((control) => !control.completed).control }; },
+    async operateControl(input) { operated.push(input.action.control); step += 1; return { status: "success" }; },
+    resolveValue: createPrivateValueResolver({
+      async readPeatixProfile() { return {}; },
+      async readFormProfile() { return { form_answers: { "Career status": "Founder" } }; },
+    }),
+  });
+  const result = await harness.runFallback({ provider: "connpass", candidate: { event_ref: "connpass-event://event/400029" }, page,
+    pageWebsocket: "ws://127.0.0.1:9222/devtools/page/PROFILECONNPASS1", maxSteps: 3, expectedState: "registered_or_pending" });
+  assert.equal(result.status, "completed");
+  assert.deepEqual(operated, ["role_founder", "confirm_button"]);
 });
 
 test("Connpass native rejects an unqualified online label", async () => {
