@@ -19,13 +19,38 @@ work_sync = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = work_sync
 SPEC.loader.exec_module(work_sync)
 
+PLANNER_SPEC = importlib.util.spec_from_file_location(
+    "anicca_shared_reply_planner",
+    HERE.parents[2] / "_shared/marketplace-core/scripts/reply_planner.py",
+)
+if PLANNER_SPEC is None or PLANNER_SPEC.loader is None:
+    raise RuntimeError("reply_planner_unavailable")
+reply_planner = importlib.util.module_from_spec(PLANNER_SPEC)
+sys.modules[PLANNER_SPEC.name] = reply_planner
+PLANNER_SPEC.loader.exec_module(reply_planner)
+
+GROUNDING_SPEC = importlib.util.spec_from_file_location(
+    "anicca_shared_reply_grounding",
+    HERE.parents[2] / "_shared/marketplace-core/scripts/reply_grounding.py",
+)
+if GROUNDING_SPEC is None or GROUNDING_SPEC.loader is None:
+    raise RuntimeError("reply_grounding_unavailable")
+reply_grounding = importlib.util.module_from_spec(GROUNDING_SPEC)
+sys.modules[GROUNDING_SPEC.name] = reply_grounding
+GROUNDING_SPEC.loader.exec_module(reply_grounding)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _message_body(value: Any) -> str:
+    """Normalize the provider's CRLF storage without changing message content."""
+    return str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+
+
 class LancersReplyAdapter:
-    def __init__(self, state_path: Path):
+    def __init__(self, state_path: Path, grounding: Mapping[str, Any] | None = None):
         self.state_path = state_path
         self.browser = None
         self.page = None
@@ -33,6 +58,7 @@ class LancersReplyAdapter:
         self._boards: dict[str, tuple[Mapping[str, Any], Mapping[str, Any], list[Mapping[str, Any]]]] = {}
         self._posted: dict[str, str] = {}
         self._verified_proposals: set[str] = set()
+        self._grounding = dict(grounding or {})
 
     def _open(self) -> None:
         if self.page is not None:
@@ -95,9 +121,12 @@ class LancersReplyAdapter:
         board, detail, messages = self._boards[thread_id]
         conversation = []
         for row in sorted(messages, key=lambda item: int(work_sync._id(item.get("id"))))[-20:]:
+            sender = row.get("send_user")
+            if not isinstance(sender, Mapping) or type(sender.get("is_client")) is not bool:
+                raise work_sync.SourceFailure("message_sender_identity_unavailable")
             conversation.append({
                 "event_id": work_sync._id(row.get("id")),
-                "role": "buyer" if row.get("is_required_reply") is True else "seller",
+                "role": "buyer" if sender["is_client"] else "seller",
                 "body": str(row.get("description") or "").strip(),
             })
         proposal = None
@@ -113,8 +142,9 @@ class LancersReplyAdapter:
         return {
             "board": {"title": board.get("title"), "description": board.get("description")},
             "conversation": conversation,
-            "reply_required": bool(board.get("is_required_reply")),
+            "reply_required": bool(conversation and conversation[-1]["role"] == "buyer"),
             "verified_proposal": proposal,
+            "grounding": self._grounding,
         }
 
     def mutate(self, intent: dict[str, Any]) -> None:
@@ -146,7 +176,7 @@ class LancersReplyAdapter:
         found = None
         for row in rows:
             if (work_sync._id(row.get("board_id")) == intent["thread_id"]
-                    and row.get("description") == body):
+                    and _message_body(row.get("description")) == _message_body(body)):
                 message_id = work_sync._id(row.get("id"))
                 if provider_id is None or provider_id == message_id:
                     found = message_id
@@ -164,40 +194,40 @@ class LancersReplyAdapter:
             lock.__exit__(None, None, None)
 
 
-def decide(row: dict[str, Any]) -> dict[str, Any]:
-    context = row["context"]
+def compose(context: dict[str, Any], state_path: Path) -> str | None:
     conversation = context.get("conversation") or []
-    if not context.get("reply_required") or not conversation or conversation[-1]["role"] != "buyer":
-        return {"action": "noop", "classification": "awaiting_buyer"}
     board = context["board"]
     messages = [
         {"id": item["event_id"], "description": item["body"],
          "is_required_reply": item["role"] == "buyer"}
         for item in conversation
     ]
-    try:
-        body = work_sync._compose_reply(
-            board, messages, Path(row["state_path"]),
-            {"verified_proposal": context.get("verified_proposal")},
-        )
-    except work_sync.ReplySemanticUncertain as error:
-        return {
-            "action": "human",
-            "reason": "reply_facts_required",
-            "remaining_work": error.remaining_work,
-        }
-    if body is None:
-        return {"action": "noop", "classification": "no_reply"}
-    return {"action": "reply", "payload": {"body": body}}
+    return work_sync._compose_reply(
+        board, messages, state_path,
+        {**dict(context.get("grounding") or {}),
+         "verified_proposal": context.get("verified_proposal")},
+    )
 
 
 def build(argv: list[str]):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--state-path", required=True, type=Path)
+    parser.add_argument(
+        "--candidate-profile", type=Path,
+        default=Path.home() / ".config/anicca/job-search/profile.json",
+    )
+    parser.add_argument(
+        "--provider-profile", type=Path,
+        default=Path.home() / ".config/anicca/crowdworks/public-profile.json",
+    )
     args = parser.parse_args(argv)
-    adapter = LancersReplyAdapter(args.state_path.expanduser().resolve())
+    state_path = args.state_path.expanduser().resolve()
+    grounding = reply_grounding.build_reply_grounding(
+        candidate_profile_path=args.candidate_profile,
+        provider_profile_path=args.provider_profile,
+    )
+    adapter = LancersReplyAdapter(state_path, grounding)
 
-    def decide_with_state(row: dict[str, Any]) -> dict[str, Any]:
-        return decide({**row, "state_path": str(args.state_path)})
-
-    return adapter, decide_with_state
+    return adapter, reply_planner.ReplyPlanner(
+        lambda context: compose(context, state_path)
+    )

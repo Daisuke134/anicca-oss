@@ -123,8 +123,8 @@ function createApiDiscovery({ now, apiClient }) {
         title: String(event && event.title || "").trim(),
         description: String(event && event.description || "").replace(/<[^>]*>/g, " ")
           .replace(/\s+/g, " ").trim().slice(0, 8_000),
-        starts_at: String(event && event.started_at || ""),
-        ends_at: String(event && event.ended_at || ""),
+        starts_at: new Date(Date.parse(String(event && event.started_at || ""))).toISOString(),
+        ends_at: new Date(Date.parse(String(event && event.ended_at || ""))).toISOString(),
         venue_name: String(event && event.place || "").trim(),
         venue_address: String(event && event.address || "").trim(),
         registration_status: registrationOpen && capacityAvailable ? "available" : "closed",

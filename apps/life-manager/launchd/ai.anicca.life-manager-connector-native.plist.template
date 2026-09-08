@@ -8,7 +8,7 @@
     <key>LM_CONNECTOR_SHARED_ENV_FILE</key><string>__CONNECTOR_ENV_FILE__</string>
     <key>LIFE_MANAGER_STATE_HOME</key><string>__LIFE_MANAGER_HOME__</string>
   </dict>
-  <key>StartInterval</key><integer>3600</integer>
+  <key>StartInterval</key><integer>1800</integer>
   <key>ThrottleInterval</key><integer>60</integer>
   <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>__LIFE_MANAGER_HOME__/logs/connector-native.out.log</string>

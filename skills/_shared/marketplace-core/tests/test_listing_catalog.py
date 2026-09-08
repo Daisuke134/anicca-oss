@@ -9,6 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from listing_catalog import (  # noqa: E402
     CatalogLoadError,
     CatalogValidationError,
+    LANCERS_TITLE_STEM_MAX_LENGTH,
+    LANCERS_TITLE_STEM_MIN_LENGTH,
+    LancersTitleStemLengthError,
     UnknownFamily,
     UnknownPlatform,
     entries_by_family,
@@ -150,6 +153,19 @@ class RealCatalogLancersOverrideGroundingTests(unittest.TestCase):
             "事業計画・ビジネスプランの作成", "ゲームアイデア・コンセプト企画", "ビジネス・コンサルティング(その他)",
         },
     }
+    # service_type (業務, ProjectPlanCategoryForm.service_type[0]) is a *dependent* of
+    # subcategory, not of category: its own option list is scoped per subcategory, and only one
+    # subcategory's list has ever been read live (2026-09-07) -- see the task this shipped from
+    # for the create-wizard DOM read that first surfaced this control. A family whose
+    # subcategory has no encoded list here simply carries no service_type override yet (see
+    # storefront_offer._CATALOG_OVERLAY_FIELDS: absent, never guessed).
+    LANCERS_SERVICE_TYPES_BY_SUBCATEGORY = {
+        "Webプログラミング・システム開発/運用": {
+            "技術コンサルティング", "Webアプリケーション構築", "No-code/Low-code開発",
+            "Webサイトカスタマイズ", "ランディングページ制作・改善", "スクリプティング",
+            "ブラウザ拡張機能", "APIインテグレーション開発", "バグ修正",
+        },
+    }
 
     def test_every_family_lancers_category_is_a_real_form_option(self):
         catalog = load(REAL_CATALOG)
@@ -223,13 +239,163 @@ class RealCatalogLancersOverrideGroundingTests(unittest.TestCase):
             )
 
     def test_lancers_override_carries_no_other_unexpected_keys(self):
+        # title_stem and service_type are both optional: title_stem only for families whose
+        # shared title_ja (which Coconala also reads) is too short once isolated as a Lancers
+        # stem (see RealCatalogLancersTitleStemLengthTests below); service_type only for
+        # families whose subcategory has a service_type vocabulary encoded above (see
+        # LANCERS_SERVICE_TYPES_BY_SUBCATEGORY) -- most subcategories' option lists have never
+        # been observed live, so most families carry no service_type key at all.
+        required = {"category", "subcategory", "industry", "tags", "notice"}
+        optional = {"title_stem", "service_type"}
         catalog = load(REAL_CATALOG)
         for row in catalog["listings"]:
-            self.assertEqual(
-                set(row["platform_overrides"]["lancers"]),
-                {"category", "subcategory", "industry", "tags", "notice"},
-                row["family"],
+            keys = set(row["platform_overrides"]["lancers"])
+            self.assertEqual(keys - optional, required, row["family"])
+            extra = keys - required - optional
+            self.assertFalse(extra, f"{row['family']}: unexpected keys {extra}")
+
+    def test_service_type_when_present_is_one_of_the_observed_options_for_its_subcategory(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            lancers = row["platform_overrides"]["lancers"]
+            if "service_type" not in lancers:
+                continue
+            subcategory = lancers["subcategory"]
+            allowed = self.LANCERS_SERVICE_TYPES_BY_SUBCATEGORY.get(subcategory, set())
+            self.assertIn(
+                lancers["service_type"], allowed,
+                f"{row['family']}: {lancers['service_type']!r} is not one of {subcategory!r}'s "
+                "real service_type options",
             )
+
+    def test_only_the_observed_subcategorys_families_carry_a_service_type(self):
+        """The inverse of the check above: a family this catalogue gave a service_type to must
+        actually be filed under the one subcategory whose option list was ever read live --
+        catching a family that picked up a service_type value copied from the wrong row."""
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            lancers = row["platform_overrides"]["lancers"]
+            if "service_type" not in lancers:
+                continue
+            self.assertIn(
+                lancers["subcategory"], self.LANCERS_SERVICE_TYPES_BY_SUBCATEGORY,
+                f"{row['family']}: carries service_type but its subcategory "
+                f"{lancers['subcategory']!r} has no observed service_type vocabulary",
+            )
+
+
+class RealCatalogLancersTitleStemLengthTests(unittest.TestCase):
+    """Lancers' own title field named its own requirement in the label text, read live
+    2026-09-07: "25文字以上で入力してください", counted against title_stem alone (the page
+    appends 「ます」 itself and will not let it be deleted -- see project_lancers's docstring).
+    15 of 20 catalogue families projected a stem under 25 characters and stalled the wizard at
+    基本情報 → 料金表 silently. See marketplace-storefront-lane.md's Lancers faults for the
+    incident this guards against, and CoconalaProjectionUnaffectedByLancersOverrideTests below
+    for proof the fix does not touch Coconala.
+    """
+
+    def _continuative_endings(self):
+        sys.path.insert(0, str(GIG_SCRIPTS))
+        import storefront_direct as direct
+
+        return direct.TITLE_STEM_CONTINUATIVE_ENDINGS
+
+    def test_every_real_family_projects_a_lancers_stem_within_25_to_40_characters(self):
+        """Asserted over the real 20-family catalogue, not a fixture -- this is the guard that
+        makes the whole class of defect (a shipped catalogue that silently stalls Lancers)
+        impossible to reintroduce without a loud, named failure here."""
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            family = row["family"]
+            stem = project_lancers(catalog, family)["title_stem"]
+            length = len(stem)
+            self.assertTrue(
+                LANCERS_TITLE_STEM_MIN_LENGTH <= length <= LANCERS_TITLE_STEM_MAX_LENGTH,
+                f"{family}: title_stem length {length} is outside "
+                f"{LANCERS_TITLE_STEM_MIN_LENGTH}-{LANCERS_TITLE_STEM_MAX_LENGTH}: {stem!r}",
+            )
+
+    def test_every_real_family_lancers_stem_plus_masu_is_a_grammatical_continuation(self):
+        """The page appends 「ます」 to whatever title_stem submits, so stem + ます must read as a
+        real sentence -- checked the same way skills/earn/gig's title_stem_not_continuative guard
+        checks it (storefront_direct.TITLE_STEM_CONTINUATIVE_ENDINGS): the stem's last character
+        must be a verb's continuative form, not a bare noun or a particle."""
+        endings = self._continuative_endings()
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            family = row["family"]
+            stem = project_lancers(catalog, family)["title_stem"]
+            self.assertIn(
+                stem[-1], endings,
+                f"{family}: stem {stem!r} + 'ます' is not a grammatical continuation "
+                f"(last char {stem[-1]!r} is not a verb continuative)",
+            )
+
+    def test_a_too_short_stem_raises_the_named_projection_error(self):
+        catalog = _minimal_catalog()
+        short_stem = "短すぎるステム"  # 7 chars, well under the 25 minimum
+        catalog["listings"][0]["platform_overrides"]["lancers"]["title_stem"] = short_stem
+        with self.assertRaises(LancersTitleStemLengthError) as excinfo:
+            project_lancers(catalog, "test_family")
+        message = str(excinfo.exception)
+        self.assertIn("test_family", message)
+        self.assertIn(str(len(short_stem)), message)
+
+    def test_a_too_long_stem_raises_the_named_projection_error(self):
+        catalog = _minimal_catalog()
+        long_stem = "あ" * 41
+        catalog["listings"][0]["platform_overrides"]["lancers"]["title_stem"] = long_stem
+        with self.assertRaises(LancersTitleStemLengthError) as excinfo:
+            project_lancers(catalog, "test_family")
+        message = str(excinfo.exception)
+        self.assertIn("test_family", message)
+        self.assertIn("41", message)
+
+    def test_mutation_check_shortening_a_real_familys_stem_makes_the_guard_fire(self):
+        """Proves the length assertion above is not vacuous: shortening one real family's
+        projected stem below the minimum, on an in-memory copy of the real catalogue, must make
+        project_lancers raise. The catalogue file on disk is never written to by this test."""
+        catalog = load(REAL_CATALOG)
+        family = "mvp_web_app_build"
+        row = next(row for row in catalog["listings"] if row["family"] == family)
+        row["platform_overrides"]["lancers"]["title_stem"] = "短い"
+        with self.assertRaises(LancersTitleStemLengthError):
+            project_lancers(catalog, family)
+        # And a fresh, unmutated load of the same file must still pass -- confirming the failure
+        # above came from the in-memory mutation, not from a real, on-disk regression.
+        fresh = load(REAL_CATALOG)
+        project_lancers(fresh, family)  # must not raise
+
+
+class CoconalaProjectionUnaffectedByLancersOverrideTests(unittest.TestCase):
+    """The 15 Lancers-only title_stem overrides live under platform_overrides.lancers, which
+    project(catalog, family, "coconala") never reads (see project()'s override lookup: it
+    fetches overrides[platform], and platform is fixed to "coconala" here). This is not merely
+    argued from the code shape -- it is checked directly against the real catalogue below."""
+
+    def test_every_family_coconala_projection_is_unaffected_by_the_lancers_override(self):
+        catalog = load(REAL_CATALOG)
+        for row in catalog["listings"]:
+            family = row["family"]
+            coconala = project(catalog, family, "coconala")
+            self.assertNotIn("title_stem", coconala, family)
+            self.assertEqual(coconala["title_ja"], row["title_ja"], family)
+
+    def test_coconala_projection_is_byte_identical_whether_or_not_the_family_has_a_lancers_stem(self):
+        """Direct A/B: project the same family twice, once from the real catalogue (which now
+        carries title_stem overrides for 15 families) and once from a copy with every lancers
+        override's title_stem key stripped back out. The two coconala projections must be
+        byte-identical -- proof, not assertion, that adding the override changed nothing for
+        Coconala."""
+        with_override = load(REAL_CATALOG)
+        without_override = load(REAL_CATALOG)
+        for row in without_override["listings"]:
+            row["platform_overrides"]["lancers"].pop("title_stem", None)
+
+        for family in entries_by_family(with_override):
+            before = project(without_override, family, "coconala")
+            after = project(with_override, family, "coconala")
+            self.assertEqual(before, after, family)
 
 
 class ValidationErrorTests(unittest.TestCase):

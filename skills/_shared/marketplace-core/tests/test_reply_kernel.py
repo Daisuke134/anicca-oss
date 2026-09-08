@@ -66,6 +66,27 @@ def test_reply_effect_is_fenced_read_back_and_replay_zero(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_verified_effect_notifies_once_and_replay_does_not_duplicate(tmp_path):
+    adapter = Adapter()
+    reports = []
+
+    def notify(intent, receipt):
+        reports.append((intent["effect_key"], receipt["provider_receipt_id"]))
+        return {"delivery": "delivered", "provider_message_id": "tg-1"}
+
+    arguments = dict(
+        adapter=adapter,
+        decide=lambda _context: {"action": "reply", "payload": {"body": "Thanks"}},
+        state_root=tmp_path,
+        notify=notify,
+    )
+    first = reply_kernel.run_wake(**arguments)
+    replay = reply_kernel.run_wake(**arguments)
+
+    assert first["items"][0]["notification"]["delivery"] == "delivered"
+    assert replay["effect"] == 0
+    assert reports == [(adapter.effects[0]["effect_key"], "message-1")]
+
 def test_new_buyer_event_gets_a_distinct_reply(tmp_path):
     adapter = Adapter()
     bodies = iter(("first", "second"))
@@ -75,6 +96,127 @@ def test_new_buyer_event_gets_a_distinct_reply(tmp_path):
     result = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
     assert result["effect"] == 1
     assert len(adapter.effects) == 2
+
+
+def test_private_identity_is_hidden_from_model_and_rejected_before_provider_effect(tmp_path):
+    class PrivateContext(Adapter):
+        def context(self, _thread_id):
+            return {
+                "title": "Question for Private Legal Name",
+                "conversation": [{"role": "buyer", "body": "Hello private@example.com"}],
+                "grounding": {
+                    "prompt_facts": [{"id": "role", "claim": "Python developer"}],
+                    "private_identity_values": ["Private Legal Name", "private@example.com"],
+                    "provider_public_facts": {"display_name": "Kaito｜AI自動化"},
+                },
+            }
+
+    adapter = PrivateContext()
+    seen = []
+
+    def decide(row):
+        seen.append(row["context"])
+        return {"action": "reply", "payload": {"body": "Private Legal Nameと申します"}}
+
+    result = reply_kernel.run_wake(
+        adapter=adapter, decide=decide, state_root=tmp_path,
+    )
+
+    assert "private_identity_values" not in seen[0]["grounding"]
+    assert "Private Legal Name" not in seen[0]["title"]
+    assert "private@example.com" not in seen[0]["conversation"][0]["body"]
+    assert result["failed"] == 1
+    assert result["items"][0]["error_detail"] == "reply_private_identity_leak"
+    assert adapter.effects == []
+
+
+def test_verified_provider_public_name_is_allowed(tmp_path):
+    class PublicContext(Adapter):
+        def context(self, _thread_id):
+            return {
+                "conversation": [{"role": "buyer", "body": "Hello"}],
+                "grounding": {
+                    "private_identity_values": ["Private Legal Name"],
+                    "provider_public_facts": {"display_name": "Kaito｜AI自動化"},
+                },
+            }
+
+    adapter = PublicContext()
+    result = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _row: {
+            "action": "reply", "payload": {"body": "Kaito｜AI自動化です"},
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["failed"] == 0
+    assert result["effect"] == 1
+
+
+def test_no_effect_classification_is_replay_zero_until_source_event_changes(tmp_path):
+    adapter = Adapter()
+    decisions = []
+
+    def decide(_context):
+        decisions.append(True)
+        return {"action": "noop", "classification": "no_reply"}
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    adapter.rows[0] = event(latest="buyer-2")
+    changed = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["items"][0]["reason"] == "no_effect_required"
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert changed["items"][0]["reason"] == "no_effect_required"
+    assert len(decisions) == 2
+
+
+def test_no_effect_replay_uses_inventory_fingerprint_when_official_id_differs(tmp_path):
+    class DifferentOfficialId(Adapter):
+        def observe_one(self, thread_id):
+            row = super().observe_one(thread_id)
+            return {**row, "latest_event_id": f"official-{row['latest_event_id']}"}
+
+    adapter = DifferentOfficialId()
+    decisions = []
+
+    def decide(_context):
+        decisions.append(True)
+        return {"action": "noop", "classification": "no_reply"}
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    adapter.rows[0] = event(latest="buyer-2")
+    changed = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["items"][0]["reason"] == "no_effect_required"
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert changed["items"][0]["reason"] == "no_effect_required"
+    assert len(decisions) == 2
+
+
+def test_failure_backoff_uses_inventory_fingerprint_when_official_id_differs(tmp_path):
+    class DifferentOfficialId(Adapter):
+        def observe_one(self, thread_id):
+            row = super().observe_one(thread_id)
+            return {**row, "latest_event_id": f"official-{row['latest_event_id']}"}
+
+    adapter = DifferentOfficialId()
+    decisions = []
+
+    def decide(_context):
+        decisions.append(True)
+        raise RuntimeError("temporary")
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["failed"] == 1
+    assert replay["failed"] == 0
+    assert replay["items"][0]["reason"] == "retry_backoff"
+    assert len(decisions) == 1
 
 
 def test_human_gate_is_durable_pending_and_does_not_block_another_thread(tmp_path):
@@ -96,6 +238,48 @@ def test_human_gate_is_durable_pending_and_does_not_block_another_thread(tmp_pat
     assert [effect["thread_id"] for effect in adapter.effects] == ["ready"]
 
 
+def test_human_gate_notification_is_durable_deduplicated_and_keeps_scanning(tmp_path):
+    adapter = Adapter([event("human", "buyer-1"), event("ready", "buyer-2")])
+    notices = []
+
+    def decide(context):
+        if context["thread_id"] == "human":
+            return {
+                "action": "human",
+                "reason": "person_bound_interview",
+                "remaining_work": ["Complete the official interview"],
+                "handoff": {
+                    "title": "Japanese evaluator",
+                    "url": "https://work.mercor.com/jobs/list_1",
+                    "deadline": "公式期限表示なし",
+                },
+            }
+        return {"action": "reply", "payload": {"body": "Ready"}}
+
+    def human_notify(row, decision):
+        notices.append((row["thread_id"], decision["handoff"]["url"]))
+        return {"delivery": "delivered", "provider_message_id": "tg-1"}
+
+    arguments = {
+        "adapter": adapter,
+        "decide": decide,
+        "state_root": tmp_path,
+        "human_notify": human_notify,
+    }
+    first = reply_kernel.run_wake(**arguments)
+    replay = reply_kernel.run_wake(**arguments)
+
+    assert first["pending"] == replay["pending"] == 1
+    assert first["effect"] == 1
+    assert replay["effect"] == 0
+    assert notices == [("human", "https://work.mercor.com/jobs/list_1")]
+    state = reply_kernel._load(next(
+        path for path in tmp_path.glob("threads/*/state.json")
+        if reply_kernel._load(path).get("status") == "waiting_human"
+    ))
+    assert state["human_notification"]["provider_message_id"] == "tg-1"
+
+
 def test_one_thread_failure_is_isolated(tmp_path):
     adapter = Adapter([event("bad", "buyer-1"), event("good", "buyer-2")])
 
@@ -106,12 +290,37 @@ def test_one_thread_failure_is_isolated(tmp_path):
 
     result = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
     assert result["failed"] == 1
+    assert result["items"][0]["error_detail"] == "model failed"
     assert result["effect"] == 1
     assert result["items"][1]["status"] == "verified"
 
     replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
     assert replay["items"][0]["reason"] == "retry_backoff"
     assert replay["items"][0]["failed"] == 0
+
+
+def test_authoritative_provider_rejection_becomes_durable_external_wait(tmp_path):
+    class Restricted(Adapter):
+        def mutate(self, _intent):
+            raise RuntimeError("submit_rejected_sending_unavailable")
+
+        def classify_mutation_error(self, error):
+            assert str(error) == "submit_rejected_sending_unavailable"
+            return {
+                "reason": "provider_sending_unavailable",
+                "remaining_work": ["Wait for the provider message control to become available"],
+            }
+
+    result = reply_kernel.run_wake(
+        adapter=Restricted(),
+        decide=lambda _context: {"action": "reply", "payload": {"body": "Thanks"}},
+        state_root=tmp_path,
+    )
+
+    assert result["failed"] == 0
+    assert result["pending"] == 1
+    assert result["effect"] == 0
+    assert result["items"][0]["reason"] == "provider_sending_unavailable"
 
 
 def test_duplicate_thread_inventory_is_rejected(tmp_path):
@@ -152,3 +361,75 @@ def test_single_worker_keeps_thread_affine_adapter_on_calling_thread(tmp_path):
     )
     assert result["failed"] == 0
     assert result["items"][0]["status"] == "no_reply"
+
+
+def test_delivery_unknown_never_blindly_replays_same_intent(tmp_path):
+    class Unknown(Adapter):
+        def mutate(self, intent):
+            self.effects.append(intent)
+
+        def readback(self, _intent):
+            return {"authoritative_absent": True}
+
+    adapter = Unknown()
+    decide = lambda _row: {"action": "reply", "payload": {"body": "one"}}
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert first["effect"] == 1
+    assert first["items"][0]["reason"] == "reconcile_unknown"
+    second = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert second["effect"] == 0
+    assert second["items"][0]["reason"] == "reconcile_unknown"
+    assert len(adapter.effects) == 1
+
+
+def test_readback_exception_after_intent_preserves_reconcile_fence(tmp_path):
+    class ReadbackBreaksAfterEffect(Adapter):
+        def __init__(self):
+            super().__init__()
+            self.broken = True
+
+        def readback(self, intent):
+            if self.effects and self.broken:
+                raise RuntimeError("provider_dom_changed")
+            return super().readback(intent)
+
+    adapter = ReadbackBreaksAfterEffect()
+    decide = lambda _row: {"action": "reply", "payload": {"body": "one"}}
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert first["failed"] == 1
+    assert len(adapter.effects) == 1
+    state_path = next(tmp_path.glob("threads/*/state.json"))
+    state = reply_kernel._load(state_path)
+    assert state["status"] == "reconcile_unknown"
+    assert state["intent"]["payload"]["body"] == "one"
+
+    adapter.broken = False
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert replay["failed"] == 0
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
+
+def test_chat_id_reads_declared_provider_config_without_repo_literal(tmp_path):
+    config = tmp_path / "telegram.env"
+    config.write_text("CROWDWORKS_REPORT_CHAT=operator-chat\n", encoding="utf-8")
+    assert reply_kernel._chat_id("", config) == "operator-chat"
+    assert reply_kernel._chat_id("explicit", config) == "explicit"
+
+
+def test_pre_effect_readback_must_prove_authoritative_absence(tmp_path):
+    class UnknownBeforeEffect(Adapter):
+        def readback(self, _intent):
+            return {"authoritative_absent": False}
+
+    adapter = UnknownBeforeEffect()
+    result = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _row: {"action": "reply", "payload": {"body": "one"}},
+        state_root=tmp_path,
+    )
+    assert result["effect"] == 0
+    assert result["pending"] == 1
+    assert result["items"][0]["reason"] == "pre_effect_reconcile_unknown"
+    assert adapter.effects == []

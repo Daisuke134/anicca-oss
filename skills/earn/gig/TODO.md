@@ -129,20 +129,20 @@ acceptance receipt changes a cell.
 
 | Marketplace | Apply | Reply | Storefront | Paid |
 |---|---|---|---|---|
-| Coconala | **Broken.** Installed every 60 seconds, but no verified application since 2026-09-02. `APPLY-REPORT-9` records that live listings reach the offer page but the form readback fails. | **Implemented, not currently accepted healthy.** The installed continuous owner has real reply capability, but the audit observed recent fail terminals and it is still Coconala-specific. | **Implemented, not currently accepted healthy.** It has one historical public publish/readback/replay-zero chain, but the audit observed a latest fail terminal and it remains provider-specific. | **Working reference only.** `COCONALA-PAID-1` through `3C` prove official readback, five-room classification, durable pending ownership, failed zero, formal delivery off and replay-zero. It is still a Coconala-specific orchestrator. |
-| Lancers | **Running but not producing current contracts.** The owner has a historical verified application/replay-zero receipt (`27861812`), while the current official snapshot has 86 proposal receipts, 31 open proposals, zero contracts and zero working projects; recent wakes submit nothing. | **Not implemented.** The registered `lancers-revenue-negotiate` command only runs `lane_report.py`; it does not observe and reply/estimate through a provider mutation adapter. | **Running without revenue proof.** The owner can apply `storefront_offer.py`, but the current official snapshot has zero storefront contract candidates and no attributed order or payment. | **Not implemented.** The registered Paid command only runs `lane_report.py`; current official state has zero working projects, zero payment history and JPY 0 received. |
-| CrowdWorks | **Application effects are proven, but no current contract/revenue.** The durable ledger contains 14 verified application receipts, most recently `304626890` on 2026-09-05. The latest completed owner snapshot inspected 40 jobs, found eligible zero and produced effect zero; the audit also observed a later fail followed by a new running cycle. | **Not implemented.** The only active companion is a Telegram report owner; the former negotiation label is disabled. | **Not implemented.** The former storefront label is disabled. | **Code-ready inventory boundary, not live-accepted.** A repo-owned thin adapter and owner enter the shared Paid kernel and prove the authenticated official active-contract zero state with effect/failed zero. Positive contract normalization, delivery/readback and replay-zero remain open; the former repo-external fulfillment label stays retired. |
-| Mercor | **Working.** The dedicated 30-minute owner is authenticated and scans official opportunities through an owner-scoped shared-browser context. Consecutive natural wakes submitted two distinct ready listings, read both official success surfaces back, advanced the durable ledger 22→23→24, delivered Telegram receipts `66448` and `66514`, and never resubmitted the first listing. Existing incomplete human-interview applications were recorded and skipped without entering their ceremonies; media permissions are denied before model work. | **Partial code, no active lane.** Calendar/Gmail and human-gate components exist, but there is no installed Mercor Reply owner with official message readback. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Code-ready and monitoring, not live-accepted.** A thin adapter enters the shared Paid kernel and preserves missing official work inventory as durable pending with failed zero. It refuses non-`work.mercor.com` evidence and keeps human-required submission as an explicit wait. The installed owner has one natural pending terminal with no external effect, but no real submission or settled payout receipt proves positive operation yet. |
+| Coconala | **Broken in the latest installed wake.** The 30-minute owner on `da17ed20` ended `entrypoint_exit_1`; no new official application receipt closes `APPLY-REPORT-9`, although the all-category and deliverable-vs-topic corrections are now in main. | **Effect-accepted but identity-safety open.** Shared official reply/readback/replay-zero is proven and the latest owner terminal passes with `observed=174`, `readback=159`, `failed=0`, `pending=15`. The shared private-identity fence found by the CrowdWorks receipt audit is still required. | **Broken in the latest installed wakes.** The owner on `da17ed20` repeatedly ends `entrypoint_exit_1`; historical publish proof does not make the current lane healthy. | **Historical reference acceptance, current regression.** `COCONALA-PAID-1` through `3C` prove the five-room receipt chain, failed zero, formal delivery off and replay-zero, but the latest installed wakes on `da17ed20` end `entrypoint_exit_1`. |
+| Lancers | **Broken in the latest installed wake.** Historical proposal `27861812` proves an application/replay-zero, but the current owner on `d2d8262e` ends `entrypoint_exit_1` and produces no new contract. | **Effect-accepted but identity-safety open.** Official correction `59145491`, Telegram and replay-zero are proven; the latest shared-kernel aggregate is `observed=5`, `readback=5`, `failed=0`, `pending=0`. The shared private-identity fence is still required. | **Runtime pass, revenue unproven.** The latest installed owner passes. Catalog connection and public readback fixes are in main, while the state-preservation/diagnostic correction remains only on unmerged branch `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Broken and no revenue proof.** The latest aggregate is `provider_inventory` failure with `observed=0`, `failed=1`; official state still has no working project or received payment. |
+| CrowdWorks | **Runtime pass with application history, current revenue absent.** The latest installed owner passes and earlier durable receipts prove submissions; no accepted contract/revenue receipt is current. | **Effect-accepted but identity-safety open.** Five provider receipts and Telegram receipts are replay-zero; the latest aggregate is `observed=10`, `readback=10`, `failed=0`, `pending=0`. Receipt `426101743` proves the shared composer can leak private identity, so safety acceptance remains open. | **Not implemented.** The former storefront label is disabled. | **Empty-inventory runtime pass, not positive acceptance.** Latest aggregate is `observed=0`, `effect=0`, `failed=0`; no real contract, delivery or payout receipt exists. |
+| Mercor | **Working.** The latest installed 30-minute owner passes; prior consecutive natural wakes submitted distinct ready listings with official success readback and deduplicated Telegram receipts. | **Not installed; active implementation atom.** Thin adapter/owner code exists only in the active feature worktree. Production `lm-loop` reports the loop ID unknown. Snapshot reliability, the shared identity fence, a natural installed terminal, one truthful effect/handoff receipt and replay-zero remain open. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Monitoring only, not live-accepted.** Latest shared Paid aggregate is `pending`, `observed=0`, `failed=0`, `pending=1`; no real accepted work item, submission or payout receipt exists. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
 The completed extraction order remains exactly `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
 `CROWDWORKS-PAID-1`. Mercor is the selected next marketplace, but its revenue path begins with a
 dedicated Apply owner because no current application, contract or buyer event exists. The controlling
-engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `MERCOR-REPLY-1` ->
-`NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change: produce upstream work,
-install the shared Reply lifecycle before a Mercor-specific Reply adapter, then prove the existing
-Mercor Paid adapter on a real accepted work item.
+engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `CROWDWORKS-REPLY-1` ->
+`MERCOR-REPLY-1` -> `NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change:
+after the shared Coconala/Lancers Reply acceptance, close CrowdWorks Reply before Mercor Reply,
+then prove the existing Mercor Paid adapter on a real accepted work item.
 An adapter that is code-ready and running but lacks a real external contract stays unchecked and
 continues monitoring; external inventory waiting does not block implementation of the next adapter.
 This preserves acceptance truth without leaving the engineering lane idle while Apply, Reply and
@@ -211,8 +211,30 @@ case lists below are historical evidence and do not reopen completed work or reo
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
-contract inventories are empty; they do not block the next implementable atom. The active engineering
-atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parallel owner covers Mercor.
+contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` and
+`CROWDWORKS-REPLY-1` are complete. The active engineering atom is `MERCOR-REPLY-1`; its fixed next
+atom is `NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
+
+Fresh cross-owner handoff audit:
+
+- Apply's all-category Coconala search and corrected deliverable refusal boundary are in main through
+  PR `#4642`; CrowdWorks whole-board/catalog pricing is in main through PR `#4645`. They remain
+  production-unaccepted because the latest Coconala and Lancers owners fail and no fresh three-provider
+  application receipt set exists. Do not redo those merged changes.
+- Storefront's shared guide, Lancers catalog connection and public readback corrections are in main.
+  The follow-up that preserves unknown state keys and records exact canonical/public/contract readback
+  observations is clean and pushed at `2e44a6811048` on
+  `fix/lancers-state-wipe-and-readback-evidence-20260908`, but has no PR and is not in main. Review and
+  integrate that branch before any new Storefront repair; do not reimplement it.
+- Architecture cleanup remains isolated in `/private/tmp/lm-arch04-dispatch-migration-20260907` on
+  `feat/arch11-external-dependency-removal`. Its Writer cleanup has uncommitted changes. Gig owners do
+  not edit that worktree or its Writer files. Changes to `config/loop-registry.json` or
+  `skills/_shared/marketplace-core/` require a fresh overlap comparison, but no current file overlap
+  was observed.
+- Dais asks to finish lanes one by one and discusses Reply, Apply, Storefront and Paid, but the wording
+  does not unambiguously replace the already fixed atomic cursor. Preserve the current order until an
+  explicit single sequence replaces it; keep the stopped Apply/Storefront work recorded rather than
+  silently dropping or duplicating it.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -765,7 +787,7 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    submitted!`, advanced the ledger 24→25 and delivered Telegram message `66682` with no human gate.
    This closes the independent Mercor Apply owner and advances the active cursor to
    `SHARED-REPLY-1` without changing the fixed order.
-8. [ ] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
+8. [x] `SHARED-REPLY-1` Use Lancers as the second real Reply platform and extraction trigger.
    PASS = one provider-neutral Reply entrypoint owns event identity, cumulative buyer context, durable
    intent, reply/estimate selection, receipt persistence, retry/backoff and replay-zero in
    `skills/_shared/marketplace-core/`. Coconala and Lancers keep only auth, selectors, provider state
@@ -823,11 +845,358 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    owner requires a scoped lifecycle restart, which Dais explicitly defers; no Mac, Aqua, browser or
    loop restart is performed here. Shared source extraction and Lancers acceptance continue without
    changing the cursor order.
-9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
+   The shared-source migration now replaces Coconala's bespoke continuous entrypoint with a finite
+   five-minute owner that enters the same `reply_kernel.py` as Lancers. The Coconala adapter retains
+   only complete official inbox observation, exact direct-thread context, authenticated reply
+   mutation and official message readback; model composition remains the existing agent-runner
+   adapter. Fifty-two focused adapter/kernel/owner/dispatch checks and three registry checks pass.
+   The exact production interpreter import-smoke found and corrected two wiring defects before
+   deployment: Coconala must preserve the proven `HF_GIG_PYTHON` runtime because the generic control
+   venv lacks `websockets`, and the CDP target must declare the `coconala-shared-reply` resource
+   owner. A subsequent read-only official inbox smoke used that exact runtime and owner, retried the
+   known transient navigation once with a fresh owned tab, and still ended
+   `authenticated tab did not finish navigation`. No provider mutation occurred. This atom remains
+   open until the stale lock-holding PID is removed in an authorized scoped lifecycle action, the
+   main-derived finite owner produces a natural terminal over the complete inbox, and official
+   reply/readback plus replay-zero are retained.
+   PR `#4591` merged the finite shared-kernel owner through main SHA
+   `0965ef2bc14b42e3741b47b81fdc775d40145bb3`, and immutable release
+   `20260908T004042-0965ef2b` contains that exact SHA. It is not applied yet: the September 4 orphan
+   PID `20998` still exclusively holds `~/gig/reply-detector.lock`, and replacing it is a scoped
+   Coconala Reply lifecycle restart that Dais previously prohibited. The required action does not
+   restart the Mac, Aqua/loginwindow, browser or authentication session; it terminates only that
+   stale Reply process, applies only `hf-gig-reply-detector`, and then requires a natural finite
+   terminal plus official effect separation. A read-only three-second process sample confirms that
+   this owner is not completing marketplace work: its main Python thread remains parked in
+   `select_kqueue_control_impl`, while all five `asyncio_*` workers remain parked on empty queues.
+   There is no active mutation stack and its durable evidence has not advanced since September 4;
+   PID existence therefore cannot satisfy this atom or justify retaining its lock.
+   A source-boundary audit also finds one remaining extraction gap: `reply_kernel.py` still accepts
+   the decision callback returned by each provider `build()`, and both the Coconala and Lancers
+   adapters currently contain their own reply-selection wrapper and model prompt path. The durable
+   lifecycle is shared, but reply/estimate judgment is not yet provider-neutral as this atom requires.
+   Move that judgment behind one shared model-facing planner while retaining only normalized context,
+   capabilities and official mutation/readback in each adapter; do not check this atom from lifecycle
+   tests or the Lancers no-effect terminal alone.
+   The first extraction checkpoint now adds `reply_planner.py`: it alone converts normalized
+   buyer/seller state and the model result into reply, no-effect or durable human-wait decisions.
+   Both adapters return this shared planner and no longer define a provider `decide` function;
+   Coconala now projects its official conversation into the same `role` contract as Lancers.
+   Reply-focused regression is 138 passed with no external effect. Provider prompt/grounding
+   convergence and live Coconala activation/official acceptance remain open. The replacement
+   Coconala adapter also currently declares only normal-message mutation: the proven legacy path
+   from an explicit buyer estimate request through structured estimate terms, the official estimate
+   form and same-session readback is not yet connected to the shared planner/kernel. Do not activate
+   the replacement owner until that capability is preserved; otherwise the migration would silently
+   regress Reply's estimate responsibility.
+   The shared planner contract now accepts one normalized structured model decision for `reply`,
+   `estimate`, `wait`, `human` or `noop`; provider code no longer needs a second action-selection
+   state machine merely because its official effect is a form instead of a message. The next source
+   step is to project Coconala's already-proven semantic receipt into this contract and extract its
+   existing category/two-submit/readback ceremony as the adapter mutation, without nesting the old
+   connector-outbox lifecycle inside the shared kernel.
+   The shared planner now directly projects the proven semantic vocabulary—`reply`, `clarify`,
+   `send_estimate`, `wait`, and `stop`—onto the shared effect contract. Structured estimate terms
+   remain intact as the intent payload, clarification becomes a normal reply, an evidence-bearing
+   wait stays durable, and stop becomes a closed no-effect state. Reply-focused regression is now
+   141 passed. The remaining implementation is the Coconala semantic-runner binding and extraction
+   of its existing official estimate form ceremony into adapter mutation/readback.
+   Coconala now binds its proven `SemanticJudge` receipt directly to the shared planner. The adapter
+   retains the complete official DOM privately, exposes only normalized cumulative context to the
+   planner, and performs the existing official-application refresh plus second semantic pass when
+   verified application terms are required. `decision_required` preserves seller-last obligations,
+   so an acknowledged but still-unsent estimate is not discarded by a superficial last-role check.
+   The exact production Python import smoke passes and Reply-focused regression is 144 passed.
+   Official estimate form mutation/readback extraction and live activation remain open.
+   The official estimate ceremony now lives behind the thin Coconala adapter without invoking the
+   legacy connector-outbox lifecycle: it reuses the proven live category selector and validators,
+   verifies the semantic conversation hash, fills the official form, verifies the confirmation,
+   refreshes the exact thread before the final click, submits once, and binds a structured-offer URL
+   as the provider receipt. A new adapter instance can read the same official card back for
+   replay-zero. The shared kernel now also treats a post-effect `reconcile_unknown` as permanently
+   readback-only for that event; even an authoritative absence cannot authorize a blind duplicate.
+   The exact production Python build smoke passes, focused ceremony/kernel tests pass 24/24, and the
+   wider Reply/estimate regression passes 152/152 after one isolated timing test was rerun and then
+   passed again in the full suite. Source merge/release and live activation remain open.
+   A final shared-kernel fence audit now requires official `authoritative_absent=true` before the
+   first mutation. An unavailable or ambiguous pre-effect readback remains `intent_persisted` and
+   sends nothing; a post-effect unknown remains permanently readback-only. This closes both sides of
+   the duplicate-effect boundary for messages and estimates. Focused planner/kernel/adapters pass
+   30/30 and the wider Reply/estimate regression passes 153/153.
+   Dais's Lancers screenshots exposed a separate official-identity defect before release: buyer
+   messages from `9060780` and `9058411` were recorded as seller-last because the adapter treated
+   `is_required_reply=false` as sender identity. Official rows prove that flag is not identity; both
+   buyers have `send_user.is_client=true`, while Dais's own sent row has `is_client=false`. The
+   adapter now derives role only from that official sender field and derives `reply_required` from
+   the resulting latest role. A fresh read-only five-thread pass changes three threads to buyer-last,
+   including both screenshots. Shared-planner dry decisions produce one send-ready reply, one
+   truthful missing-fact human wait, and one semantic no-reply, without a provider mutation.
+   Production release `20260908T103236-18691252` then proved the corrected Lancers identity path in
+   a natural terminal at `2026-09-08 10:40 JST`: all five official boards were represented once,
+   board `9060780` produced one buyer-visible reply with provider receipt `59144506`, board `9058411`
+   became a durable `reply_facts_required` pending item, and the aggregate ended observed five,
+   actionable two, effect one, readback four, failed zero and pending one. This real effect is retained
+   for the later fixed-order `LANCERS-REPLY-1` acceptance; it does not skip the current shared atom.
+   The first Coconala natural wake on the same release failed before inventory because the hidden-tab
+   helper surfaced its transport timeout as a reason-preserving `RuntimeError`, while the established
+   two-attempt retry recognized only the former exception shape. PR `#4604` restores that exact
+   transient classification in main `7351114a20848146c5234ea695cb7db3f9a24622`; 161 related checks
+   pass. The first natural wake on immutable release `20260908T104520-7351114a` performed both retries
+   but both local CDP `/json/version` calls timed out, so it correctly remained failed. A subsequent
+   read-only probe found the endpoint immediate, 13 targets, and the same owner could create and close
+   an authenticated hidden tab in 0.26 seconds. No login, Mac, Aqua or browser restart occurred.
+   `SHARED-REPLY-1` remains unchecked until a later natural Coconala terminal proves complete official
+   inventory and effect separation, followed by replay-zero where an effect exists.
+   The repeated Coconala failure was then traced below the Reply code: the preserved launchd
+   environment still routed this label to the dedicated Gig CDP on `:9223`. Its Chromium PID and TCP
+   listener existed, but both `/json/version` and `/json/list` timed out; PID liveness had hidden a
+   non-serving browser. No browser restart was used. A read-only isolated probe instead seeded the
+   existing Gig auth vault into the healthy shared CDP on `:9222` and authenticatedly observed all 174
+   official direct-message threads. PR `#4606` therefore changes only the Coconala Reply launch
+   environment: healthy CDP `:9222`, the existing Gig auth vault, and Reply-specific lease/target
+   ledgers. Apply generation passes 47 tests and production immutable release
+   `20260908T105930-8b062814` is installed only for `hf-gig-reply-detector`. Its first natural wake has
+   crossed inventory and is processing the full backlog independently; at the latest checkpoint 24 of
+   174 threads have durable states, including one official reply/readback, while closed, no-reply,
+   external-wait and retry-wait threads remain separated. The wake is still running, so this is progress
+   evidence, not terminal acceptance, and the atom remains unchecked.
+   A later natural Coconala wake from that same installed SHA ended `pass` with exit zero at
+   `2026-09-08T02:28:32Z`; process existence is no longer the blocker. However, Lancers board
+   `9058411` exposed a shared reply-grounding defect after its earlier durable human wait: the buyer
+   asked six ordinary applicant-profile questions, and seller message `59145214` told the buyer that
+   gender, age band, availability, work history, related experience and continuity could not be
+   answered because the conversation lacked that information. This was a real customer-visible effect,
+   not a draft. The private candidate SSOT already contains the age-band and verified work facts, and
+   the provider public profile contains weekly availability and reusable skills; only gender remains
+   genuinely absent. The exact source boundary is that the Lancers adapter passes only the verified
+   proposal into its composer and never supplies the shared candidate/profile grounding.
+   `SHARED-REPLY-1` therefore remains open and its next bounded work is, in order:
+   1. Add one provider-neutral reply-grounding reader under `marketplace-core` for the private candidate
+      SSOT, reusable verified facts and provider public-profile facts; adapters may add only verified
+      proposal/provider context.
+   2. Make the shared model contract answer every explicit buyer question from verified facts, safe
+      derivations and reasonable reversible defaults. Internal context absence must never be rendered as
+      a customer-facing answer, and ordinary profile questionnaires must not create a Telegram human gate.
+      Do not replace model judgment with keyword/regex classification. Irreversible financial, legal,
+      identity or qualification claims still require authoritative facts rather than invention.
+   3. Send one natural corrective answer to the `ママさん応援団` buyer on board `9058411`, require the exact official message readback,
+      then require a following natural replay with zero duplicate effect.
+   4. Keep shared Telegram handoff only for genuinely person-bound or irreversible actions, not missing
+      ordinary questionnaire fields; all other threads continue independently.
+   5. Prove Coconala consumes the same grounding/decision contract. Mercor and CrowdWorks remain the later
+      fixed-order thin-adapter atoms; this correction does not pull either one forward.
+   Source checkpoint `ac4c13dea` adds the provider-neutral grounding reader and connects Lancers to it.
+   It derives only an age band from the private birth date, passes verified claims without their private
+   evidence metadata, adds the provider's public availability/skill facts, and leaves absent gender
+   explicit rather than silently inferring it. Dais then authoritatively supplied `male`; it is persisted
+   only in the private candidate SSOT and must be reused without a Telegram question. The Lancers model
+   contract no longer tells a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
+   Lancers adapter checks pass 26/26. This is pushed source evidence only, not production acceptance;
+   the corrective official reply/readback and replay-zero remain open.
+   The corrective answer was then sent exactly once to board `9058411`; fresh official thread
+   inventory shows the complete six-answer seller message as provider message `59145491`. The first
+   adapter readback returned false only because Lancers stores submitted LF newlines as CRLF while the
+   adapter compared raw strings. No retry was issued. Normalize only that fixed transport representation,
+   bind the existing official message as the receipt, and require the next natural wake to remain
+   replay-zero before checking this substep.
+   That transport normalization merged through main `61750a04f17a195f583c3338f25c695ec34feed8`
+   and was installed only for `lancers-revenue-negotiate`. The corrected adapter reads official
+   provider message `59145491` as `verified=true`. Its next natural wake used the same installed/event
+   SHA, ended `pass` with exit zero, represented all five boards exactly once, and reported
+   `observed=5`, `effect=0`, `readback=5`, `failed=0`, `pending=0`; board `9058411` is now
+   `awaiting_buyer`. The correction and its replay-zero are complete. The next work remains inside
+   `SHARED-REPLY-1`: prove Coconala consumes the same grounding/decision contract before advancing.
+   The Coconala source slice now consumes the same `reply_grounding.py` packet as Lancers. Candidate
+   gender, age band, base, public availability, occupation, skills and verified work claims are projected
+   once under `marketplace-core` and passed into Coconala's existing semantic judge; Coconala retains only
+   its official DOM, application/estimate context and mutation/readback ceremony. Grounding, Coconala
+   adapter and semantic regressions pass 46/46. This remains source evidence until a main-derived immutable
+   release produces a natural Coconala terminal with official effect separation and a following replay-zero.
+   A production path audit found one migration regression that must close before this shared atom can pass:
+   the former dedicated Coconala Reply path published realtime Telegram receipts, but the finite shared
+   `coconala-reply-owner -> reply_kernel.py` path currently invokes no Telegram reporter at all. The plist
+   still supplies the shared chat and env configuration, and `marketplace-core/effect_notification.py`
+   already provides receipt-backed, deduplicated delivery. Wire each officially verified Reply/estimate
+   receipt through that existing shared notifier, using the effect identity as the Telegram idempotency key;
+   do not add a Coconala sender or restore the legacy lifecycle.
+   The shared notifier fix merged in `f62bb151` and is present in the installed Coconala release
+   `d9dab16a`. The preceding natural run ended over 174 unique rooms with `actionable=36`, `effect=0`,
+   `readback=138`, `failed=19`, `pending=17`; therefore this atom remains open. The kernel previously
+   persisted only exception class names, discarding the concrete semantic/collector contract violation.
+   Preserve a bounded private `error_detail` in both per-thread retry state and the aggregate item so the
+   next terminal can drive a class-level fix instead of another blind retry.
+   The semantic judge already owned one bounded corrective attempt, but allowed it for only four named
+   validation errors. Treat every model-output validation error as correctable exactly once and feed its
+   contract code back to the correction prompt; collector, authentication, runner and official-page errors
+   remain outside that retry. Require exact copying of source message identities to prevent hash typos.
+   The shared kernel also re-ran semantic judgement for every unchanged `no_reply`, `closed` and
+   `awaiting_buyer` room on every five-minute wake; only mutation intents had replay-zero. Fence an
+   unchanged no-effect classification by the official inbox latest-event identity. A new buyer event changes
+   that identity and reopens judgement, while unchanged rooms perform zero browser/thread/model work.
+   Main-derived release `35171075` then ended naturally over all 174 rooms with `effect=0`, improving
+   `failed` from 19 to 11 and official `readback` from 138 to 147; 16 rooms remain durable pending.
+   Bounded `error_detail` now identifies the remaining failures rather than hiding them: four
+   `browser_tab_limit`, three collector contract violations, two officially unavailable send controls,
+   and two semantic contract violations. This is not acceptance. The run also proved that the initial
+   no-effect fence compared incompatible provider identities: Coconala inventory exposes a stable message
+   fingerprint while targeted official readback exposes the provider message ID. Store the inventory
+   fingerprint separately from the official observation identity and use it for unchanged-event replay and
+   retry backoff. New regression coverage uses deliberately different inventory and official IDs; the
+   shared kernel plus Coconala adapter/semantic/no-contact checks pass 73/73. A following main-derived
+   natural wake must materially skip unchanged rooms and expose only genuinely changed or retry-owned work.
+   The four `browser_tab_limit` failures are one bounded configuration defect, not browser instability:
+   a direct-message target remains open while the semantic collector opens one nested read-only target for
+   official application evidence, but the Reply owner allowed only one owned target. Set this one owner to
+   a hard limit of two so the proven nested read can run while a third target still fails closed. Do not
+   restart or globally loosen the browser. Owner and target-ownership checks pass 12/12.
+   The `semantic_service_contract_invalid` failure was also deterministic: the Reply reader rejected
+   the official Storefront state `受付休止中`, so 42 valid paused rows invalidated the entire 406-row
+   append-only contract ledger. Accept that provider state while continuing to return only the latest
+   `公開中` contracts for reply grounding. The actual ledger now validates as 406 historical rows and
+   24 current public contracts; 36 semantic checks pass. Storefront business code and its ledger are
+   unchanged.
+   The remaining `semantic_purchase_decision_requires_proactive_reply` was a false deterministic
+   override: a provider system notice appeared on the buyer side of the DOM and happened to contain
+   the words `購入`, `場合` and `対応`, while both model attempts correctly classified it as
+   `unknown/wait`. Apply the existing purchase-response guard only when the semantic state is
+   `question`, `negotiating` or `ready_to_buy`; do not force a customer reply for an `unknown` system
+   notice. The real purchase-decision guards remain covered and 37 semantic checks pass.
+   `dm_attachment_message_identity_changed` came from a second identity representation mismatch:
+   the authenticated download manifest legitimately has no provider message IDs, and the semantic DOM
+   can gain a newer message before rebinding, so equal list position is not a durable identity. When the
+   provider ID is absent, bind attachments only to one exact, unique buyer-body match; preserve the
+   verified byte count and SHA-256 requirements and continue to fail closed on zero or multiple matches.
+   Reordered and ambiguous-message regressions pass with the wider semantic suite, 39/39.
+   `collector_unhealthy:ambiguous_application` was a shared-adapter regression: the established
+   dedicated reader already returns every verified application when the same buyer has multiple offers,
+   but the shared Coconala adapter called the older singular reader and failed instead of grounding the
+   model. Reuse the plural official reader; expose one result as `application` and multiple results as
+   `applications`, without guessing which offer the conversation means. Adapter and semantic checks pass
+   50/50.
+   Both `submit_rejected_sending_unavailable` failures were also observable before mutation: the official
+   DOM states that the counterparty is currently restricted, but the shared adapter dropped that field and
+   attempted a send anyway. Preserve it in normalized context and return provider-neutral
+   `waiting_external` before invoking the model or mutation. The same thread is observed again on later
+   wakes so a lifted restriction can resume; unrelated threads continue. Kernel and adapter checks pass
+   24/24.
+   The next main-derived natural terminal completed in about 20 minutes with `observed=174`,
+   `actionable=24`, `effect=3`, `readback=153`, `failed=4`, and `pending=17`; all three effects have
+   official verification. The materially shorter wake proves the inventory-fingerprint replay fence is
+   skipping unchanged rooms. The four remaining failures are two attachment-context collector failures,
+   one semantic purchase-decision failure, and one server-side sending restriction. Live read-only evidence
+   proves thread `10085794` has a verified attachment message dated before the oldest message still rendered
+   in the current official DOM, while thread `10158735` has no durable attachment manifest. The shared
+   collector now restores an attachment-bearing buyer message only when its verified timestamp is strictly
+   older than the complete current DOM window and exactly one counterparty identity exists; a missing or
+   invalid durable manifest triggers exactly one authenticated same-thread refresh. Ambiguous identity,
+   timestamp or bytes still fails closed. Coconala browser, adapter, owner and shared-kernel regressions pass
+   68/68. The server-side sending restriction is also an authoritative no-effect response rather than a
+   retryable mutation failure. The shared kernel now accepts an optional provider classification only at the
+   mutation-error boundary; Coconala maps only exact `submit_rejected_sending_unavailable` to a durable
+   `provider_sending_unavailable` external wait, while every other mutation error retains normal failure and
+   backoff. The combined Coconala/shared Reply regression passes 70/70. This is source evidence, not
+   production acceptance. Next require a pushed-main natural terminal, close the remaining semantic class,
+   verify every effect notification, and
+   require the following replay to produce zero duplicate effect before checking this atom.
+   The final old-release wake then ended naturally with `observed=174`, `effect=0`, `readback=152`,
+   `failed=7`, and `pending=15`. It retained the two attachment failures, semantic failure and server-side
+   sending restriction above, and exposed three additional `coconala_estimate_source_invalid` rows. Their
+   semantic receipts all authorize `send_estimate`, but the official DOM has no estimate creation control.
+   Absence of that provider control is now a reversible `provider_estimate_control_unavailable` external
+   wait; if the control later appears the unchanged buyer event is reevaluated, while an evidence mismatch
+   with a real control still fails closed. The combined shared/Coconala Reply regression passes 71/71.
+   Release `20260908T155805-542ddcf6` contains the prior attachment and official-send-restriction fixes and
+   is installed only for Coconala Reply; its first natural wake is active, so no acceptance claim is made.
+   That release ended naturally with `observed=174`, `effect=0`, `readback=155`, `failed=2`, and
+   `pending=17`: the server-side sending restriction moved to durable pending as designed, while the
+   attachment and prior semantic rows remained under their existing retry backoff. Release
+   `20260908T160256-400ee210` then included the official estimate-control wait and ended naturally with
+   `observed=174`, `effect=0`, `readback=155`, `failed=1`, and `pending=18`; both formerly failing estimate
+   rows are now resumable pending. The sole current failure is `semantic_reply_audit_unexpected` after a
+   corrective model response placed unresolved buyer questions in `reply_audit` while choosing `wait`.
+   The correction contract now states that non-reply actions keep every reply-audit collection empty and
+   put unresolved facts in `uncertainty`; it also preserves the authoritative latest role and maps a
+   buyer-side provider notice with no question or request to `unknown/wait` rather than inventing an effect.
+   The focused shared/Coconala Reply regression remains 71/71. This awaits a pushed-main natural run after
+   the durable backoff timestamps, not a state reset or manual retry.
+   The post-backoff main-derived natural terminal on release `4c1a0d84132f7f5ae56943b0cebbf98863cb901b`
+   proves final Coconala acceptance: 174 official rooms are represented by 174 unique thread identities,
+   `effect=0`, `readback=157`, `failed=0`, and `pending=17`. The archived verified attachment context on
+   `10085794` now reaches a safely fenced pre-effect reconciliation wait; `10158735` rebuilt its missing
+   authenticated manifest and became a truthful provider-send-restriction wait; `9992000` became
+   `no_reply` without a customer effect. All four prior verified Reply/estimate effects are delivered through
+   the shared Telegram outbox with provider message IDs `69119`, `69124`, `69128`, and `69147`; following
+   natural terminals produced zero duplicate effects. Coconala and Lancers now consume the same shared
+   grounding, decision, lifecycle, receipt, notification, retry and replay-zero components. This atom is
+   complete; the fixed next atom is `CROWDWORKS-REPLY-1`.
+   Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
+   context and components. This does not reorder the executable cursor: the immediate work inside
+   `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
+   proof. CrowdWorks remains the later `CROWDWORKS-REPLY-1` thin-adapter acceptance rather than being
+   pulled ahead of the fixed intervening atoms.
+   CrowdWorks must not be described as having no reply opportunities: no shared Reply adapter currently
+   observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
+   verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
+   while the missing Reply observer is the current visibility and response gap.
+9. [x] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
+   PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
+   shared event, decision, receipt or retry lifecycle.
+   Initial evidence: the authenticated official received-message API returned 10 unique rows and
+   all 10 report `is_replied=false`; seven are still `proposal_status=talking`. Message `425906697`
+   officially redirects to proposal `304795711`, where the full buyer event, reply textarea and post
+   control are available. The thin repo adapter now normalizes that inventory and conversation into
+   the existing shared grounding/planner/kernel without copying lifecycle, retry or effect fencing.
+   Its authenticated no-mutation smoke represented all 10 threads exactly once and classified the
+   latest event in thread `303996182` as a buyer event requiring a decision.
+   The first main-derived natural wake did send one appropriate Java opportunity reply at the
+   official timestamp `2026-09-08 16:59`, but its immediate readback selected the now-visible
+   collapsed buyer digest instead of the hidden full message body. The provider therefore showed
+   the exact seller reply while the aggregate incorrectly ended `effect=0`, `failed=8`. No second
+   seller reply exists. The bounded correction selects the provider's full body node independent of
+   collapsed visibility and preserves post-effect intents until official reconciliation.
+   Complete: the shared owner sent five appropriate replies and the official provider read back five
+   distinct seller message receipts (`426101291`, `426101743`, `426102072`, `426102609`,
+   `426102951`). The shared Telegram outbox delivered each receipt exactly once as provider messages
+   `69320` through `69324`. Release `460851bf030106635b95fdf7138a01ea8ee15984` then ended a
+   natural terminal with `observed=10`, `effect=0`, `readback=10`, `failed=0`, `pending=0`; all five
+   reply receipts were `replay_zero` and all five no-reply events were also replay-zero. The provider
+   adapter retains only authenticated inventory, CrowdWorks IDs/DOM, mutation and official readback;
+   event lifecycle, model decision, grounding, intent fencing, retry, receipts and notification remain
+   shared. The active cursor advances to `MERCOR-REPLY-1` without reordering.
+10. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
    exact human action, deadline and work-item identity; then persists official readback and replay-zero.
-10. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
+   Current state: the shared kernel now supports a durable, deduplicated human handoff and the Mercor
+   thin adapter, decision schema, official snapshot collector and five-minute owner exist on the
+   feature branch. Read-only official inventory shows no current recruiter question or accepted work:
+   Offers and Contracts are empty, while three incomplete applications own their required assessment
+   handoffs. The first live owner attempt stopped before Telegram or Gmail mutation because delayed
+   CDP response-body collection lost one official API body. Therefore no external effect occurred and
+   this atom remains unchecked. Remaining acceptance is strictly: make snapshot collection reliable;
+   run one natural installed terminal with every official event represented, failed zero and each
+   needed handoff delivered once; run the following terminal with no duplicate provider or Telegram
+   effect; then update the operational table and check this atom complete.
+   New shared safety evidence: CrowdWorks provider receipt `426101743` contains the unsolicited legal
+   name `成田大輔`, while its public seller identity is `Kaito｜AI自動化`. The value was not copied by
+   the CrowdWorks adapter: free-form private verified facts exposed identity-bearing strings to the
+   shared composer, whose contract did not forbid using them as a signature. Do not delete or rewrite
+   the historical provider message. Before this atom can close, add one shared identity boundary that
+   strips private legal/preferred names, email, phone, address, login identifiers and credentials from
+   composition grounding; permits only the provider's verified public display name when a name is
+   necessary; rejects output containing a known private identity value; and passes the same regression
+   against Coconala, Lancers, CrowdWorks and Mercor adapters. This is a required sub-acceptance of the
+   active atom, not a cursor reorder or a new provider-specific Reply implementation.
+   Identity-fence implementation checkpoint: the shared grounding now removes free-form facts that
+   contain private legal/preferred names, email, phone or address before composition while preserving
+   the provider's verified public display name. The shared kernel removes the private comparison values
+   from model context and rejects a reply payload containing any of them before intent persistence or
+   provider mutation. Coconala now carries the same grounding envelope into that kernel instead of
+   bypassing the output fence. Sixty-one focused shared/Coconala/Lancers/CrowdWorks/Mercor Reply tests
+   pass, including the historical leak shape and an allowed `Kaito｜AI自動化` public-name control.
+   Production remains unchanged and this atom stays unchecked until main merge, installed natural
+   terminals, official no-new-leak readback and replay-zero complete the acceptance.
+11. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
    the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.
    Mercor is selected as this adapter. It is an independent gig marketplace, not a Job Hunter lane:
@@ -850,12 +1219,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `__provider_inventory__` durably owns `official_work_inventory_unavailable`. Production wiring is
    therefore live and honestly waiting, but the real official receipt/readback/replay chain remains
    absent and the atom stays unchecked.
-11. [ ] `LANCERS-REPLY-1` Complete one real Lancers buyer-message or estimate lifecycle through the
+12. [x] `LANCERS-REPLY-1` Complete one real Lancers buyer-message or estimate lifecycle through the
     shared Reply entrypoint. PASS = official event observation, one buyer-visible effect, same-session
     official readback and a following natural replay with effect zero are receipt-bound.
-12. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
-    PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
-    shared event, decision, receipt or retry lifecycle.
+    Board `9058411` has provider message `59145491` as the exact official correction readback. The
+    following natural shared-kernel wake represented all five boards with `effect=0`, `readback=5`,
+    `failed=0`, `pending=0`; this provider acceptance is complete even though the broader
+    `SHARED-REPLY-1` Coconala proof remains active.
 13. [ ] `PANIC-3` In an explicitly approved maintenance window with Dais physically available,
    install macOS 15.7.9 rather than Tahoe and read back the exact build after restart. This is an
    availability proof, not a fix for Paid authentication or delivery.

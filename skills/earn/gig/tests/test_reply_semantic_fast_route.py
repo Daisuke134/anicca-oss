@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import io
 import json
@@ -41,6 +42,26 @@ queue_snapshot = _load_module(
 reply_browser = _load_module(
     "gig_reply_browser_attachment_context_test", REPLY_BROWSER_PATH,
 )
+
+
+def test_paused_storefront_contract_does_not_invalidate_the_ledger(tmp_path):
+    fields = {
+        "service_id": "123", "public_url": "https://coconala.com/services/123",
+        "title": "Service", "state": "受付休止中", "price_jpy": 5000,
+        "category": "IT・プログラミング・開発/Webサイト制作",
+        "public_content_sha256": hashlib.sha256("scope".encode()).hexdigest(),
+    }
+    row = {
+        "version": 1, **fields, "scope_text": "scope",
+        "service_version_sha256": hashlib.sha256(json.dumps(
+            fields, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        ).encode()).hexdigest(),
+    }
+    path = tmp_path / "offer-contracts.jsonl"
+    path.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    assert requested_estimate.load_service_contracts(path) == []
+    assert requested_estimate.load_service_contracts(path, latest_only=False) == [row]
 
 
 def test_reply_semantic_route_uses_bounded_luna_candidate():
@@ -275,6 +296,56 @@ def test_semantic_judge_uses_fast_task_class_and_bounded_outer_timeout(tmp_path,
     assert argv[argv.index("--task-class") + 1] == "reply-semantic-agent"
     assert argv[argv.index("--timeout-seconds") + 1] == "120"
     assert kwargs["timeout"] == 150
+
+
+def test_semantic_judge_corrects_any_model_validation_error_once(tmp_path, monkeypatch):
+    schema = GIG_ROOT / "schemas" / "reply_semantic_judgement.schema.json"
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(kwargs["input"])
+        evidence = Path(argv[argv.index("--evidence-dir") + 1])
+        result_path = evidence / "result.json"
+        result_path.write_text("{}", encoding="utf-8")
+        (evidence / "summary.json").write_text(json.dumps({
+            "status": "success", "result_path": str(result_path),
+        }), encoding="utf-8")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    validations = iter((requested_estimate.SemanticJudgementError(
+        "semantic_content_evidence_invalid"
+    ), {"next_action": "wait"}))
+
+    def validate(_payload, _rows):
+        value = next(validations)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(requested_estimate.subprocess, "run", fake_run)
+    monkeypatch.setattr(requested_estimate, "validate_semantic_judgement", validate)
+    judge = requested_estimate.SemanticJudge(
+        runner=RUNNER_PATH, schema=schema, workdir=tmp_path,
+        evidence_root=tmp_path / "evidence",
+    )
+    receipt = judge({
+        "url": "https://coconala.com/messages/123", "title": "メッセージ詳細",
+        "container_present": True, "own_user_path": "/users/seller",
+        "messages": [
+            {"message_id": "seller-1", "author_path": "/users/seller",
+             "body": "こんにちは", "sent_at": "2026-08-19T00:00:00Z"},
+            {"message_id": "buyer-1", "author_path": "/users/buyer",
+             "body": "質問です", "sent_at": "2026-08-19T00:01:00Z"},
+        ],
+    }, "https://coconala.com/messages/123")
+
+    assert receipt["judgement"] == {"next_action": "wait"}
+    assert len(calls) == 2
+    assert "semantic_content_evidence_invalid" in calls[1]
+    assert "一文字も変えずコピー" in calls[1]
+    assert "reply_auditの配列はすべて空" in calls[1]
+    assert "最新roleは入力値を変更しません" in calls[1]
+    assert "conversation_state=unknown、next_action=wait" in calls[1]
 
 
 def test_semantic_judge_accepts_compatible_receipts_and_rejects_unknown_profile(tmp_path):
@@ -556,6 +627,30 @@ def test_purchase_decision_reply_cannot_lead_with_internal_confirmation():
         requested_estimate.validate_semantic_judgement(payload, rows)
 
 
+def test_system_notice_with_purchase_words_does_not_force_customer_reply():
+    rows = [{
+        "message_id": "system-notice", "role": "buyer",
+        "sent_at": "2026-09-08T00:00:00Z",
+        "body": "購入者へ対応できない場合は運営までご連絡ください。",
+    }]
+    payload = {
+        "conversation_state": "unknown", "next_action": "wait",
+        "cycle_start_message_id": "system-notice", "evidence_message_ids": [],
+        "required_official_context": "none", "estimate_terms": None,
+        "reply_body": None,
+        "reply_audit": {
+            "answered_buyer_message_ids": [], "unanswered_questions": [],
+            "unsupported_claims": [], "unrequested_cta": False,
+            "repeats_seller_message": False, "off_platform_contact": False,
+        },
+        "uncertainty": ["運営からの送信専用通知"],
+    }
+
+    assert requested_estimate.validate_semantic_judgement(payload, rows)[
+        "conversation_state"
+    ] == "unknown"
+
+
 def test_acknowledged_existing_purchase_cannot_generate_another_estimate():
     rows = [
         {
@@ -695,6 +790,134 @@ def test_merge_verified_dm_attachments_uses_exact_index_and_body_when_ids_are_ab
     queue_snapshot.merge_verified_dm_attachments(dom, document)
 
     assert dom["messages"][0]["verified_attachments"][0]["sha256"] == "c" * 64
+
+
+def test_merge_verified_dm_attachments_rebinds_unique_exact_body_after_reorder():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": None, "author_path": "/users/buyer", "body": "newer"},
+        {"message_id": None, "author_path": "/users/buyer", "body": "添付です"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "text": "添付です",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "file.xlsx",
+            "bytes": 100, "sha256": "f" * 64,
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }],
+    }
+
+    queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+    assert "verified_attachments" not in dom["messages"][0]
+    assert dom["messages"][1]["verified_attachments"][0]["sha256"] == "f" * 64
+
+
+def test_merge_verified_dm_attachments_rejects_ambiguous_exact_body():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": None, "author_path": "/users/buyer", "body": "添付です"},
+        {"message_id": None, "author_path": "/users/buyer", "body": "添付です"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "text": "添付です",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "file.xlsx",
+            "bytes": 100, "sha256": "f" * 64, "content_type": "application/octet-stream",
+        }],
+    }
+
+    with pytest.raises(queue_snapshot.CollectorUnhealthy, match="dm_attachment_message_identity_changed"):
+        queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+
+def test_merge_verified_dm_attachments_restores_verified_message_older_than_dom_window():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": "new-buyer", "author_path": "/users/buyer",
+         "sent_at": "2026-09-01 09:00:00", "body": "確認をお願いします"},
+        {"message_id": "new-seller", "author_path": "/users/seller",
+         "sent_at": "2026-09-01 09:05:00", "body": "確認します"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "sent_at": "2026-08-31 13:58:41",
+            "text": "資料をお送りします",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "budget.xlsx",
+            "bytes": 100, "sha256": "e" * 64,
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }],
+    }
+
+    queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+    restored = dom["messages"][0]
+    assert restored["author_path"] == "/users/buyer"
+    assert restored["sent_at"] == "2026-08-31 13:58:41"
+    assert restored["body"] == "資料をお送りします"
+    assert restored["verified_attachments"][0]["sha256"] == "e" * 64
+
+
+def test_merge_verified_dm_attachments_rejects_missing_message_inside_dom_window():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": "older", "author_path": "/users/buyer",
+         "sent_at": "2026-08-31 09:00:00", "body": "older"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "sent_at": "2026-09-01 09:00:00",
+            "text": "missing",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "file.xlsx",
+            "bytes": 100, "sha256": "f" * 64, "content_type": "application/octet-stream",
+        }],
+    }
+
+    with pytest.raises(queue_snapshot.CollectorUnhealthy, match="dm_attachment_message_identity_changed"):
+        queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+
+def test_merge_or_refresh_durable_dm_attachments_refreshes_only_missing_manifest(monkeypatch):
+    calls = []
+
+    def missing(_dom, _thread_id):
+        raise queue_snapshot.CollectorUnhealthy("dm_attachment_evidence_invalid")
+
+    monkeypatch.setattr(queue_snapshot, "merge_durable_dm_attachments", missing)
+    monkeypatch.setattr(
+        queue_snapshot, "enrich_verified_dm_attachments",
+        lambda dom, **kwargs: calls.append((dom, kwargs)),
+    )
+    dom = {"messages": []}
+
+    queue_snapshot.merge_or_refresh_durable_dm_attachments(
+        dom, helper=Path("helper"), thread_id="123", observed_at="2026-09-08T00:00:00Z",
+    )
+
+    assert calls == [(dom, {
+        "helper": Path("helper"), "thread_id": "123", "observed_at": "2026-09-08T00:00:00Z",
+    })]
+
+
+def test_merge_or_refresh_durable_dm_attachments_preserves_other_failures(monkeypatch):
+    def ambiguous(_dom, _thread_id):
+        raise queue_snapshot.CollectorUnhealthy("dm_attachment_message_identity_changed")
+
+    monkeypatch.setattr(queue_snapshot, "merge_durable_dm_attachments", ambiguous)
+
+    with pytest.raises(queue_snapshot.CollectorUnhealthy, match="dm_attachment_message_identity_changed"):
+        queue_snapshot.merge_or_refresh_durable_dm_attachments(
+            {"messages": []}, helper=Path("helper"), thread_id="123",
+            observed_at="2026-09-08T00:00:00Z",
+        )
 
 
 def test_verified_attachment_denial_debt_allows_one_correction():

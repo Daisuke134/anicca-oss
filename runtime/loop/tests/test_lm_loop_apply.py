@@ -274,6 +274,26 @@ class LmLoopApplyTest(unittest.TestCase):
             str(Path.home() / ".cloak/vault/gig-daily-driver/auth-state.json"),
         )
 
+    def test_coconala_reply_uses_healthy_shared_cdp_with_gig_auth(self):
+        value = registry()
+        value["loops"]["hf-gig-reply-detector"] = value["loops"].pop("example")
+        rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
+        environment = rendered["EnvironmentVariables"]
+        self.assertEqual(environment["CLOAK_CDP_BASE_URL"], "http://127.0.0.1:9222")
+        self.assertEqual(
+            environment["CLOAK_SESSION_VAULT_FILE"],
+            str(Path.home() / ".cloak/vault/gig-daily-driver/auth-state.json"),
+        )
+        self.assertEqual(
+            environment["CLOAK_CONTEXT_LEASES_FILE"],
+            str(Path.home() / ".cloak/vault/coconala-reply-leases.json"),
+        )
+        self.assertEqual(
+            environment["CLOAK_TARGET_OWNERS_FILE"],
+            str(Path.home() / ".cloak/vault/coconala-reply-targets.json"),
+        )
+        self.assertEqual(environment["CLOAK_CONTEXT_PARK_ON_IDLE"], "1")
+
     def test_generic_install_does_not_secure_launchd_log_files(self):
         log_root = self.root / ".local/state/test-log-root"
         log_root.mkdir(mode=0o755, parents=True)

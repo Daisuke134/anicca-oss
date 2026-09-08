@@ -59,7 +59,7 @@ const LUMA_PAGE_STATE = "registration_page_v1";
 const EXPECTED_REGISTRATION_EFFECT = "registered_or_pending";
 const STALE_TARGET_MAX_IDLE_MS = 660_000;
 const CONNECTOR_CDP_CONNECT_TIMEOUT_MS = 120_000;
-const PROVIDER_RANK_MAX_DATES = 2;
+const PROVIDER_RANK_MAX_DATES = 12;
 const PROVIDER_RANK_MAX_CANDIDATES = 12;
 
 function invalid() {
@@ -205,7 +205,8 @@ function candidateTokyoDateKey(candidate) {
   return [day.year, day.month, day.day].map((part, index) => String(part).padStart(index === 0 ? 4 : 2, "0")).join("-");
 }
 
-function boundedPendingCandidates(candidates) {
+function boundedPendingCandidates(candidates, rotation = 0) {
+  if (!Number.isSafeInteger(rotation) || rotation < 0) invalid();
   if (candidates.length <= PROVIDER_RANK_MAX_CANDIDATES) return candidates;
   const byDate = new Map();
   const invalidDates = [];
@@ -219,14 +220,19 @@ function boundedPendingCandidates(candidates) {
     group.push(candidate);
     byDate.set(date, group);
   }
-  const dates = [...byDate.keys()].sort().slice(0, PROVIDER_RANK_MAX_DATES);
+  const allDates = [...byDate.keys()].sort();
+  const dates = allDates.length <= PROVIDER_RANK_MAX_DATES
+    ? allDates
+    : Array.from({ length: PROVIDER_RANK_MAX_DATES }, (_, index) => (
+      allDates[Math.floor(index * (allDates.length - 1) / (PROVIDER_RANK_MAX_DATES - 1))]
+    ));
   const selected = [];
   for (let index = 0; selected.length < PROVIDER_RANK_MAX_CANDIDATES; index += 1) {
     let added = false;
     for (const date of dates) {
       const group = byDate.get(date);
       if (index >= group.length) continue;
-      selected.push(group[index]);
+      selected.push(group[(rotation + index) % group.length]);
       added = true;
       if (selected.length >= PROVIDER_RANK_MAX_CANDIDATES) break;
     }
@@ -371,7 +377,8 @@ function createProductionProviderRouter(options = {}) {
         ));
         const pending = candidates.filter((candidate) => !reconcile.includes(candidate));
         if (pending.length === 0) return candidates;
-        const rankingCandidates = boundedPendingCandidates(pending);
+        const rotation = Math.floor(exactNow(now()).getTime() / 1_800_000);
+        const rankingCandidates = boundedPendingCandidates(pending, rotation);
         const ranking = await rankCandidates({ candidates: rankingCandidates, preferences: eventPreferences });
         const sourceByRef = new Map(rankingCandidates.map((candidate) => [candidate.event_ref, candidate]));
         const eligible = eligibleRankedCandidates(ranking).map((ranked) => Object.freeze({
@@ -624,6 +631,7 @@ function createMinimalProductionDependencies(options = {}) {
   });
   const peatixWorkflow = options.peatixWorkflow || createPeatixDiscoveryWorkflow({
     now,
+    searchBindingLimit: 20,
     onDiscoveryAudit: operations.recordPeatixDiscoveryAudit || (() => {}),
     readAttendeeProfile: () => options.peatixAttendeeProfile,
     hasAppliedBundle: (candidate) => evidenceChain.hasAppliedBundle({

@@ -360,7 +360,7 @@ def validate_semantic_judgement(
     if state == "explicit_estimate_request" and action == "reply":
         raise SemanticJudgementError("semantic_estimate_request_reply_conflict")
     purchase_decision = _unanswered_purchase_decision(rows)
-    if purchase_decision is not None:
+    if purchase_decision is not None and state in {"question", "negotiating", "ready_to_buy"}:
         body = payload.get("reply_body")
         proactive = type(body) is str and body.strip().startswith(
             ("はい、いけます", "はい、ぜひ", "ぜひ対応", "対応可能です", "できます")
@@ -566,12 +566,12 @@ class SemanticJudge:
 
     def __init__(
         self, *, runner: Path, schema: Path, workdir: Path, evidence_root: Path,
-        timeout_seconds: int = 120,
+        timeout_seconds: int = 120, seller_facts: list[dict[str, str]] | None = None,
     ):
         self.runner, self.schema, self.workdir = Path(runner), Path(schema), Path(workdir)
         self.evidence_root, self.timeout_seconds = Path(evidence_root), int(timeout_seconds)
         self.schema_sha256 = hashlib.sha256(self.schema.read_bytes()).hexdigest()
-        self.seller_facts = verified_seller_facts()
+        self.seller_facts = verified_seller_facts() if seller_facts is None else seller_facts
         self.seller_facts_sha256 = hashlib.sha256(json.dumps(
             self.seller_facts, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
         ).encode()).hexdigest()
@@ -648,8 +648,9 @@ class SemanticJudge:
             rows, resolved_official_context, self.seller_facts, thread_id=thread_id,
         )
         judgement: dict[str, Any] | None = None
-        for correction in (None, (
-            "\n前回出力は構造契約違反です。conversation_stateが"
+        correction: str | None = None
+        correction_guidance = (
+            "conversation_stateが"
             "explicit_estimate_requestならnext_action=replyは禁止です。"
             "また最新roleがsellerならreply/clarifyは禁止です。buyerが承認済みで"
             "sellerの公式見積り送付約束が未履行ならsend_estimate、履行義務がなければwaitです。"
@@ -657,10 +658,18 @@ class SemanticJudge:
             "の連続は、その金額での公式見積り送付承認です。『公式』の語を追加要求しないでください。"
             "条件が一意ならsend_estimateと構造化estimate_termsを返し、"
             "不足時だけclarifyまたは公式context要求を返してください。"
+            "next_actionがwait・stop・send_estimateの場合とeffect不要の場合は、"
+            "reply_auditの配列はすべて空、booleanはすべてfalseにし、未解決事項は"
+            "uncertaintyへ置いてください。最新roleは入力値を変更しません。"
+            "最新roleがbuyerでも本文が質問・依頼ではないprovider通知なら、"
+            "conversation_state=unknown、next_action=wait、required_official_context=none、"
+            "uncertainty=[]としてeffectを作らないでください。"
             "buyerが成果物・投稿文・サンプルの全文を今ここで求めている場合、"
             "『後で見せます／送ります』と延期せず、会話内の原文から要求された実物全文を"
             "ラベル付きでreply_bodyへ含めてください。根拠不足なら最小情報だけclarifyしてください。"
-        )):
+            "message_idと各evidence_message_idsは入力中の値を一文字も変えずコピーしてください。"
+        )
+        for attempt in range(2):
             run_evidence = evidence if correction is None else evidence / "corrective-1"
             run_evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
             completed = subprocess.run(
@@ -687,13 +696,12 @@ class SemanticJudge:
                 judgement = validate_semantic_judgement(payload, rows)
                 break
             except SemanticJudgementError as error:
-                if correction is not None or str(error) not in {
-                    "semantic_estimate_request_reply_conflict",
-                    "semantic_seller_last_reply_conflict",
-                    "semantic_inline_artifact_deferred",
-                    "semantic_purchase_decision_requires_proactive_reply",
-                }:
+                if attempt:
                     raise
+                correction = (
+                    f"\n前回出力は構造契約違反です。違反コード: {error}。"
+                    f"{correction_guidance}全項目を再評価し、契約に適合するJSONを返してください。"
+                )
             except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
                 raise SemanticJudgementError("semantic_evidence_invalid") from error
         if judgement is None:
@@ -1133,7 +1141,8 @@ def load_service_contracts(path: Path | None = None, *, latest_only: bool = True
             valid = (
                 row.get("version") == 1 and str(row["service_id"]).isdigit()
                 and row["public_url"] == f"https://coconala.com/services/{row['service_id']}"
-                and row.get("state") in {"公開中", "非公開", "下書き"} and type(row.get("price_jpy")) is int
+                and row.get("state") in {"公開中", "受付休止中", "非公開", "下書き"}
+                and type(row.get("price_jpy")) is int
                 and bool(str(row.get("title") or "").strip()) and bool(str(row.get("category") or "").strip())
                 and hashlib.sha256(str(row.get("scope_text") or "").encode()).hexdigest() == row["public_content_sha256"]
                 and hashlib.sha256(canonical.encode()).hexdigest() == row.get("service_version_sha256")

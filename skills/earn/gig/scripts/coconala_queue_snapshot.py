@@ -93,20 +93,12 @@ def merge_verified_dm_attachments(dom: dict[str, Any], document: dict[str, Any])
         str(row.get("message_id") or ""): row
         for row in semantic_rows if row.get("message_id")
     }
-    for message_index, message in enumerate(document_rows):
+    for message in document_rows:
         if not isinstance(message, dict) or message.get("side") != "buyer":
             continue
         attachments = message.get("attachments") if isinstance(message.get("attachments"), list) else []
         if not attachments:
             continue
-        target = semantic_messages.get(str(message.get("message_id") or ""))
-        if (target is None and not message.get("message_id")
-                and message_index < len(semantic_rows)):
-            indexed = semantic_rows[message_index]
-            if str(indexed.get("body") or "") == str(message.get("text") or ""):
-                target = indexed
-        if target is None:
-            raise CollectorUnhealthy("dm_attachment_message_identity_changed")
         verified: list[dict[str, Any]] = []
         for attachment in attachments:
             row = index.get(str(attachment.get("url") or "")) if isinstance(attachment, dict) else None
@@ -122,6 +114,41 @@ def merge_verified_dm_attachments(dom: dict[str, Any], document: dict[str, Any])
                 "content_type": str(row.get("content_type") or "application/octet-stream"),
                 "size_bytes": row["bytes"], "sha256": row["sha256"],
             })
+        target = semantic_messages.get(str(message.get("message_id") or ""))
+        if target is None and not message.get("message_id"):
+            exact = [
+                row for row in semantic_rows
+                if str(row.get("body") or "") == str(message.get("text") or "")
+                and (
+                    row.get("side") == "buyer"
+                    or row.get("author_path") != dom.get("own_user_path")
+                )
+            ]
+            if len(exact) == 1:
+                target = exact[0]
+        if target is None:
+            archived_at = _optional_sent_at(message.get("sent_at"))
+            current_times = [_optional_sent_at(row.get("sent_at")) for row in semantic_rows]
+            buyer_paths = {
+                str(row.get("author_path") or "") for row in semantic_rows
+                if row.get("author_path") and row.get("author_path") != dom.get("own_user_path")
+            }
+            if (
+                archived_at is not None and semantic_rows
+                and all(value is not None for value in current_times)
+                and archived_at < min(value for value in current_times if value is not None)
+                and len(buyer_paths) == 1
+            ):
+                target = {
+                    "message_id": message.get("message_id"),
+                    "author_path": next(iter(buyer_paths)),
+                    "sent_at": message.get("sent_at"),
+                    "body": str(message.get("text") or ""),
+                }
+                semantic_rows.insert(0, target)
+                dom["messages"] = semantic_rows
+        if target is None:
+            raise CollectorUnhealthy("dm_attachment_message_identity_changed")
         target["verified_attachments"] = verified
 
 
@@ -158,6 +185,20 @@ def merge_durable_dm_attachments(dom: dict[str, Any], thread_id: str) -> None:
     except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise CollectorUnhealthy("dm_attachment_evidence_invalid") from error
     merge_verified_dm_attachments(dom, document)
+
+
+def merge_or_refresh_durable_dm_attachments(
+    dom: dict[str, Any], *, helper: Path, thread_id: str, observed_at: str,
+) -> None:
+    """Refresh once only when the durable authenticated manifest is absent/invalid."""
+    try:
+        merge_durable_dm_attachments(dom, thread_id)
+    except CollectorUnhealthy as error:
+        if str(error) != "collector_unhealthy:dm_attachment_evidence_invalid":
+            raise
+        enrich_verified_dm_attachments(
+            dom, helper=helper, thread_id=thread_id, observed_at=observed_at,
+        )
 
 
 def _posting_module():
@@ -391,6 +432,17 @@ TALKROOM_FULL_EXPRESSION = TALKROOM_FULL_EXPRESSION.replace(_CURRENT_STEP_JS, _T
 
 TRANSIENT_NAVIGATION_ERROR = "authenticated tab did not finish navigation"
 NAVIGATION_RETRY_ATTEMPTS = 2
+
+
+def _is_transient_tab_open_error(error: RuntimeError) -> bool:
+    message = str(error)
+    return (
+        message == TRANSIENT_NAVIGATION_ERROR
+        or (
+            message.startswith("failed to open authenticated hidden target:")
+            and "timed out" in message.lower()
+        )
+    )
 NAVIGATION_READY_STATES = frozenset({"interactive", "complete"})
 
 
@@ -2774,7 +2826,7 @@ def inspect_page_with_retry(
             if attempt == attempts - 1:
                 raise
         except RuntimeError as exc:
-            if str(exc) != TRANSIENT_NAVIGATION_ERROR or attempt == attempts - 1:
+            if not _is_transient_tab_open_error(exc) or attempt == attempts - 1:
                 raise
     raise AssertionError("unreachable navigation retry state")
 

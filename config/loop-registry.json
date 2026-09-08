@@ -74,6 +74,19 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/anicca/crowdworks"
     },
+    "crowdworks-revenue-reply": {
+      "adapter": "exec",
+      "cadence": {"start_interval_seconds": 300},
+      "cleanup": {"max_age_days": 14, "max_runs": 100},
+      "command": [],
+      "domain": "earn",
+      "effect_class": "message",
+      "entrypoint": "skills/earn/crowdworks/scripts/reply-owner",
+      "label": "ai.anicca.crowdworks-revenue-reply",
+      "log_root": "~/.local/state/anicca/crowdworks/logs",
+      "provider_route": "deterministic",
+      "state_root": "~/.local/state/anicca/crowdworks"
+    },
     "affiliate-browser": {
       "adapter": "exec",
       "browser_owner": {
@@ -855,7 +868,7 @@
     },
     "fundraiser": {
       "cadence": {
-        "start_interval_seconds": 60
+        "start_interval_seconds": 1800
       },
       "cleanup": {
         "max_age_days": 14,
@@ -980,8 +993,9 @@
       "state_root": "~/.local/state/life-manager/coconala/paid"
     },
     "hf-gig-reply-detector": {
+      "adapter": "exec",
       "cadence": {
-        "keep_alive": true
+        "start_interval_seconds": 300
       },
       "cleanup": {
         "max_age_days": 14,
@@ -989,7 +1003,8 @@
       },
       "domain": "earn",
       "effect_class": "none",
-      "entrypoint": "runtime/loop/entry_dispatch.py",
+      "command": [],
+      "entrypoint": "skills/earn/gig/scripts/coconala-reply-owner",
       "label": "ai.anicca.hf-gig-reply-detector",
       "log_root": "~/.local/state/life-manager/coconala/reply/logs",
       "provider_route": "shared-agent-runner",
@@ -1774,7 +1789,7 @@
     },
     "life-manager-connector-native": {
       "cadence": {
-        "start_interval_seconds": 3600
+        "start_interval_seconds": 1800
       },
       "cleanup": {
         "max_age_days": 14,
@@ -2294,6 +2309,24 @@
       "log_root": "~/.local/state/anicca/job-search/mercor/logs",
       "provider_route": "deterministic",
       "state_root": "~/.local/state/anicca/job-search/mercor"
+    },
+    "mercor-revenue-reply": {
+      "adapter": "exec",
+      "cadence": {
+        "start_interval_seconds": 300
+      },
+      "cleanup": {
+        "max_age_days": 14,
+        "max_runs": 100
+      },
+      "command": [],
+      "domain": "earn",
+      "effect_class": "message",
+      "entrypoint": "skills/earn/mercor/scripts/reply-owner",
+      "label": "ai.anicca.mercor-revenue-reply",
+      "log_root": "~/.local/state/anicca/job-search/mercor/reply/logs",
+      "provider_route": "shared-agent-runner",
+      "state_root": "~/.local/state/anicca/job-search/mercor/reply"
     },
     "mcp-claude-p": {
       "cadence": {

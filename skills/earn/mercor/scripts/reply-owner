@@ -1,0 +1,65 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+LEASE_PYTHON="${LIFE_MANAGER_LEASE_PYTHON:-/usr/bin/python3}"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
+LEASE_SCRIPT="$ROOT/skills/browser/scripts/cdp_context_lease.py"
+# Apply and Reply borrow one durable authenticated Mercor browser context. The
+# shared lease rejects a second live holder, so concurrent wakes fail transiently
+# instead of creating another logged-out context or touching the same page.
+TASK="mercor-revenue-application"
+SNAPSHOT="$STATE_ROOT/official-snapshot.json"
+LEASE_JSON="$STATE_ROOT/browser-lease.json"
+SESSION_READBACK_JSON="$STATE_ROOT/session-readback.json"
+TOKEN="" GENERATION=""
+
+mkdir -p "$STATE_ROOT"; chmod 700 "$STATE_ROOT"
+export CLOAK_CDP_BASE_URL="http://127.0.0.1:9222"
+export CLOAK_SESSION_VAULT_FILE="$HOME/.cloak/vault/job-search-daily/auth-state.json"
+export CLOAK_SESSION_VAULT_WRITEBACK_FILE="$HOME/.local/state/anicca/job-search/mercor/application/auth-overlay.json"
+export AI_BROWSER_HOLDER_PID=$$
+
+park() {
+  if [[ -n "$TOKEN" && -n "$GENERATION" ]]; then
+    "$LEASE_PYTHON" "$LEASE_SCRIPT" park "$TASK" \
+      --token "$TOKEN" --generation "$GENERATION" >/dev/null 2>&1 || true
+  fi
+}
+trap park EXIT
+
+"$LEASE_PYTHON" "$LEASE_SCRIPT" acquire "$TASK" \
+  'https://work.mercor.com/home?tab=applications' >"$LEASE_JSON"
+chmod 600 "$LEASE_JSON"
+WS=$(jq -r .ws "$LEASE_JSON")
+TOKEN=$(jq -r .token "$LEASE_JSON")
+GENERATION=$(jq -r .generation "$LEASE_JSON")
+
+PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+  -m job_search_loop.mercor_page_ready --ws "$WS" --output "$STATE_ROOT/page-ready.json"
+PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+  -m job_search_loop.mercor_auth_readback --ws "$WS" --output "$SESSION_READBACK_JSON"
+
+ACCOUNT=$("$LEASE_PYTHON" -c \
+  'import json,sys; p=json.load(open(sys.argv[1])); print(p.get("candidate",{}).get("application_email") or p.get("application_email") or p.get("email") or "")' \
+  "$HOME/.config/anicca/job-search/profile.json")
+[[ -n "$ACCOUNT" ]] || { print -u2 "mercor reply owner: account unavailable"; exit 69; }
+PYTHONPATH="$ROOT/apps/job-search-loop" "$LEASE_PYTHON" \
+  -m job_search_loop.mercor_reply_snapshot --ws "$WS" --gmail-account "$ACCOUNT" \
+  --gog /opt/homebrew/bin/gog --output "$SNAPSHOT"
+
+"$LEASE_PYTHON" "$LEASE_SCRIPT" commit-cookies "$TASK" --domain mercor.com \
+  --origin https://work.mercor.com --local-storage-key mercor-auth-store \
+  --session-storage-key mercor-session-id --session-storage-key mercor-user-ip \
+  --token "$TOKEN" --generation "$GENERATION" >"$STATE_ROOT/session-writeback.json"
+
+"$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/reply_kernel.py" \
+  --provider-adapter "$ROOT/skills/earn/mercor/scripts/reply_adapter.py" \
+  --state-root "$STATE_ROOT/shared-reply" --output "$STATE_ROOT/latest.json" \
+  --max-workers 1 \
+  --telegram-chat-config "$HOME/.config/anicca/job-search/telegram.env" \
+  --telegram-database "$STATE_ROOT/telegram-outbox.sqlite3" \
+  --telegram-env-file "$HOME/.config/anicca/job-search/telegram.env" -- \
+  --snapshot "$SNAPSHOT" --state-root "$STATE_ROOT" --gmail-account "$ACCOUNT" \
+  --gog /opt/homebrew/bin/gog

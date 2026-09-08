@@ -2009,7 +2009,9 @@ function createProductionBrowserHarness(options = {}) {
         !(typeof value === "string" || typeof value === "boolean" || Array.isArray(value))
         || (typeof value === "string" && (!value.trim() || value.length > 2_000))
         || (Array.isArray(value) && (value.length < 1 || value.length > 3))
-      ) return Object.freeze({ status: "failed" });
+      ) return Object.freeze(provider === "luma"
+        ? { status: "failed", safe_reason: "private_value_unavailable" }
+        : { status: "failed" });
     }
     if (eventbriteAttendee) {
       if (eventbriteTicketFrame(input.page, eventbriteBinding.eventId, eventbriteBinding.canonicalUrl) !== attendeeFrame) return Object.freeze({ status: "failed" });

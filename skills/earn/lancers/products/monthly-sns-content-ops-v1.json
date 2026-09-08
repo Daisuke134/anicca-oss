@@ -1,6 +1,7 @@
 {
   "product_id": "monthly-sns-content-ops-v1",
   "product_version": 5,
+  "sells_monthly_contract": true,
   "listing_external_id": "1338228",
   "superseded_listing_ids": [
     "1338229",

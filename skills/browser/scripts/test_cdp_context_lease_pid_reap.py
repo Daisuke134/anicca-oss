@@ -153,7 +153,7 @@ def test_reuse_and_heartbeat_keep_explicit_holder_pid(monkeypatch, tmp_path):
             "context_id": "c1", "target_id": "t1",
             "ws": "ws://127.0.0.1:9222/devtools/page/t1",
             "ts": int(time.time()), "token": "a" * 32, "generation": 1,
-            "pid": os.getppid(),
+            "pid": os.getpid(),
         }
     })
     monkeypatch.setattr(module, "target_responds", lambda *a, **k: True)
@@ -164,6 +164,71 @@ def test_reuse_and_heartbeat_keep_explicit_holder_pid(monkeypatch, tmp_path):
     assert reused["pid"] == os.getpid()
     assert heartbeat["ok"] is True
     assert json.loads(leases_file.read_text(encoding="utf-8"))["gig-task"]["pid"] == os.getpid()
+
+
+def test_acquire_rejects_a_second_live_holder(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("AI_BROWSER_HOLDER_PID", str(os.getpid()))
+    _write_leases(leases_file, {
+        "mercor-session": {
+            "context_id": "c1", "target_id": "t1",
+            "ws": "ws://127.0.0.1:9222/devtools/page/t1",
+            "ts": int(time.time()), "token": "a" * 32, "generation": 1,
+            "pid": os.getppid(),
+        }
+    })
+    monkeypatch.setattr(module, "target_responds", lambda *_args, **_kwargs: True)
+
+    try:
+        module.acquire("mercor-session")
+    except RuntimeError as error:
+        assert str(error) == "lease_busy"
+    else:
+        raise AssertionError("a live holder's context was shared concurrently")
+
+    saved = json.loads(leases_file.read_text(encoding="utf-8"))
+    assert saved["mercor-session"]["pid"] == os.getppid()
+
+
+def test_foreign_holder_is_never_probed_or_disposed(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("AI_BROWSER_HOLDER_PID", str(os.getpid()))
+    for holder_pid, pid_state in ((os.getppid(), True), (None, None)):
+        _write_leases(leases_file, {
+            "mercor-session": {
+                "context_id": "c1", "target_id": "t1",
+                "ws": "ws://127.0.0.1:9222/devtools/page/t1",
+                "ts": int(time.time()), "token": "a" * 32, "generation": 1,
+                "pid": holder_pid,
+            }
+        })
+        monkeypatch.setattr(module, "_pid_alive", lambda _pid, state=pid_state: state)
+        monkeypatch.setattr(
+            module, "target_responds",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("foreign holder must not be health-probed")
+            ),
+        )
+        monkeypatch.setattr(
+            module, "_calls",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("foreign holder must not be disposed")
+            ),
+        )
+
+        try:
+            module.acquire("mercor-session")
+        except RuntimeError as error:
+            assert str(error) == "lease_busy"
+        else:
+            raise AssertionError("foreign holder was not fenced")
+
+        saved = json.loads(leases_file.read_text(encoding="utf-8"))
+        assert saved["mercor-session"]["context_id"] == "c1"
 
 
 def test_gc_reaps_a_row_whose_pid_just_died_even_though_it_is_not_idle_stale(monkeypatch, tmp_path):
@@ -331,8 +396,11 @@ def test_acquire_does_not_reclaim_a_lease_whose_holder_pid_is_alive(monkeypatch,
         raise AssertionError("acquire() must not dispose/recreate a live holder's context")
 
     monkeypatch.setattr(module, "_calls", create_should_not_be_called)
-    result = module.acquire("gig-task")
-
-    assert result["ok"] is True
-    assert result["reused"] is True
-    assert result["context_id"] == "old-context"
+    try:
+        module.acquire("gig-task")
+    except RuntimeError as error:
+        assert str(error) == "lease_busy"
+    else:
+        raise AssertionError("a second live holder reused the context")
+    saved = json.loads(leases_file.read_text(encoding="utf-8"))
+    assert saved["gig-task"]["context_id"] == "old-context"

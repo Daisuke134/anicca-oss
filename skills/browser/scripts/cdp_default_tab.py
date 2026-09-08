@@ -64,7 +64,11 @@ def _max_tabs_per_owner():
 def _release_context_if_idle(owner):
     if target_ownership.targets_for_owner(owner):
         return None
-    released = cdp_context_lease.release(owner)
+    released = (
+        cdp_context_lease.park(owner)
+        if os.environ.get("CLOAK_CONTEXT_PARK_ON_IDLE") == "1"
+        else cdp_context_lease.release(owner)
+    )
     if not released.get("ok"):
         raise RuntimeError(released.get("reason", "browser_context_release_failed"))
     return released

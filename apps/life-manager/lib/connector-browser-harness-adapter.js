@@ -138,7 +138,9 @@ function createBrowserHarnessAdapter(options = {}) {
         });
         if (!effect || effect.status !== "success") return Object.freeze({
           status: "failed",
-          safe_reason: dispatchAttempted ? "effect_unknown" : "agent_action_failed",
+          safe_reason: dispatchAttempted ? "effect_unknown"
+            : /^[a-z][a-z0-9_]{1,63}$/.test(String(effect && effect.safe_reason || ""))
+              ? effect.safe_reason : "agent_action_failed",
           repaired_actions: Object.freeze([...repaired]),
         });
         repaired.push(action);

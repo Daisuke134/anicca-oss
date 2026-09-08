@@ -79,6 +79,39 @@ def test_talkroom_readback_retries_transient_tab_open_timeout(monkeypatch) -> No
     assert len(attempts) == 2
 
 
+def test_talkroom_readback_retries_hidden_helper_transport_timeout(monkeypatch) -> None:
+    snapshot = load("coconala_queue_snapshot")
+    attempts = []
+
+    class Tab:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def __enter__(self):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise RuntimeError(
+                    "failed to open authenticated hidden target: "
+                    "{'ok': False, 'reason': 'URLError: <urlopen error "
+                    "[Errno 60] Operation timed out>'}"
+                )
+            return SimpleNamespace(ws="ws://ready")
+
+        def __exit__(self, *_args):
+            return False
+
+    async def inspect(*_args, **_kwargs):
+        return {"ok": True}
+
+    monkeypatch.setattr(snapshot, "DefaultTab", Tab)
+    monkeypatch.setattr(snapshot, "inspect_page", inspect)
+
+    assert snapshot.inspect_page_with_retry(
+        Path("helper"), "https://example.test", "1", None
+    ) == {"ok": True}
+    assert len(attempts) == 2
+
+
 def test_buyer_attachment_fetch_has_a_finite_timeout() -> None:
     snapshot = load("coconala_queue_snapshot")
 
@@ -363,6 +396,45 @@ def test_formal_approval_survives_later_seller_acknowledgement(tmp_path):
     ) == decision
 
 
+def test_initial_purchase_is_buyer_authority_before_first_buyer_message(tmp_path):
+    paid = load("paid_direct")
+    room = "18250352"
+    root = tmp_path / room
+    write_json(root / "state.json", {"talkroom_id": room})
+    system = {
+        "version": 1,
+        "source": "coconala_live_talkroom",
+        "talkroom_id": room,
+        "message_id": "system-delivery-date",
+        "observed_at": "2026-09-08T12:17:26Z",
+        "side": "system",
+        "sent_at": None,
+        "text": "delivery date registered",
+        "attachments": [],
+    }
+    system["content_sha256"] = paid._official_content_sha256(system)
+    messages = root / "source/talkroom/messages.jsonl"
+    messages.parent.mkdir(parents=True)
+    messages.write_text(json.dumps(system) + "\n", encoding="utf-8")
+    feedback = "a" * 64
+    write_json(root / "requirements/live-buyer-reply.json", {
+        "version": 1,
+        "source": "purchased_offer_before_first_buyer_message",
+        "buyer_feedback_stage": "initial_request",
+        "project_id": room,
+        "talkroom_id": room,
+        "feedback_sha256": feedback,
+        "feedback_identity_sha256": feedback,
+        "feedback_message_identities": [f"purchased-offer:{room}"],
+    })
+
+    assert paid._latest_official_buyer_identity(root, room) == {
+        "message_id": f"purchased-offer:{room}",
+        "content_sha256": feedback,
+        "side": "buyer",
+    }
+
+
 def test_file_prepare_creates_missing_project_delivery_directory(tmp_path, monkeypatch):
     paid = load("paid_direct")
     root = tmp_path / "project"
@@ -550,6 +622,60 @@ def test_paid_queue_accepts_completed_linked_formal_readback():
 
     assert evidence._linked_asset_delivery(linked) is True
     assert evidence._formal_transaction_state_ready("取引完了") is True
+
+
+def test_paid_queue_accepts_linked_contract_when_dom_proves_uploaded_attachment(tmp_path):
+    evidence = load("paid_queue_evidence")
+    artifact = tmp_path / "review-v3.zip"
+    artifact.write_bytes(b"review package")
+    screenshot = tmp_path / "paid-queue-screenshot.png"
+    screenshot.write_bytes(b"png")
+    live_dom = tmp_path / "paid-queue-live-dom.json"
+    write_json(live_dom, {
+        "url": "https://coconala.com/talkrooms/18223833",
+        "sent": True,
+        "formal_delivery_control_checked": False,
+        "latest_seller_attachment": {
+            "filename": artifact.name,
+            "size_bytes": artifact.stat().st_size,
+            "message": "review package uploaded",
+        },
+    })
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    delta = ["review package uploaded"]
+    write_json(tmp_path / "paid-queue-evidence.json", {
+        "sent": True,
+        "formal_delivery_checkbox": False,
+        "captured_at": "2026-09-08T15:00:00Z",
+        "screenshot_path": str(screenshot),
+        "live_dom_path": str(live_dom),
+        "artifact_basename": artifact.name,
+        "artifact_version": "v3",
+        "package_sha256": digest,
+        "acceptance_delta": delta,
+        "talkroom_id": "18223833",
+        "expected_url": "https://coconala.com/talkrooms/18223833",
+    })
+    expected = {
+        "talkroom_id": "18223833",
+        "marketplace_url": "https://coconala.com/talkrooms/18223833",
+        "delivery_action": "progress",
+        "delivery_evidence": {
+            "artifact_path": str(artifact),
+            "artifact_version": "v3",
+            "package_sha256": digest,
+            "acceptance_delta": delta,
+            "customer_message": "review package uploaded",
+            "required_assets": [
+                {"asset_id": "package", "kind": "linked_asset", "minimum_count": 1},
+            ],
+            "artifact_assets": [
+                {"asset_id": "package", "type": "linked_asset", "path": str(artifact)},
+            ],
+        },
+    }
+
+    assert evidence.validate_paid_queue(tmp_path, expected) == (True, [])
 
 
 def test_reported_formal_cycle_accepts_exact_linked_message_readback(tmp_path, monkeypatch):
@@ -823,11 +949,90 @@ def test_paid_clients_use_independent_parallel_readbacks_and_browser_targets(tmp
     monkeypatch.setattr(paid, "_collector", collector)
     monkeypatch.setattr(paid, "_run", run)
     monkeypatch.setattr(paid, "_row", lambda _snapshot, _room: {"talkroom_id": "18211957"})
+    monkeypatch.setattr(paid, "_reclaim_browser_owner", lambda *_args: None)
     args = SimpleNamespace(evidence_dir=tmp_path, cdp_lock_dir=tmp_path / "locks")
 
     paid._targeted(args, {"talkroom_id": "18211957"}, 0)
 
     assert owners == ["paid-direct-18211957"]
+
+
+def test_targeted_readback_reclaims_its_stale_owner_before_open(tmp_path, monkeypatch):
+    paid = load("paid_direct")
+    events = []
+    collector_output = {}
+
+    def reclaim(_args, owner):
+        events.append(("reclaim", owner))
+
+    def collector(_args, _mode, output, *_rest):
+        collector_output["path"] = output
+        return ["collector"]
+
+    def run(_command, _step, **_kwargs):
+        events.append(("open", _kwargs["env"]["CLOAK_BROWSER_OWNER"]))
+        write_json(collector_output["path"], {"orders": [{"talkroom_id": "18223833"}]})
+
+    monkeypatch.setattr(paid, "_reclaim_browser_owner", reclaim)
+    monkeypatch.setattr(paid, "_collector", collector)
+    monkeypatch.setattr(paid, "_run", run)
+    monkeypatch.setattr(paid, "_row", lambda _snapshot, _room: {"talkroom_id": "18223833"})
+    args = SimpleNamespace(evidence_dir=tmp_path, cdp_lock_dir=tmp_path / "locks")
+
+    paid._targeted(args, {"talkroom_id": "18223833"}, 0)
+
+    assert events == [
+        ("reclaim", "paid-direct-18223833"),
+        ("open", "paid-direct-18223833"),
+    ]
+
+
+def test_file_presend_reclaims_targeted_owner_before_open(tmp_path, monkeypatch):
+    paid = load("paid_direct")
+    root = tmp_path / "project"
+    root.mkdir()
+    feedback = "a" * 64
+    requirements_sha = "b" * 64
+    events = []
+
+    monkeypatch.setattr(paid, "_paid_project_root", lambda *_args: root)
+    monkeypatch.setattr(paid, "_file_mode", lambda *_args: True)
+    monkeypatch.setattr(
+        paid.paid_remote_result, "requirements_digest", lambda *_args: requirements_sha,
+    )
+    monkeypatch.setattr(paid.delivery_queue, "evidence_path", lambda *_args: tmp_path / "stable.json")
+    monkeypatch.setattr(
+        paid, "_validate_file_authorization", lambda *_args: {
+            "artifact_version": "v1", "package_sha256": "c" * 64,
+        },
+    )
+    monkeypatch.setattr(
+        paid, "_reclaim_browser_owner",
+        lambda _args, owner: events.append(("reclaim", owner)),
+    )
+    monkeypatch.setattr(paid, "_collector", lambda *_args: ["collector"])
+
+    def stop_after_open(_command, _step, **kwargs):
+        events.append(("open", kwargs.get("env", {}).get("CLOAK_BROWSER_OWNER")))
+        raise RuntimeError("stop after presend open")
+
+    monkeypatch.setattr(paid, "_run", stop_after_open)
+    args = SimpleNamespace(
+        evidence_dir=tmp_path, delivery_evidence_dir=tmp_path,
+        projects_root=tmp_path, cdp_lock_dir=tmp_path / "locks",
+    )
+    prepared = {
+        "talkroom_id": "18223833", "buyer_feedback_sha256": feedback,
+        "requirements_sha256": requirements_sha,
+    }
+
+    with pytest.raises(RuntimeError, match="stop after presend open"):
+        paid._write_file_effect(args, tmp_path / "item.json", tmp_path / "result.json", prepared)
+
+    assert events == [
+        ("reclaim", "paid-direct-18223833"),
+        ("open", "paid-direct-18223833"),
+    ]
 
 
 def test_remote_verifier_prompt_persists_decision_before_optional_exploration(tmp_path):

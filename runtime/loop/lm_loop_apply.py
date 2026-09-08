@@ -67,6 +67,21 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         value["EnvironmentVariables"]["CLOAK_SESSION_VAULT_FILE"] = str(
             Path.home() / ".cloak/vault/gig-daily-driver/auth-state.json"
         )
+    if loop_id == "hf-gig-reply-detector":
+        value["EnvironmentVariables"].update({
+            "CLOAK_CDP_BASE_URL": "http://127.0.0.1:9222",
+            "CLOAK_SESSION_VAULT_FILE": str(
+                Path.home() / ".cloak/vault/gig-daily-driver/auth-state.json"
+            ),
+            "CLOAK_CONTEXT_LEASES_FILE": str(
+                Path.home() / ".cloak/vault/coconala-reply-leases.json"
+            ),
+            "CLOAK_TARGET_OWNERS_FILE": str(
+                Path.home() / ".cloak/vault/coconala-reply-targets.json"
+            ),
+            "CLOAK_CONTEXT_PARK_ON_IDLE": "1",
+            "GIG_CDP_HEALTH_URL": "http://127.0.0.1:9222/json/version",
+        })
     key, cadence = next(iter(entry["cadence"].items()))
     if key == "start_interval_seconds":
         value["StartInterval"] = cadence

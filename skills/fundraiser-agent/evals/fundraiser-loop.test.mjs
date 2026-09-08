@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -8,6 +8,9 @@ import { test } from "node:test";
 const dailyPrompt = await readFile(new URL("../prompts/daily.md", import.meta.url), "utf8");
 const skill = await readFile(new URL("../SKILL.md", import.meta.url), "utf8");
 const runtimeScript = await readFile(new URL("../runtime/run.sh", import.meta.url), "utf8");
+const runLock = new URL("../runtime/run-lock.sh", import.meta.url);
+const fundraiserPlist = await readFile(new URL("../runtime/ai.anicca.fundraiser.plist", import.meta.url), "utf8");
+const loopRegistry = JSON.parse(await readFile(new URL("../../../config/loop-registry.json", import.meta.url), "utf8"));
 const productionContext = JSON.parse(await readFile(new URL("../../../.agents/startup-context.json", import.meta.url), "utf8"));
 const productionOpportunities = JSON.parse(await readFile(new URL("../../../.agents/fundraising-opportunities.json", import.meta.url), "utf8"));
 const runnerConfig = JSON.parse(await readFile(new URL("../../../runtime/agent-runner/config.json", import.meta.url), "utf8"));
@@ -194,15 +197,19 @@ function contextPlanner() {
   };
 }
 
-test("production contract runs every minute and maximizes real applications", () => {
+test("production contract runs every 30 minutes and maximizes real applications", () => {
   const contract = `${skill}\n${dailyPrompt}`;
-  assert.match(contract, /every minute/i);
+  assert.match(contract, /every 30 minutes/i);
+  assert.equal(loopRegistry.loops.fundraiser.cadence.start_interval_seconds, 1800);
+  assert.match(fundraiserPlist, /<key>StartInterval<\/key><integer>1800<\/integer>/);
   assert.match(contract, /as many[^\n]*applications[^\n]*as possible/i);
   assert.match(contract, /continue[^\n]*after[^\n]*(?:first|one)[^\n]*(?:submit|application)/i);
   assert.match(contract, /authenticated[^\n]*X[^\n]*CDP/i);
   assert.match(contract, /Telegram[^\n]*(?:immediately|real.?time)/i);
   assert.match(contract, /reasonable inference/i);
   assert.match(dailyPrompt, /Ledger-first selection/);
+  assert.match(dailyPrompt, /remote programs remain eligible/i);
+  assert.doesNotMatch(dailyPrompt, /allow remote only when explicitly listed/i);
   assert.match(dailyPrompt, /read the complete receipt ledger and application dossiers before the priority queue/);
   assert.match(dailyPrompt, /SR008[^\n]*terminal[^\n]*SR009[^\n]*new opportunity/i);
   assert.match(dailyPrompt, /Fall 2026[^\n]*F26[^\n]*same cohort/i);
@@ -230,7 +237,7 @@ test("production contract runs every minute and maximizes real applications", ()
   assert.match(dailyPrompt, /label-to-control mapping/);
   assert.match(dailyPrompt, /wait up to 30 seconds/);
   assert.match(dailyPrompt, /Never abandon the candidate\s+after only that immediate post-upload timeout/);
-  assert.match(dailyPrompt, /prior `failure` candidates whose recorded local or\s+technical cause has been repaired/);
+  assert.match(dailyPrompt, /prior failure or legacy blocked-state row, reopen\s+only when current evidence resolves or changes its blocker/);
   assert.match(dailyPrompt, /complete current `reason`/);
   assert.match(dailyPrompt, /action begins with `apply_now`/);
   assert.match(dailyPrompt, /one-shot action suffix is itself concrete new\s+evidence/);
@@ -241,7 +248,7 @@ test("production contract runs every minute and maximizes real applications", ()
   assert.match(dailyPrompt, /action does not begin with `apply_now`[^\n]*must not open[^\n]*official site/i);
   assert.match(dailyPrompt, /single row with the greatest\s+`utc_timestamp`/);
   assert.match(dailyPrompt, /changed queue reason is not new evidence when its authorization\s+was already exercised/);
-  assert.match(dailyPrompt, /never carry the stale checkpoint forward unchanged/);
+  assert.match(dailyPrompt, /never carry the stale blocked state forward unchanged/i);
   assert.match(dailyPrompt, /cdp\.py screenshot/);
   assert.match(dailyPrompt, /completion\.png" viewport/);
   assert.match(dailyPrompt, /completion\.png/);
@@ -294,6 +301,20 @@ test("production contract runs every minute and maximizes real applications", ()
   assert.equal(runnerConfig.task_classes["application-lane-agent"].timeout_seconds, 3600);
   assert.doesNotMatch(contract, /at most one/i);
   assert.doesNotMatch(contract, /per user-local day/i);
+});
+
+test("run lock recovers an abandoned owner and refuses a live owner", async () => {
+  const root = await mkdtemp(join(tmpdir(), "fundraiser-run-lock-"));
+  const lock = join(root, "run.lock");
+  const script = join(root, "check.sh");
+  const winners = join(root, "winners");
+  const worker = join(root, "worker.sh");
+  await writeFile(worker, `#!/bin/bash\nsource ${JSON.stringify(runLock.pathname)}\nif acquire_run_lock ${JSON.stringify(lock)}; then echo "$$" >> ${JSON.stringify(winners)}; sleep 1; release_run_lock ${JSON.stringify(lock)}; fi\n`);
+  await writeFile(script, `#!/bin/bash\nset -eu\nsource ${JSON.stringify(runLock.pathname)}\nacquire_run_lock ${JSON.stringify(lock)}\n! acquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\nprintf '999999999\\ndead-start\\n' > ${JSON.stringify(join(lock, "owner"))}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\nprintf '%s\\n%s\\n' "$$" 'reused-pid-start' > ${JSON.stringify(join(lock, "owner"))}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\n! acquire_run_lock ${JSON.stringify(lock)}\nrmdir ${JSON.stringify(lock)}\nmkdir ${JSON.stringify(lock)}\ntouch -t 200001010000 ${JSON.stringify(lock)}\nacquire_run_lock ${JSON.stringify(lock)}\nrelease_run_lock ${JSON.stringify(lock)}\n: > ${JSON.stringify(winners)}\n/bin/bash ${JSON.stringify(worker)} &\n/bin/bash ${JSON.stringify(worker)} &\nwait\n[ "$(wc -l < ${JSON.stringify(winners)} | tr -d ' ')" = 1 ]\n`);
+  await chmod(worker, 0o700);
+  await chmod(script, 0o700);
+  const result = spawnSync("/bin/bash", [script], { encoding: "utf8" });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
 });
 
 test("verified application recorder writes a full dossier and rejects exact replay", async () => {
@@ -418,23 +439,25 @@ test("production queue advances current ASAC and YC work without replaying close
   assert.match(fundraising.format_priority, /in-person/i);
   assert.deepEqual(fundraising.explicit_format_exceptions, []);
   assert.deepEqual(fundraising.priority_queue.map((item) => item.program), [
+    "HF0 Residency",
     "GSAP2026 Enterprise B2B Course Phase 2",
     "3 Month Program + Community",
     "ASAC 4th Pre-seed / 23rd Seed Program",
     "Y Combinator",
   ]);
   assert.deepEqual(fundraising.priority_queue.map((item) => item.action), [
+    "apply_now_resume_second_page",
     "inactive_deadline_passed",
     "terminal_ledger_owned",
-    "apply_now_account_recovery",
-    "apply_now_founder_video_checkpoint",
+    "retry_when_provider_replies_to_password_recovery",
+    "retry_when_current_email_verification_available",
   ]);
-  assert.match(fundraising.priority_queue[0].reason, /deadline has passed/);
-  assert.match(fundraising.priority_queue[1].reason, /terminal receipt/);
-  assert.match(fundraising.priority_queue[2].reason, /September 13, 2026/);
-  assert.match(fundraising.priority_queue[3].reason, /founder video/);
-  assert.match(fundraising.priority_queue[3].reason, /continue discovering and applying/);
-  assert.match(dailyPrompt, /Reject Kenya and every other geography/);
+  assert.match(fundraising.priority_queue[0].reason, /page two/);
+  assert.match(fundraising.priority_queue[1].reason, /deadline has passed/);
+  assert.match(fundraising.priority_queue[2].reason, /terminal receipt/);
+  assert.match(fundraising.priority_queue[3].reason, /password-recovery request/);
+  assert.match(fundraising.priority_queue[4].reason, /email verification/);
+  assert.match(dailyPrompt, /format and geography[\s\S]*ranking preferences, not automatic rejection rules/i);
   assert.match(dailyPrompt, /Never submit a `hold_do_not_submit` program/);
   assert.match(dailyPrompt, /Ordinary privacy-policy and data-processing consent/);
   assert.match(dailyPrompt, /Do not infer consent to investment, equity/);

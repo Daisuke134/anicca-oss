@@ -889,6 +889,21 @@ def _latest_official_buyer_identity(root: Path, talkroom_id: str) -> dict[str, s
     for row in reversed(_official_message_rows(root, talkroom_id)):
         if row.get("side") == "buyer":
             return _official_identity(row, talkroom_id)
+    try:
+        receipt = _load(root / "requirements" / "live-buyer-reply.json")
+        feedback = _text(receipt.get("feedback_sha256"))
+        identity = f"purchased-offer:{talkroom_id}"
+        if (receipt.get("version") == 1
+                and receipt.get("source") == "purchased_offer_before_first_buyer_message"
+                and receipt.get("buyer_feedback_stage") == "initial_request"
+                and _text(receipt.get("project_id")) == talkroom_id
+                and _text(receipt.get("talkroom_id")) == talkroom_id
+                and re.fullmatch(r"[0-9a-f]{64}", feedback)
+                and _text(receipt.get("feedback_identity_sha256")) == feedback
+                and receipt.get("feedback_message_identities") == [identity]):
+            return {"message_id": identity, "content_sha256": feedback, "side": "buyer"}
+    except (AttributeError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
     raise Failure("paid_work_decision")
 
 
@@ -2001,6 +2016,7 @@ def _targeted(args, item, index):
     room = _text(item.get("talkroom_id")); base = args.evidence_dir / "paid-direct" / "targeted" / room
     item_path, snapshot = base / "item.json", base / "snapshot.json"
     _write(item_path, item)
+    _reclaim_browser_owner(args, f"paid-direct-{room}")
     started_ns = time.time_ns()
     environment = _fresh_child_env(args, owner=f"paid-direct-{room}")
     try:
@@ -4843,7 +4859,12 @@ def _write_file_effect(args, item_path: Path, output: Path, prepared: dict[str, 
         manifest = _validate_file_authorization(root, stable, feedback, requirements_sha256)
         base = args.evidence_dir / "paid-direct" / room
         presend = base / "presend" / "selected-talkroom-snapshot.json"
-        _run(_collector(args, "selected-talkroom-only", presend, presend.parent, item_path, prepared), "presend_readback")
+        _reclaim_browser_owner(args, f"paid-direct-{room}")
+        environment = _fresh_child_env(args, owner=f"paid-direct-{room}")
+        _run(
+            _collector(args, "selected-talkroom-only", presend, presend.parent, item_path, prepared),
+            "presend_readback", env=environment,
+        )
         row = _row(_load(presend), room)
         if (_text(row.get("buyer_feedback_sha256")) != feedback
                 or paid_remote_result.requirements_digest(root, feedback) != requirements_sha256):
@@ -5064,7 +5085,12 @@ def _write_one(args, item_path: Path, output: Path) -> int:
         if _load(answer_snapshot) != answer_payload: raise Failure("answer_snapshot")
         repaired = prepared.get("remote_repaired") is True if isinstance(prepared, dict) else False
         presend = base / "presend" / "selected-talkroom-snapshot.json"
-        _run(_collector(args, "selected-talkroom-only", presend, presend.parent, item_path, item), "presend_readback")
+        _reclaim_browser_owner(args, f"paid-direct-{room}")
+        environment = _fresh_child_env(args, owner=f"paid-direct-{room}")
+        _run(
+            _collector(args, "selected-talkroom-only", presend, presend.parent, item_path, item),
+            "presend_readback", env=environment,
+        )
         presend_row = _row(_load(presend), room)
         if (_text(presend_row.get("buyer_feedback_sha256")) != feedback
                 or paid_remote_result.requirements_digest(root, feedback) != requirements_sha256):

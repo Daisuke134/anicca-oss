@@ -28,18 +28,26 @@ _DECISION_FIELDS = frozenset({
 })
 _DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 BUSINESS_CLASSES = frozenset({"submit_required", "hard_prohibited"})
-HARD_PROHIBITION_CLASSES = {
-    "video_or_animation": "video editing/production, live-action filming, AI video, animation, or MV",
-    "music_or_audio_production": "music, song, performance, singing, BGM, composition, arrangement, mixing, mastering, or other produced/edited audio as the required deliverable",
-    "physical_or_onsite": "on-site work or physical making/assembly/cleaning/repair/cooking/sewing/woodwork/model making/packing/shipping/delivery/receipt",
-    "mandatory_human_presence": "explicitly required human face appearance/performance/voice recording/phone work, real-time live call, or video interview; vague meetings, ordinary communication, or possible consultation do not qualify",
-    "outreach_or_account_operations": "the required outcome is recruiting, lead sourcing, individualized bulk outreach, social DM operations, account warming, posting operations, or ongoing third-party account management rather than an asynchronous buyer-visible artifact",
-    "mandatory_desktop_or_browser_operations": "the required work must be performed through a desktop application or repeated logged-in browser operation, rather than delivering software, a landing page, an article, strategy, code, or another asynchronous file/document artifact",
-    "explicit_ai_prohibition": "explicit prohibition on AI use",
-    "illegal_or_unsafe": "illegal or unsafe work",
-    "missing_legal_qualification": "legally required qualification that Kosuke does not hold",
-    "mandatory_attribute_fabrication": "mandatory immutable/current personal identity or life-status fact that cannot be answered truthfully; skill, work experience, portfolio, achievements, tool experience, or preferred qualifications never qualify",
-}
+def _work_fit():
+    """The refusals are shared with Lancers and CrowdWorks.
+
+    Coconala kept its own eleven classes here. Four of them existed nowhere else -- music, outreach
+    and desktop operations, plus explicit_ai_prohibition -- and two that the others had were
+    missing: manual_marketplace_operation and original_illustration_or_modelling. So this lane
+    would still have bid on 出品代行 and on Live2D character work, which is most of what it was
+    applying to in the week before Coconala restricted the account. The first three moved into
+    marketplace-core; explicit_ai_prohibition is gone (Dais 2026-09-07).
+    """
+    import importlib.util as _importlib
+    path = Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts" / "work_fit.py"
+    spec = _importlib.spec_from_file_location("marketplace_work_fit", path)
+    module = _importlib.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+HARD_PROHIBITION_CLASSES = _work_fit().HARD_PROHIBITION_CLASSES
 
 
 def common_marketplace_feasibility_policy() -> str:

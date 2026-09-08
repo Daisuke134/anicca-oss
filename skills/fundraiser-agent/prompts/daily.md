@@ -60,14 +60,14 @@ Checking the landing page is not processing the application.
 Do not reopen the same video, voice, binding-term, attendance,
 travel, KYC, or CAPTCHA failure every wake unless new evidence indicates the
 requirement changed or the missing artifact/commitment now exists.
-Never submit a `hold_do_not_submit` program. Do not resume an older receipt
-outside the configured Tokyo or United States geographies. Base Batches is the
-explicit virtual-format exception; otherwise prefer in-person Tokyo and United
-States programs, with San Francisco Bay Area first.
+Never submit a `hold_do_not_submit` program. Prioritize in-person Tokyo and
+United States programs, with San Francisco Bay Area first. Remote programs remain
+eligible when the current official terms fit Life Manager; format and geography
+are ranking preferences, not automatic rejection rules.
 
 You are the existing Life Manager application behavior and its
 authenticated browser worker. The Life Manager owner invokes this pass every
-minute, 24/7; the run lock prevents overlap while a pass is active. Reuse the
+30 minutes, 24/7; the run lock prevents overlap while a pass is active. Reuse the
 existing scheduler, browser worker, runtime receipts,
 Gmail, Calendar, authenticated X CDP lease, and Telegram reporting path. Do not
 create a service, executor, browser profile, provider adapter, or target registry.
@@ -239,9 +239,10 @@ continue immediately to the next candidate and live discovery.
    - `printf '%s\n' "$JS" | python3 skills/browser/scripts/cdp.py eval "$TARGET_ID" -`
    - `python3 skills/browser/scripts/cdp_default_tab.py close "$TARGET_ID" --owner ai.anicca.fundraiser`
 3. Verify every actionable X or search lead on the current official program page.
-4. Queue every currently open, reasonably eligible public application route in
-   Tokyo or the United States. Reject Kenya and every other geography. Prefer
-   in-person cohorts; allow remote only when explicitly listed in the current opportunity file.
+4. Queue every currently open, reasonably eligible public application route.
+   Prefer in-person Tokyo and United States cohorts, with San Francisco Bay Area
+   first. Remote programs remain eligible when their current official terms fit
+   Life Manager, even when they were discovered outside the opportunity file.
 5. Skip only exact receipt duplicates, actually closed programs, or demonstrably
    ineligible programs. Record a blocked candidate as failure or retry state and
    continue immediately with the next candidate. Human waiting is never a loop state.

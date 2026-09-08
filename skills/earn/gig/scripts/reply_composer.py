@@ -39,12 +39,12 @@ def conversation_rows(context: dict[str, Any]) -> list[dict[str, str]]:
         raise ValueError("conversation must be non-empty")
     rows: list[dict[str, str]] = []
     for row in conversation:
-        if not isinstance(row, dict) or row.get("side") not in {"buyer", "seller"}:
+        if not isinstance(row, dict) or (row.get("role") or row.get("side")) not in {"buyer", "seller"}:
             raise ValueError("invalid conversation row")
         body = row.get("body")
         if type(body) is not str:
             raise ValueError("invalid conversation body")
-        rows.append({"side": str(row["side"]), "body": body})
+        rows.append({"side": str(row.get("role") or row.get("side")), "body": body})
     return rows
 
 

@@ -15,7 +15,16 @@ const { runMinimalConnectorWake } = require(
 const { loadConnectorEnv } = require("./lib/load-connector-env.js");
 const { readConnectorProfile } = require("../../apps/life-manager/lib/connector-profile.js");
 
-const DEFAULT_PROVIDERS = Object.freeze(["luma", "connpass", "kokuchpro", "meetup", "doorkeeper", "eventbrite", "techplay"]);
+const DEFAULT_PROVIDERS = Object.freeze([
+  "luma",
+  "connpass",
+  "peatix",
+  "meetup",
+  "doorkeeper",
+  "eventbrite",
+  "techplay",
+  "kokuchpro",
+]);
 
 function unavailable() {
   throw new Error("Connector minimal pass unavailable");

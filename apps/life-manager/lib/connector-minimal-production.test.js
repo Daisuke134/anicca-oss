@@ -317,7 +317,7 @@ test("official production factory persists one safe audit for its default Gemini
   }
 });
 
-test("production provider router ranks only twelve candidates round-robin across the earliest two Tokyo dates and retains every reconciliation candidate", async () => {
+test("production provider router ranks only twelve candidates round-robin across Tokyo dates and retains every reconciliation candidate", async () => {
   const reconcile = [
     rankingCandidate("reconcile-one", null, { registration_status: "registered" }),
     rankingCandidate("reconcile-two", "not-a-date", { rsvp_status: "registered" }),
@@ -337,6 +337,7 @@ test("production provider router ranks only twelve candidates round-robin across
   };
   const connpassWorkflow = { ...emptyWorkflow, async discoverCandidates() { return candidates; } };
   const router = createProductionProviderRouter({
+    now: () => new Date(0),
     lumaWorkflow: emptyWorkflow,
     connpassWorkflow,
     eventPreferences: "Tokyo AI events",
@@ -371,6 +372,84 @@ test("production provider router ranks only twelve candidates round-robin across
   assert.equal(result.slice(2).length, 12);
 });
 
+test("production provider router samples the full candidate window instead of starving later weeks", async () => {
+  const candidates = Array.from({ length: 28 }, (_, index) => rankingCandidate(
+    `day-${index + 1}`,
+    new Date(Date.UTC(2026, 8, index + 1, 0)).toISOString(),
+  ));
+  const rankingInputs = [];
+  const emptyWorkflow = {
+    async discoverCandidates() { return []; },
+    async runDirectAction() {},
+    async readProviderState() { return { status: "absent" }; },
+  };
+  const router = createProductionProviderRouter({
+    now: () => new Date(0),
+    lumaWorkflow: emptyWorkflow,
+    connpassWorkflow: { ...emptyWorkflow, async discoverCandidates() { return candidates; } },
+    eventPreferences: "Tokyo AI events",
+    async rankCandidates(input) {
+      rankingInputs.push(input.candidates);
+      return validateProviderCandidateRanking({ ranked_events: input.candidates.map((candidate) => ({
+        event_ref: candidate.event_ref,
+        priority_class: "ai",
+        preference_fit: "strong",
+        preference_reason: "Direct AI fit.",
+      })) }, input);
+    },
+    actionCache: { async replay() {}, async saveVerifiedRepair() {} },
+    browserHarness: { async runFallback() {} },
+    async performAction() {},
+  });
+
+  await router.discoverCandidates("connpass", [], {});
+  const selected = rankingInputs[0];
+  assert.equal(selected.length, 12);
+  assert.equal(selected[0].event_ref, "connpass-event://event/day-1");
+  assert.equal(selected.at(-1).event_ref, "connpass-event://event/day-28");
+  assert.ok(selected.some((candidate) => candidate.event_ref === "connpass-event://event/day-15"));
+});
+
+test("production provider router rotates the candidate chosen for each date every half hour", async () => {
+  const candidates = Array.from({ length: 12 }, (_, day) => ["a", "b"].map((suffix) => rankingCandidate(
+    `day-${day + 1}-${suffix}`,
+    new Date(Date.UTC(2026, 8, day + 1, 0)).toISOString(),
+  ))).flat();
+  let now = new Date(0);
+  const rankingInputs = [];
+  const emptyWorkflow = {
+    async discoverCandidates() { return []; },
+    async runDirectAction() {},
+    async readProviderState() { return { status: "absent" }; },
+  };
+  const router = createProductionProviderRouter({
+    now: () => now,
+    lumaWorkflow: emptyWorkflow,
+    connpassWorkflow: { ...emptyWorkflow, async discoverCandidates() { return candidates; } },
+    eventPreferences: "Tokyo AI events",
+    async rankCandidates(input) {
+      rankingInputs.push(input.candidates);
+      return validateProviderCandidateRanking({ ranked_events: input.candidates.map((candidate) => ({
+        event_ref: candidate.event_ref,
+        priority_class: "ai",
+        preference_fit: "strong",
+        preference_reason: "Direct AI fit.",
+      })) }, input);
+    },
+    actionCache: { async replay() {}, async saveVerifiedRepair() {} },
+    browserHarness: { async runFallback() {} },
+    async performAction() {},
+  });
+
+  await router.discoverCandidates("connpass", [], {});
+  now = new Date(1_800_000);
+  await router.discoverCandidates("connpass", [], {});
+  assert.deepEqual(rankingInputs[0].map((candidate) => candidate.event_ref),
+    candidates.filter((_, index) => index % 2 === 0).map((candidate) => candidate.event_ref));
+  assert.deepEqual(rankingInputs[1].map((candidate) => candidate.event_ref),
+    candidates.filter((_, index) => index % 2 === 1).map((candidate) => candidate.event_ref));
+});
+
 test("production provider router places invalid and missing starts_at candidates at the bounded selection tail", async () => {
   const dated = [
     ...Array.from({ length: 5 }, (_, index) => rankingCandidate(`dated-august-${index}`, "2026-08-31T09:00:00.000+09:00")),
@@ -391,6 +470,7 @@ test("production provider router places invalid and missing starts_at candidates
     async readProviderState() { return { status: "absent" }; },
   };
   const router = createProductionProviderRouter({
+    now: () => new Date(0),
     lumaWorkflow: emptyWorkflow,
     connpassWorkflow: { ...emptyWorkflow, async discoverCandidates() { return [...dated, late, ...invalid]; } },
     eventPreferences: "Tokyo AI events",
@@ -410,8 +490,8 @@ test("production provider router places invalid and missing starts_at candidates
 
   await router.discoverCandidates("connpass", [], {});
   assert.equal(rankingInputs[0].length, 12);
-  assert.deepEqual(rankingInputs[0].slice(-4).map((candidate) => candidate.event_ref), invalid.slice(0, 4).map((candidate) => candidate.event_ref));
-  assert.equal(rankingInputs[0].some((candidate) => candidate.event_ref === late.event_ref), false);
+  assert.deepEqual(rankingInputs[0].slice(-3).map((candidate) => candidate.event_ref), invalid.slice(0, 3).map((candidate) => candidate.event_ref));
+  assert.equal(rankingInputs[0].some((candidate) => candidate.event_ref === late.event_ref), true);
 });
 
 // Fake Connpass join page, shaped exactly like joinFlowFixture in

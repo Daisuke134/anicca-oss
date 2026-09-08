@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -40,3 +42,34 @@ def test_mercor_pass_binds_exact_leased_page():
     prompt = (ROOT / "apps/job-search-loop/prompts/mercor-pass.md").read_text()
     assert "--cdp-page-ws" in source
     assert "drive only that exact leased page websocket" in prompt
+
+
+def test_owner_does_not_release_foreign_lease_when_acquire_is_busy(tmp_path):
+    calls = tmp_path / "calls"
+    fake_lease_python = tmp_path / "lease-python"
+    fake_lease_python.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' \"$2\" >>\"$CALLS\"\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    fake_lease_python.chmod(0o755)
+    state_root = tmp_path / "state"
+    env = {
+        **os.environ,
+        "CALLS": str(calls),
+        "LIFE_MANAGER_LEASE_PYTHON": str(fake_lease_python),
+        "LIFE_MANAGER_PYTHON": "/usr/bin/python3",
+        "LIFE_MANAGER_STATE_ROOT": str(state_root),
+    }
+
+    result = subprocess.run(
+        ["zsh", str(ROOT / "skills/earn/mercor/scripts/application-owner")],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert calls.read_text(encoding="utf-8").splitlines() == ["acquire"]

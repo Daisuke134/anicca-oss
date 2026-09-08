@@ -108,7 +108,7 @@ function fixture(overrides = {}) {
   };
 }
 
-test("one wake reuses one owned session, target, and page across candidates and providers", async () => {
+test("one wake reuses one owned page and ordinary failures do not cross provider boundaries", async () => {
   const state = fixture();
 
   const result = await runMinimalConnectorWake({
@@ -116,7 +116,7 @@ test("one wake reuses one owned session, target, and page across candidates and 
     providers: ["luma", "connpass"],
   }, state.dependencies);
 
-  assert.equal(result.status, "circuit_open");
+  assert.equal(result.status, "completed_no_effect");
   assert.equal(state.calls.filter(([name]) => name === "open").length, 1);
   assert.equal(state.calls.filter(([name]) => name === "close").length, 1);
   const navigations = state.calls.filter(([name]) => name === "navigate");
@@ -321,7 +321,7 @@ test("a non-Error external throw records its real constructor name as error_clas
     },
   });
 
-  await runMinimalConnectorWake({
+  const result = await runMinimalConnectorWake({
     ownerToken: "owner-token-connector-minimal-1",
     providers: ["luma", "connpass"],
   }, state.dependencies);
@@ -653,6 +653,70 @@ test("an uncoded browser_harness throw still records the fallback reason and a p
   assert.equal(JSON.stringify(harnessFailure).includes("private stubbed harness failure detail"), false);
 });
 
+test("an unavailable Connpass registration page does not invoke browser fallback", async () => {
+  let state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate("connpass", "unavailable")];
+    },
+    async runDirectAction() {
+      const error = new Error("private provider detail");
+      error.code = "CONNPASS_REGISTRATION_UNAVAILABLE";
+      throw error;
+    },
+    async runAgentFallback() { throw new Error("browser fallback must not run"); },
+  });
+  await runMinimalConnectorWake({ ownerToken: "owner-token-connpass-unavailable", providers: ["connpass"] }, state.dependencies);
+  assert.equal(state.calls.some(([name]) => name === "agent"), false);
+  assert.equal(state.calls.some(([name, row]) => name === "history" && row.safe_reason === "unsafe_agent_action"), false);
+});
+
+test("known no-effect registration blockers continue to the next candidate without opening the circuit", async () => {
+  let state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate(provider, "blocked"), candidate(provider, "next")];
+    },
+    async runDirectAction({ candidate: selected }) {
+      if (selected.event_ref.endsWith("/blocked")) return Object.freeze({ status: "failed", safe_reason: "luma_required_profile_field_unavailable" });
+      return Object.freeze({ status: "completed", provider_state: { status: "registered" } });
+    },
+    async readProviderState({ candidate: selected, phase }) {
+      return Object.freeze({ status: phase === "pre_submit" || selected.event_ref.endsWith("/blocked") ? "absent" : "registered" });
+    },
+    async completeEvidence() { return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-next", completion_disposition: "created" }); },
+  });
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-known-no-effect", providers: ["luma"] }, state.dependencies);
+  assert.equal(result.status, "applied_bundle");
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 0);
+});
+
+test("a Connpass questionnaire blocker invokes browser fallback and completes verified evidence", async () => {
+  let state = fixture({
+    async discoverCandidates() {
+      return [candidate("connpass", "questionnaire"), candidate("connpass", "next")];
+    },
+    async runDirectAction({ candidate: selected }) {
+      return selected.event_ref.endsWith("/questionnaire")
+        ? Object.freeze({ status: "failed", safe_reason: "connpass_questionnaire_required" })
+        : Object.freeze({ status: "completed", provider_state: { status: "registered" } });
+    },
+    async runAgentFallback({ candidate: selected }) {
+      assert.equal(selected.event_ref.endsWith("/questionnaire"), true);
+      state.calls.push(["agent", selected.event_ref]);
+      return Object.freeze({ status: "completed" });
+    },
+    async readProviderState({ candidate: selected, phase }) {
+      return Object.freeze({ status: phase === "pre_submit" ? "absent" : "registered" });
+    },
+    async completeEvidence() { return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-connpass-questionnaire", completion_disposition: "created" }); },
+  });
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-connpass-questionnaire", providers: ["connpass"] }, state.dependencies);
+  assert.equal(result.status, "applied_bundle");
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
+  assert.equal(state.calls.some(([name, eventRef]) => name === "direct" && eventRef.endsWith("/next")), false);
+});
+
 test("a successful submit action row stays exactly the same shape as before (no provider/safe_reason/error_class)", async () => {
   const state = fixture();
 
@@ -877,18 +941,23 @@ test("Connpass pre-submit registered skips canonical recovery and every Submit p
 });
 
 test("three consecutive candidate failures open the circuit before a fourth navigation", async () => {
-  const state = fixture();
+  const state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return ["one", "two", "three", "four"].map((slug) => candidate(provider, slug));
+    },
+  });
 
   const result = await runMinimalConnectorWake({
     ownerToken: "owner-token-connector-minimal-3",
-    providers: ["luma", "connpass"],
+    providers: ["luma"],
     maxConsecutiveFailures: 3,
   }, state.dependencies);
 
   assert.equal(result.status, "circuit_open");
   assert.equal(result.safe_reason, "direct_action_unavailable");
-  assert.equal(state.calls.filter(([name]) => name === "navigate").length, 4);
-  assert.equal(state.calls.filter(([name, , , , url]) => name === "navigate" && url === "about:blank").length, 1);
+  assert.equal(state.calls.filter(([name]) => name === "navigate").length, 3);
+  assert.equal(state.calls.filter(([name, , , , url]) => name === "navigate" && url === "about:blank").length, 0);
   assert.equal(state.calls.filter(([name, , , , url]) => name === "navigate" && url !== "about:blank").length, 3);
   assert.equal(state.calls.filter(([name]) => name === "agent").length, 3);
   assert.deepEqual(state.calls.filter(([name]) => name === "report").at(-1), [
@@ -929,6 +998,10 @@ test("ambiguous agent effect stops the candidate sequence after one attempt", as
 
 test("ordinary agent action failure still uses the bounded three-candidate circuit", async () => {
   const state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return ["one", "two", "three", "four"].map((slug) => candidate(provider, slug));
+    },
     async runAgentFallback({ candidate: selected, page: suppliedPage }) {
       assert.equal(suppliedPage.page_id, "page-owned-1");
       state.calls.push(["agent", selected.event_ref, suppliedPage.page_id]);
@@ -937,7 +1010,7 @@ test("ordinary agent action failure still uses the bounded three-candidate circu
   });
   const result = await runMinimalConnectorWake({
     ownerToken: "owner-token-connector-ordinary-agent-failure",
-    providers: ["luma", "connpass"],
+    providers: ["luma"],
     maxConsecutiveFailures: 3,
   }, state.dependencies);
 
@@ -1017,7 +1090,7 @@ test("valid direct safe reason survives failed fallback and opens the circuit wi
     async runAgentFallback() { return Object.freeze({ status: "failed", safe_reason: "agent_action_failed" }); },
   });
   const result = await runMinimalConnectorWake({
-    ownerToken: "owner-token-connector-safe-reason", providers: ["luma", "connpass"], maxConsecutiveFailures: 3,
+    ownerToken: "owner-token-connector-safe-reason", providers: ["luma"], maxConsecutiveFailures: 2,
   }, state.dependencies);
   assert.equal(result.safe_reason, "peatix_unknown_required_field");
   assert.deepEqual(state.calls.filter(([name]) => name === "report").at(-1), [
@@ -1088,7 +1161,7 @@ test("malformed direct safe reason becomes generic and does not reach the circui
     async runAgentFallback() { return Object.freeze({ status: "failed", safe_reason: "agent_action_failed" }); },
   });
   const result = await runMinimalConnectorWake({
-    ownerToken: "owner-token-connector-safe-generic", providers: ["luma", "connpass"], maxConsecutiveFailures: 3,
+    ownerToken: "owner-token-connector-safe-generic", providers: ["luma"], maxConsecutiveFailures: 2,
   }, state.dependencies);
   assert.equal(result.safe_reason, "direct_action_unverified");
   assert.doesNotMatch(result.safe_reason, /peatix\.com|private/);
@@ -1111,7 +1184,7 @@ test("discovery circuit reports the exact bounded provider stage", async () => {
   ]);
 });
 
-test("each provider's session-expired reason reaches the recorded wake report unambiguously", async () => {
+test("each provider's session-expired reason skips Harness and ends that provider", async () => {
   for (const [provider, safeReason] of [
     ["luma", "luma_session_expired"],
     ["connpass", "connpass_session_expired"],
@@ -1135,9 +1208,60 @@ test("each provider's session-expired reason reaches the recorded wake report un
       maxConsecutiveFailures: 1,
     }, state.dependencies);
 
-    assert.deepEqual(result, { status: "circuit_open", safe_reason: safeReason, telegram_provider_id: "9001" });
-    assert.deepEqual(state.calls.find(([name]) => name === "report").slice(1), ["circuit_open", safeReason]);
+    assert.deepEqual(result, { status: "completed_no_effect", safe_reason: safeReason, telegram_provider_id: "9001" });
+    assert.equal(state.calls.some(([name]) => name === "agent"), false);
+    assert.deepEqual(state.calls.find(([name]) => name === "report").slice(1), ["completed_no_effect", safeReason]);
   }
+});
+
+test("a session-expired provider does not block discovery of the next provider", async () => {
+  let state;
+  state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate(provider, "one")];
+    },
+    async runDirectAction({ provider }) {
+      return provider === "doorkeeper"
+        ? Object.freeze({ status: "failed", safe_reason: "doorkeeper_session_expired" })
+        : Object.freeze({ status: "failed", safe_reason: "direct_action_unavailable" });
+    },
+  });
+
+  const result = await runMinimalConnectorWake({
+    ownerToken: "owner-token-session-expired-continuation",
+    providers: ["doorkeeper", "eventbrite"],
+  }, state.dependencies);
+
+  assert.deepEqual(state.calls.filter(([name]) => name === "discover").map(([, provider]) => provider), [
+    "doorkeeper", "eventbrite",
+  ]);
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
+  assert.deepEqual(result, {
+    status: "completed_no_effect",
+    safe_reason: "doorkeeper_session_expired",
+    telegram_provider_id: "9001",
+  });
+});
+
+test("a mismatched session-expired reason cannot skip the provider Harness", async () => {
+  let state;
+  state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate(provider, "one")];
+    },
+    async runDirectAction() {
+      return Object.freeze({ status: "failed", safe_reason: "luma_session_expired" });
+    },
+  });
+
+  await runMinimalConnectorWake({
+    ownerToken: "owner-token-mismatched-session-expired",
+    providers: ["doorkeeper"],
+  }, state.dependencies);
+
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
 });
 
 test("the ten-minute wake deadline stops browser churn and still reports the wake", async () => {

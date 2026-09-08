@@ -74,7 +74,7 @@
       "absorbed_files": [
         {"source": "skills/agent-runner/agent_runner.py", "target": "runtime/agent-runner/agent_runner.py", "sha256": "e3e70b73cc631abf2adfc830edd88d666c28ede1c2bb7f14f3c296015b65bdd7"},
         {"source": "skills/agent-runner/config.json", "target": "runtime/agent-runner/config.json", "sha256": "707d06bf31c4ccc6e010648eca2c47e4a019fdabc0a579a4763c593f9221effc"},
-        {"source": "skills/agent-runner/context_packet.py", "target": "runtime/agent-runner/context_packet.py", "sha256": "4e2c17ac3b29eb6d7428f1006f30c5e7b6261de347ec913508b8e292cd6a0d0e"},
+        {"source": "skills/agent-runner/context_packet.py", "target": "runtime/agent-runner/context_packet.py", "sha256": "2e3592a93d5e59c25a6a3f0e8c2576af92e36c7a2fc0cdd6d8600bed1ea756d2"},
         {"source": "skills/agent-runner/usage_report.py", "target": "runtime/agent-runner/usage_report.py", "sha256": "789c90de99efca6c15ba3714f2888dda777a7701214dd567c7ea38302eb81709"},
         {"source": "skills/agent-runner/tests/test_prompt_fail_closed.py", "target": "runtime/agent-runner/tests/test_prompt_fail_closed.py", "sha256": "175961a8f6dee55de540cbb5691b0da4746f09bebc8226d56acaf788e2811209"},
         {"source": "skills/agent-runner/tests/test_usage_report.py", "target": "runtime/agent-runner/tests/test_usage_report.py", "sha256": "47ae83b8f33cec8c8d6dc14a8daefa3e1ae480b466baf548dcfec179977b8d9c"}
@@ -90,7 +90,7 @@
       "absorbed_roots": [
         {"source": "skills/anicca-booking", "target": "skills/anicca-booking", "files": 5, "inventory_sha256": "ce5c1b46422d1a564896a20069d9bacfed8595f67dc67b270f73d0ff1ceb220d"},
         {"source": "skills/capafy-autopublish", "target": "skills/capafy-autopublish", "files": 219, "inventory_sha256": "f86648b8492d5530e6ad14a8bf3efae5dce0861f99908cd65ec1d4297c543d32"},
-        {"source": "skills/_shared", "target": "skills/_shared", "files": 175, "inventory_sha256": "44c3005f2cfea9bc5e070768db78356e184793dcfe189a5ae286aff4fe1440b9"},
+        {"source": "skills/_shared", "target": "skills/_shared", "files": 187, "inventory_sha256": "1b2d0baf016245225f9864a353eaecd4c3586587218aef753aa05b96d23390e2"},
         {"source": "skills/anicca-life-manager", "target": "skills/anicca-life-manager", "files": 19, "inventory_sha256": "a143cdead2df31e4135f1c7d0c82ac1689a4c74a21966bac11d60b785e068ef9"}
       ]
     },

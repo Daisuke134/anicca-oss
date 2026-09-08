@@ -41,7 +41,7 @@ success while earning nothing.
 | Matching exactly one element, and recording what it saw instead of discarding it | `skills/_shared/marketplace-core/scripts/dom_contract.py` (`exactly_one`, `visible_one`) — see `marketplace-apply-lane.md`'s "refuse loudly" rule, which applies here unchanged |
 | Deciding whether a failure may end a wake | `references/transient-vs-fatal.md` |
 | Deciding whether a loop may operate an account on a given platform at all | `references/platform-automation-map.md` |
-| Per-owner browser context so lanes stop fighting over one CDP socket (tracked, not finished — see fault 14) | `skills/browser/scripts/cdp_context_lease.py` |
+| Per-owner browser context so lanes stop fighting over one CDP socket (tracked, not finished — see fault 15) | `skills/browser/scripts/cdp_context_lease.py` |
 
 A Storefront adapter's only job is DOM operation for one platform. An adapter that grows its
 own selection logic, its own ledger or its own catalogue is the defect this file exists to
@@ -179,33 +179,58 @@ no match, rather than selecting by index or nearest value. Select by label, neve
 neighbour, and stop the wake loudly on a mismatch, because a mismatch means the form changed
 shape.
 
+**13. A minimum length the page never exposed as a field, only as label text.** The storefront
+lane stalled at 基本情報 → 料金表 across four rounds of live diagnostics before anyone read the
+title field's own label: `"タイトル … 0→1でWebアプリ・業務システムを最短開発します 23 / 40
+25文字以上で入力してください"`. Lancers requires the title *stem* — `title_stem` alone, not the
+public title with 「ます」 appended, which the page adds itself and refuses to let be deleted —
+to be 25-40 characters. 15 of the catalogue's 20 families projected a stem under 25 (as low as
+18) and silently could not advance past step one. Fixed by adding a Lancers-only `title_stem`
+override to each affected family's `platform_overrides.lancers` in `catalog.json` (Coconala's
+shared `title_ja` is untouched — Coconala has no minimum, so lengthening the shared title to
+satisfy Lancers would have been the wrong repair), `project_lancers` preferring that override
+when present, and both `project_lancers` and `storefront_offer.py`'s `_validate_product` now
+raising loudly — `LancersTitleStemLengthError` / `product_invalid` — on a stem outside 25-40,
+naming the family and the actual length, instead of emitting a stem that cannot be submitted.
+`_validate_product`'s old bound (`1 <= len(title_stem + "ます") <= 40`) was wrong twice: the
+character count belongs on the stem alone, and the floor was 1, not 25.
+
+Cross-reference fault 8 (a category value the form does not offer): same class of defect. The
+catalogue was internally self-consistent and wrong about the world, and no test inside the
+catalogue's own tests could see that, because nothing checked the catalogue against what the
+provider's page actually required. The general lesson: **an adapter that reports fields it
+knows about, rather than what the page said about them, will keep re-discovering the same class
+of defect one round at a time.** The page had already named its own requirement in the label
+text for as long as the field existed; four rounds of diagnostics were spent because nothing
+ever read that label as a fact rather than a caption.
+
 ## Cross-cutting, both platforms
 
-**13. Shipping is not merging** — same as the Apply guide (`marketplace-apply-lane.md`), but
+**14. Shipping is not merging** — same as the Apply guide (`marketplace-apply-lane.md`), but
 restate with the storefront's own instance: a merged fix stays dormant until a release is cut
 from a main SHA and **each label is repointed at it**, one label at a time. Fault 10 above is
 exactly this in progress: the fix exists on PR #4537 and does nothing for a running Lancers
 lane until it is merged, released, and its label is repointed.
 
-**14. Lanes sharing one CDP port contend.** CDP allows one websocket per target, which
+**15. Lanes sharing one CDP port contend.** CDP allows one websocket per target, which
 produced `HTTP 500` between lanes on the same port. Per-owner browser contexts via
 `Target.createBrowserContext` are the fix, implemented in
 `skills/browser/scripts/cdp_context_lease.py` — but wiring every lane through it is **tracked
 work, not finished work**. Say so rather than assuming it is already in effect.
 
-**15. Nested account locks deadlock.** `fcntl.flock` locks an open file description, not a
+**16. Nested account locks deadlock.** `fcntl.flock` locks an open file description, not a
 process, so a second acquisition nested inside a held one waits on itself forever. A wake that
 needs two independent effects on the same account must take the lock twice, sequentially, not
 hold it across both.
 
-**16. Official readback is the only proof.** Nothing is claimed as published until it is read
+**17. Official readback is the only proof.** Nothing is claimed as published until it is read
 back from the public page. A submit that returns 200 is not a listing; a listing id parsed
 from the post-submit URL, then confirmed by reading the public page it names, is. This is the
 same discipline `marketplace-paid-lane.md` states for Paid: "Paid work is not revenue until the
 relevant official money receipt exists." A Storefront listing is not live until the relevant
 official public-page receipt exists.
 
-**17. An env var frozen at migration time outlives every later change.** Merging, cutting a
+**18. An env var frozen at migration time outlives every later change.** Merging, cutting a
 release and repointing the label all leave it untouched, because the plist writer preserves old
 environment variables and the new definition never mentions the key. A config file that no
 longer reaches the job is worse than no config file, because it reads as authoritative. This is
@@ -234,7 +259,7 @@ State this plainly rather than let the fault list above read as a working lane:
   (`_CREATE_SUBMIT_LABELS = ("確認画面へ", "公開する", "公開", "保存する", "保存")`) and fails
   loudly, naming every button text it actually saw, rather than guessing — that runtime
   discovery is what covers the gap, not a confirmed observation of which label really appears.
-- Per-lane browser contexts (fault 14) are not finished; lanes on a shared CDP port can still
+- Per-lane browser contexts (fault 15) are not finished; lanes on a shared CDP port can still
   contend.
 
 A guide that reads as if the lane works would be the worst possible version of this file.

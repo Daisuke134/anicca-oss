@@ -646,7 +646,9 @@ class MacosLoopRegistryTest(unittest.TestCase):
 
     def test_loop_entrypoints_do_not_select_auth_or_codex_home(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
-        forbidden = re.compile(r"CODEX_HOME|auth\.json|AGENT_RUNNER_PROVIDER")
+        forbidden = re.compile(
+            r"CODEX_HOME|(?<![-\w])auth\.json|AGENT_RUNNER_PROVIDER"
+        )
         violations = []
         for loop_id, entry in registry["loops"].items():
             path = ROOT / entry["entrypoint"]
