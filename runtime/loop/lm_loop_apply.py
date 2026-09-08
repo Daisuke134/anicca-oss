@@ -108,6 +108,17 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             ),
             "LIFE_MANAGER_REPO": str(release_root),
         })
+    if loop_id == "agent-economy-loop":
+        agent_economy_state = os.path.expanduser(entry["state_root"])
+        value["EnvironmentVariables"].update({
+            "ANICCA_REPO": str(release_root),
+            "ANICCA_CODE_ROOT": str(release_root),
+            "ANICCA_RELEASE_ROOT": str(release_root.parent.parent),
+            "ANICCA_HOME": agent_economy_state,
+            "CEO_EFFECTIVE_CRON_DIR": str(
+                Path(agent_economy_state) / "state/effective-cron"
+            ),
+        })
     if loop_id in {"pm-decision-loop", "pm-live-trade"}:
         node = shutil.which("node")
         if not node or not Path(node).is_absolute():

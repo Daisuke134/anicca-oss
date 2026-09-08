@@ -178,6 +178,21 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
                          str(Path.home() / ".local/state/life-manager/example"))
 
+    def test_agent_economy_plist_owns_code_and_mutable_home_paths(self):
+        value = registry()
+        value["loops"]["agent-economy-loop"] = value["loops"].pop("example")
+        rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
+        environment = rendered["EnvironmentVariables"]
+        state = str((Path.home() / ".local/state/life-manager/example"))
+        self.assertEqual(environment["ANICCA_REPO"], str(self.root.resolve()))
+        self.assertEqual(environment["ANICCA_CODE_ROOT"], str(self.root.resolve()))
+        self.assertEqual(environment["ANICCA_RELEASE_ROOT"], str(self.root.resolve().parent.parent))
+        self.assertEqual(environment["ANICCA_HOME"], state)
+        self.assertEqual(
+            environment["CEO_EFFECTIVE_CRON_DIR"],
+            str(Path(state) / "state/effective-cron"),
+        )
+
     def test_writer_plist_projects_one_state_log_and_env_contract(self):
         writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
         writer_entrypoint.parent.mkdir(parents=True)
