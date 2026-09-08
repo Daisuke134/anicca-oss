@@ -22,6 +22,7 @@ class CutLoopReleaseTest(unittest.TestCase):
                 )
                 modules = package / "node_modules"
                 modules.mkdir()
+                (modules / ".package-lock.json").write_text("{}\n")
                 (modules / "donor-marker").write_text("sealed")
             (donor / "RELEASE.json").write_text(
                 '{"sha":"%s","release_paths":"ALL"}\n' % ("a" * 40)
@@ -54,6 +55,35 @@ class CutLoopReleaseTest(unittest.TestCase):
                 self.assertEqual(
                     (release / relative / "node_modules/donor-marker").read_text(), "sealed"
                 )
+
+    def test_release_ignores_an_empty_matching_dependency_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            loops = root / "loops"
+            donor = loops / "releases" / "donor"
+            for relative in (Path("."), Path("runtime/agentmail"), Path("apps/life-manager")):
+                package = donor / relative
+                package.mkdir(parents=True, exist_ok=True)
+                (package / "package-lock.json").write_bytes(
+                    (ROOT / relative / "package-lock.json").read_bytes()
+                )
+                (package / "node_modules").mkdir()
+            (donor / "RELEASE.json").write_text('{"sha":"%s"}\n' % ("a" * 40))
+            (loops / "current").symlink_to(donor)
+            calls = root / "npm.calls"
+            npm = root / "npm"
+            npm.write_text(f'#!/bin/sh\nprintf "%s\n" "$PWD" >> "{calls}"\nmkdir -p node_modules\nprintf "{{}}\\n" > node_modules/.package-lock.json\n')
+            npm.chmod(0o755)
+
+            result = subprocess.run(
+                ["/bin/bash", str(ROOT / "bin/cut-loop-release.sh"), "origin/main"],
+                cwd=ROOT,
+                env={**os.environ, "LOOPS_ROOT": str(loops), "LOOPS_KEEP_RELEASES": "2", "NPM_BIN": str(npm)},
+                capture_output=True, text=True, check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(calls.read_text().splitlines()), 3)
 
     def test_release_builds_locked_root_and_agentmail_dependencies(self):
         with tempfile.TemporaryDirectory() as directory:
