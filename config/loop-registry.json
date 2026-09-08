@@ -1786,9 +1786,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/life-manager/life-manager-daily.sh",
       "label": "ai.anicca.life-manager-daily",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/life-manager-daily/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/life-manager-daily"
     },
     "life-manager-daily-driver": {
       "adapter": "exec",
@@ -1827,9 +1827,9 @@
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/life-manager-dev-daily.js",
       "label": "ai.anicca.life-manager-dev",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/state/life-manager-dev/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/state/life-manager-dev"
     },
     "life-manager-disk-cleanup": {
       "cadence": {
@@ -1988,9 +1988,9 @@
       "effect_class": "none",
       "entrypoint": "skills/life-manager/self-build-daily.sh",
       "label": "ai.anicca.life-manager-selfbuild",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/life-manager-selfbuild/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/life-manager-selfbuild"
     },
     "life-manager-taskmarket-ledger": {
       "adapter": "exec",
@@ -2006,9 +2006,9 @@
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh",
       "label": "ai.anicca.life-manager-taskmarket-ledger",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/life-manager-taskmarket-ledger/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/life-manager-taskmarket-ledger"
     },
     "life-manager-tiktok-metrics": {
       "cadence": {
@@ -2040,9 +2040,9 @@
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/ugig-invoice-observer-boot.sh",
       "label": "ai.anicca.life-manager-ugig-invoice-observer",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/life-manager-ugig-invoice-observer/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/life-manager-ugig-invoice-observer"
     },
     "life-manager-x402-ledger": {
       "cadence": {
@@ -2072,9 +2072,9 @@
       "effect_class": "none",
       "entrypoint": "skills/life-manager-video/run-store-recordings.sh",
       "label": "ai.anicca.lm-recording-store",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/lm-recording-store/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/lm-recording-store"
     },
     "marketing-daily-report": {
       "cadence": {
