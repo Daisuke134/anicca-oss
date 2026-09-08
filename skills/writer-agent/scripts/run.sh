@@ -43,6 +43,8 @@ if [[ ! -d "$SKILL_DIR/scripts" ]]; then
   echo "FATAL: writer skill scripts directory is missing: $SKILL_DIR/scripts" >&2
   exit 1
 fi
+# shellcheck source=writer-runtime-env.sh
+source "$SKILL_DIR/scripts/writer-runtime-env.sh"
 QUALITY_ADVISORY_MODE="${ARTICLE_QUALITY_ADVISORY:-0}"
 QUALITY_GATES_ALL_PASS=1
 run_quality_gate() {
@@ -76,18 +78,15 @@ run_quality_gate() {
   return 1
 }
 
-# spec §7.5 item 3 (OSS self-containment, 2026-07-17): these ACCOUNT values were the one
-# env-less identity spot in the whole pipeline (everything else already reads from
-# LIFE_MANAGER_ENV_FILE). Env-fallback here preserves current behavior when
-# the vars are unset (the live instance's .env does not set them yet), while letting an OSS
-# installer point this at their own accounts without editing this file.
+# Publication identities are installation settings. They come from the private
+# Life Manager environment and never from an operator-specific source default.
 case "$CHANNEL" in
-  zenn)           LANG="ja"; PLATFORM="Zenn";        ACCOUNT="${ZENN_ACCOUNT:-anicca-daisuke}" ;;
-  devto)          LANG="en"; PLATFORM="Dev.to";      ACCOUNT="${DEVTO_ACCOUNT_HANDLE:-anicca_301094325e}" ;;
-  substack-ja)    LANG="ja"; PLATFORM="Substack";    ACCOUNT="${SUBSTACK_PUBLICATION_JA:-${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}}" ;;
+  zenn)           LANG="ja"; PLATFORM="Zenn";        ACCOUNT="${ZENN_ACCOUNT:?ZENN_ACCOUNT is required}" ;;
+  devto)          LANG="en"; PLATFORM="Dev.to";      ACCOUNT="${DEVTO_ACCOUNT_HANDLE:?DEVTO_ACCOUNT_HANDLE is required}" ;;
+  substack-ja)    LANG="ja"; PLATFORM="Substack";    ACCOUNT="${SUBSTACK_PUBLICATION_JA:-${SUBSTACK_PUBLICATION:?SUBSTACK_PUBLICATION_JA or SUBSTACK_PUBLICATION is required}}" ;;
   substack-en)    LANG="en"; PLATFORM="Substack";    ACCOUNT="${SUBSTACK_PUBLICATION_EN:?SUBSTACK_PUBLICATION_EN is required for substack-en}" ;;
-  note)           LANG="ja"; PLATFORM="Note";        ACCOUNT="${NOTE_URLNAME:-anicca123}" ;;
-  aniccaai-blog)  LANG="ja"; PLATFORM="aniccaai-blog"; ACCOUNT="aniccaai.com" ;;
+  note)           LANG="ja"; PLATFORM="Note";        ACCOUNT="${NOTE_URLNAME:?NOTE_URLNAME is required}" ;;
+  aniccaai-blog)  LANG="ja"; PLATFORM="aniccaai-blog"; ACCOUNT="${ARTICLE_BLOG_ACCOUNT:?ARTICLE_BLOG_ACCOUNT is required}" ;;
   *) echo "FATAL: unknown channel: $CHANNEL" >&2; exit 1 ;;
 esac
 
@@ -170,12 +169,7 @@ case "$PHASE" in
       devto)
         URL="$(bash "$SKILL_DIR/scripts/publish-devto.sh" --markdown-file "$MD_FILE" --title "$TITLE" --meta "$META")" ;;
       substack-ja|substack-en)
-        if [[ "$CHANNEL" == "substack-ja" ]]; then
-          export SUBSTACK_PUBLICATION="${SUBSTACK_PUBLICATION_JA:-${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}}"
-        else
-          : "${SUBSTACK_PUBLICATION_EN:?SUBSTACK_PUBLICATION_EN is required for substack-en}"
-          export SUBSTACK_PUBLICATION="$SUBSTACK_PUBLICATION_EN"
-        fi
+        export SUBSTACK_PUBLICATION="$ACCOUNT"
         # publish-substack.sh alone ships raw ```mermaid fences unrendered (Substack does not
         # render mermaid) -- publish-substack-mermaid.sh wraps it with the kroki->PNG->upload
         # step first (spec #45), draft-only by default, same as before.
@@ -273,7 +267,7 @@ case "$PHASE" in
     esac
 
     # Record to account-history (HR-C) — honest draft status, not a fabricated "posted"
-    . "$HOME/.openclaw/skills/_shared/lib/account-history.sh"
+    . "$LIFE_MANAGER_REPO/skills/_shared/lib/account-history.sh"
     CTX="$(bash "$SKILL_DIR/scripts/propose.sh" --channel "$CHANNEL" 2>/dev/null || echo '{}')"
     PATTERN_ID="$(printf '%s' "$CTX" | jq -r '.pattern.source_id // "unknown"')"
     STRUCT_TYPE="$(printf '%s' "$CTX" | jq -r '.pattern.niche_tags[0] // "article"')"

@@ -6,6 +6,9 @@
 # Exit 0 = pass. Exit !=0 = fix and retry.
 
 set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 
 TITLE=""
 META=""
@@ -31,6 +34,21 @@ MD="$(cat "$MD_FILE")"
 ERRORS=0
 WARN=0
 
+configured_url_present() {
+  local configured="$1" item
+  local -a items
+  IFS=',' read -r -a items <<< "$configured"
+  for item in "${items[@]}"; do
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    [[ "$item" == https://* || "$item" == http://* ]] || continue
+    if printf '%s' "$MD" | grep -F -q -- "$item"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Title length
 TL="$(printf '%s' "$TITLE" | python3 -c "import sys; print(len(sys.stdin.read()))")"
 case "$LANG" in
@@ -51,13 +69,18 @@ ML="$(printf '%s' "$META" | python3 -c "import sys; print(len(sys.stdin.read()))
 H2="$(printf '%s' "$MD" | grep -c '^## ' || true)"
 [[ "$H2" -ge 3 && "$H2" -le 12 ]] || { echo "❌ H2 count: $H2 (need 3-12)" >&2; ERRORS=$((ERRORS+1)); }
 
-# Internal link (link to aniccaai.com / anicca-oss GitHub / X follow / note / Substack) at least 1.
-# NOT restricted to markdown [text](url) syntax (task #14, discovered while testing against
-# the real article): this repo's actual articles paste bare trailing URLs (e.g. this very
-# article's own GitHub link and 出典 section), a bracket-only regex made even the real
-# GitHub CTA fail this gate. Match the raw URL wherever it appears.
-INT_LINK="$(printf '%s' "$MD" | grep -E -c 'https?://(aniccaai\.com|github\.com/Daisuke134/anicca|x\.com/aniccaxxx|note\.com/anicca123|aniccabuddha\.substack\.com)' || true)"
-[[ "$INT_LINK" -ge 1 ]] || { echo "❌ internal link count: $INT_LINK (need ≥1 to aniccaai.com / anicca-oss / @aniccaxxx / note.com/anicca123 / aniccabuddha.substack.com)" >&2; ERRORS=$((ERRORS+1)); }
+# Installation-owned destinations, supplied as comma-separated absolute URL prefixes.
+INTERNAL_URLS="${ARTICLE_INTERNAL_LINK_URLS:-${ARTICLE_CTA_URLS:-}}"
+if [[ -z "$INTERNAL_URLS" ]]; then
+  echo "❌ ARTICLE_INTERNAL_LINK_URLS or ARTICLE_CTA_URLS is required" >&2
+  ERRORS=$((ERRORS+1))
+elif configured_url_present "$INTERNAL_URLS"; then
+  INT_LINK=1
+else
+  INT_LINK=0
+  echo "❌ internal link count: 0 (need ≥1 configured installation URL)" >&2
+  ERRORS=$((ERRORS+1))
+fi
 
 # CTA-link requirement (task #14, replaces the old iOS-app-era aniccaai.com-anchor +
 # App Store deeplink requirement -- that funnel is gone; today's funnel is free version ->
@@ -68,9 +91,9 @@ INT_LINK="$(printf '%s' "$MD" | grep -E -c 'https?://(aniccaai\.com|github\.com/
 # regex would miss. Exempt with --is-paid-body: a paid full version's CTA is itself, the
 # reader is already there.
 if [[ "$IS_PAID_BODY" -eq 0 ]]; then
-  CTA_RE='https?://(note\.com/anicca123/n/|aniccabuddha\.substack\.com/|aniccaai\.com)'
-  if ! printf '%s' "$MD" | grep -E -q -- "$CTA_RE"; then
-    echo "❌ seo-gate CTA-link: no link to note.com/anicca123/n/... or aniccabuddha.substack.com/... or aniccaai.com in body (need ≥1; pass --is-paid-body to exempt a paid full version, whose CTA is itself)" >&2
+  CTA_URLS="${ARTICLE_CTA_URLS:-}"
+  if [[ -z "$CTA_URLS" ]] || ! configured_url_present "$CTA_URLS"; then
+    echo "❌ seo-gate CTA-link: no configured ARTICLE_CTA_URLS prefix in body (pass --is-paid-body to exempt a paid full version)" >&2
     ERRORS=$((ERRORS+1))
   fi
 fi
@@ -88,7 +111,7 @@ if printf '%s' "$MD$TITLE$META" | grep -F -i -- 'on behalf of' >/dev/null 2>&1; 
 fi
 
 # HR-J verbatim borrowed phrase blacklist
-VG_LIB="$HOME/.openclaw/skills/_shared/lib/verbatim-guard.sh"
+VG_LIB="$LIFE_MANAGER_REPO/skills/_shared/lib/verbatim-guard.sh"
 if [[ -f "$VG_LIB" ]]; then
   . "$VG_LIB"
   if ! vg_check "${MD}${TITLE}${META}" 2>/tmp/seo-gate-vg.err; then
@@ -128,7 +151,7 @@ if [[ "$LANG" == "en" ]]; then
   fi
 fi
 
-echo "seo-gate: errors=$ERRORS warnings=$WARN title=$TL chars meta=$ML chars H2=$H2 int_links=$INT_LINK body=$BC chars"
+echo "seo-gate: errors=$ERRORS warnings=$WARN title=$TL chars meta=$ML chars H2=$H2 int_links=${INT_LINK:-0} body=$BC chars"
 if [[ "$ERRORS" -gt 0 ]]; then
   exit 1
 fi
