@@ -5,6 +5,7 @@ REPO_ROOT="${LIFE_MANAGER_REPO:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-pa
 [ -n "$REPO_ROOT" ] || { echo "fundraiser: repository unavailable" >&2; exit 2; }
 STATE_ROOT="${FUNDRAISER_STATE_ROOT:-$HOME/.local/state/life-manager/fundraiser}"
 LOCK_DIR="$STATE_ROOT/run.lock"
+LOCK_HELPER="$REPO_ROOT/skills/fundraiser-agent/runtime/run-lock.sh"
 LOG="$STATE_ROOT/fundraiser.log"
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 EVIDENCE_DIR="$STATE_ROOT/evidence/$RUN_ID"
@@ -58,11 +59,12 @@ fi
 
 mkdir -p "$STATE_ROOT/evidence" "$EVIDENCE_DIR"
 chmod 700 "$STATE_ROOT" "$STATE_ROOT/evidence" "$EVIDENCE_DIR"
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+source "$LOCK_HELPER"
+if ! acquire_run_lock "$LOCK_DIR"; then
   echo "fundraiser: prior pass still owns the loop" >>"$LOG"
   exit 0
 fi
-trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+trap 'release_run_lock "$LOCK_DIR"' EXIT
 
 export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export LIFE_MANAGER_REPO="$REPO_ROOT"

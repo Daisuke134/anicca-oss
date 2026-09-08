@@ -867,7 +867,7 @@
     },
     "fundraiser": {
       "cadence": {
-        "start_interval_seconds": 60
+        "start_interval_seconds": 1800
       },
       "cleanup": {
         "max_age_days": 14,

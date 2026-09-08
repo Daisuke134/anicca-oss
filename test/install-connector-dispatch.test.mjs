@@ -21,3 +21,14 @@ test("Connector one-command installer reuses immutable release and lm-loop contr
   assert.match(source, /lm-loop" status "\$LOOP_ID"/);
   assert.doesNotMatch(source, /launchctl (?:load|unload|bootstrap|bootout|kickstart)/);
 });
+
+test("root installer dispatches Fundraiser through the immutable loop control plane", () => {
+  const rootInstaller = readFileSync(join(root, "install.sh"), "utf8");
+  const source = readFileSync(join(root, "skills/fundraiser-agent/runtime/install.sh"), "utf8");
+  assert.match(rootInstaller, /fundraiser\)[\s\S]*skills\/fundraiser-agent\/runtime\/install\.sh/);
+  assert.match(source, /bin\/cut-loop-release\.sh/);
+  assert.match(source, /LIFE_MANAGER_APPLY_TARGET="\$LOOP_ID" .*lm-loop" apply/);
+  assert.match(source, /lm-loop" start "\$LOOP_ID"/);
+  assert.match(source, /lm-loop" status "\$LOOP_ID"/);
+  assert.doesNotMatch(source, /launchctl (?:load|unload|bootstrap|bootout|kickstart)/);
+});

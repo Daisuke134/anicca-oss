@@ -7,7 +7,7 @@
   <array><string>/bin/bash</string><string>__REPO_ROOT__/skills/fundraiser-agent/runtime/run.sh</string></array>
   <key>WorkingDirectory</key><string>__REPO_ROOT__</string>
   <key>RunAtLoad</key><true/>
-  <key>StartInterval</key><integer>60</integer>
+  <key>StartInterval</key><integer>1800</integer>
   <key>ThrottleInterval</key><integer>60</integer>
   <key>StandardOutPath</key><string>__STATE_ROOT__/launchd.out.log</string>
   <key>StandardErrorPath</key><string>__STATE_ROOT__/launchd.err.log</string>

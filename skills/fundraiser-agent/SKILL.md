@@ -2,7 +2,7 @@
 name: fundraiser-agent
 description: >-
   Continuous Life Manager fundraising through the existing application
-  behavior. Every minute it discovers live Web/X opportunities, applies to
+  behavior. Every 30 minutes it discovers live Web/X opportunities, applies to
   as many eligible programs as possible, and records authoritative readback.
 metadata:
   owner: life-manager
@@ -15,7 +15,7 @@ metadata:
 
 This skill gives the existing Life Manager application behavior one objective:
 fundraise continuously, 24/7. The existing Life Manager owner starts a pass every
-minute. Each pass submits as many applications as possible from the newly
+30 minutes. Each pass submits as many applications as possible from the newly
 eligible candidates within its execution window. There is no arbitrary per-pass or per-day
 application maximum, and the pass continues after the first submitted application.
 
@@ -76,4 +76,4 @@ ID. Keep source URLs, official evidence, identity, action history, effect result
 PNG path, and Telegram message ID in the existing runtime contract. Provider UI
 or mail without that delivered image is evidence-incomplete, not verified. Zero
 verified applications is not a successful no-op; report it as a failed pass with
-checked sources and continue from durable state on the next one-minute wake.
+checked sources and continue from durable state on the next 30-minute wake.
