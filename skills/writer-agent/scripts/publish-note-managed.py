@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -107,9 +108,7 @@ def main() -> int:
     }:
         raise SystemExit("refuse managed note publish: money policy drifted")
 
-    cloak_python = str(
-        HOME / ".openclaw/skills/_shared/venv-cloak/bin/python3"
-    )
+    cloak_python = os.environ.get("WRITER_BROWSER_PYTHON", sys.executable)
     if os.environ.get("NOTE_EYECATCH_COMMAND"):
         eyecatch_argv = command("NOTE_EYECATCH_COMMAND", [])
     else:

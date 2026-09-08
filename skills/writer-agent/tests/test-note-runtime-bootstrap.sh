@@ -69,6 +69,18 @@ FALLBACK_SITE="$TMP/fallback-site" \
 [[ "$(cat "$TMP/cache-target")" == "cache-sentinel" ]]
 [[ ! -L "$PROJECT2/.venv/bin/python" ]]
 
+# Interpreter paths with spaces stay one argv element.
+SPACE_BIN="$TMP/bin with space"
+mkdir -p "$SPACE_BIN"
+cp "$BIN/fallback-python" "$SPACE_BIN/fallback python"
+chmod +x "$SPACE_BIN/fallback python"
+rm "$PROJECT2/.venv/bin/python"
+FALLBACK_SITE="$TMP/fallback-site" \
+  UV_BIN="$BIN/uv-fail" \
+  NOTE_MCP_FALLBACK_PYTHON="$SPACE_BIN/fallback python" \
+  bash "$HELPER" "$PROJECT2"
+[[ -x "$PROJECT2/.venv/bin/python" ]]
+
 # A symlinked parent runtime is never mutated or accepted as a project env.
 PROJECT3="$TMP/note-mcp-parent-symlink"
 mkdir -p "$TMP/real-runtime/.venv/bin" "$PROJECT3/src/note_mcp"

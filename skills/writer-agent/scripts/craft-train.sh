@@ -36,7 +36,7 @@ VENDOR_DIR="$SKILL_DIR/vendor/skillopt-writing"
 CLIPROXY_CONF="${CLIPROXY_CONF:-/opt/homebrew/etc/cliproxyapi.conf}"
 CLIPROXY_PORT="${CLIPROXY_PORT:-8317}"
 
-PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"
+PY="${ARTICLE_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
 command -v "$PY" >/dev/null 2>&1 || PY=python3
 SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$HOME/.venvs/skillopt/bin/python3}"
 

@@ -11,7 +11,7 @@ if [ -f "$PUBLICATION_PAUSE_FILE" ]; then
   echo "zenn-deferred-worker: publication paused file=$PUBLICATION_PAUSE_FILE"
   exit 0
 fi
-SYSTEM_PYTHON="${WRITER_SYSTEM_PYTHON:-/opt/homebrew/bin/python3}"
+SYSTEM_PYTHON="${WRITER_SYSTEM_PYTHON:-$WRITER_BROWSER_PYTHON}"
 if [ ! -x "$SYSTEM_PYTHON" ]; then
   echo "Zenn worker system Python is unavailable: $SYSTEM_PYTHON" >&2
   exit 75

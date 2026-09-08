@@ -61,10 +61,7 @@ def browser_eyecatch(path: Path, target: str) -> str:
         [
             os.environ.get(
                 "WRITER_CLOAK_PYTHON",
-                str(
-                    Path(os.environ.get("HOME", str(Path.home())))
-                    / ".openclaw/skills/_shared/venv-cloak/bin/python3"
-                ),
+                os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
             ),
             str(helper),
         ],
@@ -118,7 +115,10 @@ def _guard(command: str, pair: str) -> dict[str, Any]:
         state.get("pairs", {}).get(pair, {}).get("target", "")
     )
     arguments = [
-        os.environ.get("WRITER_SYSTEM_PYTHON", "/opt/homebrew/bin/python3"),
+        os.environ.get(
+            "WRITER_SYSTEM_PYTHON",
+            os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
+        ),
         str(SCRIPTS / "publication-guard.py"),
         command,
         "--pair",

@@ -103,9 +103,9 @@ def measure_x(entry: dict) -> dict:
     if not handle:
         return {"error": "no 'handle' in manifest entry -- X status URL needs it"}
     url = entry.get("live_url") or f"https://x.com/{handle}/status/{status_id}"
-    vc = os.path.expanduser("~/.openclaw/skills/_shared/venv-cloak/bin/python3")
+    vc = os.environ.get("WRITER_BROWSER_PYTHON", sys.executable)
     if not os.path.exists(vc):
-        return {"error": f"venv-cloak python not found at {vc}"}
+        return {"error": f"Writer browser Python not found at {vc}"}
     script = f"""
 import sys, time
 from playwright.sync_api import sync_playwright

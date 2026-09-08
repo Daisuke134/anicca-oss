@@ -4,8 +4,8 @@
 # Spec: docs/superpowers/specs/2026-06-24-publish-to-note-sh-F1.md.  NEVER /tmp — data in ~/.cloak/note-work.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PY="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
-HBPY="/opt/homebrew/bin/python3"          # has `cryptography` for cookie extraction
+PY="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
+HBPY="$PY"
 WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
 DEFAULT_KEY="na3a631e63d1a"
 

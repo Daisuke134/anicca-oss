@@ -23,7 +23,7 @@ REPO_ROOT="$LIFE_MANAGER_REPO"
 SKILL_DIR="$WRITER_ROOT"
 JSONL="${CRAFT_TRAIN_JSONL:-$STATE_DIR/craft-train.jsonl}"
 TARGET="${CRAFT_TRAIN_TELEGRAM:-}"
-PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"
+PY="${ARTICLE_PYTHON:-$WRITER_BROWSER_PYTHON}"
 
 [ -f "$JSONL" ] || { echo "craft-train-notify: no $JSONL yet"; exit 0; }
 

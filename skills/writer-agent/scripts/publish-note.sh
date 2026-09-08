@@ -69,9 +69,8 @@ NOTE_MCP_DIR="${NOTE_MCP_DIR:-$HOME/.openclaw/external/note-mcp}"
 PY_VENV="$NOTE_MCP_DIR/.venv/bin/python"
 bash "$SCRIPT_DIR/ensure-note-mcp-runtime.sh" "$NOTE_MCP_DIR"
 
-# venv-cloak python (has the `cloakbrowser` lib note-stage1-render.py needs for the
-# table→PNG headless screenshot step; note-mcp's own venv does NOT have cloakbrowser).
-CLOAK_PY="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
+# Life Manager managed Python has cloakbrowser for the table-to-PNG render step.
+CLOAK_PY="$WRITER_BROWSER_PYTHON"
 
 # Ensure camofox daemon is up
 curl -sS --max-time 3 http://localhost:9377/health >/dev/null 2>&1 || \

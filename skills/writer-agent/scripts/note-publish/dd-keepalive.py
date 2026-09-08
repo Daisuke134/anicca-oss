@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reopen + keep the daily-driver CloakBrowser persistent context ALIVE forever.
 Per HARD RULE 0.39: never kill/close this. If it died (reboot), relaunch with:
-  nohup ~/.openclaw/skills/_shared/venv-cloak/bin/python3 <this> &
+  nohup "$WRITER_BROWSER_PYTHON" <this> &
 It opens the daily-driver profile headed (Dais watches via vnc://100.99.82.95),
 logged into every service, then sleeps forever so the forever-tab stays up."""
 import time

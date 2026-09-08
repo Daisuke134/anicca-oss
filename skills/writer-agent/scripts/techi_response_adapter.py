@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from email.utils import getaddresses
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,7 +20,7 @@ from claim_store import _text, canonicalize_url
 
 AUTHOR_API = "https://www.techi.com/api/account/author-application"
 AUTHOR_PROGRAM = "https://www.techi.com/authors/apply"
-VENV_CLOAK_PYTHON = Path.home() / ".openclaw/skills/_shared/venv-cloak/bin/python3"
+VENV_CLOAK_PYTHON = Path(os.environ.get("WRITER_BROWSER_PYTHON", sys.executable))
 
 
 class ResponseUnavailable(RuntimeError):
@@ -168,7 +169,7 @@ def poll(opportunity: dict[str, Any]) -> dict[str, Any] | None:
         return None
     submission_id = _text(opportunity.get("submission_id"), "submission_id")
     if not VENV_CLOAK_PYTHON.is_file():
-        raise ResponseUnavailable("venv-cloak Python is unavailable for TECHi status")
+        raise ResponseUnavailable("Writer browser Python is unavailable for TECHi status")
     cdp_url = os.environ.get("WRITER_CDP_URL", "http://127.0.0.1:9222")
     script = f'''
 import base64, json, sys

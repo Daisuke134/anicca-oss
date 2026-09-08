@@ -46,7 +46,8 @@ def _ensure_media_capable_interpreter() -> None:
         import PIL  # noqa: F401
     except ModuleNotFoundError:
         pinned = os.environ.get(
-            "ARTICLE_MEDIA_PYTHON", "/opt/homebrew/bin/python3"
+            "ARTICLE_MEDIA_PYTHON",
+            os.environ.get("WRITER_BROWSER_PYTHON", os.sys.executable),
         )
         if (
             os.path.exists(pinned)

@@ -234,6 +234,11 @@ class CleanUserInstallTest(unittest.TestCase):
         requirements = (ROOT / "requirements-runtime.txt").read_text().splitlines()
         self.assertIn("jsonschema==4.26.0", requirements)
         self.assertIn("playwright==1.59.0", requirements)
+        self.assertIn("cloakbrowser==0.5.6", requirements)
+        self.assertIn("Pillow==12.2.0", requirements)
+        self.assertIn("cryptography==46.0.5", requirements)
+        self.assertIn("websocket-client==1.9.0", requirements)
+        self.assertIn("PyYAML==6.0.3", requirements)
         bootstrap = (ROOT / "scripts/bootstrap.sh").read_text()
         self.assertIn('-r "$TARGET/requirements-runtime.txt"', bootstrap)
 

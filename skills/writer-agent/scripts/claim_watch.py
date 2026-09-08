@@ -366,7 +366,7 @@ def fetch_x(
         cloak_python = Path(
             os.environ.get(
                 "WRITER_CLOAK_PYTHON",
-                "~/.openclaw/skills/_shared/venv-cloak/bin/python3",
+                os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
             )
         ).expanduser()
     if bridge is None:

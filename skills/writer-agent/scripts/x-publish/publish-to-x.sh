@@ -43,8 +43,8 @@ run_quality_gate() {
   rm -f "$raw_file"
   return 1
 }
-VC="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
-HBPY="/opt/homebrew/bin/python3"
+VC="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
+HBPY="$VC"
 PARSE="$HOME/.claude/skills/x-article-publisher/scripts/parse_markdown.py"
 WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
 filt(){ grep -vE "Update available|pip install|fonts" || true; }

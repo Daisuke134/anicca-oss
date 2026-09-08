@@ -6,7 +6,7 @@
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$HOME/.openclaw/workspace/zenn-articles"
-PY="$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3"
+PY="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
 WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
 USER_NAME="anicca"
 export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes"

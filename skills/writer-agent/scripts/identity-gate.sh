@@ -151,7 +151,7 @@ JUDGE_VERDICT=$(printf '%s' "$JSON" | grep -o '"verdict":"[A-Z]*"' | head -1 | c
 if [ -n "${ARTICLE_RUN_DIR:-}" ]; then
   mkdir -p "$ARTICLE_RUN_DIR/gates"
   ARTICLE_HASH=$(shasum -a 256 "$MD" | awk '{print $1}')
-  RECEIPT=$(printf '%s' "$JSON" | /opt/homebrew/bin/python3 -c "
+  RECEIPT=$(printf '%s' "$JSON" | "${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}" -c "
 import json, sys
 payload = json.load(sys.stdin)
 payload['article_sha256'] = sys.argv[1]

@@ -165,7 +165,10 @@ def _guard(
     state, _ = _state()
     target = str(state.get("pairs", {}).get(pair, {}).get("target", ""))
     arguments = [
-        os.environ.get("WRITER_SYSTEM_PYTHON", "/opt/homebrew/bin/python3"),
+        os.environ.get(
+            "WRITER_SYSTEM_PYTHON",
+            os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
+        ),
         str(SCRIPTS / "publication-guard.py"),
         command,
         "--pair",
@@ -537,10 +540,7 @@ class XBrowserAdapter:
         venv_python = Path(
             os.environ.get(
                 "WRITER_CLOAK_PYTHON",
-                str(
-                    Path.home()
-                    / ".openclaw/skills/_shared/venv-cloak/bin/python3"
-                ),
+                os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
             )
         )
         prep = subprocess.run(
@@ -569,7 +569,10 @@ class XBrowserAdapter:
         )
         parsed = subprocess.run(
             [
-                os.environ.get("WRITER_SYSTEM_PYTHON", "/opt/homebrew/bin/python3"),
+                os.environ.get(
+                    "WRITER_SYSTEM_PYTHON",
+                    os.environ.get("WRITER_BROWSER_PYTHON", sys.executable),
+                ),
                 str(parser),
                 str(prepared),
                 "--output",

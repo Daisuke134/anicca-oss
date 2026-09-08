@@ -31,10 +31,10 @@ echo "note-mcp runtime missing; restoring from uv.lock" >&2
 
 restore_shared_runtime() {
   local fallback fallback_site
-  fallback="${NOTE_MCP_FALLBACK_PYTHON:-$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3}"
+  fallback="${NOTE_MCP_FALLBACK_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
   [[ -x "$fallback" ]] || return 1
   [[ -f "$NOTE_MCP_DIR/src/note_mcp/__init__.py" ]] || return 1
-  fallback_site="$($fallback -c 'import site; print(site.getsitepackages()[0])')" || return 1
+  fallback_site="$("$fallback" -c 'import site; print(site.getsitepackages()[0])')" || return 1
   PYTHONPATH="$NOTE_MCP_DIR/src:$fallback_site${PYTHONPATH:+:$PYTHONPATH}" \
     "$fallback" -c 'import fastmcp, note_mcp, pathlib, sys; expected = pathlib.Path(sys.argv[1]).resolve(); actual = pathlib.Path(note_mcp.__file__).resolve(); assert expected in actual.parents, (expected, actual)' \
     "$NOTE_MCP_DIR/src/note_mcp" >/dev/null 2>&1 || return 1
@@ -47,8 +47,8 @@ restore_shared_runtime() {
 #!/usr/bin/env bash
 set -euo pipefail
 NOTE_MCP_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-FALLBACK="${NOTE_MCP_FALLBACK_PYTHON:-$HOME/.openclaw/skills/_shared/venv-cloak/bin/python3}"
-FALLBACK_SITE="$($FALLBACK -c 'import site; print(site.getsitepackages()[0])')"
+FALLBACK="${NOTE_MCP_FALLBACK_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
+FALLBACK_SITE="$("$FALLBACK" -c 'import site; print(site.getsitepackages()[0])')"
 export PYTHONPATH="$NOTE_MCP_DIR/src:$FALLBACK_SITE${PYTHONPATH:+:$PYTHONPATH}"
 exec "$FALLBACK" "$@"
 SH

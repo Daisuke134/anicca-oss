@@ -3,10 +3,10 @@
 note-stage1-render.py AND note-stage2-publish.py (stage2 against a fake note_mcp recorder, FULL body) and
 assert no Automaton value leaks — including the partial-override cases (NOTE_NUM set but NOTE_TAGS unset).
 Exit 0=PASS, 1=FAIL. Spec: anicca/docs/superpowers/specs/2026-06-26-A3-de-automaton-note-publisher.md
-Run with the venv-cloak python: ~/.openclaw/skills/_shared/venv-cloak/bin/python3 test-de-automaton.py"""
+Run with the Life Manager managed Writer browser Python."""
 import re, sys, os, json, subprocess, tempfile, shutil
-R   = os.path.expanduser("~/profitable-claude/skills/writer-agent/scripts")
-VC  = os.path.expanduser("~/.openclaw/skills/_shared/venv-cloak/bin/python3")
+R   = str(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+VC  = os.environ.get("WRITER_BROWSER_PYTHON", sys.executable)
 FIX = f"{R}/note-publish/a3_fixtures"
 NOTE_ENVS = ("NOTE_SRC","NOTE_WORK","NOTE_NUM","NOTE_KEY","NOTE_TAGS","NOTE_INFOG","NOTE_IMG_DIR","NOTE_ASSETS","NOTE_MCP_SRC")
 s1 = open(f"{R}/note-stage1-render.py").read()

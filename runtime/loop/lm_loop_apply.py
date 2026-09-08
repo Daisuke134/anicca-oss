@@ -85,6 +85,9 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "ARTICLE_STATE_DIR": writer_state, "WRITER_STATE_DIR": writer_state,
             "WRITER_LOG_DIR": os.path.expanduser(entry["log_root"]),
             "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
+            "LIFE_MANAGER_PYTHON": str(
+                Path.home() / ".local/share/life-manager/venv/bin/python"
+            ),
             "LIFE_MANAGER_REPO": str(release_root),
         })
     return plistlib.dumps(value, fmt=plistlib.FMT_XML, sort_keys=True)

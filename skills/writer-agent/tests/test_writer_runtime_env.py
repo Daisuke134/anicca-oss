@@ -43,6 +43,7 @@ class WriterRuntimeEnvTest(unittest.TestCase):
             env_file.write_text(
                 "ARTICLE_ROOT=/tmp/evil-code\nARTICLE_STATE_DIR=/tmp/evil-state\n"
                 "WRITER_LOG_DIR=/tmp/evil-log\nLIFE_MANAGER_REPO=/tmp/evil-repo\n"
+                "LIFE_MANAGER_PYTHON=/tmp/evil-python\nWRITER_BROWSER_PYTHON=/tmp/evil-browser\n"
             )
             expected_state = root / "writer"
             result = self.run_source({
@@ -58,6 +59,18 @@ class WriterRuntimeEnvTest(unittest.TestCase):
                 str(ROOT / "skills/writer-agent"), str(expected_state),
                 str(expected_state / "logs"), str(env_file),
             ]))
+            python_result = subprocess.run(
+                ["bash", "-c", f'source "{SCRIPT}" && printf "%s|%s" "$LIFE_MANAGER_PYTHON" "$WRITER_BROWSER_PYTHON"'],
+                text=True,
+                capture_output=True,
+                env={
+                    **os.environ,
+                    "LIFE_MANAGER_REPO": str(ROOT),
+                    "LIFE_MANAGER_ENV_FILE": str(env_file),
+                    "LIFE_MANAGER_PYTHON": "/managed/python",
+                },
+            )
+            self.assertEqual(python_result.stdout, "/managed/python|/managed/python")
 
     def test_legacy_state_or_log_override_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -98,6 +111,35 @@ class WriterRuntimeEnvTest(unittest.TestCase):
                 ),
                 Path.home() / "private/life-manager.env",
             )
+
+    def test_browser_python_comes_from_life_manager_managed_runtime(self):
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'source "{SCRIPT}" && printf "%s|%s" "$WRITER_BROWSER_PYTHON" "$WRITER_CLOAK_PYTHON"',
+            ],
+            text=True,
+            capture_output=True,
+            env={**os.environ, "LIFE_MANAGER_REPO": str(ROOT), "LIFE_MANAGER_PYTHON": "/managed/python"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "/managed/python|/managed/python")
+
+    def test_writer_scripts_have_no_legacy_or_host_specific_python(self):
+        legacy = (
+            ".openclaw/skills/_shared/venv-cloak/bin/python3",
+            "/opt/homebrew/bin/python3",
+        )
+        scripts = ROOT / "skills/writer-agent/scripts"
+        offenders = []
+        for path in scripts.rglob("*"):
+            if not path.is_file() or path.suffix == ".md" or "__pycache__" in path.parts:
+                continue
+            body = path.read_text(encoding="utf-8", errors="replace")
+            if any(value in body for value in legacy):
+                offenders.append(str(path.relative_to(ROOT)))
+        self.assertEqual(offenders, [])
 
     def test_writer_credential_consumers_have_no_openclaw_env_dependency(self):
         consumers = (

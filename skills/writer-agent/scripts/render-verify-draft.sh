@@ -57,7 +57,7 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CDP_PORT="${CDP_PORT:-9222}"
-PY="${RENDER_VERIFY_PYTHON:-$(command -v python3 || echo /opt/homebrew/bin/python3)}"
+PY="${RENDER_VERIFY_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
 SHOT_DIR="${RENDER_VERIFY_SHOT_DIR:-$HOME/.cloak/render-verify}"
 mkdir -p "$SHOT_DIR"
 SHOT="$SHOT_DIR/${PLATFORM}-$(date +%s).png"

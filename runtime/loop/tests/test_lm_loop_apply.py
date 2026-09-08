@@ -200,6 +200,28 @@ class LmLoopApplyTest(unittest.TestCase):
             environment["LIFE_MANAGER_ENV_FILE"],
             str(Path.home() / ".local/state/life-manager/.env"),
         )
+        self.assertEqual(
+            environment["LIFE_MANAGER_PYTHON"],
+            str(Path.home() / ".local/share/life-manager/venv/bin/python"),
+        )
+        repository = Path(__file__).resolve().parents[3]
+        runtime_contract = repository / "skills/writer-agent/scripts/writer-runtime-env.sh"
+        runtime = subprocess.run(
+            [
+                "bash", "-c",
+                f'source "{runtime_contract}" && printf "%s" "$WRITER_BROWSER_PYTHON"',
+            ],
+            text=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                **environment,
+                "LIFE_MANAGER_REPO": str(repository),
+                "LIFE_MANAGER_ENV_FILE": str(self.root / "missing.env"),
+            },
+        )
+        self.assertEqual(runtime.returncode, 0, runtime.stderr)
+        self.assertEqual(runtime.stdout, environment["LIFE_MANAGER_PYTHON"])
 
     def test_browser_owner_is_projected_into_shared_runtime_environment(self):
         value = registry()
