@@ -55,8 +55,13 @@ Adding inboxes uses the same `inboxes.ts` provisioner and environment contract; 
 
 Secrets live in `~/.local/state/life-manager/.env` (chmod 600). Runtime data lives under
 `~/.local/state/life-manager/agentmail/`; override with `AGENTMAIL_STATE_ROOT` when needed.
-Before the first registry-managed release, run `migrate-legacy-state.sh` once. It copies
-legacy queue, SQLite, adapter, semantic evidence, and logs without deleting the source.
+Before the first registry-managed release, run `migrate-legacy-state.sh` once with the
+legacy installation root supplied explicitly. It copies legacy queue, SQLite, adapter,
+semantic evidence, and logs without deleting the source:
+
+```bash
+AGENTMAIL_LEGACY_ROOT=/path/to/legacy runtime/agentmail/migrate-legacy-state.sh
+```
 
 ```
 AGENTMAIL_API_KEY=…                       # primary org

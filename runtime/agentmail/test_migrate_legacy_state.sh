@@ -17,6 +17,14 @@ SOURCE_DB_HASH_BEFORE="$(shasum -a 256 "$OLD/state/agentmail.db")"
 SOURCE_DB_MODE_BEFORE="$(stat -f%Lp "$OLD/state/agentmail.db")"
 SOURCE_DB_FILES_BEFORE="$(find "$OLD/state" -maxdepth 1 -name 'agentmail.db*' -print | sort)"
 
+if env -u AGENTMAIL_LEGACY_ROOT AGENTMAIL_STATE_ROOT="$TMP_ROOT/missing-source" \
+  "$(dirname "$0")/migrate-legacy-state.sh" >"$TMP_ROOT/missing-source.out" 2>"$TMP_ROOT/missing-source.err"; then
+  echo "missing AgentMail legacy source was accepted" >&2
+  exit 1
+fi
+grep -q 'AGENTMAIL_LEGACY_ROOT must name the explicit legacy source root' "$TMP_ROOT/missing-source.err"
+test ! -e "$TMP_ROOT/missing-source"
+
 AGENTMAIL_LEGACY_ROOT="$OLD" AGENTMAIL_STATE_ROOT="$NEW" \
   "$(dirname "$0")/migrate-legacy-state.sh"
 

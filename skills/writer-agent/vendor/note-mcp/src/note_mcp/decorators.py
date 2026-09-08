@@ -22,7 +22,7 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Concatenate
+from typing import TYPE_CHECKING, Concatenate, ParamSpec
 
 from note_mcp.auth.session import SessionManager
 from note_mcp.models import NoteAPIError
@@ -31,13 +31,14 @@ if TYPE_CHECKING:
     from note_mcp.models import Session
 
 logger = logging.getLogger(__name__)
+P = ParamSpec("P")
 
 # Session manager instance for decorators
 # (SessionManager uses persistent storage, so multiple instances are safe)
 _session_manager = SessionManager()
 
 
-def require_session[**P](
+def require_session(
     func: Callable[Concatenate[Session, P], Awaitable[str]],
 ) -> Callable[P, Awaitable[str]]:
     """Decorator to validate session before executing handler.
@@ -75,7 +76,7 @@ def require_session[**P](
     return wrapper
 
 
-def handle_api_error[**P](
+def handle_api_error(
     func: Callable[P, Awaitable[str]],
 ) -> Callable[P, Awaitable[str]]:
     """Decorator to catch and format NoteAPIError exceptions.
@@ -111,4 +112,3 @@ def handle_api_error[**P](
             return f"エラー [{e.code.value}]: {e.message}"
 
     return wrapper
-

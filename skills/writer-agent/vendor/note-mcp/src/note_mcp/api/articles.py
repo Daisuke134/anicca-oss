@@ -9,7 +9,7 @@ import html
 import logging
 import uuid
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from note_mcp.api.client import NoteAPIClient
 from note_mcp.api.embeds import resolve_embed_keys
@@ -34,13 +34,14 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 # =============================================================================
 # Issue #174: Generic API Execution Helper Functions
 # =============================================================================
 
 
-async def _execute_get[T](
+async def _execute_get(
     session: Session,
     endpoint: str,
     response_parser: Callable[[dict[str, Any]], T],
@@ -68,7 +69,7 @@ async def _execute_get[T](
     return response_parser(response)
 
 
-async def _execute_post[T](
+async def _execute_post(
     session: Session,
     endpoint: str,
     response_parser: Callable[[dict[str, Any]], T],
@@ -1254,4 +1255,3 @@ async def delete_all_drafts(
         failed_articles=failed_articles,
         message=message,
     )
-

@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +17,13 @@ import legacy_state_mirror
 
 
 class WriterMigrationTest(unittest.TestCase):
+    def test_cli_requires_explicit_source_root(self):
+        result = subprocess.run(
+            ["python3", str(SCRIPT)], capture_output=True, text=True, check=False
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--source-root", result.stderr)
+
     def stores(self):
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name)

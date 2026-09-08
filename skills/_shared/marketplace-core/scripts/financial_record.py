@@ -26,7 +26,8 @@ def _hash(value: str) -> str:
 
 
 def _record_id(subject_id: str, idempotency_key: str) -> str:
-    return f"financial:{_hash(f'{subject_id}\n{idempotency_key}')}"
+    identity = f"{subject_id}\n{idempotency_key}"
+    return f"financial:{_hash(identity)}"
 
 
 def _subject(value: str) -> str:
@@ -73,7 +74,8 @@ def payment_to_financial_records(value: Mapping[str, object], *, subject_id: str
     for component, kind, direction, amount in components:
         if amount <= 0:
             continue
-        idempotency_key = f"marketplace-financial:v1:{_hash(f'{scoped}\n{component}')}"
+        component_identity = f"{scoped}\n{component}"
+        idempotency_key = f"marketplace-financial:v1:{_hash(component_identity)}"
         records.append({
             **base,
             "record_id": _record_id(str(base["subject_id"]), idempotency_key),
