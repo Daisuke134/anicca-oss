@@ -909,6 +909,22 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    the resulting latest role. A fresh read-only five-thread pass changes three threads to buyer-last,
    including both screenshots. Shared-planner dry decisions produce one send-ready reply, one
    truthful missing-fact human wait, and one semantic no-reply, without a provider mutation.
+   Production release `20260908T103236-18691252` then proved the corrected Lancers identity path in
+   a natural terminal at `2026-09-08 10:40 JST`: all five official boards were represented once,
+   board `9060780` produced one buyer-visible reply with provider receipt `59144506`, board `9058411`
+   became a durable `reply_facts_required` pending item, and the aggregate ended observed five,
+   actionable two, effect one, readback four, failed zero and pending one. This real effect is retained
+   for the later fixed-order `LANCERS-REPLY-1` acceptance; it does not skip the current shared atom.
+   The first Coconala natural wake on the same release failed before inventory because the hidden-tab
+   helper surfaced its transport timeout as a reason-preserving `RuntimeError`, while the established
+   two-attempt retry recognized only the former exception shape. PR `#4604` restores that exact
+   transient classification in main `7351114a20848146c5234ea695cb7db3f9a24622`; 161 related checks
+   pass. The first natural wake on immutable release `20260908T104520-7351114a` performed both retries
+   but both local CDP `/json/version` calls timed out, so it correctly remained failed. A subsequent
+   read-only probe found the endpoint immediate, 13 targets, and the same owner could create and close
+   an authenticated hidden tab in 0.26 seconds. No login, Mac, Aqua or browser restart occurred.
+   `SHARED-REPLY-1` remains unchecked until a later natural Coconala terminal proves complete official
+   inventory and effect separation, followed by replay-zero where an effect exists.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
