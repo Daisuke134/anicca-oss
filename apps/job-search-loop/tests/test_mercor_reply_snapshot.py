@@ -130,7 +130,7 @@ def test_gmail_inventory_reuses_unchanged_full_thread(monkeypatch):
     monkeypatch.setattr(snapshot.subprocess, "run", run)
 
     assert snapshot._gmail("owner@example.com", "gog", prior) == prior
-    assert len(calls) == 1
+    assert len(calls) == 2
 
 
 def test_gmail_inventory_refreshes_thread_with_new_inbound_message(monkeypatch):
@@ -215,10 +215,12 @@ def test_gmail_inventory_refreshes_thread_when_new_sent_message_appears(monkeypa
     def run(argv, **_kwargs):
         calls.append(argv)
         if "search" in argv:
-            assert "to:(mercor.com OR mail.mercor.com)" in argv[4]
+            if argv[4].startswith("in:sent"):
+                return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": [
+                    {"id": "out_2", "threadId": "thread_1", "from": "owner@example.com",
+                     "subject": "Re: Question"},
+                ]}), "")
             return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": [
-                {"id": "out_2", "threadId": "thread_1", "from": "owner@example.com",
-                 "to": "person@mercor.com", "subject": "Re: Question"},
                 {"id": "in_1", "threadId": "thread_1", "from": "person@mercor.com",
                  "to": "owner@example.com", "subject": "Question"},
             ]}), "")
@@ -244,3 +246,43 @@ def test_gmail_inventory_refreshes_thread_when_new_sent_message_appears(monkeypa
     result = snapshot._gmail("owner@example.com", "gog", prior)
     assert result[0]["messages"][-1]["labels"] == ["SENT"]
     assert len([argv for argv in calls if "thread" in argv]) == 1
+
+
+def test_gmail_inventory_splits_fast_inbound_and_sent_searches(monkeypatch):
+    queries = []
+
+    def run(argv, **_kwargs):
+        if "search" in argv:
+            queries.append(argv[4])
+            if argv[4].startswith("in:sent"):
+                return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": [
+                    {"id": "out_1", "threadId": "thread_1", "from": "owner@example.com",
+                     "subject": "Answer"},
+                    {"id": "noise", "threadId": "noise", "from": "owner@example.com",
+                     "subject": "Mercor notes"},
+                ]}), "")
+            return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": [
+                {"id": "in_1", "threadId": "thread_1", "from": "person@mercor.com",
+                 "to": "owner@example.com", "subject": "Question"},
+            ]}), "")
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"thread": {
+            "messages": [
+                {"id": "in_1", "threadId": "thread_1", "internalDate": "1",
+                 "labelIds": ["INBOX"], "body": "Question", "headers": {
+                     "from": "person@mercor.com", "to": "owner@example.com",
+                     "subject": "Question"}},
+                {"id": "out_1", "threadId": "thread_1", "internalDate": "2",
+                 "labelIds": ["SENT"], "body": "Answer", "headers": {
+                     "from": "owner@example.com", "to": "person@mercor.com",
+                     "subject": "Answer"}},
+            ],
+        }}), "")
+
+    monkeypatch.setattr(snapshot.subprocess, "run", run)
+    result = snapshot._gmail("owner@example.com", "gog")
+
+    assert queries == [
+        "from:(mercor.com OR mail.mercor.com) newer_than:30d",
+        "in:sent mercor newer_than:30d",
+    ]
+    assert [row["threadId"] for row in result] == ["thread_1"]
