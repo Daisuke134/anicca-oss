@@ -64,11 +64,48 @@ def build_reply_grounding(
         for key in ("hours_limit", "status", "occupation", "skills")
         if key in provider_raw
     }
+    prompt_facts = list(verified_facts)
+    labels = {
+        "gender": "性別", "age_band": "年代", "base": "拠点", "nationality": "国籍",
+    }
+    for key, label in labels.items():
+        if key in candidate:
+            prompt_facts.append({"id": f"candidate_{key}", "claim": f"{label}: {candidate[key]}"})
+    public_labels = {
+        "hours_limit": "週あたりの稼働時間",
+        "status": "現在の稼働状態",
+        "occupation": "職種",
+    }
+    for key, label in public_labels.items():
+        value = provider_facts.get(key)
+        if isinstance(value, str) and value.strip():
+            suffix = "時間" if key == "hours_limit" else ""
+            prompt_facts.append({
+                "id": f"provider_{key}", "claim": f"{label}: {value.strip()}{suffix}",
+            })
+    for index, skill in enumerate(provider_facts.get("skills", [])):
+        if not isinstance(skill, Mapping) or not isinstance(skill.get("name"), str):
+            continue
+        name = skill["name"].strip()
+        if not name:
+            continue
+        identifier = "".join(character.lower() for character in name if character.isalnum())
+        years = skill.get("years")
+        note = skill.get("note")
+        parts = [name]
+        if isinstance(years, (int, float)):
+            parts.append(f"{years:g}年")
+        if isinstance(note, str) and note.strip():
+            parts.append(note.strip())
+        prompt_facts.append({
+            "id": f"provider_skill_{identifier or index}", "claim": ": ".join(parts),
+        })
     return {
         "candidate": candidate,
         "verified_facts": verified_facts,
         "provider_public_facts": provider_facts,
         "missing_candidate_fields": ["gender"] if "gender" not in candidate else [],
+        "prompt_facts": prompt_facts,
     }
 
 

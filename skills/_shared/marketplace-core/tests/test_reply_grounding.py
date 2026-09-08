@@ -38,6 +38,14 @@ def test_reply_grounding_combines_private_ssot_and_public_provider_facts(tmp_pat
     ]
     assert result["provider_public_facts"]["hours_limit"] == "31-40"
     assert result["provider_public_facts"]["skills"][0]["name"] == "Python"
+    assert {row["id"] for row in result["prompt_facts"]} >= {
+        "candidate_age_band", "candidate_base", "provider_hours_limit",
+        "provider_skill_python", "current_role",
+    }
+    assert any(row["claim"] == "性別: male" for row in grounding.build_reply_grounding(
+        candidate_profile_path=_profile_with_gender(tmp_path),
+        today=grounding.date(2026, 9, 8),
+    )["prompt_facts"])
     assert "evidence" not in json.dumps(result, ensure_ascii=False)
 
 
@@ -54,3 +62,12 @@ def test_missing_gender_stays_visibly_missing_instead_of_being_inferred(tmp_path
 
     assert "gender" not in result["candidate"]
     assert result["missing_candidate_fields"] == ["gender"]
+
+
+def _profile_with_gender(tmp_path):
+    path = tmp_path / "profile-with-gender.json"
+    path.write_text(json.dumps({
+        "candidate": {"date_of_birth": "2002-01-30", "gender": "male"},
+        "facts": [{"id": "x", "claim": "verified", "evidence": "source"}],
+    }), encoding="utf-8")
+    return path

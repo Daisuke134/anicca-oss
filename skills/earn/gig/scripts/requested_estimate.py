@@ -566,12 +566,12 @@ class SemanticJudge:
 
     def __init__(
         self, *, runner: Path, schema: Path, workdir: Path, evidence_root: Path,
-        timeout_seconds: int = 120,
+        timeout_seconds: int = 120, seller_facts: list[dict[str, str]] | None = None,
     ):
         self.runner, self.schema, self.workdir = Path(runner), Path(schema), Path(workdir)
         self.evidence_root, self.timeout_seconds = Path(evidence_root), int(timeout_seconds)
         self.schema_sha256 = hashlib.sha256(self.schema.read_bytes()).hexdigest()
-        self.seller_facts = verified_seller_facts()
+        self.seller_facts = verified_seller_facts() if seller_facts is None else seller_facts
         self.seller_facts_sha256 = hashlib.sha256(json.dumps(
             self.seller_facts, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
         ).encode()).hexdigest()

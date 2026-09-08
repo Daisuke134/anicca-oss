@@ -86,6 +86,37 @@ def test_default_runtime_paths_stay_inside_the_release(tmp_path):
     assert adapter.cdp_helper.is_file()
 
 
+def test_coconala_build_passes_shared_grounding_to_semantic_judge(monkeypatch, tmp_path):
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text('{"candidate":{"gender":"male"},"facts":[]}', encoding="utf-8")
+    public = tmp_path / "public.json"
+    public.write_text('{"hours_limit":"31-40"}', encoding="utf-8")
+    captured = {}
+
+    class Judge:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(adapter_module.requested_estimate, "SemanticJudge", Judge)
+    monkeypatch.setattr(
+        adapter_module.requested_estimate, "RequestedEstimateComposer",
+        lambda **_kwargs: object(),
+    )
+    adapter_module.build([
+        "--state-root", str(tmp_path / "state"),
+        "--cdp-helper", str(Path(__file__)),
+        "--runner", str(Path(__file__)),
+        "--schema", str(Path(__file__)),
+        "--estimate-schema", str(Path(__file__)),
+        "--candidate-profile", str(candidate),
+        "--provider-profile", str(public),
+    ])
+
+    assert {row["claim"] for row in captured["seller_facts"]} >= {
+        "性別: male", "週あたりの稼働時間: 31-40時間",
+    }
+
+
 def test_semantic_composer_projects_validated_judgement_without_provider_decide():
     class Adapter:
         def semantic_dom(self, thread_id):
