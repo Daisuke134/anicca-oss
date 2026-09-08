@@ -354,7 +354,7 @@ shared-component or legacy-retirement atom is active.
 ### 6.2 Current Writer cleanup checkpoint
 
 - [x] Dormant executable fallback cleanup: repair candidates and research clones use Writer-owned state; callerless self-fix, rotation audit, diary digest and the unimplemented self-signup scaffold are deleted. Focused tests and fresh review ship in pushed commit `7188462d2`. Coconala and Lancers remain untouched.
-- [ ] SkillOpt craft-training portability (active): own the upstream v0.2.0 base config in this repository, inject runtime paths explicitly, write generated runs beneath Writer state and install locked `skillopt==0.2.0` in the managed runtime. Focused contracts pass 25/25; fresh review and commit/push remain.
+- [ ] SkillOpt craft-training portability (active): the upstream v0.2.0 base config is repository-owned, runtime paths are explicit overrides, generated runs use Writer state and `skillopt==0.2.0` is locked for the managed runtime. Official v0.2.0 rejected the former backend name; source commits `c95f64b1d` and `fa8291130` switch to its supported `openai_chat` backend with OpenAI-compatible auth, add executable backend/config validation and are pushed. Focused contracts pass 26/26; fresh re-review remains.
 - [ ] Complete the executable census for any remaining active Writer external dependency.
 - [ ] Run the final Writer-focused suite and fresh review.
 - [ ] At a proven idle boundary, converge/seal Writer state, cut over through the final main-derived release and read back receipts.
