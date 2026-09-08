@@ -922,6 +922,27 @@ test("Connpass canonical recovery rereads the same page before evidence without 
   for (const [name, count] of [["cache", 1], ["direct", 1], ["agent", 0], ["evidence", 1], ["close", 1]]) assert.equal(state.calls.filter(([entry]) => entry === name).length, count, name);
 });
 
+test("a verified Connpass registration completes canonical recovery and evidence after the wake deadline", async () => {
+  const { state, canonicalUrl, joinUrl } = connpassRecoveryFixture();
+  const readProviderState = state.dependencies.readProviderState;
+  state.dependencies.readProviderState = async (input) => {
+    const result = await readProviderState(input);
+    if (input.phase === "post_submit") state.advance(600_001);
+    return result;
+  };
+
+  const result = await runMinimalConnectorWake({
+    ownerToken: "owner-token-connector-post-submit-deadline",
+    providers: ["connpass"],
+    maxWakeMs: 600_000,
+  }, state.dependencies);
+
+  assert.deepEqual(result, { status: "applied_bundle", bundle_id: "applied-bundle-connpass", telegram_provider_id: "9001" });
+  assert.deepEqual(state.calls.filter(([name]) => name === "navigate").map(([, , , , url]) => url), [canonicalUrl, canonicalUrl]);
+  assert.deepEqual(state.calls.filter(([name]) => name === "readback").map(([, phase, url]) => [phase, url]), [["pre_submit", canonicalUrl], ["post_submit", joinUrl], ["canonical_recovery", canonicalUrl]]);
+  assert.equal(state.calls.filter(([name]) => name === "evidence").length, 1);
+});
+
 test("Connpass canonical recovery failures stop before evidence and Submit retry", async () => {
   for (const failure of ["status", "readback", "navigation"]) {
     const { state } = connpassRecoveryFixture(failure);

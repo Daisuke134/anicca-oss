@@ -495,7 +495,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
             page: owned.page,
             phase: "post_submit",
           }));
-          if (deadlineReached()) return finish("circuit_open", "wake_deadline");
+          if (deadlineReached() && !registered(providerState)) return finish("circuit_open", "wake_deadline");
         }
         }
         }
@@ -504,15 +504,12 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           if (provider === "connpass" && operation && operation.status === "completed") {
             try {
               await action("navigate", "browser_rail", () => deps.browserRail.navigate(owned, selected.canonical_url));
-              if (deadlineReached()) return finish("circuit_open", "wake_deadline");
               const canonicalState = await action("readback", "provider_state", () => deps.readProviderState({
                 provider, candidate: selected, page: owned.page, phase: "canonical_recovery",
               }));
-              if (deadlineReached()) return finish("circuit_open", "wake_deadline");
               if (!registered(canonicalState)) throw new Error("Connpass canonical recovery unverified");
               providerState = canonicalState;
             } catch {
-              if (deadlineReached()) return finish("circuit_open", "wake_deadline");
               consecutiveFailures += 1;
               return finish("circuit_open", "evidence_completion_failed");
             }
@@ -520,7 +517,6 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           const repairedActions = usedFallback && operation && Array.isArray(operation.repaired_actions)
             ? operation.repaired_actions : [];
           if (repairedActions.length > 0) {
-            if (deadlineReached()) return finish("circuit_open", "wake_deadline");
             const saved = await deps.saveRepairedActions({
               provider,
               candidate: selected,
@@ -529,9 +525,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
               repairedActions,
             });
             if (!saved || saved.status !== "saved") invalid();
-            if (deadlineReached()) return finish("circuit_open", "wake_deadline");
           }
-          if (deadlineReached()) return finish("circuit_open", "wake_deadline");
           let bundle;
           try {
             bundle = await action(
@@ -546,7 +540,6 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
               (error) => ({ provider, safe_reason: safeEvidenceReason(error) }),
             );
           } catch (error) {
-            if (deadlineReached()) return finish("circuit_open", "wake_deadline");
             consecutiveFailures += 1;
             return finish("circuit_open", safeEvidenceReason(error));
           }
