@@ -1146,6 +1146,16 @@ atom is `NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
    exact human action, deadline and work-item identity; then persists official readback and replay-zero.
+   Current state: the shared kernel now supports a durable, deduplicated human handoff and the Mercor
+   thin adapter, decision schema, official snapshot collector and five-minute owner exist on the
+   feature branch. Read-only official inventory shows no current recruiter question or accepted work:
+   Offers and Contracts are empty, while three incomplete applications own their required assessment
+   handoffs. The first live owner attempt stopped before Telegram or Gmail mutation because delayed
+   CDP response-body collection lost one official API body. Therefore no external effect occurred and
+   this atom remains unchecked. Remaining acceptance is strictly: make snapshot collection reliable;
+   run one natural installed terminal with every official event represented, failed zero and each
+   needed handoff delivered once; run the following terminal with no duplicate provider or Telegram
+   effect; then update the operational table and check this atom complete.
 11. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
    the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.

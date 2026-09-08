@@ -33,6 +33,23 @@ This document changes design and implementation order only. It does not start, s
 current provider runtimes. `skills/earn/gig/TODO.md` remains the shared production-repair SSOT,
 while each provider spec owns its transport/runtime sequence.
 
+### 0.0A Marketplace Reply contract and current acceptance
+
+Reply is one provider-neutral lifecycle, not one reply loop per marketplace. The shared kernel owns
+official event identity, cumulative conversation and owner grounding, decision, intent-before-effect,
+receipt persistence, official reconciliation, Telegram delivery, retry/backoff and replay-zero.
+Each provider adapter owns only authentication, provider IDs/state, selectors or API transport, the
+actual provider mutation and its official readback.
+
+Coconala is the working reference, Lancers proves the same kernel against a second provider, and
+CrowdWorks proves a third thin adapter. All three have official reply/readback acceptance and a later
+zero-duplicate terminal. Mercor is the only active Reply implementation atom: its adapter and owner
+must enter the same kernel, observe official application/message/assessment/interview events, and
+either reply autonomously or persist one deduplicated human handoff without blocking other work.
+Mercor is not accepted until an installed natural terminal, official effect or truthful human-handoff
+receipt, and a following replay-zero are all observed. The exact fixed execution order and receipt
+details remain exclusively in `skills/earn/gig/TODO.md`.
+
 Current Paid status and order are therefore recorded only in that TODO. Coconala has the accepted
 reference receipt chain: its Paid owner completed the Ryu revision through a normal message with
 exact official readback, formal delivery off and replay-zero. That historical acceptance does not
