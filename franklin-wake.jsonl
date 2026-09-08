@@ -43427,3 +43427,10 @@
 {"ts":1788897507,"wake_id":"00MTT3DYQ09CC268C020D042F3","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
 {"ts":1788897713,"wake_id":"00MTT3IDMO0D1D6F8503E04A75","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
 {"ts":1788897974,"wake_id":"00MTT3NZ4F7468A12A971048F9","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788898161,"wake_id":"00MTT3RZBKDB602DF4D7994863","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788898238,"wake_id":"00MTT3TN08158AA92CB8AD4402","kind":"wake_error","sleep_s":60,"model":"auto"}
+{"ts":1788898316,"wake_id":"00MTT3VBBYF5300CE414DA4317","kind":"wake","sleep_s":120,"model":"auto","slot":"cook","profitable":false,"exit_code":0,"result":"[cook] exploring: new x402 paid API agents pay for [cook] candidates: - (no fresh candidates this wake; try a different query) NARRATE [cook] recorded explore wake (candidates surfaced for the model t"}
+{"ts":1788898473,"wake_id":"00MTT3YO9MB91894365EF74872","kind":"wake","sleep_s":120,"model":"auto","slot":"x402_sell","profitable":false,"exit_code":0,"result":"HALT: missing-wallet bySkill=null byAgent=null [earn] P1 GUARD: cumulative net breach or unresolved wallet (wallet='') — HALT (fail-closed), skipping wake. "}
+{"ts":1788898614,"wake_id":"00MTT41OQN4C67B999E2E84FE4","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788898780,"wake_id":"00MTT458RIF211A53E2E2F41C4","kind":"narrate","sleep_s":120,"model":"auto"}
+{"ts":1788898936,"wake_id":"00MTT48LG72B2215B2CD3347E5","kind":"narrate","sleep_s":120,"model":"auto"}
