@@ -1156,6 +1156,16 @@ atom is `NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
    run one natural installed terminal with every official event represented, failed zero and each
    needed handoff delivered once; run the following terminal with no duplicate provider or Telegram
    effect; then update the operational table and check this atom complete.
+   New shared safety evidence: CrowdWorks provider receipt `426101743` contains the unsolicited legal
+   name `成田大輔`, while its public seller identity is `Kaito｜AI自動化`. The value was not copied by
+   the CrowdWorks adapter: free-form private verified facts exposed identity-bearing strings to the
+   shared composer, whose contract did not forbid using them as a signature. Do not delete or rewrite
+   the historical provider message. Before this atom can close, add one shared identity boundary that
+   strips private legal/preferred names, email, phone, address, login identifiers and credentials from
+   composition grounding; permits only the provider's verified public display name when a name is
+   necessary; rejects output containing a known private identity value; and passes the same regression
+   against Coconala, Lancers, CrowdWorks and Mercor adapters. This is a required sub-acceptance of the
+   active atom, not a cursor reorder or a new provider-specific Reply implementation.
 11. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
    the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.

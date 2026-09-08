@@ -41,13 +41,27 @@ receipt persistence, official reconciliation, Telegram delivery, retry/backoff a
 Each provider adapter owns only authentication, provider IDs/state, selectors or API transport, the
 actual provider mutation and its official readback.
 
+Customer-facing Reply identity is provider-public, never private-profile identity. A Reply may use
+only the marketplace account's verified public display name when a name is operationally necessary;
+it must not introduce, sign with, or infer the owner's legal name, private preferred name, email,
+phone, address, credential, token or login identifier from candidate grounding, portfolio URLs or
+free-form verified facts. Private grounding remains available to answer relevant experience,
+availability and qualification questions, but identity-bearing values are removed before composition.
+The shared kernel enforces this once for every provider and rejects a composed body that leaks a
+known private identity value. Provider adapters must not implement their own redaction policy.
+
 Coconala is the working reference, Lancers proves the same kernel against a second provider, and
 CrowdWorks proves a third thin adapter. All three have official reply/readback acceptance and a later
-zero-duplicate terminal. Mercor is the only active Reply implementation atom: its adapter and owner
+zero-duplicate terminal. A subsequent receipt audit found that one CrowdWorks reply introduced the
+owner's legal name even though the provider account's public seller identity is different. This is a
+shared composition/privacy defect, not a CrowdWorks transport defect; existing effect receipts remain
+valid but no provider is identity-safe until the shared fence and cross-provider regression pass.
+Mercor is the only active Reply implementation atom: its adapter and owner
 must enter the same kernel, observe official application/message/assessment/interview events, and
 either reply autonomously or persist one deduplicated human handoff without blocking other work.
-Mercor is not accepted until an installed natural terminal, official effect or truthful human-handoff
-receipt, and a following replay-zero are all observed. The exact fixed execution order and receipt
+Mercor is not accepted until the shared identity fence passes for Coconala, Lancers, CrowdWorks and
+Mercor, then an installed natural terminal, official effect or truthful human-handoff receipt, and a
+following replay-zero are all observed. The exact fixed execution order and receipt
 details remain exclusively in `skills/earn/gig/TODO.md`.
 
 Current Paid status and order are therefore recorded only in that TODO. Coconala has the accepted
