@@ -60,7 +60,7 @@ def test_a_generous_budget_still_buys_the_best_tier_it_can():
 def test_the_judge_still_runs_after_pricing():
     """A 500円 monitor with no stated budget now reaches the judge, which is where it should die."""
     source = OWNER.read_text(encoding="utf-8")
-    priced_at = source.index("tier=_priced(listing,text)")
+    priced_at = source.index("tier=_priced(matched,text)")
     judged_at = source.index("verdict = _work_fit_verdict(")
     assert priced_at < judged_at
 
