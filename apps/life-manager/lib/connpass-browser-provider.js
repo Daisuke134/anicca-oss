@@ -89,6 +89,9 @@ async function readConnpassRegistrationStateOnPage(page) {
       if (/\/(?:login|signin)(?:\/|$)/.test(path) || exact(["ログイン", "Login"])) {
         return { state: "login_required" };
       }
+      if (/^\/event\/[1-9][0-9]*\/join\/complete\/$/.test(rawPath)) {
+        return { state: "registered" };
+      }
       if (exact(["参加票を表示", "受付票を見る", "申し込みをキャンセル", "キャンセルする", "Registered"])) {
         return { state: "registered" };
       }

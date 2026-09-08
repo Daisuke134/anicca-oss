@@ -75,6 +75,19 @@ test("join-page attendee-section text does not impersonate pending registration"
   assert.deepEqual(await readConnpassRegistrationStateOnPage(page), { state: "unknown" });
 });
 
+test("exact Connpass join completion path is registered without relying on page copy", async () => {
+  assert.deepEqual(await readConnpassRegistrationStateOnPage(domFixture({
+    pathname: "/event/403786/join/complete/",
+    bodyText: "イベントへの申し込みが完了しました",
+  })), { state: "registered" });
+  for (const pathname of [
+    "/event/403786/join/complete",
+    "/event/0/join/complete/",
+    "/events/403786/join/complete/",
+    "/event/403786/join/complete/extra",
+  ]) assert.deepEqual(await readConnpassRegistrationStateOnPage(domFixture({ pathname, bodyText: "イベントへの申し込みが完了しました" })), { state: "unknown" }, pathname);
+});
+
 test("pending requires an exact visible line on the canonical event page", async () => {
   const page = domFixture({ pathname: "/event/400028/", bodyText: "参加状況\n補欠\n" });
   assert.deepEqual(await readConnpassRegistrationStateOnPage(page), { state: "pending" });
