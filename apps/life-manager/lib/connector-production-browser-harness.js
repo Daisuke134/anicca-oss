@@ -1057,11 +1057,18 @@ async function inspectPageControls(input = {}) {
       if (connpassJoin) return element.closest(".question_list");
       return element.closest("fieldset, dl.field, [role='group'], .field");
     };
+    const connpassQuestionOf = (element) => {
+      const group = groupOf(element);
+      if (!connpassJoin || !group || typeof group.querySelector !== "function") return "";
+      const question = group.querySelector(":scope > .question");
+      return String(question?.textContent || question?.innerText || "").replace(/\s+/g, " ").trim();
+    };
     const radioNameOf = (element) => String((element.getAttribute && element.getAttribute("name")) || element.name || "");
     const requiredOf = (element) => {
       const group = groupOf(element);
       const radioName = radioNameOf(element);
       return connpassJoin && String(element.type || "").toLowerCase() === "radio" && radioName === "participation_type"
+        || connpassJoin && /^(?:必須)(?:\s|$)/.test(connpassQuestionOf(element))
         || element.required === true || String((element.getAttribute && element.getAttribute("aria-required")) || "").toLowerCase() === "true" || Boolean(group && (((group.classList && typeof group.classList.contains === "function") && group.classList.contains("required")) || /(?:^|\s)required(?:\s|$)/.test(String(group.className || "")) || String((group.getAttribute && group.getAttribute("aria-required")) || "").toLowerCase() === "true"));
     };
     const labelOf = (element, allowKnownValue = false) => {
@@ -1206,17 +1213,23 @@ async function inspectPageControls(input = {}) {
       const kind = knownPeatixConfirm ? "button" : kindOf(element);
       if (!["input", "textarea", "select", "checkbox", "radio", "button", "link"].includes(kind)) return [];
       const knownPeatixSubmit = knownPage && requiredAnswersRepresentable && tag === "input" && type === "button" && idOf(element) === "form-submit-button" && element.disabled !== true && !!registrationForm && knownSubmitCount === 1 && labelOf(element, true) === "確認画面へ進む";
-      const label = labelOf(element, knownPeatixSubmit);
+      const rawLabel = labelOf(element, knownPeatixSubmit);
+      const rawConnpassQuestion = connpassQuestionOf(element);
+      const connpassQuestion = rawConnpassQuestion.replace(/^(?:必須|任意)\s*/, "").trim();
+      const connpassScalarLabel = connpassQuestion.replace(/（[^）]*）$/, "").trim()
+        .replace(/^企業名・学校名$/, "所属企業（学校）名")
+        .replace(/^職種・専門領域・学部$/, "職種");
+      const label = connpassJoin && ["input", "textarea", "select"].includes(kind) && connpassScalarLabel
+        ? connpassScalarLabel : rawLabel;
       if (!label) return [];
       const control = `control_${index + 1}`;
       element.dataset.lmConnectorControl = control;
       const group = groupOf(element);
       const radioName = radioNameOf(element);
-      const questionElement = connpassJoin && group && typeof group.querySelector === "function" ? group.querySelector(":scope > .question") : null;
       const question = ["checkbox", "radio"].includes(kind) && connpassJoin
         ? kind === "radio" && radioName === "participation_type"
           ? "参加枠"
-          : String(questionElement?.textContent || questionElement?.innerText || "").replace(/\s+/g, " ").trim().replace(/^(?:必須|任意)\s*/, "").trim()
+          : connpassQuestion
         : ["checkbox", "radio"].includes(kind) && group && typeof group.querySelector === "function"
           ? String(group.querySelector("legend,dt,[data-question]")?.textContent || "").replace(/\s+/g, " ").trim()
           : "";
@@ -1689,6 +1702,11 @@ function nativeDoorkeeperTrigger(provider, controls) {
 
 async function safeProfile(read) { try { const value = await read(); return value && typeof value === "object" && !Array.isArray(value) ? value : null; } catch { return null; } } function answerFor(profile, label) { const answers = profile && profile.form_answers; const value = answers && typeof answers === "object" && !Array.isArray(answers) ? Object.entries(answers).find(([key]) => normalizedLabel(key) === label)?.[1] : null; return typeof value === "string" || Array.isArray(value) ? value : null; }
 function approvedOption(profile, question, label) { const answers = profile && profile.form_answers; const exactQuestion = normalizedLabel(question); if (!exactQuestion) return false; const value = answers && typeof answers === "object" && !Array.isArray(answers) && Object.entries(answers).find(([key]) => normalizedLabel(key) === exactQuestion)?.[1]; return typeof value === "string" ? normalizedLabel(value) === label : Array.isArray(value) && value.some((item) => typeof item === "string" && normalizedLabel(item) === label); }
+function connpassOrganizerPrivacyQuestion(value) {
+  const question = String(value || "").replace(/\s+/g, " ").trim();
+  return /^本応募フォームで取得した回答内容及び、個人情報は株式会社[^。]{1,80}が取り扱いいたします。 詳細は以下よりご確認ください。/.test(question)
+    && !/(?:第三者|販売|売却|共有|提供)/.test(question);
+}
 
 function techPlayPrivateString(value) { return typeof value === "string" && value.length > 0 && value.length <= 2_000 && value === value.trim() && !/[\x00-\x1f\x7f]/.test(value) ? value : null; }
 function techPlayExactAnswer(profile, key) { try { const answers = profile && profile.form_answers; return answers && typeof answers === "object" && !Array.isArray(answers) && Object.prototype.hasOwnProperty.call(answers, key) ? answers[key] : null; } catch { return null; } }
@@ -1772,6 +1790,10 @@ function createPrivateValueResolver(options = {}) {
       if (input.provider === "connpass") {
         if (input.state !== "connpass_join") return null;
         if (connpassSafeRadioCategory(control)) return true;
+        if (control.kind === "checkbox" && label === normalizedLabel("個人情報の取り扱いに同意します") && connpassOrganizerPrivacyQuestion(control.question)) {
+          const profile = await safeProfile(readPeatixProfile);
+          return profile && profile.accept_organizer_privacy === true ? true : null;
+        }
         return approvedOption(await safeProfile(readFormProfile), question, label) ? true : null;
       }
       const profile = await safeProfile(readPeatixProfile);
