@@ -95,7 +95,8 @@ class LmLoopApplyTest(unittest.TestCase):
         return release
 
     def _launchctl_recorder(self, expected_arguments: list[str] | None = None,
-                            label: str = "ai.anicca.example") -> tuple[Path, Path]:
+                            label: str = "ai.anicca.example",
+                            agents_dir_name: str = "LaunchAgents") -> tuple[Path, Path]:
         calls = self.root / "launchctl.calls"
         state = self.root / "launchctl.state"
         executable = self.root / "launchctl-safe"
@@ -106,7 +107,7 @@ class LmLoopApplyTest(unittest.TestCase):
         if expected_arguments is not None:
             domain = f"gui/{os.getuid()}"
             service = f"{domain}/{label}"
-            plist = self.root / f"LaunchAgents/{label}.plist"
+            plist = self.root / agents_dir_name / f"{label}.plist"
             script += "if [ \"$1\" = preflight ]; then\n"
             script += "[ \"$#\" -eq 1 ] || exit 90\n"
             script += "elif [ \"$1\" = print ]; then\n"
@@ -137,9 +138,11 @@ class LmLoopApplyTest(unittest.TestCase):
 
     def _apply_kwargs(self, current: Path, lock_path: Path,
                       expected_arguments: list[str] | None = None,
-                      label: str = "ai.anicca.example") -> dict:
-        launchctl_safe, calls = self._launchctl_recorder(expected_arguments, label)
-        agents_dir = self.root / "LaunchAgents"
+                      label: str = "ai.anicca.example",
+                      agents_dir_name: str = "LaunchAgents") -> dict:
+        launchctl_safe, calls = self._launchctl_recorder(
+            expected_arguments, label, agents_dir_name)
+        agents_dir = self.root / agents_dir_name
         agents_dir.mkdir()
         return {
             "agents_dir": agents_dir,
@@ -1488,42 +1491,44 @@ class LmLoopApplyTest(unittest.TestCase):
             "AGENTMAIL_ADAPTER_STATE_DIR",
             "AGENTMAIL_SEMANTIC_STATE_DIR",
         }
-        loop_id = "agentmail-webhook"
-        release = self._release(f"release-{loop_id}").resolve()
-        registry_value = registry()
-        entry = registry_value["loops"].pop("example")
-        entry["label"] = f"ai.anicca.{loop_id}"
-        registry_value["loops"][loop_id] = entry
-        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
-        current = self.root / f"current-{loop_id}"
-        current.symlink_to(release)
-        expected_arguments = [
-            str(release / "bin/lm-loop-run"), loop_id, str(release),
-        ]
-        values = self._apply_kwargs(
-            current, self.root / f"apply-{loop_id}.lock", expected_arguments,
-            label=f"ai.anicca.{loop_id}",
-        )
-        rendered = build_apply_plan(registry_value, release, SHA)[0]
-        target = values["agents_dir"] / f"ai.anicca.{loop_id}.plist"
-        installed = plistlib.loads(rendered["plist_bytes"])
-        installed["EnvironmentVariables"].update({
-            key: f"/legacy/openclaw/{key.lower()}" for key in retired
-        })
-        installed["EnvironmentVariables"]["AGENTMAIL_WEBHOOK_PORT"] = "8810"
-        target.write_bytes(plistlib.dumps(
-            installed, fmt=plistlib.FMT_XML, sort_keys=True))
+        for loop_id in ("agentmail-webhook", "agentmail-replier", "agentmail-nudge"):
+            with self.subTest(loop_id=loop_id):
+                release = self._release(f"release-{loop_id}").resolve()
+                registry_value = registry()
+                entry = registry_value["loops"].pop("example")
+                entry["label"] = f"ai.anicca.{loop_id}"
+                registry_value["loops"][loop_id] = entry
+                (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+                current = self.root / f"current-{loop_id}"
+                current.symlink_to(release)
+                expected_arguments = [
+                    str(release / "bin/lm-loop-run"), loop_id, str(release),
+                ]
+                values = self._apply_kwargs(
+                    current, self.root / f"apply-{loop_id}.lock", expected_arguments,
+                    label=f"ai.anicca.{loop_id}",
+                    agents_dir_name=f"LaunchAgents-{loop_id}",
+                )
+                rendered = build_apply_plan(registry_value, release, SHA)[0]
+                target = values["agents_dir"] / f"ai.anicca.{loop_id}.plist"
+                installed = plistlib.loads(rendered["plist_bytes"])
+                installed["EnvironmentVariables"].update({
+                    key: f"/legacy/openclaw/{key.lower()}" for key in retired
+                })
+                installed["EnvironmentVariables"]["AGENTMAIL_WEBHOOK_PORT"] = "8810"
+                target.write_bytes(plistlib.dumps(
+                    installed, fmt=plistlib.FMT_XML, sort_keys=True))
 
-        result = apply_live(
-            release, values["agents_dir"], values["launchctl_safe"],
-            target=loop_id, current=current, lock_path=values["lock_path"],
-            event_writer=lambda *_: None,
-        )
+                result = apply_live(
+                    release, values["agents_dir"], values["launchctl_safe"],
+                    target=loop_id, current=current, lock_path=values["lock_path"],
+                    event_writer=lambda *_: None,
+                )
 
-        self.assertTrue(result[0]["changed"])
-        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
-        self.assertTrue(retired.isdisjoint(environment))
-        self.assertEqual(environment["AGENTMAIL_WEBHOOK_PORT"], "8810")
+                self.assertTrue(result[0]["changed"])
+                environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+                self.assertTrue(retired.isdisjoint(environment))
+                self.assertEqual(environment["AGENTMAIL_WEBHOOK_PORT"], "8810")
 
     def test_polymarket_target_retires_legacy_home_and_signer_environment(self):
         release = self._release("release-pm-live").resolve()
