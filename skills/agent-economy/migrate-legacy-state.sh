@@ -5,6 +5,7 @@ umask 077
 INSTANCE_HOME="${AGENT_ECONOMY_LEGACY_INSTANCE_HOME:-${ANICCA_HOME:-$HOME/.anicca}}"
 OWNER_HOME="${AGENT_ECONOMY_LEGACY_OWNER_HOME:-$HOME}"
 TARGET="${AGENT_ECONOMY_STATE_ROOT:-${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager}/agent-economy}"
+INSTANCE_TARGET="$TARGET/instance"
 OLD_EARN="$INSTANCE_HOME/skills/earn/state"
 
 fail_destination() {
@@ -53,6 +54,9 @@ chmod 700 "$TARGET"
 copy_once() {
   local source="$1" target="$2" temporary
   [ -f "$source" ] || return 0
+  reject_symlink_components "$source"
+  mkdir -p "$(dirname "$target")"
+  chmod 700 "$(dirname "$target")"
   if [ ! -e "$target" ]; then
     temporary="$(mktemp "$TARGET/.migration.XXXXXX")"
     if ! cp -p "$source" "$temporary"; then
@@ -83,5 +87,15 @@ for name in earn-ledger.jsonl receipt-reconciliations.jsonl revenue-receipts.inb
 done
 copy_once "$INSTANCE_HOME/.blockrun/compute-receipts.jsonl" "$TARGET/compute-receipts.jsonl"
 copy_once "$OWNER_HOME/.hermes/state/shelter-cost.jsonl" "$TARGET/shelter-cost.jsonl"
+
+copy_once "$INSTANCE_HOME/.automaton/wallet.json" "$INSTANCE_TARGET/.automaton/wallet.json"
+copy_once "$INSTANCE_HOME/.env" "$INSTANCE_TARGET/.env"
+copy_once "$INSTANCE_HOME/identity/genesis.md" "$INSTANCE_TARGET/identity/genesis.md"
+copy_once "$INSTANCE_HOME/identity/name" "$INSTANCE_TARGET/identity/name"
+copy_once "$INSTANCE_HOME/state/ledger.jsonl" "$INSTANCE_TARGET/state/ledger.jsonl"
+copy_once "$INSTANCE_HOME/state/harness-failures.jsonl" \
+  "$INSTANCE_TARGET/state/harness-failures.jsonl"
+copy_once "$OLD_EARN/earn-ledger.jsonl" \
+  "$INSTANCE_TARGET/state/skills/earn/earn-ledger.jsonl"
 
 echo "Agent Economy legacy state copied to $TARGET; source retained."

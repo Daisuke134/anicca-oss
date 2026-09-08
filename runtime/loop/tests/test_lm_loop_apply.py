@@ -178,6 +178,22 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
                          str(Path.home() / ".local/state/life-manager/example"))
 
+    def test_agent_economy_plist_owns_code_and_mutable_home_paths(self):
+        value = registry()
+        value["loops"]["agent-economy-loop"] = value["loops"].pop("example")
+        rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
+        environment = rendered["EnvironmentVariables"]
+        state = Path.home() / ".local/state/life-manager/example"
+        instance = state / "instance"
+        earn_state = instance / "state/skills/earn"
+        self.assertEqual(environment["ANICCA_REPO"], str(self.root.resolve()))
+        self.assertEqual(environment["ANICCA_CODE_ROOT"], str(self.root.resolve()))
+        self.assertEqual(environment["ANICCA_RELEASE_ROOT"], str(self.root.resolve().parent.parent))
+        self.assertEqual(environment["ANICCA_HOME"], str(instance))
+        self.assertEqual(environment["EARN_STATE_ROOT"], str(earn_state))
+        self.assertEqual(environment["EARN_LEDGER"], str(earn_state / "earn-ledger.jsonl"))
+        self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
+
     def test_writer_plist_projects_one_state_log_and_env_contract(self):
         writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
         writer_entrypoint.parent.mkdir(parents=True)
@@ -1537,6 +1553,42 @@ class LmLoopApplyTest(unittest.TestCase):
                 environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
                 self.assertTrue(retired.isdisjoint(environment))
                 self.assertEqual(environment["AGENTMAIL_WEBHOOK_PORT"], "8810")
+
+    def test_agent_economy_apply_retires_legacy_cron_environment(self):
+        loop_id = "agent-economy-loop"
+        release = self._release("release-agent-economy").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.agent-economy-loop"
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-agent-economy"
+        current.symlink_to(release)
+        values = self._apply_kwargs(
+            current,
+            self.root / "apply-agent-economy.lock",
+            [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+            label="ai.anicca.agent-economy-loop",
+            agents_dir_name="LaunchAgents-agent-economy",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.agent-economy-loop.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"]["CEO_EFFECTIVE_CRON_DIR"] = "/legacy/cron"
+        installed["EnvironmentVariables"]["AGENT_ECONOMY_OPERATIONAL_SETTING"] = "kept"
+        target.write_bytes(plistlib.dumps(
+            installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target=loop_id, current=current, lock_path=values["lock_path"],
+            event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
+        self.assertEqual(environment["AGENT_ECONOMY_OPERATIONAL_SETTING"], "kept")
 
     def test_writer_targets_retire_only_legacy_log_environment(self):
         retired = {"ARTICLE_DAILY_LOG", "ARTICLE_MODEL_LOG", "GIG_LOG_DIR"}
