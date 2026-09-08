@@ -599,6 +599,35 @@ test("Peatix default reader scans five 20-result pages and preserves global orde
   ));
 });
 
+test("Peatix production binding limit stops after the first 20-result page", async () => {
+  const waitCalls = [];
+  const detailCalls = [];
+  const page = {
+    waitForResponse() {
+      const pageNumber = waitCalls.length + 1;
+      waitCalls.push(pageNumber);
+      return Promise.resolve(searchResponse(pageNumber, Array.from(
+        { length: 20 }, (_, index) => ({ id: pageNumber * 100 + index + 1 }),
+      )));
+    },
+    async goto() {},
+  };
+  const workflow = createPeatixDiscoveryWorkflow({
+    now: () => NOW,
+    searchBindingLimit: 20,
+    async readEventViewData(_page, canonicalUrl) {
+      detailCalls.push(canonicalUrl);
+      return detail(Number(canonicalUrl.split("/").pop()));
+    },
+    isCalendarFree() { return true; },
+  });
+
+  await workflow.discoverCandidates({ page, calendar: [] });
+
+  assert.deepEqual(waitCalls, [1]);
+  assert.equal(detailCalls.length, 20);
+});
+
 test("Peatix default reader stops after the first short response page", async () => {
   const payloads = [
     Array.from({ length: 20 }, (_, index) => ({ id: index + 501 })),
