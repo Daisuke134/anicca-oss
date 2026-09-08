@@ -128,7 +128,7 @@ def test_acquire_does_not_orphan_an_undisposable_dead_context(monkeypatch, tmp_p
     assert saved["gig-task"]["cleanup_pending"] is True
 
 
-def test_acquire_reuses_responsive_cleanup_pending_context_without_holder(monkeypatch, tmp_path):
+def test_acquire_recreates_responsive_cleanup_pending_context_without_holder(monkeypatch, tmp_path):
     module = load_module()
     leases_file = tmp_path / "leases.json"
     monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
@@ -142,12 +142,28 @@ def test_acquire_reuses_responsive_cleanup_pending_context_without_holder(monkey
         }
     }), encoding="utf-8")
     monkeypatch.setattr(module, "target_responds", lambda *_args, **_kwargs: True)
+    disposed = []
+
+    async def dispose_then_create(pairs, timeout=None):
+        results = []
+        for method, params in pairs:
+            if method == "Target.disposeBrowserContext":
+                disposed.append(params["browserContextId"])
+                results.append({})
+            elif method == "Target.createBrowserContext":
+                results.append({"browserContextId": "fresh-context"})
+            elif method == "Target.createTarget":
+                results.append({"targetId": "fresh-target"})
+        return results
+
+    monkeypatch.setattr(module, "_calls", dispose_then_create)
 
     result = module.acquire("gig-task")
 
     assert result["ok"] is True
-    assert result["reused"] is True
-    assert result["context_id"] == "responsive-context"
+    assert result["reused"] is False
+    assert disposed == ["responsive-context"]
+    assert result["context_id"] == "fresh-context"
     assert result["pid"] == module._holder_pid()
     assert "cleanup_pending" not in result
     saved = json.loads(leases_file.read_text(encoding="utf-8"))

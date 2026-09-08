@@ -304,7 +304,7 @@ def acquire(task, url="about:blank", no_seed=False):
                 and held.get("cleanup_pending") is not True):
             raise RuntimeError("lease_busy")
         holder_dead = bool(held) and not parked and holder_pid_state is False
-        if held and (holder_dead or not target_responds(
+        if held and (holder_dead or held.get("cleanup_pending") is True or not target_responds(
             held.get("ws") or _page_ws(held.get("target_id") or "")
         )):
             # Dead holder (confirmed via the free, local pid check -- no need to spend up
