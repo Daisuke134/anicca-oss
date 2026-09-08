@@ -93,8 +93,35 @@ async def _capture(ws_url: str) -> dict[str, object]:
         return result
 
 
-def _gmail(account: str, executable: str) -> list[dict[str, object]]:
-    query = "from:(mercor.com OR mail.mercor.com) newer_than:30d"
+def _valid_cached_thread(row: object, thread_id: str) -> bool:
+    if not isinstance(row, dict) or row.get("threadId") != thread_id:
+        return False
+    messages = row.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return False
+    for message in messages:
+        if not isinstance(message, dict):
+            return False
+        if not isinstance(message.get("id"), str) or not message["id"]:
+            return False
+        if message.get("threadId") != thread_id:
+            return False
+        if not isinstance(message.get("internalDate"), str) or not message["internalDate"]:
+            return False
+        if not isinstance(message.get("labels"), list):
+            return False
+        if not all(isinstance(label, str) for label in message["labels"]):
+            return False
+        if any(not isinstance(message.get(key), str)
+               for key in ("from", "to", "subject", "body")):
+            return False
+    return True
+
+
+def _gmail(account: str, executable: str,
+           previous: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
+    query = ("(from:(mercor.com OR mail.mercor.com) "
+             "OR to:(mercor.com OR mail.mercor.com)) newer_than:30d")
     search = subprocess.run(
         [executable, "gmail", "messages", "search", query, "--max", "100",
          "--account", account, "--json", "--no-input"],
@@ -106,23 +133,55 @@ def _gmail(account: str, executable: str) -> list[dict[str, object]]:
         rows = json.loads(search.stdout).get("messages", [])
     except (AttributeError, ValueError):
         raise RuntimeError("mercor_gmail_inventory_invalid") from None
-    thread_ids = []
+    auth_thread_ids = set()
     for raw in rows:
         if not isinstance(raw, dict):
             raise RuntimeError("mercor_gmail_inventory_invalid")
         sender = str(raw.get("from") or "").casefold()
+        recipient = str(raw.get("to") or "").casefold()
+        thread_id = raw.get("threadId")
+        if "auth@mercor.com" in sender or "auth@mercor.com" in recipient:
+            if isinstance(thread_id, str) and thread_id:
+                auth_thread_ids.add(thread_id)
+
+    thread_ids = []
+    search_message_ids: dict[str, set[str]] = {}
+    for raw in rows:
+        sender = str(raw.get("from") or "").casefold()
+        recipient = str(raw.get("to") or "").casefold()
         # Authentication messages contain one-time login URLs. Their metadata is
         # enough to exclude their whole thread; their body must never enter Reply evidence.
         thread_id = raw.get("threadId")
-        if "auth@mercor.com" in sender:
+        if (thread_id in auth_thread_ids or "auth@mercor.com" in sender
+                or "auth@mercor.com" in recipient):
             continue
         if not isinstance(thread_id, str) or not thread_id:
             raise RuntimeError("mercor_gmail_inventory_invalid")
         if thread_id not in thread_ids:
             thread_ids.append(thread_id)
+        message_id = raw.get("id")
+        if isinstance(message_id, str) and message_id:
+            search_message_ids.setdefault(thread_id, set()).add(message_id)
+
+    cached = {
+        row.get("threadId"): row
+        for row in (previous or [])
+        if isinstance(row, dict) and isinstance(row.get("threadId"), str)
+        and isinstance(row.get("messages"), list)
+    }
 
     result = []
     for thread_id in thread_ids:
+        prior = cached.get(thread_id)
+        current_ids = search_message_ids.get(thread_id, set())
+        prior_ids = {
+            message.get("id") for message in (prior or {}).get("messages", [])
+            if isinstance(message, dict) and isinstance(message.get("id"), str)
+        }
+        if (_valid_cached_thread(prior, thread_id) and current_ids
+                and current_ids <= prior_ids):
+            result.append(prior)
+            continue
         fetched = subprocess.run(
             [executable, "gmail", "thread", "get", "--account", account, "--json",
              "--wrap-untrusted", "--full", "--sanitize-content", thread_id],
@@ -158,9 +217,10 @@ def _gmail(account: str, executable: str) -> list[dict[str, object]]:
     return result
 
 
-def snapshot(*, ws_url: str, gmail_account: str, gog: str) -> dict[str, object]:
+def snapshot(*, ws_url: str, gmail_account: str, gog: str,
+             previous_gmail: list[dict[str, object]] | None = None) -> dict[str, object]:
     value = asyncio.run(_capture(ws_url))
-    value["gmail"] = _gmail(gmail_account, gog)
+    value["gmail"] = _gmail(gmail_account, gog, previous_gmail)
     value["observed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     value["version"] = 1
     return value
@@ -173,7 +233,16 @@ def main(argv=None) -> int:
     parser.add_argument("--gog", default="/opt/homebrew/bin/gog")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
-    value = snapshot(ws_url=args.ws, gmail_account=args.gmail_account, gog=args.gog)
+    previous_gmail = None
+    if args.output.is_file():
+        try:
+            previous = json.loads(args.output.read_text(encoding="utf-8"))
+            if isinstance(previous, dict) and isinstance(previous.get("gmail"), list):
+                previous_gmail = previous["gmail"]
+        except (OSError, ValueError):
+            pass
+    value = snapshot(ws_url=args.ws, gmail_account=args.gmail_account, gog=args.gog,
+                     previous_gmail=previous_gmail)
     args.output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = args.output.with_suffix(".tmp")
     temporary.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True) + "\n",
