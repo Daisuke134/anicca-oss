@@ -205,7 +205,8 @@ function candidateTokyoDateKey(candidate) {
   return [day.year, day.month, day.day].map((part, index) => String(part).padStart(index === 0 ? 4 : 2, "0")).join("-");
 }
 
-function boundedPendingCandidates(candidates) {
+function boundedPendingCandidates(candidates, rotation = 0) {
+  if (!Number.isSafeInteger(rotation) || rotation < 0) invalid();
   if (candidates.length <= PROVIDER_RANK_MAX_CANDIDATES) return candidates;
   const byDate = new Map();
   const invalidDates = [];
@@ -231,7 +232,7 @@ function boundedPendingCandidates(candidates) {
     for (const date of dates) {
       const group = byDate.get(date);
       if (index >= group.length) continue;
-      selected.push(group[index]);
+      selected.push(group[(rotation + index) % group.length]);
       added = true;
       if (selected.length >= PROVIDER_RANK_MAX_CANDIDATES) break;
     }
@@ -376,7 +377,8 @@ function createProductionProviderRouter(options = {}) {
         ));
         const pending = candidates.filter((candidate) => !reconcile.includes(candidate));
         if (pending.length === 0) return candidates;
-        const rankingCandidates = boundedPendingCandidates(pending);
+        const rotation = Math.floor(exactNow(now()).getTime() / 1_800_000);
+        const rankingCandidates = boundedPendingCandidates(pending, rotation);
         const ranking = await rankCandidates({ candidates: rankingCandidates, preferences: eventPreferences });
         const sourceByRef = new Map(rankingCandidates.map((candidate) => [candidate.event_ref, candidate]));
         const eligible = eligibleRankedCandidates(ranking).map((ranked) => Object.freeze({
