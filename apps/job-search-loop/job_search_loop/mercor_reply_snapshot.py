@@ -220,12 +220,20 @@ def _gmail(account: str, executable: str,
                 and current_ids <= prior_ids):
             result.append(prior)
             continue
-        fetched = subprocess.run(
-            [executable, "gmail", "thread", "get", "--account", account, "--json",
-             "--wrap-untrusted", "--full", "--sanitize-content", thread_id],
-            capture_output=True, text=True, check=False, timeout=30,
-        )
-        if fetched.returncode != 0:
+        argv = [executable, "gmail", "thread", "get", "--account", account, "--json",
+                "--wrap-untrusted", "--full", "--sanitize-content", thread_id]
+        fetched = None
+        for _attempt in range(2):
+            try:
+                candidate = subprocess.run(
+                    argv, capture_output=True, text=True, check=False, timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                continue
+            if candidate.returncode == 0:
+                fetched = candidate
+                break
+        if fetched is None:
             raise RuntimeError("mercor_gmail_thread_unavailable")
         try:
             thread = json.loads(fetched.stdout).get("thread", {})
