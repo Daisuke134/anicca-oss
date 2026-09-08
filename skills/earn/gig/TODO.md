@@ -938,6 +938,48 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    174 threads have durable states, including one official reply/readback, while closed, no-reply,
    external-wait and retry-wait threads remain separated. The wake is still running, so this is progress
    evidence, not terminal acceptance, and the atom remains unchecked.
+   A later natural Coconala wake from that same installed SHA ended `pass` with exit zero at
+   `2026-09-08T02:28:32Z`; process existence is no longer the blocker. However, Lancers board
+   `9058411` exposed a shared reply-grounding defect after its earlier durable human wait: the buyer
+   asked six ordinary applicant-profile questions, and seller message `59145214` told the buyer that
+   gender, age band, availability, work history, related experience and continuity could not be
+   answered because the conversation lacked that information. This was a real customer-visible effect,
+   not a draft. The private candidate SSOT already contains the age-band and verified work facts, and
+   the provider public profile contains weekly availability and reusable skills; only gender remains
+   genuinely absent. The exact source boundary is that the Lancers adapter passes only the verified
+   proposal into its composer and never supplies the shared candidate/profile grounding.
+   `SHARED-REPLY-1` therefore remains open and its next bounded work is, in order:
+   1. Add one provider-neutral reply-grounding reader under `marketplace-core` for the private candidate
+      SSOT, reusable verified facts and provider public-profile facts; adapters may add only verified
+      proposal/provider context.
+   2. Make the shared model contract answer every explicit buyer question from verified facts, safe
+      derivations and reasonable reversible defaults. Internal context absence must never be rendered as
+      a customer-facing answer, and ordinary profile questionnaires must not create a Telegram human gate.
+      Do not replace model judgment with keyword/regex classification. Irreversible financial, legal,
+      identity or qualification claims still require authoritative facts rather than invention.
+   3. Send one natural corrective answer to the `ママさん応援団` buyer on board `9058411`, require the exact official message readback,
+      then require a following natural replay with zero duplicate effect.
+   4. Keep shared Telegram handoff only for genuinely person-bound or irreversible actions, not missing
+      ordinary questionnaire fields; all other threads continue independently.
+   5. Prove Coconala consumes the same grounding/decision contract. Mercor and CrowdWorks remain the later
+      fixed-order thin-adapter atoms; this correction does not pull either one forward.
+   Source checkpoint `ac4c13dea` adds the provider-neutral grounding reader and connects Lancers to it.
+   It derives only an age band from the private birth date, passes verified claims without their private
+   evidence metadata, adds the provider's public availability/skill facts, and leaves absent gender
+   explicit rather than silently inferring it. Dais then authoritatively supplied `male`; it is persisted
+   only in the private candidate SSOT and must be reused without a Telegram question. The Lancers model
+   contract no longer tells a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
+   Lancers adapter checks pass 26/26. This is pushed source evidence only, not production acceptance;
+   the corrective official reply/readback and replay-zero remain open.
+   Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
+   context and components. This does not reorder the executable cursor: the immediate work inside
+   `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
+   proof. CrowdWorks remains the later `CROWDWORKS-REPLY-1` thin-adapter acceptance rather than being
+   pulled ahead of the fixed intervening atoms.
+   CrowdWorks must not be described as having no reply opportunities: no shared Reply adapter currently
+   observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
+   verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
+   while the missing Reply observer is the current visibility and response gap.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
