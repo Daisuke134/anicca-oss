@@ -8,6 +8,7 @@ import fcntl
 import json
 import os
 import re
+import shlex
 import stat
 from pathlib import Path
 
@@ -107,15 +108,58 @@ def migrate(source: Path, target: Path) -> dict[str, int]:
     }
 
 
+def configure(target: Path, assignments: list[str]) -> dict[str, int]:
+    target = target.expanduser()
+    _reject_symlink_chain(target, "Life Manager environment")
+    values: dict[str, str] = {}
+    for assignment in assignments:
+        key, separator, value = assignment.partition("=")
+        if not separator or key not in KEYS:
+            raise ValueError("--set requires an allowlisted KEY=VALUE")
+        if key in values or not value or any(character in value for character in "\r\n\0"):
+            raise ValueError("--set value is empty, duplicated, or unsafe")
+        values[key] = shlex.quote(value)
+    if not values:
+        raise ValueError("at least one --set KEY=VALUE is required")
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    flags = os.O_RDWR | os.O_CREAT | os.O_APPEND
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(target, flags, 0o600)
+    with os.fdopen(descriptor, "r+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+            raise ValueError("Life Manager environment is not a regular file")
+        handle.seek(0)
+        current = handle.read()
+        target_values = _parse_values(current)
+        conflicts = [
+            key for key, value in values.items()
+            if key in target_values and target_values[key] != value
+        ]
+        if conflicts:
+            raise ValueError("Life Manager environment already has a different allowlisted value")
+        additions = [key for key in sorted(values) if key not in target_values]
+        if additions:
+            separator = "" if not current or current.endswith("\n") else "\n"
+            handle.seek(0, os.SEEK_END)
+            handle.write(separator + "".join(f"{key}={values[key]}\n" for key in additions))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.fchmod(handle.fileno(), 0o600)
+    return {"configured": len(additions), "skipped": len(values) - len(additions)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path.home() / ".openclaw/.env")
     parser.add_argument(
         "--target", type=Path, default=Path.home() / ".local/state/life-manager/.env"
     )
+    parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     args = parser.parse_args()
     try:
-        result = migrate(args.source, args.target)
+        result = configure(args.target, args.set) if args.set else migrate(args.source, args.target)
     except (OSError, RuntimeError, ValueError) as error:
         print(f"Writer environment migration failed: {error}", file=os.sys.stderr)
         return 1

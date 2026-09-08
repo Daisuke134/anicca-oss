@@ -73,6 +73,26 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symlink path component"):
                 MODULE.migrate(source, linked / "child/life-manager.env")
 
+    def test_configure_adds_only_allowlisted_values_without_exposing_or_overwriting(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "life-manager.env"
+            result = MODULE.configure(
+                target,
+                ["NOTE_URLNAME=writer name", "ARTICLE_PRODUCT_LANDING_URL=https://example.test/p"],
+            )
+            self.assertEqual(result, {"configured": 2, "skipped": 0})
+            body = target.read_text(encoding="utf-8")
+            self.assertIn("NOTE_URLNAME='writer name'", body)
+            self.assertEqual(os.stat(target).st_mode & 0o777, 0o600)
+            self.assertEqual(
+                MODULE.configure(target, ["NOTE_URLNAME=writer name"]),
+                {"configured": 0, "skipped": 1},
+            )
+            with self.assertRaisesRegex(ValueError, "different"):
+                MODULE.configure(target, ["NOTE_URLNAME=another"])
+            with self.assertRaisesRegex(ValueError, "allowlisted"):
+                MODULE.configure(target, ["UNRELATED_SECRET=value"])
+
 
 if __name__ == "__main__":
     unittest.main()
