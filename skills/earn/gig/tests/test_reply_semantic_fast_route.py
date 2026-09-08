@@ -343,6 +343,9 @@ def test_semantic_judge_corrects_any_model_validation_error_once(tmp_path, monke
     assert len(calls) == 2
     assert "semantic_content_evidence_invalid" in calls[1]
     assert "一文字も変えずコピー" in calls[1]
+    assert "reply_auditの配列はすべて空" in calls[1]
+    assert "最新roleは入力値を変更しません" in calls[1]
+    assert "conversation_state=unknown、next_action=wait" in calls[1]
 
 
 def test_semantic_judge_accepts_compatible_receipts_and_rejects_unknown_profile(tmp_path):
