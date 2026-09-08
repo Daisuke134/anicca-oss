@@ -57,7 +57,14 @@ HARD_PROHIBITION_CLASSES = {
     # would still have bid on both. One definition, read by all three, is the point.
     "music_or_audio_production": "music, song, performance, singing, BGM, composition, arrangement, mixing, mastering, or other produced/edited audio as the required deliverable",
     "outreach_or_account_operations": "the required outcome is recruiting, lead sourcing, individualized bulk outreach, social DM operations, account warming, posting operations, or ongoing third-party account management rather than an asynchronous buyer-visible artifact",
-    "mandatory_desktop_or_browser_operations": "the required work must be performed through a desktop application or repeated logged-in browser operation, rather than delivering software, a landing page, an article, strategy, code, or another asynchronous file/document artifact",
+    # Sharpened 2026-09-07 after promotion. As written for Coconala this refused, on Lancers,
+    # 「RPAツール『アシロボ』シナリオ作成」, 「Notesからサイボウズ Officeへの移行とアプリ開発」 and a
+    # writing job whose only sin was 「WordPress直接入稿」 -- 22 refusals of which about half were
+    # the catalogue's own core work. Building automation inside a tool, migrating between tools, or
+    # publishing a finished artifact through one are all deliveries. The line is whether operating
+    # the software IS the deliverable, hour after hour, or merely how a built thing is made and
+    # handed over.
+    "mandatory_desktop_or_browser_operations": "operating software is itself the deliverable -- ongoing hours of data entry, checking, monitoring or repeated logged-in clicking inside a desktop application or someone else's account. Building, configuring, automating or migrating a system, or publishing a finished artifact through a tool, is a delivery and is never this class, however much software the work passes through",
     "illegal_or_unsafe": "illegal or unsafe work",
     # 2026-09-07: applied to 整理収納アドバイザー監修 and 防災士監修. Both name a certification the
     # persona does not hold, and both were read as allowed because the wording said "legally
