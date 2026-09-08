@@ -87,6 +87,13 @@ function connectorCanonicalUrl(value) {
     if (raw !== expected || url !== expected) connectorInvalid();
     return Object.freeze({ url: expected, sourceTitle: "TECH PLAY" });
   }
+  const kokuchProMatch = host === "www.kokuchpro.com"
+    && /^\/event\/([0-9a-f]{32})(?:\/([1-9][0-9]{0,19}))?\/$/.exec(parsed.pathname);
+  if (kokuchProMatch) {
+    const expected = `https://www.kokuchpro.com/event/${kokuchProMatch[1]}/${kokuchProMatch[2] ? `${kokuchProMatch[2]}/` : ""}`;
+    if (raw !== expected || url !== expected) connectorInvalid();
+    return Object.freeze({ url: expected, sourceTitle: "KokuchPro" });
+  }
   const match = host === "peatix.com" && /^\/event\/([1-9][0-9]*)$/.exec(parsed.pathname);
   const expected = match ? `https://peatix.com/event/${match[1]}` : "";
   if (!expected || raw !== expected || url !== expected) connectorInvalid();

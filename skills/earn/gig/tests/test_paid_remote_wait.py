@@ -856,11 +856,42 @@ def test_paid_clients_use_independent_parallel_readbacks_and_browser_targets(tmp
     monkeypatch.setattr(paid, "_collector", collector)
     monkeypatch.setattr(paid, "_run", run)
     monkeypatch.setattr(paid, "_row", lambda _snapshot, _room: {"talkroom_id": "18211957"})
+    monkeypatch.setattr(paid, "_reclaim_browser_owner", lambda *_args: None)
     args = SimpleNamespace(evidence_dir=tmp_path, cdp_lock_dir=tmp_path / "locks")
 
     paid._targeted(args, {"talkroom_id": "18211957"}, 0)
 
     assert owners == ["paid-direct-18211957"]
+
+
+def test_targeted_readback_reclaims_its_stale_owner_before_open(tmp_path, monkeypatch):
+    paid = load("paid_direct")
+    events = []
+    collector_output = {}
+
+    def reclaim(_args, owner):
+        events.append(("reclaim", owner))
+
+    def collector(_args, _mode, output, *_rest):
+        collector_output["path"] = output
+        return ["collector"]
+
+    def run(_command, _step, **_kwargs):
+        events.append(("open", _kwargs["env"]["CLOAK_BROWSER_OWNER"]))
+        write_json(collector_output["path"], {"orders": [{"talkroom_id": "18223833"}]})
+
+    monkeypatch.setattr(paid, "_reclaim_browser_owner", reclaim)
+    monkeypatch.setattr(paid, "_collector", collector)
+    monkeypatch.setattr(paid, "_run", run)
+    monkeypatch.setattr(paid, "_row", lambda _snapshot, _room: {"talkroom_id": "18223833"})
+    args = SimpleNamespace(evidence_dir=tmp_path, cdp_lock_dir=tmp_path / "locks")
+
+    paid._targeted(args, {"talkroom_id": "18223833"}, 0)
+
+    assert events == [
+        ("reclaim", "paid-direct-18223833"),
+        ("open", "paid-direct-18223833"),
+    ]
 
 
 def test_remote_verifier_prompt_persists_decision_before_optional_exploration(tmp_path):
