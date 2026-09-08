@@ -43,6 +43,10 @@ case "$cmd" in
       *) echo "unknown arg: $1"; exit 2;;
     esac; done
     export NOTE_KEY="$KEY" NOTE_PRICE="$PRICE" NOTE_PAYWALL="$PAYWALL" NOTE_EYECATCH="$EYECATCH" NOTE_MODE="$MODE" NOTE_SRC="$MD"
+    if [ -n "$EYECATCH" ]; then
+      [ -f "$EYECATCH" ] || { echo "ERROR: eyecatch is not a regular file: $EYECATCH"; exit 2; }
+      cp "$EYECATCH" "$WORK/thumb.png"
+    fi
     [ -n "$NUM" ] && export NOTE_NUM="$NUM"; [ -n "$IMG_DIR" ] && export NOTE_IMG_DIR="$IMG_DIR"; [ -n "$TAGS" ] && export NOTE_TAGS="$TAGS"; [ -n "$INFOG" ] && export NOTE_INFOG="$INFOG"
     echo "== PUBLISH md=$MD key=$KEY price=$PRICE paywall-before='$PAYWALL' mode=$MODE =="
     echo "[1/7] cookies";   "$HBPY" "$DIR/extract-note-cookies.py" | filt
