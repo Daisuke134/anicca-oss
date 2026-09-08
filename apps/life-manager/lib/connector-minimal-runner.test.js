@@ -691,7 +691,7 @@ test("known no-effect registration blockers continue to the next candidate witho
   assert.equal(state.calls.filter(([name]) => name === "agent").length, 0);
 });
 
-test("a Connpass questionnaire blocker skips fallback and continues to the next candidate", async () => {
+test("a Connpass questionnaire blocker invokes browser fallback and completes verified evidence", async () => {
   let state = fixture({
     async discoverCandidates() {
       return [candidate("connpass", "questionnaire"), candidate("connpass", "next")];
@@ -701,15 +701,20 @@ test("a Connpass questionnaire blocker skips fallback and continues to the next 
         ? Object.freeze({ status: "failed", safe_reason: "connpass_questionnaire_required" })
         : Object.freeze({ status: "completed", provider_state: { status: "registered" } });
     },
-    async runAgentFallback() { throw new Error("browser fallback must not run"); },
-    async readProviderState({ candidate: selected, phase }) {
-      return Object.freeze({ status: phase === "pre_submit" || selected.event_ref.endsWith("/questionnaire") ? "absent" : "registered" });
+    async runAgentFallback({ candidate: selected }) {
+      assert.equal(selected.event_ref.endsWith("/questionnaire"), true);
+      state.calls.push(["agent", selected.event_ref]);
+      return Object.freeze({ status: "completed" });
     },
-    async completeEvidence() { return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-connpass-next", completion_disposition: "created" }); },
+    async readProviderState({ candidate: selected, phase }) {
+      return Object.freeze({ status: phase === "pre_submit" ? "absent" : "registered" });
+    },
+    async completeEvidence() { return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-connpass-questionnaire", completion_disposition: "created" }); },
   });
   const result = await runMinimalConnectorWake({ ownerToken: "owner-token-connpass-questionnaire", providers: ["connpass"] }, state.dependencies);
   assert.equal(result.status, "applied_bundle");
-  assert.equal(state.calls.filter(([name]) => name === "agent").length, 0);
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
+  assert.equal(state.calls.some(([name, eventRef]) => name === "direct" && eventRef.endsWith("/next")), false);
 });
 
 test("a successful submit action row stays exactly the same shape as before (no provider/safe_reason/error_class)", async () => {
