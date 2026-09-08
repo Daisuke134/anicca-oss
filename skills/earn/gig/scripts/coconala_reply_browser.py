@@ -593,6 +593,7 @@ class CoconalaCdpReplyBrowser:
         self.required_official_context = "none"
         self.semantic_context_sha256: str | None = None
         self.semantic_expected_last_sender = "buyer"
+        self.raw: dict[str, Any] | None = None
 
     def __enter__(self) -> "CoconalaCdpReplyBrowser":
         self.tab = collector.DefaultTab(
@@ -616,6 +617,7 @@ class CoconalaCdpReplyBrowser:
         ))
         thread_id = direct_message_path(self.thread_url).rsplit("/", 1)[-1]
         collector.merge_durable_dm_attachments(raw, thread_id)
+        self.raw = raw
         return thread_state(raw, self.thread_url)
 
     def _navigate_to(self, url: str) -> None:

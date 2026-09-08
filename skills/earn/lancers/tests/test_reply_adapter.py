@@ -17,7 +17,10 @@ def test_no_buyer_event_is_a_noop():
         },
         "state_path": "/tmp/state.json",
     }
-    assert adapter_module.decide(row) == {
+    planner = adapter_module.reply_planner.ReplyPlanner(
+        lambda _context: (_ for _ in ()).throw(AssertionError("model called"))
+    )
+    assert planner(row) == {
         "action": "noop", "classification": "awaiting_buyer"
     }
 
@@ -31,14 +34,16 @@ def test_buyer_event_uses_existing_natural_language_composer(monkeypatch):
             (board, messages, state, grounding)
         ) or "承知しました。",
     )
-    result = adapter_module.decide({
+    planner = adapter_module.reply_planner.ReplyPlanner(
+        lambda context: adapter_module.compose(context, Path("/tmp/reply/state.json"))
+    )
+    result = planner({
         "context": {
             "reply_required": True,
             "board": {"title": "相談", "description": "詳細"},
             "conversation": [{"role": "buyer", "event_id": "9", "body": "対応できますか"}],
             "verified_proposal": {"proposal_id": "7"},
         },
-        "state_path": "/tmp/reply/state.json",
     })
     assert result == {"action": "reply", "payload": {"body": "承知しました。"}}
     assert calls[0][1][0]["is_required_reply"] is True
@@ -53,14 +58,16 @@ def test_semantic_uncertainty_becomes_durable_human_wait(monkeypatch):
         ])
 
     monkeypatch.setattr(adapter_module.work_sync, "_compose_reply", uncertain)
-    result = adapter_module.decide({
+    planner = adapter_module.reply_planner.ReplyPlanner(
+        lambda context: adapter_module.compose(context, Path("/tmp/reply/state.json"))
+    )
+    result = planner({
         "context": {
             "reply_required": True,
             "board": {"title": "選考", "description": "詳細"},
             "conversation": [{"role": "buyer", "event_id": "9", "body": "回答してください"}],
             "verified_proposal": None,
         },
-        "state_path": "/tmp/reply/state.json",
     })
     assert result == {
         "action": "human",
@@ -92,7 +99,8 @@ def test_unverified_proposal_does_not_discard_buyer_conversation(monkeypatch, tm
         "12": (
             {"id": "12", "title": "相談", "description": "詳細", "is_required_reply": True},
             {"id": "12", "with": {"proposal": {"id": "999"}}},
-            [{"id": "7", "board_id": "12", "description": "対応できますか", "is_required_reply": True}],
+            [{"id": "7", "board_id": "12", "description": "対応できますか",
+              "is_required_reply": False, "send_user": {"is_client": True}}],
         )
     }
     monkeypatch.setattr(
@@ -102,3 +110,25 @@ def test_unverified_proposal_does_not_discard_buyer_conversation(monkeypatch, tm
     context = adapter.context("12")
     assert context["verified_proposal"] is None
     assert context["conversation"][-1]["body"] == "対応できますか"
+    assert context["conversation"][-1]["role"] == "buyer"
+    assert context["reply_required"] is True
+
+
+def test_sender_identity_not_required_reply_flag_owns_role(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    adapter.page = object()
+    adapter._boards = {
+        "12": (
+            {"id": "12", "title": "相談", "description": "詳細", "is_required_reply": False},
+            {"id": "12"},
+            [
+                {"id": "7", "board_id": "12", "description": "よろしいですか？",
+                 "is_required_reply": False, "send_user": {"id": 10, "is_client": True}},
+            ],
+        )
+    }
+    context = adapter.context("12")
+    assert context["conversation"] == [{
+        "event_id": "7", "role": "buyer", "body": "よろしいですか？",
+    }]
+    assert context["reply_required"] is True

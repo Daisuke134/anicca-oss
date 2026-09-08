@@ -844,7 +844,71 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    Coconala Reply lifecycle restart that Dais previously prohibited. The required action does not
    restart the Mac, Aqua/loginwindow, browser or authentication session; it terminates only that
    stale Reply process, applies only `hf-gig-reply-detector`, and then requires a natural finite
-   terminal plus official effect separation.
+   terminal plus official effect separation. A read-only three-second process sample confirms that
+   this owner is not completing marketplace work: its main Python thread remains parked in
+   `select_kqueue_control_impl`, while all five `asyncio_*` workers remain parked on empty queues.
+   There is no active mutation stack and its durable evidence has not advanced since September 4;
+   PID existence therefore cannot satisfy this atom or justify retaining its lock.
+   A source-boundary audit also finds one remaining extraction gap: `reply_kernel.py` still accepts
+   the decision callback returned by each provider `build()`, and both the Coconala and Lancers
+   adapters currently contain their own reply-selection wrapper and model prompt path. The durable
+   lifecycle is shared, but reply/estimate judgment is not yet provider-neutral as this atom requires.
+   Move that judgment behind one shared model-facing planner while retaining only normalized context,
+   capabilities and official mutation/readback in each adapter; do not check this atom from lifecycle
+   tests or the Lancers no-effect terminal alone.
+   The first extraction checkpoint now adds `reply_planner.py`: it alone converts normalized
+   buyer/seller state and the model result into reply, no-effect or durable human-wait decisions.
+   Both adapters return this shared planner and no longer define a provider `decide` function;
+   Coconala now projects its official conversation into the same `role` contract as Lancers.
+   Reply-focused regression is 138 passed with no external effect. Provider prompt/grounding
+   convergence and live Coconala activation/official acceptance remain open. The replacement
+   Coconala adapter also currently declares only normal-message mutation: the proven legacy path
+   from an explicit buyer estimate request through structured estimate terms, the official estimate
+   form and same-session readback is not yet connected to the shared planner/kernel. Do not activate
+   the replacement owner until that capability is preserved; otherwise the migration would silently
+   regress Reply's estimate responsibility.
+   The shared planner contract now accepts one normalized structured model decision for `reply`,
+   `estimate`, `wait`, `human` or `noop`; provider code no longer needs a second action-selection
+   state machine merely because its official effect is a form instead of a message. The next source
+   step is to project Coconala's already-proven semantic receipt into this contract and extract its
+   existing category/two-submit/readback ceremony as the adapter mutation, without nesting the old
+   connector-outbox lifecycle inside the shared kernel.
+   The shared planner now directly projects the proven semantic vocabulary—`reply`, `clarify`,
+   `send_estimate`, `wait`, and `stop`—onto the shared effect contract. Structured estimate terms
+   remain intact as the intent payload, clarification becomes a normal reply, an evidence-bearing
+   wait stays durable, and stop becomes a closed no-effect state. Reply-focused regression is now
+   141 passed. The remaining implementation is the Coconala semantic-runner binding and extraction
+   of its existing official estimate form ceremony into adapter mutation/readback.
+   Coconala now binds its proven `SemanticJudge` receipt directly to the shared planner. The adapter
+   retains the complete official DOM privately, exposes only normalized cumulative context to the
+   planner, and performs the existing official-application refresh plus second semantic pass when
+   verified application terms are required. `decision_required` preserves seller-last obligations,
+   so an acknowledged but still-unsent estimate is not discarded by a superficial last-role check.
+   The exact production Python import smoke passes and Reply-focused regression is 144 passed.
+   Official estimate form mutation/readback extraction and live activation remain open.
+   The official estimate ceremony now lives behind the thin Coconala adapter without invoking the
+   legacy connector-outbox lifecycle: it reuses the proven live category selector and validators,
+   verifies the semantic conversation hash, fills the official form, verifies the confirmation,
+   refreshes the exact thread before the final click, submits once, and binds a structured-offer URL
+   as the provider receipt. A new adapter instance can read the same official card back for
+   replay-zero. The shared kernel now also treats a post-effect `reconcile_unknown` as permanently
+   readback-only for that event; even an authoritative absence cannot authorize a blind duplicate.
+   The exact production Python build smoke passes, focused ceremony/kernel tests pass 24/24, and the
+   wider Reply/estimate regression passes 152/152 after one isolated timing test was rerun and then
+   passed again in the full suite. Source merge/release and live activation remain open.
+   A final shared-kernel fence audit now requires official `authoritative_absent=true` before the
+   first mutation. An unavailable or ambiguous pre-effect readback remains `intent_persisted` and
+   sends nothing; a post-effect unknown remains permanently readback-only. This closes both sides of
+   the duplicate-effect boundary for messages and estimates. Focused planner/kernel/adapters pass
+   30/30 and the wider Reply/estimate regression passes 153/153.
+   Dais's Lancers screenshots exposed a separate official-identity defect before release: buyer
+   messages from `9060780` and `9058411` were recorded as seller-last because the adapter treated
+   `is_required_reply=false` as sender identity. Official rows prove that flag is not identity; both
+   buyers have `send_user.is_client=true`, while Dais's own sent row has `is_client=false`. The
+   adapter now derives role only from that official sender field and derives `reply_required` from
+   the resulting latest role. A fresh read-only five-thread pass changes three threads to buyer-last,
+   including both screenshots. Shared-planner dry decisions produce one send-ready reply, one
+   truthful missing-fact human wait, and one semantic no-reply, without a provider mutation.
 9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with

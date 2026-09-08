@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import importlib.util
 from pathlib import Path
 import re
@@ -28,7 +28,21 @@ def _load(name: str):
 
 snapshot = _load("coconala_queue_snapshot")
 reply_browser = _load("coconala_reply_browser")
-reply_composer = _load("reply_composer")
+requested_estimate = _load("requested_estimate")
+
+
+def _load_shared(name: str):
+    path = REPO_ROOT / "skills/_shared/marketplace-core/scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"coconala_shared_{name}", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"{name}_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+reply_planner = _load_shared("reply_planner")
 
 
 def _now() -> str:
@@ -57,6 +71,8 @@ class CoconalaReplyAdapter:
         thread_reader: Callable[[str], tuple[dict[str, Any], dict[str, Any]]] | None = None,
         sender: Callable[[str, str, str], dict[str, str]] | None = None,
         cdp_helper: Path | None = None,
+        estimate_composer: Any = None,
+        estimate_browser_factory: Any = None,
     ):
         self.state_root = Path(state_root)
         self.cdp_helper = cdp_helper or (
@@ -65,7 +81,12 @@ class CoconalaReplyAdapter:
         self._inventory_reader = inventory_reader or self._read_inventory
         self._thread_reader = thread_reader or self._read_thread
         self._sender = sender or self._send
+        self.estimate_composer = estimate_composer
+        self.estimate_browser_factory = (
+            estimate_browser_factory or requested_estimate._default_browser_factory
+        )
         self._contexts: dict[str, dict[str, Any]] = {}
+        self._raw_threads: dict[str, dict[str, Any]] = {}
         self._receipts: dict[str, dict[str, str]] = {}
 
     def _read_inventory(self) -> list[dict[str, Any]]:
@@ -81,7 +102,11 @@ class CoconalaReplyAdapter:
         with reply_browser.CoconalaCdpReplyBrowser(
             self.cdp_helper, url, hidden=True, background=False,
         ) as browser:
-            return browser.read_before()
+            result = browser.read_before()
+            if not isinstance(browser.raw, dict):
+                raise RuntimeError("coconala_thread_dom_missing")
+            self._raw_threads[thread_id] = browser.raw
+            return result
 
     def _send(self, thread_id: str, body: str, expected_event: str) -> dict[str, str]:
         url = f"https://coconala.com/mypage/direct_message/{thread_id}"
@@ -141,11 +166,45 @@ class CoconalaReplyAdapter:
     def context(self, thread_id: str) -> dict[str, Any]:
         if thread_id not in self._contexts:
             self._observation(thread_id)
-        return self._contexts[thread_id]
+        context = dict(self._contexts[thread_id])
+        conversation = context.get("conversation")
+        if not isinstance(conversation, list):
+            raise RuntimeError("coconala_conversation_invalid")
+        normalized = []
+        for row in conversation:
+            if not isinstance(row, Mapping) or row.get("side") not in {"buyer", "seller"}:
+                raise RuntimeError("coconala_conversation_invalid")
+            normalized.append({**dict(row), "role": row["side"]})
+        context["conversation"] = normalized
+        context["thread_id"] = thread_id
+        context["decision_required"] = True
+        return context
+
+    def semantic_dom(self, thread_id: str) -> dict[str, Any]:
+        if thread_id not in self._raw_threads:
+            self._observation(thread_id)
+        return self._raw_threads[thread_id]
+
+    def official_application_context(self, thread_id: str) -> dict[str, Any] | None:
+        url = f"https://coconala.com/mypage/direct_message/{thread_id}"
+        with reply_browser.CoconalaCdpReplyBrowser(
+            self.cdp_helper, url, hidden=True, background=False,
+        ) as browser:
+            browser.required_official_context = "application"
+            context, _bounded = browser.read_before()
+            if not isinstance(browser.raw, dict):
+                raise RuntimeError("coconala_thread_dom_missing")
+            self._raw_threads[thread_id] = browser.raw
+            self._contexts[thread_id] = context
+        value = context.get("verified_application")
+        return dict(value) if isinstance(value, Mapping) else None
 
     def mutate(self, intent: dict[str, Any]) -> None:
+        if intent.get("action") == "estimate":
+            self._send_estimate(intent)
+            return
         if intent.get("action") != "reply":
-            raise RuntimeError("coconala_estimate_adapter_required")
+            raise RuntimeError("coconala_reply_action_unsupported")
         body = intent.get("payload", {}).get("body")
         if not isinstance(body, str) or not body.strip():
             raise RuntimeError("coconala_reply_body_invalid")
@@ -157,6 +216,8 @@ class CoconalaReplyAdapter:
         cached = self._receipts.get(intent["effect_key"])
         if cached is not None:
             return {"verified": True, **cached}
+        if intent.get("action") == "estimate":
+            return self._readback_estimate(intent)
         body = intent.get("payload", {}).get("body")
         if not isinstance(body, str):
             return {"authoritative_absent": True}
@@ -173,15 +234,188 @@ class CoconalaReplyAdapter:
                 }
         return {"authoritative_absent": True}
 
+    @staticmethod
+    def _semantic_terms(payload: Mapping[str, Any]) -> dict[str, Any]:
+        fields = ("title", "content", "quantity", "price_jpy", "delivery_days", "purchase_plan")
+        terms = {field: payload.get(field) for field in fields}
+        if any(value is None for value in terms.values()):
+            raise RuntimeError("coconala_estimate_terms_invalid")
+        return terms
+
+    def _estimate_observation(
+        self, intent: Mapping[str, Any], terms: Mapping[str, Any], *, hidden: bool,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        payload = intent["payload"]
+        thread_url = f"https://coconala.com/mypage/direct_message/{intent['thread_id']}"
+        estimate_url = requested_estimate.sanitize_estimate_url(payload.get("_estimate_url"))
+        if estimate_url is None:
+            raise RuntimeError("coconala_estimate_url_invalid")
+        with self.estimate_browser_factory(
+            self.cdp_helper, thread_url, estimate_url, hidden,
+        ) as browser:
+            browser.semantic_context_required = True
+            context, observation = browser.read_thread_context()
+        expected = str(payload.get("_semantic_context_sha256") or "")
+        if requested_estimate.semantic_context_sha256(context.get("conversation") or []) != expected:
+            raise RuntimeError("coconala_estimate_context_changed")
+        offer_date = date.fromisoformat(str(payload.get("_offer_date") or ""))
+        materialized = requested_estimate.materialize_delivery_content(dict(terms), offer_date)
+        outcome = requested_estimate.classify_delivery(
+            pre_click_cards=[],
+            post_click_cards=observation.get("structured_offers") or [],
+            terms=materialized,
+            click_started_at=None,
+            today=offer_date,
+            request_sent_at=payload.get("_request_sent_at"),
+            own_user_path=observation.get("own_user_path"),
+        )
+        return observation, outcome
+
+    def _readback_estimate(self, intent: dict[str, Any]) -> dict[str, Any]:
+        try:
+            terms = self._semantic_terms(intent["payload"])
+            _observation, outcome = self._estimate_observation(intent, terms, hidden=True)
+        except Exception:
+            return {"authoritative_absent": False}
+        cards = outcome.get("cards") if isinstance(outcome, Mapping) else None
+        if outcome.get("status") not in {"verified", "already_delivered"} or not isinstance(cards, list) or len(cards) != 1:
+            return {"authoritative_absent": outcome.get("status") == "not_required"}
+        card = cards[0]
+        receipt_id = str(card.get("offer_url") or "").strip()
+        if not receipt_id:
+            return {"authoritative_absent": False}
+        return {"verified": True, "provider_receipt_id": receipt_id, "observed_at": _now()}
+
+    def _send_estimate(self, intent: dict[str, Any]) -> None:
+        if self.estimate_composer is None:
+            raise RuntimeError("coconala_estimate_composer_unavailable")
+        payload = intent["payload"]
+        semantic_terms = self._semantic_terms(payload)
+        thread_url = f"https://coconala.com/mypage/direct_message/{intent['thread_id']}"
+        estimate_url = requested_estimate.sanitize_estimate_url(payload.get("_estimate_url"))
+        if estimate_url is None:
+            raise RuntimeError("coconala_estimate_url_invalid")
+        offer_date = date.fromisoformat(str(payload.get("_offer_date") or ""))
+        with self.estimate_browser_factory(
+            self.cdp_helper, thread_url, estimate_url, False,
+        ) as browser:
+            browser.semantic_context_required = True
+            context, before = browser.read_thread_context()
+            context["semantic_estimate_terms"] = semantic_terms
+            if requested_estimate.semantic_context_sha256(context.get("conversation") or []) != payload.get("_semantic_context_sha256"):
+                raise RuntimeError("coconala_estimate_context_changed")
+            form = browser.open_form()
+            if not requested_estimate.validate_form_contract(form):
+                raise RuntimeError("coconala_estimate_form_invalid")
+            context["live_form"] = form
+            master = self.estimate_composer.select_category("master", context, form)
+            master_form = browser.select_master(master)
+            sub = self.estimate_composer.select_category("sub", context, master_form)
+            category_form = browser.select_sub(sub)
+            typ = (
+                None if requested_estimate._category_type_optional(category_form)
+                else self.estimate_composer.select_category("type", context, category_form)
+            )
+            context["live_form"] = category_form
+            terms = self.estimate_composer.terms_with_categories(
+                context, master=master, sub=sub, typ=typ,
+            )
+            terms = requested_estimate.validate_estimate_terms(terms, context)
+            terms = requested_estimate.materialize_delivery_content(terms, offer_date)
+            selected = browser.fill(
+                terms, requested_estimate.completion_date(terms, offer_date).isoformat(),
+            )
+            if not requested_estimate.validate_selected_categories(
+                selected.get("selected_categories"), terms,
+                selected.get("category_type_contract"),
+            ):
+                raise RuntimeError("coconala_estimate_category_mismatch")
+            if not requested_estimate.validate_form_selection(browser.read_form(), terms):
+                raise RuntimeError("coconala_estimate_form_selection_mismatch")
+            browser.first_submit()
+            confirmation = browser.read_confirmation()
+            if not requested_estimate.validate_confirmation(confirmation, terms, today=offer_date):
+                raise RuntimeError("coconala_estimate_confirmation_mismatch")
+            fresh = requested_estimate._fresh_context_before_click(
+                browser, before.get("own_user_path"),
+            )
+            if requested_estimate.semantic_context_sha256(fresh.get("conversation") or []) != payload.get("_semantic_context_sha256"):
+                raise RuntimeError("coconala_estimate_context_changed")
+            click_started_at = int(datetime.now(timezone.utc).timestamp())
+            clicks_before = int(getattr(browser, "final_clicks", 0))
+            try:
+                browser.final_submit(confirmation, terms, today=offer_date)
+            except Exception:
+                if int(getattr(browser, "final_clicks", 0)) > clicks_before:
+                    return
+                raise
+            try:
+                after = browser.read_after()
+                outcome = requested_estimate.classify_delivery(
+                    pre_click_cards=[], post_click_cards=after.get("structured_offers") or [],
+                    terms=terms, click_started_at=click_started_at,
+                    today=offer_date, request_sent_at=payload.get("_request_sent_at"),
+                    own_user_path=after.get("own_user_path"),
+                )
+            except Exception:
+                return
+        cards = outcome.get("cards") if isinstance(outcome, Mapping) else None
+        if outcome.get("status") == "verified" and isinstance(cards, list) and len(cards) == 1:
+            receipt_id = str(cards[0].get("offer_url") or "").strip()
+            if receipt_id:
+                self._receipts[intent["effect_key"]] = {
+                    "provider_receipt_id": receipt_id, "observed_at": _now(),
+                }
+
     def close(self) -> None:
         return None
 
 
-def decide(row: dict[str, Any], composer: Callable[[dict[str, Any]], str]) -> dict[str, Any]:
-    conversation = row["context"].get("conversation") or []
-    if not conversation or conversation[-1].get("side") != "buyer":
-        return {"action": "noop", "classification": "awaiting_buyer"}
-    return {"action": "reply", "payload": {"body": composer(row["context"])}}
+class CoconalaSemanticComposer:
+    def __init__(self, adapter: CoconalaReplyAdapter, judge: Any):
+        self.adapter = adapter
+        self.judge = judge
+
+    def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
+        thread_id = str(context.get("thread_id") or "").strip()
+        if not thread_id:
+            raise RuntimeError("coconala_thread_identity_invalid")
+        url = f"https://coconala.com/mypage/direct_message/{thread_id}"
+        receipt = self.judge(self.adapter.semantic_dom(thread_id), url)
+        judgement = receipt.get("judgement") if isinstance(receipt, Mapping) else None
+        if not isinstance(judgement, Mapping):
+            raise RuntimeError("coconala_semantic_receipt_invalid")
+        if judgement.get("required_official_context") == "application":
+            application = self.adapter.official_application_context(thread_id)
+            if application is None:
+                return dict(judgement)
+            receipt = self.judge(
+                self.adapter.semantic_dom(thread_id), url,
+                official_context={"application": application},
+            )
+            judgement = receipt.get("judgement") if isinstance(receipt, Mapping) else None
+            if not isinstance(judgement, Mapping):
+                raise RuntimeError("coconala_semantic_receipt_invalid")
+        result = dict(judgement)
+        if result.get("next_action") == "send_estimate":
+            terms = result.get("estimate_terms")
+            raw = self.adapter.semantic_dom(thread_id)
+            if not isinstance(terms, Mapping):
+                raise RuntimeError("coconala_estimate_terms_invalid")
+            evidence_ids = result.get("evidence_message_ids") or []
+            conversation = context.get("conversation") or []
+            source = next((row for row in reversed(conversation) if row.get("message_id") in evidence_ids), None)
+            estimate_url = requested_estimate.sanitize_estimate_url(raw.get("estimate_url"))
+            if not isinstance(source, Mapping) or estimate_url is None:
+                raise RuntimeError("coconala_estimate_source_invalid")
+            result["estimate_terms"] = {
+                **dict(terms),
+                "_semantic_context_sha256": receipt["context_sha256"],
+                "_request_sent_at": source.get("sent_at"),
+                "_estimate_url": estimate_url,
+                "_offer_date": datetime.now().astimezone().date().isoformat(),
+            }
+        return result
 
 
 def build(argv: list[str]):
@@ -190,13 +424,20 @@ def build(argv: list[str]):
     parser.add_argument("--cdp-helper", required=True, type=Path)
     parser.add_argument("--runner", required=True, type=Path)
     parser.add_argument("--schema", required=True, type=Path)
+    parser.add_argument("--estimate-schema", required=True, type=Path)
     args = parser.parse_args(argv)
     root = args.state_root.expanduser().resolve()
-    composer = reply_composer.RunnerComposer(
-        runner=args.runner, schema=args.schema, workdir=REPO_ROOT,
-        temp_root=root / "model-tmp",
-    )
     adapter = CoconalaReplyAdapter(
         state_root=root, cdp_helper=args.cdp_helper.expanduser().resolve(),
+        estimate_composer=requested_estimate.RequestedEstimateComposer(
+            runner=args.runner, schema=args.estimate_schema, workdir=REPO_ROOT,
+            temp_root=root / "estimate-model-tmp",
+        ),
     )
-    return adapter, lambda row: decide(row, composer)
+    semantic = requested_estimate.SemanticJudge(
+        runner=args.runner, schema=args.schema, workdir=REPO_ROOT,
+        evidence_root=root / "semantic-evidence",
+    )
+    return adapter, reply_planner.ReplyPlanner(
+        CoconalaSemanticComposer(adapter, semantic)
+    )

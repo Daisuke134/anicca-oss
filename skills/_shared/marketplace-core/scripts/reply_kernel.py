@@ -176,6 +176,8 @@ def _run_locked(
                           "receipt": receipt, "status": "verified"})
             return {"thread_id": row["thread_id"], "status": "verified",
                     "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
+        if state.get("status") == "reconcile_unknown":
+            return _pending(row, "reconcile_unknown")
         if official.get("authoritative_absent") is not True:
             return _pending(row, "reconcile_unknown")
 
@@ -219,6 +221,10 @@ def _run_locked(
                       "receipt": receipt, "status": "verified"})
         return {"thread_id": row["thread_id"], "status": "verified",
                 "reason": "reconciled", "effect": 0, "readback": 1, "failed": 0}
+    if existing.get("authoritative_absent") is not True:
+        _write(path, {"version": 1, "observation": refreshed, "intent": intent,
+                      "status": "intent_persisted"})
+        return _pending(row, "pre_effect_reconcile_unknown")
     adapter.mutate(intent)
     official = adapter.readback(intent)
     if official.get("verified") is not True:
