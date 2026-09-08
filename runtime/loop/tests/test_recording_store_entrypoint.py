@@ -15,6 +15,7 @@ class RecordingStoreEntrypointTest(unittest.TestCase):
             env = dict(os.environ)
             env.pop("TELNYX_API_KEY", None)
             env["HOME"] = directory
+            env["LIFE_MANAGER_ENV_FILE"] = str(Path(directory) / "missing.env")
             result = subprocess.run(
                 [str(ENTRYPOINT)],
                 env=env,
