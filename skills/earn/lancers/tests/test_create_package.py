@@ -1855,6 +1855,43 @@ def test_next_button_missing_failure_carries_the_current_step():
     assert payload["step"] == "基本情報"
 
 
+# 6c. A created listing whose public page actually matches yields action: created --------------
+#
+# Every other successful-submit test in this file deliberately stops at publication_uncertain,
+# per their own comments, because _FakeCreatePage models the wizard, not a rendered
+# /menu/detail/<id> page (canonical/og/plan-sidebar markup -- see
+# test_public_readback_gates.py's _PublicPage for that side, and its own test coverage of
+# _public()'s comparisons in isolation). This test drives the exact same wizard walk to a real
+# submit, then monkeypatches only _public() itself to report "the public page matches" -- proving
+# create_package()'s own merge (`_public(...) | {"action": "created", ...} | fill_result`) is
+# unaffected by this task's fix and still reports success with the new listing's id.
+
+
+def test_create_package_reports_created_with_listing_id_when_public_readback_matches(monkeypatch):
+    module = _module()
+    product = _complete_product()
+    fields = _fields_for(product)
+    submit_button = _Field(text="保存する")
+    manual_url = module.ORIGIN + "/myplan/add?type=manual"
+    created_url = module.ORIGIN + "/myplan/999999/edit"
+    page = _FakeCreatePage(
+        fields=fields, buttons=[submit_button], manual_button_lands_on=manual_url,
+        after_submit_url=created_url,
+    )
+    submit_button.click = lambda **_kwargs: (setattr(page, "url", created_url), setattr(submit_button, "clicks", submit_button.clicks + 1))[-1]
+    monkeypatch.setattr(
+        module, "_public",
+        lambda _page, _product, **_kwargs: {"ok": True, "aligned": True, "mismatched_fields": [], "canonical_url": module.ORIGIN + "/menu/detail/999999"},
+    )
+
+    result = module.create_package(page, product, Path("/tmp/irrelevant.png"))
+
+    assert result["action"] == "created"
+    assert result["listing_external_id"] == "999999"
+    assert result["aligned"] is True
+    assert result["mismatched_fields"] == []
+
+
 # 10. A census large enough to need it says so, rather than silently dropping controls ----------
 
 
@@ -1894,7 +1931,11 @@ def test_successful_submit_with_failed_readback_is_publication_uncertain():
     with pytest.raises(module.OfferError) as excinfo:
         module.create_package(page, product, Path("/tmp/irrelevant.png"))
 
-    assert str(excinfo.value) == "publication_uncertain"
+    assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
+    # The specific readback failure is chained, not discarded -- a wake hitting this path can
+    # act on "canonical_mismatch" instead of a bare, anonymous "publication_uncertain".
+    assert isinstance(excinfo.value.__cause__, module.OfferError)
+    assert str(excinfo.value.__cause__) == "canonical_mismatch"
     # The public page was actually visited (as _public() always does) before giving up, and the
     # wizard walked all the way through before the submit control was even looked for.
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
@@ -2044,7 +2085,7 @@ def test_create_package_final_submit_that_lands_on_listing_url_needs_no_second_s
     # _public() cannot succeed against this minimal fake (no canonical/og markup modelled) --
     # exactly the pre-existing publication_uncertain shape every other successful-submit test in
     # this file already exercises. What this test proves is which path got there.
-    assert str(excinfo.value) == "publication_uncertain"
+    assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
     assert submit_button.clicks == 1  # the 画像ほか submit alone created the listing
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
 
@@ -2074,7 +2115,7 @@ def test_create_package_final_submit_that_lands_on_another_step_continues_and_su
     with pytest.raises(module.OfferError) as excinfo:
         module.create_package(page, product, Path("/tmp/irrelevant.png"))
 
-    assert str(excinfo.value) == "publication_uncertain"
+    assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
     assert submit_button.clicks == 2  # 画像ほか's own submit did not create it; 公開's did
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
 

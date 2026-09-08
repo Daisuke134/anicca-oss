@@ -59,6 +59,7 @@ def _base_overlay(**overrides) -> dict:
         "product_version": 1,
         "listing_external_id": "1000001",
         "superseded_listing_ids": [],
+        "sells_monthly_contract": False,
         "subcategory": "システム開発（オーダーメイド）",
         "service_type": "Webアプリ開発",
         "industry": "IT・通信・インターネット",

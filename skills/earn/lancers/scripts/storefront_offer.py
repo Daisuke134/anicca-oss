@@ -190,6 +190,11 @@ def _validate_product(value: dict[str, Any], path: Path) -> tuple[dict[str, Any]
     # alone, not the public title with 「ます」 appended -- see
     # listing_catalog.LancersTitleStemLengthError for how this was measured.
     if not (25 <= len(value["title_stem"]) <= 40 and len(value["subtitle"]) <= 60 and len(value["description"]) <= 2000 and len(value["notice"]) <= 2000): raise OfferError("product_invalid")
+    # Declares whether this listing is expected to carry Lancers' monthly-contract routes
+    # (basicMain/standardMain/premiumMain × 1/3/6 months) -- a property of this specific
+    # listing, not every listing (see _public()'s own docstring for why the readback gate reads
+    # this field rather than asserting the routes unconditionally).
+    if type(value.get("sells_monthly_contract")) is not bool: raise OfferError("product_invalid")
     tags, plans = value.get("tags"), value.get("plans")
     if not isinstance(tags, list) or not 1 <= len(tags) <= 5 or len(set(tags)) != len(tags) or not all(isinstance(tag, str) and tag.strip() for tag in tags): raise OfferError("product_invalid")
     if not isinstance(plans, list) or len(plans) != 3: raise OfferError("product_invalid")
@@ -225,7 +230,33 @@ def _text(page: Any, selector: str) -> str:
     return text
 
 
-def _public(page: Any, product: Mapping[str, Any]) -> dict[str, Any]:
+def _public(page: Any, product: Mapping[str, Any], *, require_image: bool = True) -> dict[str, Any]:
+    """Read back the live public page and compare it against `product`.
+
+    Two of this gate's checks are properties of the *product*, not universal laws every listing
+    must satisfy -- a package this lane only just created through the manual wizard can never
+    pass either one, no matter how faithfully it was filled:
+
+    - Monthly contract routes (basicMain/standardMain/premiumMain × 1/3/6 months) are a Lancers
+      feature specific to the one hand-authored monthly service
+      (monthly-sns-content-ops-v1.json), whose own product file says so via
+      `sells_monthly_contract: true` (see _validate_product). Nothing this file creates through
+      create_package() ever sets that field, so a freshly created package correctly skips this
+      check instead of failing a gate it structurally cannot pass. A product that does claim it
+      is still checked exactly as strictly as before -- the check itself is unchanged, only
+      whether it runs at all is now conditional.
+    - Whether an image is expected on the page is `require_image`, supplied by the caller: every
+      existing caller (_apply(), run()'s --inspect path) defaults to True, preserving today's
+      strict behaviour on the one hand-authored product, which always carries an on-disk image.
+      create_package() alone passes the create wizard's own `image_attached` flag (画像ほか is an
+      optional step; see _fill_create_form), since whether a freshly created package actually
+      has an image is a fact of that specific creation attempt, not something the product itself
+      can declare ahead of time.
+
+    Every other comparison below -- title, subtitle, description, notice, and every plan's
+    description/price/delivery_days -- stays mandatory for every caller: these are the actual
+    proof of publication and are never made conditional.
+    """
     listing_id = product["listing_external_id"]; public_url = f"{ORIGIN}/menu/detail/{listing_id}"
     response = page.goto(public_url, wait_until="domcontentloaded", timeout=30_000)
     if response is None or response.status != 200 or page.url != public_url: raise OfferError("public_readback_invalid")
@@ -240,21 +271,24 @@ def _public(page: Any, product: Mapping[str, Any]) -> dict[str, Any]:
         description = " ".join(fields[0].inner_text().split()); price = "".join(re.findall(r"[0-9]", fields[1].inner_text())); delivery = re.search(r"納期\s*([0-9]+)\s*日", fields[2].inner_text())
         if not description or not price or delivery is None: raise OfferError("public_readback_invalid")
         plans.append({"description": description, "price_jpy": int(price), "delivery_days": int(delivery.group(1))})
+    require_monthly_contract_routes = bool(product.get("sells_monthly_contract", False))
     routes = []
-    for prefix in ("basicMain", "standardMain", "premiumMain"):
-        for month in (1, 3, 6):
-            field = page.locator(f"#{prefix}{month}")
-            if field.count() != 1: raise OfferError("contract_route_invalid")
-            route = field.get_attribute("value") or ""
-            expected = r"/project_board/quote_request\?project_plan_menu_id=[0-9]+" if month == 1 else rf"/monthly_work_contracts/client/[^/]+/add\?project_plan_menu_id=[0-9]+&month={month}"
-            if re.fullmatch(expected, route) is None: raise OfferError("contract_route_invalid")
-            routes.append(route)
+    if require_monthly_contract_routes:
+        for prefix in ("basicMain", "standardMain", "premiumMain"):
+            for month in (1, 3, 6):
+                field = page.locator(f"#{prefix}{month}")
+                if field.count() != 1: raise OfferError("contract_route_invalid")
+                route = field.get_attribute("value") or ""
+                expected = r"/project_board/quote_request\?project_plan_menu_id=[0-9]+" if month == 1 else rf"/monthly_work_contracts/client/[^/]+/add\?project_plan_menu_id=[0-9]+&month={month}"
+                if re.fullmatch(expected, route) is None: raise OfferError("contract_route_invalid")
+                routes.append(route)
     image = page.locator(".p-menu-browse-detail__carousel-list img")
     has_image = image.count() >= 1 and all("photo-film" not in str(image.nth(index).get_attribute("src") or "") for index in range(image.count()))
     observed = {"title": _text(page, "h1"), "subtitle": _text(page, ".l-page-header__heading-description"), "description": _text(page, "#body + .p-project-plan-markdown"), "notice": _text(page, "#notice_for_sale + .c-text"), "plans": plans}
     expected = {"title": product["public_title"], "subtitle": product["subtitle"], "description": " ".join(product["description"].split()), "notice": " ".join(product["notice"].split()), "plans": [{key: plan[key] for key in ("description", "price_jpy", "delivery_days")} for plan in product["plans"]]}
-    mismatched = [key for key in expected if observed[key] != expected[key]] + ([] if has_image else ["image"])
-    return {"ok": True, "logged_in": True, "listing_external_id": listing_id, "canonical_url": public_url, "aligned": not mismatched, "mismatched_fields": mismatched, "has_image": has_image, "prices_jpy": [plan["price_jpy"] for plan in plans], "delivery_days": [plan["delivery_days"] for plan in plans], "contract_routes": {"spot": 3, "three_month": 3, "six_month": 3}}
+    mismatched = [key for key in expected if observed[key] != expected[key]] + ([] if not require_image or has_image else ["image"])
+    contract_routes = {"spot": 3, "three_month": 3, "six_month": 3} if require_monthly_contract_routes else None
+    return {"ok": True, "logged_in": True, "listing_external_id": listing_id, "canonical_url": public_url, "aligned": not mismatched, "mismatched_fields": mismatched, "has_image": has_image, "prices_jpy": [plan["price_jpy"] for plan in plans], "delivery_days": [plan["delivery_days"] for plan in plans], "contract_routes": contract_routes}
 
 
 def _demand(page: Any, listing_id: str) -> dict[str, int]:
@@ -531,7 +565,7 @@ def _apply(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]
         _field(page, '[name="ProjectPlanForm.title"]').fill(product["title_stem"])
         _step(page, "保存"); page.wait_for_url(f"**/myplan/{listing_id}/edit/complete", timeout=30_000)
         try: return _public(page, product) | reconciliation | {"action": "updated", "changed_field": "title"}
-        except OfferError: raise OfferError("publication_uncertain") from None
+        except OfferError as error: raise OfferError(f"publication_uncertain: {error}") from error
     _field(page, '[name="ProjectPlanForm.title"]').fill(product["title_stem"])
     _field(page, '[name="ProjectPlanForm.subtitle"]').fill(product["subtitle"])
     _field(page, '[name="___main_category_id"]').select_option(label=product["category"])
@@ -563,7 +597,7 @@ def _apply(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]
     if save.count() != 1: raise OfferError("form_changed")
     save.click(); page.wait_for_url(f"**/myplan/{listing_id}/edit/complete", timeout=30_000)
     try: return _public(page, product) | reconciliation | {"action": "updated"}
-    except OfferError: raise OfferError("publication_uncertain") from None
+    except OfferError as error: raise OfferError(f"publication_uncertain: {error}") from error
 
 
 # --- Package creation (/myplan/add?type=manual) --------------------------------------------
@@ -1366,8 +1400,12 @@ def create_package(page: Any, product: Mapping[str, Any], image: Path) -> dict[s
         submit.click(timeout=20_000)
         listing_id = _require_create_listing_id(page)
     published = dict(product) | {"listing_external_id": listing_id, "public_title": product["title_stem"] + "ます"}
-    try: return _public(page, published) | {"action": "created", "listing_external_id": listing_id} | fill_result
-    except OfferError: raise OfferError("publication_uncertain") from None
+    # require_image mirrors what this exact creation attempt actually did: 画像ほか is optional
+    # (see _fill_create_form), so a package that never got a file attached must not be marked
+    # mismatched for lacking one, while one that did must still show it. This is a fact of this
+    # specific attempt, not of `product` -- see _public()'s own docstring.
+    try: return _public(page, published, require_image=bool(fill_result.get("image_attached"))) | {"action": "created", "listing_external_id": listing_id} | fill_result
+    except OfferError as error: raise OfferError(f"publication_uncertain: {error}") from error
 
 
 def run_create(product_path: Path, state_path: Path) -> dict[str, Any]:
