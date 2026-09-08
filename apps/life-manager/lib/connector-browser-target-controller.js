@@ -1,7 +1,7 @@
 "use strict";
 
-const CONNECTOR_CDP_ENDPOINT = "http://[::1]:9222";
-const CONNECTOR_CDP_WEBSOCKET_ORIGIN = "ws://[::1]:9222";
+const CONNECTOR_CDP_ENDPOINT = "http://127.0.0.1:9222";
+const CONNECTOR_CDP_WEBSOCKET_ORIGIN = "ws://127.0.0.1:9222";
 
 function unavailable(message) {
   throw new Error(message || "Connector browser target controller unavailable");

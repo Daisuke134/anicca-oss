@@ -88,7 +88,7 @@ test("creates exactly one default-context target and binds only its exact Playwr
   const result = await controller.create();
 
   assert.equal(result.target_id, "OWNED123");
-  assert.equal(result.page_websocket, "ws://[::1]:9222/devtools/page/OWNED123");
+  assert.equal(result.page_websocket, "ws://127.0.0.1:9222/devtools/page/OWNED123");
   assert.equal(result.page, fx.owned);
   assert.equal(fx.calls.filter(([name, method]) => name === "browser-send" && method === "Target.createTarget").length, 1);
   assert.deepEqual(
@@ -155,7 +155,7 @@ test("closing with a malformed target inventory rejects before Target.closeTarge
 test("refuses another port, malformed target IDs, and ambiguous browser contexts", async () => {
   const fx = fixture();
   assert.throws(
-    () => createConnectorBrowserTargetController({ browser: fx.browser, endpoint: "http://127.0.0.1:9222" }),
+    () => createConnectorBrowserTargetController({ browser: fx.browser, endpoint: "http://[::1]:9222" }),
     /endpoint/i,
   );
   assert.throws(
