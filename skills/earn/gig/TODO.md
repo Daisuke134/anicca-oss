@@ -1003,6 +1003,10 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    persisted only exception class names, discarding the concrete semantic/collector contract violation.
    Preserve a bounded private `error_detail` in both per-thread retry state and the aggregate item so the
    next terminal can drive a class-level fix instead of another blind retry.
+   The semantic judge already owned one bounded corrective attempt, but allowed it for only four named
+   validation errors. Treat every model-output validation error as correctable exactly once and feed its
+   contract code back to the correction prompt; collector, authentication, runner and official-page errors
+   remain outside that retry. Require exact copying of source message identities to prevent hash typos.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
