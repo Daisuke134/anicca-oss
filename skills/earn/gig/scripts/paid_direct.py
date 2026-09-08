@@ -889,6 +889,21 @@ def _latest_official_buyer_identity(root: Path, talkroom_id: str) -> dict[str, s
     for row in reversed(_official_message_rows(root, talkroom_id)):
         if row.get("side") == "buyer":
             return _official_identity(row, talkroom_id)
+    try:
+        receipt = _load(root / "requirements" / "live-buyer-reply.json")
+        feedback = _text(receipt.get("feedback_sha256"))
+        identity = f"purchased-offer:{talkroom_id}"
+        if (receipt.get("version") == 1
+                and receipt.get("source") == "purchased_offer_before_first_buyer_message"
+                and receipt.get("buyer_feedback_stage") == "initial_request"
+                and _text(receipt.get("project_id")) == talkroom_id
+                and _text(receipt.get("talkroom_id")) == talkroom_id
+                and re.fullmatch(r"[0-9a-f]{64}", feedback)
+                and _text(receipt.get("feedback_identity_sha256")) == feedback
+                and receipt.get("feedback_message_identities") == [identity]):
+            return {"message_id": identity, "content_sha256": feedback, "side": "buyer"}
+    except (AttributeError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
     raise Failure("paid_work_decision")
 
 
