@@ -297,7 +297,12 @@ def acquire(task, url="about:blank", no_seed=False):
         leases = _leases()
         held = leases.get(task)
         parked = bool(held) and held.get("parked") is True
-        holder_dead = bool(held) and not parked and _pid_alive(held.get("pid")) is False
+        current_holder = _holder_pid()
+        holder_pid_state = _pid_alive(held.get("pid")) if held and not parked else None
+        if (held and not parked and held.get("pid") != current_holder
+                and holder_pid_state is not False):
+            raise RuntimeError("lease_busy")
+        holder_dead = bool(held) and not parked and holder_pid_state is False
         if held and (holder_dead or not target_responds(
             held.get("ws") or _page_ws(held.get("target_id") or "")
         )):
@@ -343,7 +348,7 @@ def acquire(task, url="about:blank", no_seed=False):
             # Whoever is calling acquire() right now is the current holder, even if a
             # different (now-dead) process originally created this row -- record its ppid so
             # gc's fast pid-liveness path tracks the real owner, not a crashed predecessor.
-            held["pid"] = _holder_pid()
+            held["pid"] = current_holder
             held.pop("cleanup_pending", None)
             held.pop("cleanup_error_type", None)
             changed = True
