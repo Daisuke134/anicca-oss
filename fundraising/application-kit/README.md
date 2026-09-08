@@ -12,5 +12,6 @@ This directory is generated from the repository-owned startup context. Adapt sem
 - Telegram: https://t.me/LifeManagerBotbot?start=lp
 - Demo video: not verified; do not attach
 - Founder video: not verified; do not attach
+- Pitch deck: `deck.pdf` (attach only when `deck.pdf.receipt.json` matches the current context digest)
 
 Past submissions are historical evidence, not a source for new answers.

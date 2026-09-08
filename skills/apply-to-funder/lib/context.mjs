@@ -97,7 +97,7 @@ export async function compileFunderPreview({ context, funderConfig, now = new Da
     application_kit: {
       answers_en: "fundraising/application-kit/answers.en.md",
       answers_ja: "fundraising/application-kit/answers.ja.md",
-      deck: "fundraising/application-kit/deck.md",
+      deck: "fundraising/application-kit/deck.pdf",
       one_pager: "fundraising/application-kit/one-pager.md",
       assets: "fundraising/application-kit/assets.json",
     },
