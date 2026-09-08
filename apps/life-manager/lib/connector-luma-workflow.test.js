@@ -77,7 +77,7 @@ function defaultDiscoveryPage(slugs, detailFor = () => ({})) {
   return { page, gotoCalls };
 }
 
-test("Luma default detail walk is bounded to twelve candidates while observed_count stays full", async () => {
+test("Luma default detail walk is bounded to six candidates while observed_count stays full", async () => {
   const slugs = Array.from({ length: 13 }, (_, index) => `bounded-${index + 1}`);
   const { page, gotoCalls } = defaultDiscoveryPage(slugs);
   const audits = [];
@@ -88,10 +88,27 @@ test("Luma default detail walk is bounded to twelve candidates while observed_co
 
   const result = await workflow.discoverCandidates({ page, calendar: [] });
 
-  assert.equal(result.length, 12);
+  assert.equal(result.length, 6);
   assert.equal(audits[0].observed_count, 13);
-  assert.equal(gotoCalls.length, 13);
-  assert.equal(gotoCalls.includes("https://luma.com/bounded-13"), false);
+  assert.equal(gotoCalls.length, 7);
+  assert.equal(gotoCalls.includes("https://luma.com/bounded-7"), false);
+});
+
+test("Luma default detail walk rotates to a different bounded slice every half hour", async () => {
+  const slugs = Array.from({ length: 8 }, (_, index) => `rotated-${index + 1}`);
+  const { page, gotoCalls } = defaultDiscoveryPage(slugs);
+  let now = new Date(0);
+  const workflow = createLumaScriptFirstWorkflow({ now: () => now });
+
+  await workflow.discoverCandidates({ page, calendar: [] });
+  const first = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
+  gotoCalls.length = 0;
+  now = new Date(1_800_000);
+  await workflow.discoverCandidates({ page, calendar: [] });
+  const second = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
+
+  assert.deepEqual(first, slugs.slice(0, 6).map((slug) => `https://luma.com/${slug}`));
+  assert.deepEqual(second, [...slugs.slice(1, 7)].map((slug) => `https://luma.com/${slug}`));
 });
 
 test("Luma default detail navigation, read, and normalize failures skip one candidate and continue", async () => {
@@ -119,11 +136,11 @@ test("Luma default detail navigation, read, and normalize failures skip one cand
 
   const result = await workflow.discoverCandidates({ page, calendar: [] });
 
-  assert.deepEqual(result.map((candidate) => candidate.event_ref), [
+  assert.deepEqual(result.map((candidate) => candidate.event_ref).sort(), [
     "luma-event://event/detail-ok-1",
     "luma-event://event/detail-ok-2",
   ]);
-  assert.deepEqual(gotoCalls.slice(1), slugs.map((slug) => `https://luma.com/${slug}`));
+  assert.deepEqual(gotoCalls.slice(1).sort(), slugs.map((slug) => `https://luma.com/${slug}`).sort());
   const serialized = JSON.stringify(result);
   for (const privateText of [privateNavigationMessage, privateReadMessage, privateNormalizeMessage]) {
     assert.equal(serialized.includes(privateText), false);

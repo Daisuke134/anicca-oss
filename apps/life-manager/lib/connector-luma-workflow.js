@@ -16,7 +16,8 @@ const TOKYO_DISCOVER_URL = "https://luma.com/tokyo?k=p";
 const PRODUCTION_TIME_ZONE = "Asia/Tokyo";
 const EVENT_REF = /^luma-event:\/\/event\/[A-Za-z0-9_-]+$/;
 const CANONICAL_URL = /^https:\/\/luma\.com\/[A-Za-z0-9_-]+$/;
-const LUMA_DETAIL_WALK_LIMIT = 12;
+const LUMA_DETAIL_WALK_LIMIT = 6;
+const LUMA_DETAIL_NAVIGATION_TIMEOUT_MS = 15_000;
 const DIRECT_ACTION_FAILURE_REASONS = new Map([
   ["LUMA_REQUIRED_PROFILE_FIELD_UNAVAILABLE", "luma_required_profile_field_unavailable"],
   ["LUMA_FORM_PROFILE_UNAVAILABLE", "luma_form_profile_unavailable"],
@@ -94,7 +95,7 @@ function defaultCalendarFree(candidate, calendar) {
   ));
 }
 
-async function defaultDiscoverOnPage({ page }) {
+async function defaultDiscoverOnPage({ page, detailOffset = 0 }) {
   if (
     !page || typeof page.goto !== "function" || typeof page.evaluate !== "function"
     || typeof page.waitForTimeout !== "function"
@@ -104,10 +105,15 @@ async function defaultDiscoverOnPage({ page }) {
     readSnapshot: () => readLumaTimelineSnapshot(page),
     advance: () => advanceLumaTimeline(page),
   });
+  if (!Number.isSafeInteger(detailOffset) || detailOffset < 0) invalid();
   const details = [];
-  for (const candidate of inventory.candidates.slice(0, LUMA_DETAIL_WALK_LIMIT)) {
+  const detailCandidates = Array.from(
+    { length: Math.min(LUMA_DETAIL_WALK_LIMIT, inventory.candidates.length) },
+    (_, index) => inventory.candidates[(detailOffset + index) % inventory.candidates.length],
+  );
+  for (const candidate of detailCandidates) {
     try {
-      await page.goto(candidate.canonical_url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await page.goto(candidate.canonical_url, { waitUntil: "domcontentloaded", timeout: LUMA_DETAIL_NAVIGATION_TIMEOUT_MS });
       const detail = normalizeLumaEventDetail(
         await readRawLumaEventDetail(page, candidate.canonical_url),
       );
@@ -144,7 +150,10 @@ function normalizedProviderState(value) {
 
 function createLumaScriptFirstWorkflow(options = {}) {
   const now = options.now || (() => new Date());
-  const discoverOnPage = options.discoverOnPage || defaultDiscoverOnPage;
+  const discoverOnPage = options.discoverOnPage || ((input) => defaultDiscoverOnPage({
+    ...input,
+    detailOffset: Math.floor(now().getTime() / 1_800_000),
+  }));
   const isCalendarFree = options.isCalendarFree || defaultCalendarFree;
   const submitOnPage = options.submitOnPage || submitLumaOnPage;
   const readProviderStateOnPage = options.readProviderStateOnPage || defaultReadProviderStateOnPage;
