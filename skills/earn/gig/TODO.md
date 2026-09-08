@@ -139,10 +139,10 @@ acceptance receipt changes a cell.
 The completed extraction order remains exactly `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
 `CROWDWORKS-PAID-1`. Mercor is the selected next marketplace, but its revenue path begins with a
 dedicated Apply owner because no current application, contract or buyer event exists. The controlling
-engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `MERCOR-REPLY-1` ->
-`NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change: produce upstream work,
-install the shared Reply lifecycle before a Mercor-specific Reply adapter, then prove the existing
-Mercor Paid adapter on a real accepted work item.
+engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `CROWDWORKS-REPLY-1` ->
+`MERCOR-REPLY-1` -> `NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change:
+after the shared Coconala/Lancers Reply acceptance, close CrowdWorks Reply before Mercor Reply,
+then prove the existing Mercor Paid adapter on a real accepted work item.
 An adapter that is code-ready and running but lacks a real external contract stays unchecked and
 continues monitoring; external inventory waiting does not block implementation of the next adapter.
 This preserves acceptance truth without leaving the engineering lane idle while Apply, Reply and
@@ -212,7 +212,7 @@ Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in 
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
 contract inventories are empty; they do not block the next implementable atom. The active engineering
-atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parallel owner covers Mercor.
+atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explicit order change.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -1020,11 +1020,14 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
    verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
    while the missing Reply observer is the current visibility and response gap.
-9. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
+9. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
+   PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
+   shared event, decision, receipt or retry lifecycle.
+10. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
    exact human action, deadline and work-item identity; then persists official readback and replay-zero.
-10. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
+11. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
    the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.
    Mercor is selected as this adapter. It is an independent gig marketplace, not a Job Hunter lane:
@@ -1047,12 +1050,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    `__provider_inventory__` durably owns `official_work_inventory_unavailable`. Production wiring is
    therefore live and honestly waiting, but the real official receipt/readback/replay chain remains
    absent and the atom stays unchecked.
-11. [ ] `LANCERS-REPLY-1` Complete one real Lancers buyer-message or estimate lifecycle through the
+12. [x] `LANCERS-REPLY-1` Complete one real Lancers buyer-message or estimate lifecycle through the
     shared Reply entrypoint. PASS = official event observation, one buyer-visible effect, same-session
     official readback and a following natural replay with effect zero are receipt-bound.
-12. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
-    PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
-    shared event, decision, receipt or retry lifecycle.
+    Board `9058411` has provider message `59145491` as the exact official correction readback. The
+    following natural shared-kernel wake represented all five boards with `effect=0`, `readback=5`,
+    `failed=0`, `pending=0`; this provider acceptance is complete even though the broader
+    `SHARED-REPLY-1` Coconala proof remains active.
 13. [ ] `PANIC-3` In an explicitly approved maintenance window with Dais physically available,
    install macOS 15.7.9 rather than Tahoe and read back the exact build after restart. This is an
    availability proof, not a fix for Paid authentication or delivery.
