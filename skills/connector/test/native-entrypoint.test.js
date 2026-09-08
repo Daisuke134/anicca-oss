@@ -53,6 +53,7 @@ test("official native pass forwards only the bounded minimal wake contract", asy
       repoRoot: REPO_ROOT,
       stateDir: path.join(directory, "state"),
       ownerToken: "native-pass-minimal-owner-123456",
+      now: () => 0,
       dependencies: Object.freeze({ boundary: "fixture" }),
       async runWake(input, dependencies) {
         observed.push({ input, dependencies });
@@ -73,6 +74,28 @@ test("official native pass forwards only the bounded minimal wake contract", asy
   }
 });
 
+test("official native pass alternates Luma and Connpass priority every 30-minute slot", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "connector-native-rotation-"));
+  const observed = [];
+  try {
+    for (const now of [0, 1_800_000, 3_600_000]) {
+      await runNativePass({
+        repoRoot: REPO_ROOT,
+        stateDir: path.join(directory, `state-${now}`),
+        ownerToken: `native-pass-rotation-owner-${now}`,
+        now: () => now,
+        dependencies: Object.freeze({ boundary: "fixture" }),
+        async runWake(input) { observed.push(input.providers); return { status: "completed_no_effect" }; },
+      });
+    }
+    assert.deepEqual(observed, [
+      ["luma", "connpass", "peatix", "meetup", "doorkeeper", "eventbrite", "techplay", "kokuchpro"],
+      ["connpass", "luma", "peatix", "meetup", "doorkeeper", "eventbrite", "techplay", "kokuchpro"],
+      ["luma", "connpass", "peatix", "meetup", "doorkeeper", "eventbrite", "techplay", "kokuchpro"],
+    ]);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
 test("official native pass builds the production dependency boundary from allowlisted config", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "connector-native-minimal-"));
   const observed = [];
@@ -83,6 +106,7 @@ test("official native pass builds the production dependency boundary from allowl
       repoRoot: REPO_ROOT,
       stateDir: path.join(directory, "state"),
       ownerToken: "native-pass-minimal-owner-123456",
+      now: () => 0,
       env: {
         HOME: directory,
         CONNPASS_API_KEY: BASE_ENV.CONNPASS_API_KEY,
@@ -188,7 +212,7 @@ test("native Peatix profile is frozen at the factory boundary and invalid identi
   let factoryInput; const wakeInputs = [];
   try {
     writeKanaProfile(directory);
-    const result = await runNativePass({ repoRoot: REPO_ROOT, stateDir: path.join(directory, "state"), ownerToken: "native-pass-profile-owner-123456", env: baseEnv, createDependencies(input) { factoryInput = input; return Object.freeze({ boundary: "production" }); }, async runWake(input) { wakeInputs.push(input); return { status: "completed_no_effect" }; } });
+    const result = await runNativePass({ repoRoot: REPO_ROOT, stateDir: path.join(directory, "state"), ownerToken: "native-pass-profile-owner-123456", now: () => 0, env: baseEnv, createDependencies(input) { factoryInput = input; return Object.freeze({ boundary: "production" }); }, async runWake(input) { wakeInputs.push(input); return { status: "completed_no_effect" }; } });
     assert.deepEqual(result, { status: "completed_no_effect" });
     assert.deepEqual(factoryInput.peatixAttendeeProfile, { name: "Dais Example", email: "private@example.com", given_name: "Dais", family_name: "Example", family_name_kana: VALID_KANA.family, given_name_kana: VALID_KANA.given, name_kanji: VALID_NAME_JA, name_hiragana: "さくら てすと", accept_organizer_privacy: true });
     assert.equal(Object.isFrozen(factoryInput), true);
