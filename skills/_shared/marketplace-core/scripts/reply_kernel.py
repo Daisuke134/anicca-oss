@@ -17,6 +17,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
@@ -138,6 +139,51 @@ def _pending(row: Mapping[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
+def _redact_private(value: Any, identities: tuple[str, ...]) -> Any:
+    if isinstance(value, str):
+        result = value
+        for identity in identities:
+            result = re.sub(re.escape(identity), "[private identity]", result,
+                            flags=re.IGNORECASE)
+        return result
+    if isinstance(value, Mapping):
+        return {key: _redact_private(item, identities) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_private(item, identities) for item in value]
+    return value
+
+
+def _private_context(value: Mapping[str, Any]) -> tuple[dict[str, Any], tuple[str, ...]]:
+    context = dict(value)
+    grounding = context.get("grounding")
+    if not isinstance(grounding, Mapping):
+        return context, ()
+    public = dict(grounding)
+    raw = public.pop("private_identity_values", [])
+    if not isinstance(raw, list) or not all(
+        isinstance(item, str) and item.strip() for item in raw
+    ):
+        raise ValueError("reply_private_identity_contract_invalid")
+    identities = tuple(item.strip() for item in raw)
+    context["grounding"] = public
+    return _redact_private(context, identities), tuple(
+        item.casefold() for item in identities
+    )
+
+
+def _assert_private_identity_safe(decision: Mapping[str, Any], values: tuple[str, ...]) -> None:
+    if not values:
+        return
+    payload = decision.get("payload")
+    if not isinstance(payload, Mapping):
+        return
+    rendered = json.dumps(
+        dict(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).casefold()
+    if any(value in rendered for value in values):
+        raise ValueError("reply_private_identity_leak")
+
+
 def _notify_verified(notify, intent, receipt, prior=None) -> dict[str, Any] | None:
     if notify is None:
         return None
@@ -150,12 +196,25 @@ def _notify_verified(notify, intent, receipt, prior=None) -> dict[str, Any] | No
     return dict(value) if isinstance(value, Mapping) else {"delivery": "failed"}
 
 
+def _notify_human(notify, row, decision, prior=None) -> dict[str, Any] | None:
+    if notify is None:
+        return None
+    if isinstance(prior, Mapping) and prior.get("delivery") == "delivered":
+        return dict(prior)
+    try:
+        value = notify(dict(row), dict(decision))
+    except Exception as error:
+        return {"delivery": "failed", "error": type(error).__name__}
+    return dict(value) if isinstance(value, Mapping) else {"delivery": "failed"}
+
+
 def _run_locked(
     adapter: ReplyAdapter,
     decide: Callable[[dict[str, Any]], Mapping[str, Any]],
     state_root: Path,
     source: Mapping[str, Any],
     notify=None,
+    human_notify=None,
 ) -> dict[str, Any]:
     row = _observation(source)
     inventory_event_id = row["latest_event_id"]
@@ -207,10 +266,11 @@ def _run_locked(
         if official.get("authoritative_absent") is not True:
             return _pending(row, "reconcile_unknown")
 
-    context = adapter.context(row["thread_id"])
-    if not isinstance(context, Mapping):
+    raw_context = adapter.context(row["thread_id"])
+    if not isinstance(raw_context, Mapping):
         raise ValueError("reply_context_invalid")
-    decision = decide({**row, "context": dict(context)})
+    context, private_identity_values = _private_context(raw_context)
+    decision = decide({**row, "context": context})
     if not isinstance(decision, Mapping):
         raise ValueError("reply_decision_invalid")
     action = _text(decision.get("action"), "action")
@@ -229,12 +289,32 @@ def _run_locked(
             isinstance(item, str) and item.strip() for item in remaining
         ):
             raise ValueError("remaining_work_invalid")
-        _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
-                      "observation": row,
-                      "status": "waiting_human" if action == "human" else "waiting_external",
-                      "blocker": reason, "remaining_work": remaining})
-        return _pending(row, reason)
+        notification = None
+        if action == "human":
+            handoff = decision.get("handoff")
+            if human_notify is not None and not isinstance(handoff, Mapping):
+                raise ValueError("reply_human_handoff_invalid")
+            if isinstance(handoff, Mapping):
+                for field in ("title", "url", "deadline"):
+                    _text(handoff.get(field), f"handoff_{field}")
+                notification = _notify_human(
+                    human_notify, row, decision, state.get("human_notification")
+                )
+        saved = {"version": 1, "inventory_event_id": inventory_event_id,
+                 "observation": row,
+                 "status": "waiting_human" if action == "human" else "waiting_external",
+                 "blocker": reason, "remaining_work": remaining}
+        if action == "human":
+            if isinstance(decision.get("handoff"), Mapping):
+                saved["handoff"] = dict(decision["handoff"])
+            saved["human_notification"] = notification
+        _write(path, saved)
+        result = _pending(row, reason)
+        if notification is not None:
+            result["notification"] = notification
+        return result
 
+    _assert_private_identity_safe(decision, private_identity_values)
     intent = _intent(row, decision)
     _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
                   "observation": row, "intent": intent,
@@ -299,12 +379,12 @@ def _run_locked(
     return result
 
 
-def _run_one(adapter, decide, state_root, source, notify=None):
+def _run_one(adapter, decide, state_root, source, notify=None, human_notify=None):
     row = _observation(source)
     path = _state_path(state_root, row)
     with _lock(path):
         try:
-            return _run_locked(adapter, decide, state_root, row, notify)
+            return _run_locked(adapter, decide, state_root, row, notify, human_notify)
         except Exception as error:
             state = _load(path)
             error_detail = str(error).strip()[:500] or type(error).__name__
@@ -338,7 +418,8 @@ def _run_one(adapter, decide, state_root, source, notify=None):
 
 def run_wake(*, adapter: ReplyAdapter,
              decide: Callable[[dict[str, Any]], Mapping[str, Any]],
-             state_root: Path, max_workers: int = 4, notify=None) -> dict[str, Any]:
+             state_root: Path, max_workers: int = 4, notify=None,
+             human_notify=None) -> dict[str, Any]:
     try:
         rows = adapter.observe_threads()
         if not isinstance(rows, list):
@@ -352,11 +433,12 @@ def run_wake(*, adapter: ReplyAdapter,
         if workers == 1:
             # Sync browser adapters are thread-affine: even a one-worker pool moves
             # their Playwright page to another thread and invalidates every call.
-            items = [_run_one(adapter, decide, Path(state_root), row, notify)
+            items = [_run_one(adapter, decide, Path(state_root), row, notify, human_notify)
                      for row in normalized]
         else:
             with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = [pool.submit(_run_one, adapter, decide, Path(state_root), row, notify)
+                futures = [pool.submit(_run_one, adapter, decide, Path(state_root), row,
+                                       notify, human_notify)
                            for row in normalized]
                 items = []
                 for row, future in zip(normalized, futures):
@@ -439,6 +521,37 @@ def _notifier(*, database: Path, chat_id: str, env_file: Path):
     return send
 
 
+def _human_notifier(*, database: Path, chat_id: str, env_file: Path):
+    notification = _load_notification()
+
+    def send(row: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+        handoff = decision["handoff"]
+        action = "\n".join(f"- {item}" for item in decision["remaining_work"])
+        message = (
+            f"Life Manager::: {row['provider']}で人間操作が必要です\n\n"
+            f"案件\n{handoff['title']}\n\n"
+            f"リンク\n{handoff['url']}\n\n"
+            f"必要な操作\n{action}\n\n"
+            f"期限\n{handoff['deadline']}\n\n"
+            "この案件は待機として保存し、他の案件の処理を続けます。"
+        )
+        event_key = _digest({
+            field: row[field]
+            for field in ("provider", "account_id", "thread_id", "latest_event_id")
+        })
+        return notification.notify_effect(
+            database=database,
+            event_key=f"reply-human:{event_key}",
+            message=message,
+            observed_at=row["observed_at"],
+            chat_id=chat_id,
+            env_file=env_file,
+            repeat_after_seconds=None,
+        )
+
+    return send
+
+
 def _chat_id(value: str, config: Path | None) -> str:
     if value.strip():
         return value.strip()
@@ -450,7 +563,7 @@ def _chat_id(value: str, config: Path | None) -> str:
         return ""
     for raw in lines:
         name, separator, candidate = raw.partition("=")
-        if separator and name.strip() in {"CROWDWORKS_REPORT_CHAT", "LANCERS_REPORT_CHAT", "GIG_REPORT_CHAT"}:
+        if separator and name.strip() in {"CROWDWORKS_REPORT_CHAT", "LANCERS_REPORT_CHAT", "GIG_REPORT_CHAT", "JOB_SEARCH_TELEGRAM_CHAT_ID"}:
             if candidate.strip():
                 return candidate.strip()
     return ""
@@ -477,6 +590,7 @@ def main(argv: list[str] | None = None) -> int:
         provider_argv = provider_argv[1:]
     adapter, decide = _load_provider(args.provider_adapter, provider_argv)
     notify = None
+    human_notify = None
     chat_id = _chat_id(args.telegram_chat_id, args.telegram_chat_config)
     if chat_id:
         notify = _notifier(
@@ -484,9 +598,15 @@ def main(argv: list[str] | None = None) -> int:
             chat_id=chat_id,
             env_file=args.telegram_env_file.expanduser().resolve(),
         )
+        human_notify = _human_notifier(
+            database=args.telegram_database.expanduser().resolve(),
+            chat_id=chat_id,
+            env_file=args.telegram_env_file.expanduser().resolve(),
+        )
     result = run_wake(adapter=adapter, decide=decide,
                       state_root=args.state_root.expanduser().resolve(),
-                      max_workers=args.max_workers, notify=notify)
+                      max_workers=args.max_workers, notify=notify,
+                      human_notify=human_notify)
     _write(args.output.expanduser().resolve(), result)
     return int(result["failed"] > 0)
 

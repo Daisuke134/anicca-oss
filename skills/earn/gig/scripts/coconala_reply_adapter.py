@@ -74,6 +74,7 @@ class CoconalaReplyAdapter:
         cdp_helper: Path | None = None,
         estimate_composer: Any = None,
         estimate_browser_factory: Any = None,
+        grounding: Mapping[str, Any] | None = None,
     ):
         self.state_root = Path(state_root)
         self.cdp_helper = cdp_helper or (
@@ -86,6 +87,7 @@ class CoconalaReplyAdapter:
         self.estimate_browser_factory = (
             estimate_browser_factory or requested_estimate._default_browser_factory
         )
+        self.grounding = dict(grounding or {})
         self._contexts: dict[str, dict[str, Any]] = {}
         self._raw_threads: dict[str, dict[str, Any]] = {}
         self._receipts: dict[str, dict[str, str]] = {}
@@ -179,6 +181,7 @@ class CoconalaReplyAdapter:
         context["conversation"] = normalized
         context["thread_id"] = thread_id
         context["decision_required"] = True
+        context["grounding"] = self.grounding
         context["provider_sending_unavailable"] = (
             self._raw_threads.get(thread_id, {}).get("sending_unavailable") is True
         )
@@ -465,16 +468,17 @@ def build(argv: list[str]):
     )
     args = parser.parse_args(argv)
     root = args.state_root.expanduser().resolve()
+    grounding = reply_grounding.build_reply_grounding(
+        candidate_profile_path=args.candidate_profile,
+        provider_profile_path=args.provider_profile,
+    )
     adapter = CoconalaReplyAdapter(
         state_root=root, cdp_helper=args.cdp_helper.expanduser().resolve(),
         estimate_composer=requested_estimate.RequestedEstimateComposer(
             runner=args.runner, schema=args.estimate_schema, workdir=REPO_ROOT,
             temp_root=root / "estimate-model-tmp",
         ),
-    )
-    grounding = reply_grounding.build_reply_grounding(
-        candidate_profile_path=args.candidate_profile,
-        provider_profile_path=args.provider_profile,
+        grounding=grounding,
     )
     semantic = requested_estimate.SemanticJudge(
         runner=args.runner, schema=args.schema, workdir=REPO_ROOT,

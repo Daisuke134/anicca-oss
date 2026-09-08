@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "reply_body", "classification", "reason", "remaining_work"],
+  "properties": {
+    "action": {"type": "string", "enum": ["reply", "noop", "wait", "human"]},
+    "reply_body": {"type": ["string", "null"], "maxLength": 1000},
+    "classification": {"type": ["string", "null"], "enum": ["awaiting_buyer", "closed", "no_reply", "noop", null]},
+    "reason": {"type": ["string", "null"], "maxLength": 240},
+    "remaining_work": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {"type": "string", "minLength": 1, "maxLength": 240}
+    }
+  }
+}

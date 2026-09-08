@@ -98,6 +98,62 @@ def test_new_buyer_event_gets_a_distinct_reply(tmp_path):
     assert len(adapter.effects) == 2
 
 
+def test_private_identity_is_hidden_from_model_and_rejected_before_provider_effect(tmp_path):
+    class PrivateContext(Adapter):
+        def context(self, _thread_id):
+            return {
+                "title": "Question for Private Legal Name",
+                "conversation": [{"role": "buyer", "body": "Hello private@example.com"}],
+                "grounding": {
+                    "prompt_facts": [{"id": "role", "claim": "Python developer"}],
+                    "private_identity_values": ["Private Legal Name", "private@example.com"],
+                    "provider_public_facts": {"display_name": "Kaito｜AI自動化"},
+                },
+            }
+
+    adapter = PrivateContext()
+    seen = []
+
+    def decide(row):
+        seen.append(row["context"])
+        return {"action": "reply", "payload": {"body": "Private Legal Nameと申します"}}
+
+    result = reply_kernel.run_wake(
+        adapter=adapter, decide=decide, state_root=tmp_path,
+    )
+
+    assert "private_identity_values" not in seen[0]["grounding"]
+    assert "Private Legal Name" not in seen[0]["title"]
+    assert "private@example.com" not in seen[0]["conversation"][0]["body"]
+    assert result["failed"] == 1
+    assert result["items"][0]["error_detail"] == "reply_private_identity_leak"
+    assert adapter.effects == []
+
+
+def test_verified_provider_public_name_is_allowed(tmp_path):
+    class PublicContext(Adapter):
+        def context(self, _thread_id):
+            return {
+                "conversation": [{"role": "buyer", "body": "Hello"}],
+                "grounding": {
+                    "private_identity_values": ["Private Legal Name"],
+                    "provider_public_facts": {"display_name": "Kaito｜AI自動化"},
+                },
+            }
+
+    adapter = PublicContext()
+    result = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _row: {
+            "action": "reply", "payload": {"body": "Kaito｜AI自動化です"},
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["failed"] == 0
+    assert result["effect"] == 1
+
+
 def test_no_effect_classification_is_replay_zero_until_source_event_changes(tmp_path):
     adapter = Adapter()
     decisions = []
@@ -180,6 +236,48 @@ def test_human_gate_is_durable_pending_and_does_not_block_another_thread(tmp_pat
     assert result["effect"] == 1
     assert result["failed"] == 0
     assert [effect["thread_id"] for effect in adapter.effects] == ["ready"]
+
+
+def test_human_gate_notification_is_durable_deduplicated_and_keeps_scanning(tmp_path):
+    adapter = Adapter([event("human", "buyer-1"), event("ready", "buyer-2")])
+    notices = []
+
+    def decide(context):
+        if context["thread_id"] == "human":
+            return {
+                "action": "human",
+                "reason": "person_bound_interview",
+                "remaining_work": ["Complete the official interview"],
+                "handoff": {
+                    "title": "Japanese evaluator",
+                    "url": "https://work.mercor.com/jobs/list_1",
+                    "deadline": "公式期限表示なし",
+                },
+            }
+        return {"action": "reply", "payload": {"body": "Ready"}}
+
+    def human_notify(row, decision):
+        notices.append((row["thread_id"], decision["handoff"]["url"]))
+        return {"delivery": "delivered", "provider_message_id": "tg-1"}
+
+    arguments = {
+        "adapter": adapter,
+        "decide": decide,
+        "state_root": tmp_path,
+        "human_notify": human_notify,
+    }
+    first = reply_kernel.run_wake(**arguments)
+    replay = reply_kernel.run_wake(**arguments)
+
+    assert first["pending"] == replay["pending"] == 1
+    assert first["effect"] == 1
+    assert replay["effect"] == 0
+    assert notices == [("human", "https://work.mercor.com/jobs/list_1")]
+    state = reply_kernel._load(next(
+        path for path in tmp_path.glob("threads/*/state.json")
+        if reply_kernel._load(path).get("status") == "waiting_human"
+    ))
+    assert state["human_notification"]["provider_message_id"] == "tg-1"
 
 
 def test_one_thread_failure_is_isolated(tmp_path):

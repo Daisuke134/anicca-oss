@@ -64,6 +64,39 @@ def test_missing_gender_stays_visibly_missing_instead_of_being_inferred(tmp_path
     assert result["missing_candidate_fields"] == ["gender"]
 
 
+def test_private_identity_never_enters_composition_facts_but_public_seller_name_does(tmp_path):
+    private = tmp_path / "profile.json"
+    private.write_text(json.dumps({
+        "candidate": {
+            "full_name": "Private Legal Name",
+            "preferred_name": "Private",
+            "application_email": "private@example.com",
+            "phone": "+81-00-0000-0000",
+            "date_of_birth": "2002-01-30",
+        },
+        "facts": [
+            {"id": "role", "claim": "Python開発を3年経験", "evidence": "resume"},
+            {"id": "named_role", "claim": "Private Legal Name is a developer", "evidence": "resume"},
+            {"id": "contact", "claim": "Contact private@example.com", "evidence": "profile"},
+        ],
+    }), encoding="utf-8")
+    public = tmp_path / "public.json"
+    public.write_text(json.dumps({"display_name": "Kaito｜AI自動化"}), encoding="utf-8")
+
+    result = grounding.build_reply_grounding(
+        candidate_profile_path=private, provider_profile_path=public,
+        today=grounding.date(2026, 9, 8),
+    )
+
+    rendered = json.dumps(result["prompt_facts"], ensure_ascii=False)
+    assert "Private Legal Name" not in rendered
+    assert "private@example.com" not in rendered
+    assert result["provider_public_facts"]["display_name"] == "Kaito｜AI自動化"
+    assert result["private_identity_values"] == [
+        "+81-00-0000-0000", "Private", "Private Legal Name", "private@example.com",
+    ]
+
+
 def _profile_with_gender(tmp_path):
     path = tmp_path / "profile-with-gender.json"
     path.write_text(json.dumps({

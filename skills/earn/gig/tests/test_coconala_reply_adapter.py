@@ -30,6 +30,26 @@ def test_provider_rows_are_normalized_without_owning_lifecycle(tmp_path):
     assert adapter.context("12")["conversation"][-1]["body"] == "質問"
 
 
+def test_context_carries_shared_privacy_contract_to_the_kernel(tmp_path):
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path,
+        grounding={
+            "prompt_facts": [{"id": "role", "claim": "Python developer"}],
+            "private_identity_values": ["Private Legal Name"],
+            "provider_public_facts": {"display_name": "Kaito｜AI自動化"},
+        },
+        inventory_reader=lambda: [],
+        thread_reader=lambda _thread: ({
+            "conversation": [{"side": "buyer", "message_id": "m1", "body": "質問"}],
+        }, {"last_sender": "buyer"}),
+    )
+
+    context = adapter.context("12")
+
+    assert context["grounding"]["private_identity_values"] == ["Private Legal Name"]
+    assert context["grounding"]["provider_public_facts"]["display_name"] == "Kaito｜AI自動化"
+
+
 def test_buyer_last_uses_model_composer_and_seller_last_is_noop(tmp_path):
     seen = []
     composer = lambda context: seen.append(context) or "承知しました。"

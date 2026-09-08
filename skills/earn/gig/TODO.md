@@ -1187,6 +1187,15 @@ Fresh cross-owner handoff audit:
    necessary; rejects output containing a known private identity value; and passes the same regression
    against Coconala, Lancers, CrowdWorks and Mercor adapters. This is a required sub-acceptance of the
    active atom, not a cursor reorder or a new provider-specific Reply implementation.
+   Identity-fence implementation checkpoint: the shared grounding now removes free-form facts that
+   contain private legal/preferred names, email, phone or address before composition while preserving
+   the provider's verified public display name. The shared kernel removes the private comparison values
+   from model context and rejects a reply payload containing any of them before intent persistence or
+   provider mutation. Coconala now carries the same grounding envelope into that kernel instead of
+   bypassing the output fence. Sixty-one focused shared/Coconala/Lancers/CrowdWorks/Mercor Reply tests
+   pass, including the historical leak shape and an allowed `Kaito｜AI自動化` public-name control.
+   Production remains unchanged and this atom stays unchecked until main merge, installed natural
+   terminals, official no-new-leak readback and replay-zero complete the acceptance.
 11. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
    the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.
