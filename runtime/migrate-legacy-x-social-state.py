@@ -102,7 +102,6 @@ def migrate(source_root: Path, target_root: Path, *, seal: bool = False) -> dict
     target_root = resolved_non_root(target_root, "target root")
     if within(source_root, target_root) or within(target_root, source_root):
         raise ValueError("source and target overlap")
-    reject_symlinks(source_root)
     reject_symlinks(target_root)
     marker_path = target_root / MARKER
     previous: dict = {}
@@ -124,6 +123,7 @@ def migrate(source_root: Path, target_root: Path, *, seal: bool = False) -> dict
             continue
         if not source.is_dir():
             raise ValueError(f"legacy source is not a directory: {source}")
+        reject_symlinks(source)
         for item in sorted(source.rglob("*")):
             if not item.is_file():
                 continue

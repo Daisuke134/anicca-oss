@@ -76,3 +76,10 @@ class XSocialMigrationTest(unittest.TestCase):
         link.symlink_to(source / "x-repost-ja", target_is_directory=True)
         with self.assertRaisesRegex(ValueError, "symlink"):
             MODULE.migrate(source, target)
+
+    def test_symlink_outside_the_three_allowlisted_sources_is_ignored(self):
+        temp, source, target = self.stores()
+        self.addCleanup(temp.cleanup)
+        (source / "current").symlink_to(source / "x-repost-en", target_is_directory=True)
+        result = MODULE.migrate(source, target)
+        self.assertEqual(result["verified"], 6)
