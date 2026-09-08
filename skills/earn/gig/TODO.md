@@ -990,6 +990,13 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    its official DOM, application/estimate context and mutation/readback ceremony. Grounding, Coconala
    adapter and semantic regressions pass 46/46. This remains source evidence until a main-derived immutable
    release produces a natural Coconala terminal with official effect separation and a following replay-zero.
+   A production path audit found one migration regression that must close before this shared atom can pass:
+   the former dedicated Coconala Reply path published realtime Telegram receipts, but the finite shared
+   `coconala-reply-owner -> reply_kernel.py` path currently invokes no Telegram reporter at all. The plist
+   still supplies the shared chat and env configuration, and `marketplace-core/effect_notification.py`
+   already provides receipt-backed, deduplicated delivery. Wire each officially verified Reply/estimate
+   receipt through that existing shared notifier, using the effect identity as the Telegram idempotency key;
+   do not add a Coconala sender or restore the legacy lifecycle.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
