@@ -202,6 +202,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
   let consecutiveFailures = 0;
   let providerDiscoveryFailed = false;
   let connpassBoundaryFailed = false;
+  let sessionExpiredReason = null;
   let discoveryFailureReason = "provider_discovery_failed";
   let lastSafeReason = "provider_discovery_failed";
   let reusedBundleObserved = false;
@@ -456,7 +457,8 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
             consecutiveFailures += 1;
             return finish("circuit_open", "effect_unknown");
           }
-          const terminalDirectNoEffect = (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(directFailureReason))
+          const terminalDirectNoEffect = directFailureReason === `${provider}_session_expired`
+            || (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(directFailureReason))
             || (provider === "luma" && directFailureReason === "luma_required_profile_field_unavailable");
           if (!terminalDirectNoEffect) try {
             operation = await action(
@@ -567,6 +569,10 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
         }
 
         lastSafeReason = directFailureReason || operationSafeReason(operation, "direct_action_unverified");
+        if (lastSafeReason === `${provider}_session_expired`) {
+          sessionExpiredReason = sessionExpiredReason || lastSafeReason;
+          break;
+        }
         const knownNoEffect = (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(lastSafeReason))
           || (provider === "luma" && ["luma_required_profile_field_unavailable", "private_value_unavailable"].includes(operationSafeReason(operation, lastSafeReason)));
         if (knownNoEffect) continue;
@@ -580,7 +586,8 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
     }
     return finish("completed_no_effect", providerDiscoveryFailed
       ? discoveryFailureReason : connpassBoundaryFailed ? "connpass_action_boundary_failed"
-        : reusedBundleObserved ? "existing_bundles_reused" : "providers_exhausted");
+        : reusedBundleObserved ? "existing_bundles_reused"
+          : sessionExpiredReason || "providers_exhausted");
   } catch (error) {
     if (deadlineReached()) return finish("circuit_open", "wake_deadline");
     throw error;
