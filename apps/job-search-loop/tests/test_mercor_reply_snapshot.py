@@ -286,3 +286,31 @@ def test_gmail_inventory_splits_fast_inbound_and_sent_searches(monkeypatch):
         "in:sent mercor newer_than:30d",
     ]
     assert [row["threadId"] for row in result] == ["thread_1"]
+
+
+def test_gmail_inventory_retries_one_transient_thread_timeout(monkeypatch):
+    thread_attempts = 0
+
+    def run(argv, **_kwargs):
+        nonlocal thread_attempts
+        if "search" in argv:
+            messages = ([{"id": "in_1", "threadId": "thread_1",
+                          "from": "person@mercor.com", "subject": "Question"}]
+                        if argv[4].startswith("from:") else [])
+            return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": messages}), "")
+        thread_attempts += 1
+        if thread_attempts == 1:
+            raise subprocess.TimeoutExpired(argv, 30)
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"thread": {
+            "messages": [{"id": "in_1", "threadId": "thread_1",
+                          "internalDate": "1", "labelIds": ["INBOX"],
+                          "body": "Question", "headers": {
+                              "from": "person@mercor.com", "to": "owner@example.com",
+                              "subject": "Question"}}],
+        }}), "")
+
+    monkeypatch.setattr(snapshot.subprocess, "run", run)
+
+    result = snapshot._gmail("owner@example.com", "gog")
+    assert result[0]["messages"][0]["id"] == "in_1"
+    assert thread_attempts == 2
