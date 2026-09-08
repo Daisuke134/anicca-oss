@@ -75,6 +75,26 @@ test("provider-neutral ranking preserves weak and unknown rows but never returns
   ]);
 });
 
+test("provider ranking requires an explicit target-topic signal even when the model over-ranks an unrelated business event", () => {
+  for (const body of ["酒粕・米麹から生まれるビジネスの話", "酒粕・米麹の専門家が登壇するビジネスイベント"]) {
+    const fermentation = {
+      provider: "luma",
+      event_ref: "luma-event://event/fermentation-business",
+      canonical_url: "https://luma.com/fermentation-business",
+      title: "発酵でひらく、素材の新しい可能性",
+      body,
+    };
+    const ranking = validateProviderCandidateRanking({ ranked_events: [{
+      event_ref: fermentation.event_ref,
+      priority_class: "startup",
+      preference_fit: "moderate",
+      preference_reason: "The model inferred a business opportunity.",
+    }] }, { candidates: [fermentation], preferences: "AI crypto hackathon lightning talk startup events" });
+    assert.equal(ranking.ranked_events[0].auto_apply_eligible, false, body);
+    assert.deepEqual(eligibleRankedCandidates(ranking), [], body);
+  }
+});
+
 test("provider ranking preserves public onsite location context when title and body omit Tokyo", async () => {
   const candidate = Object.freeze({
     provider: "luma",
