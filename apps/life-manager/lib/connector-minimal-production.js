@@ -624,6 +624,7 @@ function createMinimalProductionDependencies(options = {}) {
   });
   const peatixWorkflow = options.peatixWorkflow || createPeatixDiscoveryWorkflow({
     now,
+    searchBindingLimit: 20,
     onDiscoveryAudit: operations.recordPeatixDiscoveryAudit || (() => {}),
     readAttendeeProfile: () => options.peatixAttendeeProfile,
     hasAppliedBundle: (candidate) => evidenceChain.hasAppliedBundle({

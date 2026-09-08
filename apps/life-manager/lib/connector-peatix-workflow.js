@@ -304,10 +304,12 @@ function defaultCalendarFree(candidate, calendar) {
   ));
 }
 
-async function defaultReadSearchBindings(page, observed) {
+async function defaultReadSearchBindings(page, observed, bindingLimit = SEARCH_PAGE_LIMIT * SEARCH_PAGE_SIZE) {
   if (!page || typeof page.goto !== "function" || typeof page.waitForResponse !== "function") {
     invalid();
   }
+  if (!Number.isInteger(bindingLimit) || bindingLimit < 1
+    || bindingLimit > SEARCH_PAGE_LIMIT * SEARCH_PAGE_SIZE) invalid();
   async function readPage(pageNumber) {
     let responsePromise;
     try {
@@ -358,10 +360,9 @@ async function defaultReadSearchBindings(page, observed) {
       if (seen.has(row.event_ref)) continue;
       seen.add(row.event_ref);
       bindings.push(row);
-      if (bindings.length > SEARCH_PAGE_LIMIT * SEARCH_PAGE_SIZE) {
-        throw stageError("PEATIX_SEARCH_ROWS_CONTRACT_FAILED");
-      }
+      if (bindings.length >= bindingLimit) break;
     }
+    if (bindings.length >= bindingLimit) break;
     if (rows.length < SEARCH_PAGE_SIZE) break;
   }
   return Object.freeze(bindings);
@@ -404,10 +405,14 @@ function createPeatixDiscoveryWorkflow(options = {}) {
   // Mirrors createLumaScriptFirstWorkflow's / createConnpassScriptFirst
   // Workflow's hasAppliedBundle default.
   const hasAppliedBundle = options.hasAppliedBundle || (() => true);
+  const searchBindingLimit = options.searchBindingLimit == null
+    ? SEARCH_PAGE_LIMIT * SEARCH_PAGE_SIZE : Number(options.searchBindingLimit);
   if ([now, readSearchBindings, readEventViewData, isCalendarFree, onDiscoveryAudit]
     .some((value) => typeof value !== "function") || typeof submitOnPage !== "function"
     || typeof readStateOnPage !== "function" || typeof hasAppliedBundle !== "function"
-    || (readAttendeeProfile != null && typeof readAttendeeProfile !== "function")) invalid();
+    || (readAttendeeProfile != null && typeof readAttendeeProfile !== "function")
+    || !Number.isInteger(searchBindingLimit) || searchBindingLimit < 1
+    || searchBindingLimit > SEARCH_PAGE_LIMIT * SEARCH_PAGE_SIZE) invalid();
 
   return Object.freeze({
     async runDirectAction({ page, candidate }) {
@@ -434,7 +439,7 @@ function createPeatixDiscoveryWorkflow(options = {}) {
       const observed = now();
       let rows;
       try {
-        rows = await readSearchBindings(page, observed);
+        rows = await readSearchBindings(page, observed, searchBindingLimit);
       } catch (error) {
         throw preserveSafe(error, "PEATIX_SEARCH_READ_FAILED");
       }
