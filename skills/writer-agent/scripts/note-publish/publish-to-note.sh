@@ -51,7 +51,7 @@ case "$cmd" in
     echo "== PUBLISH md=$MD key=$KEY price=$PRICE paywall-before='$PAYWALL' mode=$MODE =="
     echo "[1/7] cookies";   "$HBPY" "$DIR/extract-note-cookies.py" | filt
     if [ "$KEY" = "new" ]; then
-      [ -n "$NUM" ] || { echo "ERROR: --key new requires --num <noteId> (new-article id creation is a TODO) — refusing to default to the Automaton note 166686292"; exit 2; }
+      [ -n "$NUM" ] || { echo "ERROR: --key new requires --num <noteId> (new-article id creation is a TODO)"; exit 2; }
       echo "[2/7] render+draft (new article)"
       "$PY" "$DIR/../note-stage1-render.py" "$MD" | filt
       "$PY" "$DIR/../note-stage2-publish.py" | filt

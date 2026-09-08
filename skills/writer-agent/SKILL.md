@@ -582,8 +582,8 @@ both directly (our 10k MRR) and by selling the engine.
    demotes "the first h3" can accidentally hit h2 — after demoting, RE-VERIFY h2 count == your big-title count
    and re-promote any wrongly-demoted title with `Meta+Alt+2` (大見出し). Verified on the Automaton article
    2026-06-24: 29 h3 → 0, auto-目次 = 10 big titles only.
-8. **All scripts + cookies + screenshots in REAL persistent files** (skill `scripts/note-publish/` + `~/.cloak/
-   note-work/`), NEVER /tmp (reboot/disk-cleanup wipes it mid-task). cookies = mock-keychain decrypt of the
+8. **All scripts + cookies + screenshots in REAL persistent files** (skill `scripts/note-publish/` +
+   `$WRITER_STATE_DIR/note-work/`), NEVER /tmp (reboot/disk-cleanup wipes it mid-task). cookies = mock-keychain decrypt of the
    daily-driver `Default/Cookies` via /opt/homebrew/bin/python3 (has `cryptography`).
 
 ## NOTE — DRAFTS OK / PUBLIC NEVER UNATTENDED (Dais 2026-06-24)

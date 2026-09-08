@@ -31,6 +31,8 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
         self.assertEqual(list((ROOT / "skills/writer-agent").rglob("*.plist.example")), [])
         self.assertEqual(list(SCRIPTS.glob("install-writer-*.sh")), [])
         self.assertFalse((SCRIPTS / "install-zenn-deferred-worker.sh").exists())
+        self.assertFalse((SCRIPTS / "note-publish/dd-keepalive.py").exists())
+        self.assertFalse((SCRIPTS / "note-publish/test-de-automaton.py").exists())
 
     def test_active_content_paths_are_repository_or_writer_state_owned(self):
         paths = (
@@ -47,6 +49,7 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
             SCRIPTS / "render-verify-draft.sh",
             SCRIPTS / "article_weekly_audit.py",
             SCRIPTS / "note-publish/set-eyecatch-draft.py",
+            SCRIPTS / "note-publish/rebuild-note-body.py",
             ROOT / "skills/_shared/propose-and-rewrite.sh",
             ROOT / "skills/_shared/lib/account-history.sh",
             ROOT / "skills/_shared/lib/experience-log.sh",
@@ -89,6 +92,7 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
             SCRIPTS / "note-draft-ledger.py",
             SCRIPTS / "note-publish/set-eyecatch-api.py",
             SCRIPTS / "note-publish/note_inplace_repair.py",
+            SCRIPTS / "note-publish/rebuild-note-body.py",
             SCRIPTS / "substack-publish/verify-preview.py",
             SCRIPTS / "substack-publish/substack_inplace_repair.py",
             SCRIPTS / "_shared/embed-mermaid-substack.py",

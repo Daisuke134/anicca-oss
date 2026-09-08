@@ -1,26 +1,31 @@
-"""Rebuild the note article body, restoring ALL images at their correct positions from PERSISTENT assets
-(~/.cloak/note-work/automaton-assets/), with NO infographic (Dais deleted it) and NO body hero (the cover is
-the note eyecatch). Real paths only — NEVER /tmp. Draft-only (update_article → draft_save). Then verify in browser.
-This is the RESTORE after my keyboard-demote deleted ~25 images. Tables/figs already rendered to the assets dir;
-this only UPLOADS them and places them at the markers — it does not re-render or change text."""
+"""Rebuild one Note draft body from explicit source, article and asset inputs.
+
+Mutable cookies and work files live under the shared Writer state root. This
+recovery command uploads existing rendered assets; it never publishes.
+"""
 import sys, json, time, asyncio, os, re, html, subprocess
 from pathlib import Path
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_ROOT))
+from writer_runtime_paths import note_work_dir
+
 sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", str(Path(__file__).resolve().parents[2] / "vendor/note-mcp/src")))
 from note_mcp.models import Session, ArticleInput
 from note_mcp.api.articles import update_article, generate_image_html
 from note_mcp.api.images import upload_body_image
 
-ASSETS = os.path.expanduser(os.environ.get("NOTE_ASSETS", "~/.cloak/note-work/automaton-assets"))
-COOK = os.path.expanduser("~/.cloak/note-work/note-cookies.json")
-ART = os.environ.get("NOTE_SRC", "/Users/anicca/.cache/anicca-article-wt/docs/articles/2026-06-11-automaton-jp.md")
-NUM = os.environ.get("NOTE_NUM", "166686292")
-IMG_DIR = os.environ.get("NOTE_IMG_DIR", "automaton")
-_SRC = os.environ.get("NOTE_SRC", "")
-# same protection as stage2: the Automaton note-id / assets defaults are allowed ONLY for the genuine default run
-if NUM == "166686292" and _SRC:
-    raise SystemExit("NOTE_NUM defaulted to the Automaton note 166686292 but NOTE_SRC=%r is set — pass NOTE_NUM for any non-default article" % _SRC)
-if "automaton-assets" in ASSETS and _SRC:
-    raise SystemExit("NOTE_ASSETS defaulted to the Automaton assets but NOTE_SRC=%r is set — pass NOTE_ASSETS" % _SRC)
+def required(name):
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise SystemExit(f"{name} is required")
+    return os.path.expanduser(value)
+
+
+ASSETS = required("NOTE_ASSETS")
+ART = required("NOTE_SRC")
+NUM = required("NOTE_NUM")
+IMG_DIR = os.environ.get("NOTE_IMG_DIR", Path(ART).stem)
+COOK = str(note_work_dir() / "note-cookies.json")
 ck = json.load(open(COOK))
 
 md = open(ART).read()
@@ -82,6 +87,6 @@ async def main():
         img = await upload_body_image(sess, p, NUM)
         nb = nb.replace(f"@@FUND{i}@@", "\n"+compact(img.url, p)+"\n"); print(f"fund{i}", flush=True)
     await update_article(sess, NUM, ArticleInput(title=title, body=nb,
-                         tags=[t for t in os.environ.get("NOTE_TAGS", ("AI,AIエージェント,暗号資産,Automaton,自律AI" if not _SRC else "")).split(",") if t]))
+                         tags=[t for t in os.environ.get("NOTE_TAGS", "").split(",") if t]))
     print(f"REBUILT (draft) NUM={NUM}", flush=True)
 asyncio.run(main())

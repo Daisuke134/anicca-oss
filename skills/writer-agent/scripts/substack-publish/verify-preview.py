@@ -4,7 +4,7 @@ DESKTOP mode, measures EVERY image's rendered px in the preview DOM (Substack st
 728px column), and FAILS if any image is taller than the budget (fills the page). Also saves section screenshots
 so the agent can Read them. This is exactly the manual check we did, made repeatable for ANY article.
 Usage: verify-preview.py <post_id> [max_on_screen_h=950]   → exit 1 (FAIL) if any image too tall.
-Needs the daily-driver running with remote-debugging-port=9222 (it is, kept alive by dd-keepalive.py)."""
+Needs the registry-owned Life Manager daily-driver running on CDP port 9222."""
 import os, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
