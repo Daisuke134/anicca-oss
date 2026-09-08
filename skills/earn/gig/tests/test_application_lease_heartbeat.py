@@ -39,3 +39,21 @@ def test_heartbeat_rechecks_one_transient_ledger_lock_timeout(monkeypatch, tmp_p
 
     assert calls == 2
     assert handle._heartbeat_error is None
+
+
+def test_successful_apply_parks_healthy_context_for_next_wake(monkeypatch, tmp_path) -> None:
+    handle = application_parent.LeaseHandle(
+        lease_script=tmp_path / "lease.py", task="apply", heartbeat_seconds=20,
+    )
+    handle.value = {
+        "token": "1" * 32,
+        "generation": 1,
+        "ws": "ws://example.invalid/devtools/page/1",
+    }
+    monkeypatch.setenv("CLOAK_CONTEXT_PARK_ON_IDLE", "1")
+    calls = []
+    monkeypatch.setattr(handle, "_run", lambda *args: calls.append(args) or {"ok": True})
+
+    assert handle.__exit__(None, None, None) is False
+
+    assert calls == [("park", "apply", "--token", "1" * 32, "--generation", "1")]

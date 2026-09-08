@@ -528,7 +528,8 @@ class LeaseHandle:
             try:
                 fence_value = self.lease_fence
                 self._run(
-                    "release",
+                    ("park" if os.environ.get("CLOAK_CONTEXT_PARK_ON_IDLE") == "1"
+                     else "release"),
                     self.task,
                     "--token",
                     str(fence_value["token"]),
