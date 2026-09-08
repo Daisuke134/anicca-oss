@@ -1931,11 +1931,14 @@ def test_successful_submit_with_failed_readback_is_publication_uncertain():
     with pytest.raises(module.OfferError) as excinfo:
         module.create_package(page, product, Path("/tmp/irrelevant.png"))
 
-    assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
+    # Evidence-bearing now: the underlying canonical_mismatch names what it saw (counts and
+    # both observed values), not just its own bare name -- see storefront_offer._public.
+    assert str(excinfo.value).startswith("publication_uncertain: canonical_mismatch: ")
+    assert "canonical_count=0" in str(excinfo.value)
     # The specific readback failure is chained, not discarded -- a wake hitting this path can
     # act on "canonical_mismatch" instead of a bare, anonymous "publication_uncertain".
     assert isinstance(excinfo.value.__cause__, module.OfferError)
-    assert str(excinfo.value.__cause__) == "canonical_mismatch"
+    assert str(excinfo.value.__cause__).startswith("canonical_mismatch: ")
     # The public page was actually visited (as _public() always does) before giving up, and the
     # wizard walked all the way through before the submit control was even looked for.
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
@@ -2085,7 +2088,10 @@ def test_create_package_final_submit_that_lands_on_listing_url_needs_no_second_s
     # _public() cannot succeed against this minimal fake (no canonical/og markup modelled) --
     # exactly the pre-existing publication_uncertain shape every other successful-submit test in
     # this file already exercises. What this test proves is which path got there.
-    assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
+    # Evidence-bearing now: the underlying canonical_mismatch names what it saw (counts and
+    # both observed values), not just its own bare name -- see storefront_offer._public.
+    assert str(excinfo.value).startswith("publication_uncertain: canonical_mismatch: ")
+    assert "canonical_count=0" in str(excinfo.value)
     assert submit_button.clicks == 1  # the 画像ほか submit alone created the listing
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
 
@@ -2115,7 +2121,10 @@ def test_create_package_final_submit_that_lands_on_another_step_continues_and_su
     with pytest.raises(module.OfferError) as excinfo:
         module.create_package(page, product, Path("/tmp/irrelevant.png"))
 
-    assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
+    # Evidence-bearing now: the underlying canonical_mismatch names what it saw (counts and
+    # both observed values), not just its own bare name -- see storefront_offer._public.
+    assert str(excinfo.value).startswith("publication_uncertain: canonical_mismatch: ")
+    assert "canonical_count=0" in str(excinfo.value)
     assert submit_button.clicks == 2  # 画像ほか's own submit did not create it; 公開's did
     assert page.goto_log[-1] == module.ORIGIN + "/menu/detail/999999"
 

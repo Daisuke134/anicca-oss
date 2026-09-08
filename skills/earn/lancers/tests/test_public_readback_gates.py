@@ -107,13 +107,31 @@ class _Many:
         return self._items[index]
 
 
+_PLAN_SECTION_SELECTORS = {
+    "description": "p.p-menu-browse-detail__sidebar-description",
+    "price": "div.p-menu-browse-detail__sidebar-header-price",
+    "delivery": "div.p-menu-browse-detail__sidebar-menu",
+}
+
+
 class _PlanSection:
     def __init__(self, description: str, price_jpy: int, delivery_days: int):
         self._fields = {
-            "p.p-menu-browse-detail__sidebar-description": _One(_Attr(text=description)),
-            "div.p-menu-browse-detail__sidebar-header-price": _One(_Attr(text=f"{price_jpy}円")),
-            "div.p-menu-browse-detail__sidebar-menu": _One(_Attr(text=f"納期{delivery_days}日")),
+            _PLAN_SECTION_SELECTORS["description"]: _One(_Attr(text=description)),
+            _PLAN_SECTION_SELECTORS["price"]: _One(_Attr(text=f"{price_jpy}円")),
+            _PLAN_SECTION_SELECTORS["delivery"]: _One(_Attr(text=f"納期{delivery_days}日")),
         }
+
+    def drop_field(self, name: str) -> None:
+        """Make one field's own selector resolve to zero matches -- models the
+        counts != [1, 1, 1] branch of _public()'s plan-section read."""
+        self._fields[_PLAN_SECTION_SELECTORS[name]] = _None()
+
+    def blank_field(self, name: str) -> None:
+        """Keep the field present (count == 1) but make its own parsed value empty -- models
+        the "not description/not price/delivery is None" branch, which is reached only once
+        every field's own count is already exactly 1."""
+        self._fields[_PLAN_SECTION_SELECTORS[name]] = _One(_Attr(text=""))
 
     def locator(self, selector: str):
         return self._fields[selector]
@@ -130,6 +148,10 @@ class _PublicPage:
         self, product: dict, *, include_monthly_routes: bool | None = None, include_image: bool = True,
         mismatch_title: bool = False, mismatch_subtitle: bool = False, mismatch_description: bool = False,
         mismatch_notice: bool = False, mismatch_plan_price: bool = False,
+        canonical_count: int = 1, canonical_href: str | None = "__default__",
+        og_count: int = 1, og_content: str | None = "__default__",
+        plan_missing_field: str | None = None, plan_empty_field: str | None = None,
+        bad_route_selector: str | None = None, bad_route_value: str = "not-a-route",
     ):
         self._product = product
         self._include_monthly_routes = include_monthly_routes
@@ -139,6 +161,14 @@ class _PublicPage:
         self._mismatch_description = mismatch_description
         self._mismatch_notice = mismatch_notice
         self._mismatch_plan_price = mismatch_plan_price
+        self._canonical_count = canonical_count
+        self._canonical_href = canonical_href
+        self._og_count = og_count
+        self._og_content = og_content
+        self._plan_missing_field = plan_missing_field  # one of "description"/"price"/"delivery"
+        self._plan_empty_field = plan_empty_field  # one of "description"/"price"/"delivery"
+        self._bad_route_selector = bad_route_selector
+        self._bad_route_value = bad_route_value
         self.url: str | None = None
         self.goto_log: list[str] = []
 
@@ -153,14 +183,25 @@ class _PublicPage:
     def locator(self, selector: str):
         public_url = self._public_url()
         if selector == 'link[rel="canonical"]':
-            return _One(_Attr(attrs={"href": public_url}))
+            if self._canonical_count != 1:
+                return _Many([_Attr(attrs={"href": public_url}) for _ in range(self._canonical_count)])
+            href = public_url if self._canonical_href == "__default__" else self._canonical_href
+            return _One(_Attr(attrs={"href": href}))
         if selector == 'meta[property="og:url"]':
-            return _One(_Attr(attrs={"content": public_url}))
+            if self._og_count != 1:
+                return _Many([_Attr(attrs={"content": public_url}) for _ in range(self._og_count)])
+            content = public_url if self._og_content == "__default__" else self._og_content
+            return _One(_Attr(attrs={"content": content}))
         if selector == "li.p-menu-browse-detail__sidebar-content.js-project-plan-tab-content":
             sections = []
             for index, plan in enumerate(self._product["plans"]):
                 price = plan["price_jpy"] + (1 if self._mismatch_plan_price and index == 0 else 0)
-                sections.append(_PlanSection(plan["description"], price, plan["delivery_days"]))
+                section = _PlanSection(plan["description"], price, plan["delivery_days"])
+                if index == 0 and self._plan_missing_field:
+                    section.drop_field(self._plan_missing_field)
+                if index == 0 and self._plan_empty_field:
+                    section.blank_field(self._plan_empty_field)
+                sections.append(section)
             return _Many(sections)
         if selector.startswith("#") and _ROUTE_ID.fullmatch(selector[1:]):
             if self._include_monthly_routes is None:
@@ -170,6 +211,8 @@ class _PublicPage:
                 )
             if not self._include_monthly_routes:
                 return _None()
+            if selector == self._bad_route_selector:
+                return _One(_Attr(attrs={"value": self._bad_route_value}))
             month = int(selector[-1])
             route = (
                 "/project_board/quote_request?project_plan_menu_id=1" if month == 1
@@ -249,7 +292,8 @@ def test_product_claiming_monthly_contracts_fails_when_routes_are_absent():
     with pytest.raises(module.OfferError) as excinfo:
         module._public(page, product)
 
-    assert str(excinfo.value) == "contract_route_invalid"
+    # Evidence-bearing now: names the selector it queried and what it actually found there.
+    assert str(excinfo.value) == "contract_route_invalid: selector='#basicMain1' found=0"
 
 
 def test_product_claiming_monthly_contracts_passes_when_routes_are_present():
@@ -515,3 +559,175 @@ def test_apply_full_update_success_path_chains_the_public_readback_failure(monke
     assert str(excinfo.value) == "publication_uncertain: canonical_mismatch"
     assert isinstance(excinfo.value.__cause__, module.OfferError)
     assert str(excinfo.value.__cause__) == "canonical_mismatch"
+
+
+# --- Items 5-8: every _public()/_text() refusal now names what it observed, not only its own ---
+# bare code. Every check itself is byte-for-byte the same comparison as before -- only the
+# OfferError message a failing comparison raises gained evidence; test_matching_product_without_
+# monthly_claim_is_aligned and test_product_claiming_monthly_contracts_passes_when_routes_are_
+# present (above) already prove a genuinely matching page still passes every one of these checks,
+# so each test below only needs to prove the mismatched case still raises, now with evidence.
+
+
+# 5. canonical_mismatch names the counts and both observed values -------------------------------
+
+
+def test_canonical_mismatch_names_counts_and_both_observed_values_and_page_url():
+    module = _module()
+    product = _base_product()
+    wrong_href = "https://www.lancers.jp/menu/detail/000000"
+    page = _PublicPage(product, canonical_href=wrong_href)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    message = str(excinfo.value)
+    expected_url = page._public_url()
+    assert message.startswith("canonical_mismatch: ")
+    assert "canonical_count=1" in message
+    assert f"canonical_href={wrong_href!r}" in message
+    assert "og_count=1" in message
+    assert f"og_content={expected_url!r}" in message
+    assert f"expected={expected_url!r}" in message
+    assert f"page_url={expected_url!r}" in message
+
+
+def test_canonical_mismatch_never_reads_the_attribute_of_a_missing_canonical_element():
+    """count()!=1 must short-circuit the attribute read -- a real Playwright locator raises its
+    own strict-mode error if get_attribute() is called against zero or several matches, so the
+    evidence for a missing element must come from count() alone, never from calling
+    get_attribute() on it."""
+    module = _module()
+    product = _base_product()
+    page = _PublicPage(product, canonical_count=0)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    message = str(excinfo.value)
+    assert "canonical_count=0" in message
+    assert "canonical_href=None" in message
+
+
+def test_canonical_mismatch_names_the_og_url_when_only_it_disagrees():
+    module = _module()
+    product = _base_product()
+    wrong_content = "https://www.lancers.jp/menu/detail/000000"
+    page = _PublicPage(product, og_content=wrong_content)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    message = str(excinfo.value)
+    assert f"canonical_href={page._public_url()!r}" in message  # canonical itself was fine
+    assert f"og_content={wrong_content!r}" in message
+
+
+# 6. Each distinct public_readback_invalid condition names which one failed and the value --------
+
+
+def test_text_readback_names_the_missing_selector_and_field():
+    module = _module()
+    page = types.SimpleNamespace(locator=lambda _selector: _None())
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._text(page, "h1", field="title")
+
+    assert str(excinfo.value) == "public_readback_invalid: field='title' selector='h1' found=0"
+
+
+def test_text_readback_names_the_field_when_the_selector_matches_but_is_blank():
+    module = _module()
+    page = types.SimpleNamespace(locator=lambda _selector: _One(_Attr(text="   ")))
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._text(page, "h1", field="title")
+
+    assert str(excinfo.value) == "public_readback_invalid: field='title' selector='h1' text=''"
+
+
+def test_plan_section_field_count_mismatch_names_the_selectors_and_counts():
+    module = _module()
+    product = _base_product()
+    page = _PublicPage(product, plan_missing_field="price")
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    message = str(excinfo.value)
+    assert message.startswith("public_readback_invalid: field='plan_section' plan_index=0 ")
+    assert "found=[1, 0, 1]" in message
+
+
+def test_plan_section_blank_field_names_which_field_and_the_raw_value():
+    module = _module()
+    product = _base_product()
+    page = _PublicPage(product, plan_empty_field="delivery")
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    message = str(excinfo.value)
+    assert message.startswith("public_readback_invalid: field='delivery_days' plan_index=0 ")
+    assert "raw=''" in message
+
+
+def test_page_level_readback_names_the_expected_and_observed_url():
+    module = _module()
+    product = _base_product()
+    page = _PublicPage(product)
+    real_goto = page.goto
+
+    def _bouncing_goto(url, **kwargs):
+        response = real_goto(url, **kwargs)
+        page.url = "https://www.lancers.jp/login"  # models a session bounce mid-navigation
+        return response
+
+    page.goto = _bouncing_goto
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    message = str(excinfo.value)
+    assert message.startswith("public_readback_invalid: field='page' ")
+    assert f"expected_url={page._public_url()!r}" in message
+    assert "page_url='https://www.lancers.jp/login'" in message
+
+
+# 7. contract_route_invalid names the selector and the observed route ---------------------------
+
+
+def test_contract_route_invalid_names_the_selector_when_the_element_is_missing():
+    """Named separately from test_product_claiming_monthly_contracts_fails_when_routes_are_absent
+    above only to keep this file's item-7 coverage in one place; that test already asserts the
+    exact found=0 message this one restates."""
+    module = _module()
+    product = _base_product(sells_monthly_contract=True)
+    page = _PublicPage(product, include_monthly_routes=False)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    assert str(excinfo.value) == "contract_route_invalid: selector='#basicMain1' found=0"
+
+
+def test_contract_route_invalid_names_the_selector_and_the_observed_route_on_a_pattern_mismatch():
+    module = _module()
+    product = _base_product(sells_monthly_contract=True)
+    page = _PublicPage(product, include_monthly_routes=True, bad_route_selector="#basicMain1", bad_route_value="/not/a/real/route")
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._public(page, product)
+
+    assert str(excinfo.value) == (
+        "contract_route_invalid: selector='#basicMain1' route='/not/a/real/route' "
+        "expected_pattern='/project_board/quote_request\\\\?project_plan_menu_id=[0-9]+'"
+    )
+
+
+# 8. Every check stays exactly as strict -- proven by the two combined facts: every mismatch test
+# above (and the pre-existing mismatch/contract-route/image tests earlier in this file) still
+# raises, and test_matching_product_without_monthly_claim_is_aligned /
+# test_product_claiming_monthly_contracts_passes_when_routes_are_present prove the identical
+# genuinely-correct page still passes every one of them. Nothing became looser; only the
+# messages a real failure raises gained evidence.

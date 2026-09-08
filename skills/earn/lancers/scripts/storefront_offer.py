@@ -222,11 +222,20 @@ def _validate_product(value: dict[str, Any], path: Path) -> tuple[dict[str, Any]
     return value, image, avatar
 
 
-def _text(page: Any, selector: str) -> str:
+def _text(page: Any, selector: str, *, field: str | None = None) -> str:
+    """Read one field's rendered text off the public detail page.
+
+    `field` names which of _public()'s observed keys (title/subtitle/description/notice) this
+    call is reading -- its own docstring's own `context` convention (see _field()) -- so a
+    refusal says which field and selector it was, and what it actually found, rather than a bare
+    "public_readback_invalid" that could be any of the four.
+    """
+    label = f"field={field!r} " if field else ""
     locator = page.locator(selector)
-    if locator.count() != 1: raise OfferError("public_readback_invalid")
+    count = locator.count()
+    if count != 1: raise OfferError(f"public_readback_invalid: {label}selector={selector!r} found={count}")
     text = " ".join(str(locator.inner_text() or "").split())
-    if not text: raise OfferError("public_readback_invalid")
+    if not text: raise OfferError(f"public_readback_invalid: {label}selector={selector!r} text=''")
     return text
 
 
@@ -259,32 +268,54 @@ def _public(page: Any, product: Mapping[str, Any], *, require_image: bool = True
     """
     listing_id = product["listing_external_id"]; public_url = f"{ORIGIN}/menu/detail/{listing_id}"
     response = page.goto(public_url, wait_until="domcontentloaded", timeout=30_000)
-    if response is None or response.status != 200 or page.url != public_url: raise OfferError("public_readback_invalid")
+    status = None if response is None else response.status
+    if response is None or status != 200 or page.url != public_url:
+        raise OfferError(f"public_readback_invalid: field='page' expected_url={public_url!r} status={status!r} page_url={page.url!r}")
     canonical = page.locator('link[rel="canonical"]')
     og = page.locator('meta[property="og:url"]')
-    if canonical.count() != 1 or canonical.get_attribute("href") != public_url or og.count() != 1 or og.get_attribute("content") != public_url: raise OfferError("canonical_mismatch")
+    # get_attribute() is only ever called on a locator known to resolve to exactly one element --
+    # calling it against zero or several matches is a strict-mode violation the real Playwright
+    # locator raises before this line ever gets to compare anything, so a mismatched count must
+    # short-circuit the read, not merely the final boolean.
+    canonical_count, og_count = canonical.count(), og.count()
+    canonical_href = canonical.get_attribute("href") if canonical_count == 1 else None
+    og_content = og.get_attribute("content") if og_count == 1 else None
+    if canonical_count != 1 or canonical_href != public_url or og_count != 1 or og_content != public_url:
+        raise OfferError(
+            f"canonical_mismatch: canonical_count={canonical_count} canonical_href={canonical_href!r} "
+            f"og_count={og_count} og_content={og_content!r} expected={public_url!r} page_url={page.url!r}"
+        )
     plans = []
-    for section in page.locator("li.p-menu-browse-detail__sidebar-content.js-project-plan-tab-content").all():
-        fields = [section.locator(selector) for selector in ("p.p-menu-browse-detail__sidebar-description", "div.p-menu-browse-detail__sidebar-header-price", "div.p-menu-browse-detail__sidebar-menu")]
-        if [field.count() for field in fields] == [0, 0, 0]: continue
-        if [field.count() for field in fields] != [1, 1, 1]: raise OfferError("public_readback_invalid")
-        description = " ".join(fields[0].inner_text().split()); price = "".join(re.findall(r"[0-9]", fields[1].inner_text())); delivery = re.search(r"納期\s*([0-9]+)\s*日", fields[2].inner_text())
-        if not description or not price or delivery is None: raise OfferError("public_readback_invalid")
+    for index, section in enumerate(page.locator("li.p-menu-browse-detail__sidebar-content.js-project-plan-tab-content").all()):
+        selectors = ("p.p-menu-browse-detail__sidebar-description", "div.p-menu-browse-detail__sidebar-header-price", "div.p-menu-browse-detail__sidebar-menu")
+        fields = [section.locator(selector) for selector in selectors]
+        counts = [field.count() for field in fields]
+        if counts == [0, 0, 0]: continue
+        if counts != [1, 1, 1]:
+            raise OfferError(f"public_readback_invalid: field='plan_section' plan_index={index} selectors={list(selectors)} found={counts}")
+        raw_description, raw_price, raw_delivery = fields[0].inner_text(), fields[1].inner_text(), fields[2].inner_text()
+        description = " ".join(raw_description.split()); price = "".join(re.findall(r"[0-9]", raw_price)); delivery = re.search(r"納期\s*([0-9]+)\s*日", raw_delivery)
+        if not description or not price or delivery is None:
+            failed_field, raw = ("description", raw_description) if not description else (("price", raw_price) if not price else ("delivery_days", raw_delivery))
+            raise OfferError(f"public_readback_invalid: field={failed_field!r} plan_index={index} raw={_truncate_hard(raw, 200)!r}")
         plans.append({"description": description, "price_jpy": int(price), "delivery_days": int(delivery.group(1))})
     require_monthly_contract_routes = bool(product.get("sells_monthly_contract", False))
     routes = []
     if require_monthly_contract_routes:
         for prefix in ("basicMain", "standardMain", "premiumMain"):
             for month in (1, 3, 6):
-                field = page.locator(f"#{prefix}{month}")
-                if field.count() != 1: raise OfferError("contract_route_invalid")
+                selector = f"#{prefix}{month}"
+                field = page.locator(selector)
+                count = field.count()
+                if count != 1: raise OfferError(f"contract_route_invalid: selector={selector!r} found={count}")
                 route = field.get_attribute("value") or ""
-                expected = r"/project_board/quote_request\?project_plan_menu_id=[0-9]+" if month == 1 else rf"/monthly_work_contracts/client/[^/]+/add\?project_plan_menu_id=[0-9]+&month={month}"
-                if re.fullmatch(expected, route) is None: raise OfferError("contract_route_invalid")
+                expected_pattern = r"/project_board/quote_request\?project_plan_menu_id=[0-9]+" if month == 1 else rf"/monthly_work_contracts/client/[^/]+/add\?project_plan_menu_id=[0-9]+&month={month}"
+                if re.fullmatch(expected_pattern, route) is None:
+                    raise OfferError(f"contract_route_invalid: selector={selector!r} route={route!r} expected_pattern={expected_pattern!r}")
                 routes.append(route)
     image = page.locator(".p-menu-browse-detail__carousel-list img")
     has_image = image.count() >= 1 and all("photo-film" not in str(image.nth(index).get_attribute("src") or "") for index in range(image.count()))
-    observed = {"title": _text(page, "h1"), "subtitle": _text(page, ".l-page-header__heading-description"), "description": _text(page, "#body + .p-project-plan-markdown"), "notice": _text(page, "#notice_for_sale + .c-text"), "plans": plans}
+    observed = {"title": _text(page, "h1", field="title"), "subtitle": _text(page, ".l-page-header__heading-description", field="subtitle"), "description": _text(page, "#body + .p-project-plan-markdown", field="description"), "notice": _text(page, "#notice_for_sale + .c-text", field="notice"), "plans": plans}
     expected = {"title": product["public_title"], "subtitle": product["subtitle"], "description": " ".join(product["description"].split()), "notice": " ".join(product["notice"].split()), "plans": [{key: plan[key] for key in ("description", "price_jpy", "delivery_days")} for plan in product["plans"]]}
     mismatched = [key for key in expected if observed[key] != expected[key]] + ([] if not require_image or has_image else ["image"])
     contract_routes = {"spot": 3, "three_month": 3, "six_month": 3} if require_monthly_contract_routes else None
@@ -416,13 +447,51 @@ def _reconcile_superseded(page: Any, listing_ids: Sequence[str]) -> dict[str, An
 
 
 def _write_receipt(state_path: Path, product: Mapping[str, Any], demand: Mapping[str, int]) -> None:
-    path = state_path.with_name("listing.json"); path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    """Persist this single-offer listing's receipt into listing.json's own fixed top-level
+    fields (record_type/schema_version/.../observed_at below -- the only keys this writer has
+    ever owned).
+
+    Read-modify-write against the whole file (via _read_state_json/_atomic_write_json below),
+    never a fresh dict built from scratch: the old shape overwrote the entire file with only
+    these fields, silently discarding anything a sibling writer had put elsewhere in it -- in
+    production, _write_catalog_listing's own "catalog_listings" map, wiped one wake after a
+    real listing (https://www.lancers.jp/menu/detail/1342218) was recorded there. This is
+    verbatim the Apply lane guide's fault 10 (marketplace-apply-lane.md): "The state writer
+    keeps a fixed field list. Anything a lane attaches to a claim that is not on that list is
+    dropped on the next write, silently." Preservation here is wholesale -- every key already in
+    the file survives untouched except the ones this writer overwrites with its own current
+    values -- deliberately not an allowlist of "known extra keys to keep"; an allowlist of two
+    known keys is exactly the shape that looks fixed the moment a third writer shows up.
+    """
+    path = state_path.with_name("listing.json")
     digest = hashlib.sha256(json.dumps(product, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    value = {"record_type": "listing_receipt", "schema_version": 1, "platform": "lancers", "product_id": product["product_id"], "product_version": product["product_version"], "listing_external_id": product["listing_external_id"], "public_url": f"{ORIGIN}/menu/detail/{product['listing_external_id']}", "status": "published", "content_sha256": digest, "idempotency_key": f"lancers:listing:{product['product_id']}:v{product['product_version']}", "demand": dict(demand), "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
+    existing = _read_state_json(path)
+    existing.update({"record_type": "listing_receipt", "schema_version": 1, "platform": "lancers", "product_id": product["product_id"], "product_version": product["product_version"], "listing_external_id": product["listing_external_id"], "public_url": f"{ORIGIN}/menu/detail/{product['listing_external_id']}", "status": "published", "content_sha256": digest, "idempotency_key": f"lancers:listing:{product['product_id']}:v{product['product_version']}", "demand": dict(demand), "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")})
+    _atomic_write_json(path, existing)
+
+
+def _read_state_json(path: Path) -> dict[str, Any]:
+    """The whole of one state file (listing.json) as a dict, or {} when missing, unreadable, or
+    not a JSON object -- "nothing here yet" is not an error. Shared by every writer of
+    listing.json (_write_receipt, _write_catalog_listing) so a read-modify-write always starts
+    from the exact same file, not a re-derived guess at what "empty" means."""
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
+    """Write `value` to `path` with the tempfile-then-replace, 0600-permission pattern every
+    writer of listing.json already used individually -- one implementation of "one file, one
+    write discipline", shared by _write_receipt and _write_catalog_listing rather than
+    duplicated (and free to drift) in each."""
+    path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle: json.dump(value, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":")); handle.write("\n")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle: json.dump(dict(value), handle, ensure_ascii=False, sort_keys=True, separators=(",", ":")); handle.write("\n")
         os.replace(temporary, path); path.chmod(0o600)
     finally:
         try: os.unlink(temporary)
@@ -1493,30 +1562,19 @@ def _read_catalog_listings(state_path: Path) -> dict[str, Any]:
 def _write_catalog_listing(state_path: Path, family: str, record: Mapping[str, Any]) -> None:
     """Persist `family`'s new listing under listing.json's catalog_listings map.
 
-    Reads-modifies-writes the whole file (preserving the single-offer listing_receipt fields
-    _write_receipt owns, and every other family already recorded) with the same atomic
-    tempfile-then-replace, 0600-permission pattern _write_receipt uses -- one file, one write
-    discipline, never a half-written listing.json.
+    Read-modify-writes the whole file via the same _read_state_json/_atomic_write_json pair
+    _write_receipt now uses -- preserving the single-offer listing_receipt fields _write_receipt
+    owns, every other family already recorded, and any other key either writer does not
+    recognise, wholesale. Was already this direction's fix before this file's fixed-field-list
+    defect was found in the *other* writer (_write_receipt); the two writers now share one
+    read-modify-write implementation instead of two independently-maintained copies of it.
     """
     path = Path(state_path).with_name("listing.json")
-    path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-    try:
-        existing = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(existing, dict): existing = {}
-    except (OSError, ValueError):
-        existing = {}
+    existing = _read_state_json(path)
     catalog_listings = dict(existing.get(_CATALOG_LISTINGS_KEY) or {})
     catalog_listings[family] = dict(record)
     existing[_CATALOG_LISTINGS_KEY] = catalog_listings
-    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(existing, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":")); handle.write("\n")
-        os.replace(temporary, path); path.chmod(0o600)
-    finally:
-        try: os.unlink(temporary)
-        except FileNotFoundError: pass
+    _atomic_write_json(path, existing)
 
 
 def _family_create_product(catalog_module: Any, catalog: Mapping[str, Any], family: str) -> dict[str, Any]:
