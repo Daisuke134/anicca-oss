@@ -59,7 +59,7 @@ const LUMA_PAGE_STATE = "registration_page_v1";
 const EXPECTED_REGISTRATION_EFFECT = "registered_or_pending";
 const STALE_TARGET_MAX_IDLE_MS = 660_000;
 const CONNECTOR_CDP_CONNECT_TIMEOUT_MS = 120_000;
-const PROVIDER_RANK_MAX_DATES = 2;
+const PROVIDER_RANK_MAX_DATES = 12;
 const PROVIDER_RANK_MAX_CANDIDATES = 12;
 
 function invalid() {
@@ -219,7 +219,12 @@ function boundedPendingCandidates(candidates) {
     group.push(candidate);
     byDate.set(date, group);
   }
-  const dates = [...byDate.keys()].sort().slice(0, PROVIDER_RANK_MAX_DATES);
+  const allDates = [...byDate.keys()].sort();
+  const dates = allDates.length <= PROVIDER_RANK_MAX_DATES
+    ? allDates
+    : Array.from({ length: PROVIDER_RANK_MAX_DATES }, (_, index) => (
+      allDates[Math.floor(index * (allDates.length - 1) / (PROVIDER_RANK_MAX_DATES - 1))]
+    ));
   const selected = [];
   for (let index = 0; selected.length < PROVIDER_RANK_MAX_CANDIDATES; index += 1) {
     let added = false;
