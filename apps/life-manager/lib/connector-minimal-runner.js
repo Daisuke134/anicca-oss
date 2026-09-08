@@ -587,7 +587,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           : sessionExpiredReason || "providers_exhausted");
   } catch (error) {
     if (deadlineReached()) return finish("circuit_open", "wake_deadline");
-    throw error;
+    return finish("circuit_open", error && error.unknownEffect === true ? "effect_unknown" : "wake_boundary_failed");
   } finally {
     if (owned) await deps.browserRail.close(owned);
   }
