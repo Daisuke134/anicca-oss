@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy allowlisted Writer credentials into the Life Manager environment file."""
+"""Copy or configure allowlisted values in the Life Manager environment file."""
 
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ KEYS = frozenset({
     "ARTICLE_INTERNAL_LINK_URLS",
     "ARTICLE_CTA_URLS",
     "ARTICLE_CLIPROXY_CONFIG",
+    "REINVEST_ANICCA_HOME",
 })
 LINE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 

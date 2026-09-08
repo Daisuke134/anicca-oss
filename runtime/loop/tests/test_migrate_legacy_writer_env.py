@@ -123,6 +123,18 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
                 target.read_text(encoding="utf-8"),
             )
 
+    def test_configure_accepts_explicit_reinvest_wallet_home(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "life-manager.env"
+            result = MODULE.configure(
+                target, ["REINVEST_ANICCA_HOME=/srv/life-manager/instances/founder"]
+            )
+            self.assertEqual(result, {"configured": 1, "skipped": 0})
+            self.assertIn(
+                "REINVEST_ANICCA_HOME=/srv/life-manager/instances/founder\n",
+                target.read_text(encoding="utf-8"),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
