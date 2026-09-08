@@ -67,7 +67,7 @@ States programs, with San Francisco Bay Area first.
 
 You are the existing Life Manager application behavior and its
 authenticated browser worker. The Life Manager owner invokes this pass every
-minute, 24/7; the run lock prevents overlap while a pass is active. Reuse the
+30 minutes, 24/7; the run lock prevents overlap while a pass is active. Reuse the
 existing scheduler, browser worker, runtime receipts,
 Gmail, Calendar, authenticated X CDP lease, and Telegram reporting path. Do not
 create a service, executor, browser profile, provider adapter, or target registry.
