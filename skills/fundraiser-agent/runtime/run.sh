@@ -98,6 +98,16 @@ export FUNDRAISER_CONTEXT_DIGEST="$(printf '%s\n' "$CONTEXT_META" | sed -n '2p')
   exit 2
 }
 
+export FUNDRAISER_VERIFIED_DECK="$REPO_ROOT/fundraising/application-kit/deck.pdf"
+node "$REPO_ROOT/skills/fundraiser-agent/runtime/verify-deck.mjs" \
+  "$REPO_ROOT/.agents/startup-context.json" \
+  "$REPO_ROOT/fundraising/application-kit/assets.json" \
+  "$REPO_ROOT/fundraising/application-kit/deck.pdf.receipt.json" \
+  "$FUNDRAISER_VERIFIED_DECK" >>"$LOG" 2>&1 || {
+    echo "fundraiser: verified pitch deck preflight failed" >>"$LOG"
+    exit 2
+  }
+
 RUNTIME_PROMPT="$EVIDENCE_DIR/runtime-prompt.md"
 {
   cat "$PROMPT"
@@ -111,6 +121,7 @@ RUNTIME_PROMPT="$EVIDENCE_DIR/runtime-prompt.md"
 - Use existing browser helpers under \`skills/browser/\`; do not launch or kill a browser.
 - If \`127.0.0.1:9222\` becomes connection-refused during this pass, do not record a candidate failure yet. Execute \`$LOOP_CLI restart life-manager-daily-driver\`, wait up to 20 seconds for \`curl -fsS --max-time 2 http://127.0.0.1:9222/json/version\` to succeed, reacquire a fresh fundraiser lease, and retry the same candidate observation once. Only checkpoint the transport if that exact managed recovery fails. Never launch or kill Chromium directly.
 - Read private founder values only from \`~/.config/anicca/job-search/profile.json\` and \`~/.local/share/anicca/credentials.json\`; never print or report their values.
+- The only attachable pitch deck is the deterministic preflight-verified file \`$FUNDRAISER_VERIFIED_DECK\`; never attach another deck path.
 - Never append a \`submitted_verified\` row directly. Before Submit, create a mode-600 draft JSON containing organization, program, cohort_window, account, official_url, contact {method,destination}, every rendered question and actual answer in question_answers, attachment names, the exact non-secret claims/source paths used in context_used, context_version \`$FUNDRAISER_CONTEXT_VERSION\`, and context_digest \`$FUNDRAISER_CONTEXT_DIGEST\`. Run \`python3 "$REPO_ROOT/skills/fundraiser-agent/runtime/record-application.py" --prepare --draft <draft> --ledger "$STATE_ROOT/application-receipts.jsonl" --applications-dir "$STATE_ROOT/applications" --expected-context-version "$FUNDRAISER_CONTEXT_VERSION" --expected-context-digest "$FUNDRAISER_CONTEXT_DIGEST"\` and require its prepared application_digest before claiming the final effect. This pre-submit gate rejects prior terminal applications even when cohort dates or URL spelling drift. After official screenshot and Telegram photo delivery, add submitted_at and evidence {completion_png,telegram_photo_message_id,provider_readback} without changing the prepared fields; then run \`python3 "$REPO_ROOT/skills/fundraiser-agent/runtime/record-application.py" --draft <draft> --ledger "$STATE_ROOT/application-receipts.jsonl" --applications-dir "$STATE_ROOT/applications" --run-id "$RUN_ID" --expected-context-version "$FUNDRAISER_CONTEXT_VERSION" --expected-context-digest "$FUNDRAISER_CONTEXT_DIGEST"\`. Only its successful output establishes \`submitted_verified\`. Use direct compact rows only for non-success terminal states.
 - Write the durable next discovery cursor atomically to \`$STATE_ROOT/cursor.json\`.
 - Immediately after every candidate terminal, execute \`bash $SENDER "Codex::: Fundraiser: <program, truthful status, non-secret readback, running counts>"\` and require \`TELEGRAM_SENT=true\`.

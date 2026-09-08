@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   auditStartupContext,
@@ -13,6 +15,7 @@ import {
   validatePublicArtifact,
 } from "../scripts/startup-context/lib.mjs";
 import { buildApplicationKit } from "../scripts/startup-context/build-kit.mjs";
+import { verifyDeckArtifact } from "../skills/fundraiser-agent/runtime/verify-deck.mjs";
 
 const contextPath = new URL("../.agents/startup-context.json", import.meta.url);
 const marketingPath = new URL(
@@ -280,6 +283,51 @@ test("generated application kit describes Life Manager without unverified media"
     assert.match(deck, /Daily Organ/);
     assert.match(deck, /Financial Organ/);
     assert.equal(assets.assets.some((asset) => asset.status === "verified" && asset.type === "video"), false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("generated pitch deck PDF is bound to the current context and receipt", async () => {
+  const context = await loadStartupContext(contextPath);
+  const directory = await mkdtemp(join(tmpdir(), "life-manager-kit-"));
+
+  try {
+    await buildApplicationKit({ context, outputDirectory: directory });
+    const pdf = await readFile(join(directory, "deck.pdf"));
+    const receipt = JSON.parse(await readFile(join(directory, "deck.pdf.receipt.json"), "utf8"));
+
+    assert.match(pdf.subarray(0, 8).toString("ascii"), /^%PDF-1\.4/);
+    assert.equal(receipt.context_version, context.context_version);
+    assert.equal(receipt.context_digest, contextDigest(context));
+    assert.equal(receipt.pdf_sha256, createHash("sha256").update(pdf).digest("hex"));
+    const verified = await verifyDeckArtifact({
+      contextPath: fileURLToPath(contextPath),
+      assetsPath: join(directory, "assets.json"),
+      receiptPath: join(directory, "deck.pdf.receipt.json"),
+      pdfPath: join(directory, "deck.pdf"),
+    });
+    assert.equal(verified.pages, 10);
+
+    await writeFile(join(directory, "deck.pdf"), Buffer.concat([pdf, Buffer.from("tampered")]));
+    await assert.rejects(() => verifyDeckArtifact({
+      contextPath: fileURLToPath(contextPath),
+      assetsPath: join(directory, "assets.json"),
+      receiptPath: join(directory, "deck.pdf.receipt.json"),
+      pdfPath: join(directory, "deck.pdf"),
+    }), /SHA-256 mismatch|truncated/);
+
+    await writeFile(join(directory, "deck.pdf"), pdf);
+    const changedContext = clone(context);
+    changedContext.product.one_liner = `${changedContext.product.one_liner} changed`;
+    const changedContextPath = join(directory, "changed-context.json");
+    await writeFile(changedContextPath, JSON.stringify(changedContext));
+    await assert.rejects(() => verifyDeckArtifact({
+      contextPath: changedContextPath,
+      assetsPath: join(directory, "assets.json"),
+      receiptPath: join(directory, "deck.pdf.receipt.json"),
+      pdfPath: join(directory, "deck.pdf"),
+    }), /context digest is stale/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
