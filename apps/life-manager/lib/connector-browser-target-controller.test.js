@@ -1,9 +1,44 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 
-const { createConnectorBrowserTargetController } = require("./connector-browser-target-controller.js");
+const {
+  createConnectorBrowserTargetController,
+  dailyDriverEndpoint,
+} = require("./connector-browser-target-controller.js");
+
+test("resolves only the shared loopback daily-driver endpoint", () => {
+  assert.equal(dailyDriverEndpoint("http://127.0.0.1:9222"), "http://127.0.0.1:9222");
+  assert.equal(dailyDriverEndpoint("http://[::1]:9222"), "http://[::1]:9222");
+  for (const endpoint of [
+    "http://127.0.0.1:9223", "https://127.0.0.1:9222", "http://example.com:9222",
+    "http://user:secret@127.0.0.1:9222", "http://127.0.0.1:9222/json/version",
+  ]) assert.throws(() => dailyDriverEndpoint(endpoint), /endpoint invalid/i);
+});
+
+test("fresh Connector modules consume one configured endpoint and exact websocket origin", () => {
+  const script = `
+    const controller = require(${JSON.stringify(require.resolve("./connector-browser-target-controller.js"))});
+    const runner = require(${JSON.stringify(require.resolve("./connector-minimal-runner.js"))});
+    process.stdout.write(JSON.stringify({
+      endpoint: controller.CONNECTOR_CDP_ENDPOINT,
+      target: controller.connectorPageWebsocketTargetId("ws://[::1]:9222/devtools/page/TARGET123"),
+      runner_loaded: typeof runner.runMinimalConnectorWake === "function",
+    }));
+  `;
+  const result = spawnSync(process.execPath, ["-e", script], {
+    env: { ...process.env, CLOAK_CDP_BASE_URL: "http://[::1]:9222" },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    endpoint: "http://[::1]:9222",
+    target: "TARGET123",
+    runner_loaded: true,
+  });
+});
 
 function fixture({ baselineCount = 1, delayedOwnedInsertion = false } = {}) {
   const calls = [];
@@ -88,7 +123,7 @@ test("creates exactly one default-context target and binds only its exact Playwr
   const result = await controller.create();
 
   assert.equal(result.target_id, "OWNED123");
-  assert.equal(result.page_websocket, "ws://[::1]:9222/devtools/page/OWNED123");
+  assert.equal(result.page_websocket, "ws://127.0.0.1:9222/devtools/page/OWNED123");
   assert.equal(result.page, fx.owned);
   assert.equal(fx.calls.filter(([name, method]) => name === "browser-send" && method === "Target.createTarget").length, 1);
   assert.deepEqual(
@@ -155,7 +190,7 @@ test("closing with a malformed target inventory rejects before Target.closeTarge
 test("refuses another port, malformed target IDs, and ambiguous browser contexts", async () => {
   const fx = fixture();
   assert.throws(
-    () => createConnectorBrowserTargetController({ browser: fx.browser, endpoint: "http://127.0.0.1:9222" }),
+    () => createConnectorBrowserTargetController({ browser: fx.browser, endpoint: "http://[::1]:9222" }),
     /endpoint/i,
   );
   assert.throws(

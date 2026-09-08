@@ -1,7 +1,19 @@
 "use strict";
 
-const CONNECTOR_CDP_ENDPOINT = "http://[::1]:9222";
-const CONNECTOR_CDP_WEBSOCKET_ORIGIN = "ws://[::1]:9222";
+function dailyDriverEndpoint(value = process.env.CLOAK_CDP_BASE_URL || "http://127.0.0.1:9222") {
+  let parsed;
+  try { parsed = new URL(String(value)); } catch { throw new Error("Connector browser endpoint invalid"); }
+  if (
+    parsed.protocol !== "http:"
+    || !["127.0.0.1", "[::1]"].includes(parsed.hostname)
+    || parsed.port !== "9222"
+    || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash
+  ) throw new Error("Connector browser endpoint invalid");
+  return parsed.origin;
+}
+
+const CONNECTOR_CDP_ENDPOINT = dailyDriverEndpoint();
+const CONNECTOR_CDP_WEBSOCKET_ORIGIN = CONNECTOR_CDP_ENDPOINT.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
 
 function unavailable(message) {
   throw new Error(message || "Connector browser target controller unavailable");
@@ -13,17 +25,20 @@ function exactTargetId(value) {
   return targetId;
 }
 
-function targetIdFromWebsocket(value) {
+function connectorPageWebsocketTargetId(value) {
   let parsed;
   try { parsed = new URL(String(value || "")); } catch { unavailable("Connector page websocket invalid"); }
-  const prefix = "/devtools/page/";
+  const match = /^\/devtools\/page\/([A-Za-z0-9._-]{3,128})$/.exec(parsed.pathname);
   if (
     parsed.protocol !== "ws:"
     || parsed.origin !== CONNECTOR_CDP_WEBSOCKET_ORIGIN
-    || !parsed.pathname.startsWith(prefix)
-    || parsed.username || parsed.password || parsed.search || parsed.hash
+    || !match || parsed.username || parsed.password || parsed.search || parsed.hash
   ) unavailable("Connector page websocket invalid");
-  return exactTargetId(parsed.pathname.slice(prefix.length));
+  return match[1];
+}
+
+function targetIdFromWebsocket(value) {
+  return exactTargetId(connectorPageWebsocketTargetId(value));
 }
 
 function createConnectorBrowserTargetController(options = {}) {
@@ -130,5 +145,7 @@ function createConnectorBrowserTargetController(options = {}) {
 module.exports = {
   CONNECTOR_CDP_ENDPOINT,
   CONNECTOR_CDP_WEBSOCKET_ORIGIN,
+  connectorPageWebsocketTargetId,
   createConnectorBrowserTargetController,
+  dailyDriverEndpoint,
 };
