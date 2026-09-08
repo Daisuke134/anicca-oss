@@ -211,8 +211,9 @@ case lists below are historical evidence and do not reopen completed work or reo
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
-contract inventories are empty; they do not block the next implementable atom. The active engineering
-atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explicit order change.
+contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` is
+complete. The active engineering atom is `CROWDWORKS-REPLY-1`; its fixed next atom is
+`MERCOR-REPLY-1` by Dais's explicit order change.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
