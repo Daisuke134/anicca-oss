@@ -17,9 +17,10 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-SKILL_DIR="${ARTICLE_SKILL_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$SKILL_DIR/state}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
+REPO_ROOT="$LIFE_MANAGER_REPO"
+SKILL_DIR="$WRITER_ROOT"
 JSONL="${CRAFT_TRAIN_JSONL:-$STATE_DIR/craft-train.jsonl}"
 TARGET="${CRAFT_TRAIN_TELEGRAM:-}"
 PY="${ARTICLE_PYTHON:-/opt/homebrew/bin/python3}"

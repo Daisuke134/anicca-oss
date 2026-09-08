@@ -174,6 +174,33 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
                          str(Path.home() / ".local/state/life-manager/example"))
 
+    def test_writer_plist_projects_one_state_log_and_env_contract(self):
+        writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
+        writer_entrypoint.parent.mkdir(parents=True)
+        writer_entrypoint.write_text("#!/bin/sh\nexit 0\n")
+        writer_entrypoint.chmod(0o755)
+        value = registry("skills/writer-agent/article-daily.sh")
+        value["loops"]["article-daily"] = value["loops"].pop("example")
+        value["loops"]["article-daily"].update({
+            "label": "ai.anicca.article-daily",
+            "state_root": "~/.local/state/life-manager/writer",
+            "log_root": "~/.local/state/life-manager/writer/logs",
+        })
+        environment = plistlib.loads(
+            build_apply_plan(value, self.root, SHA)[0]["plist_bytes"]
+        )["EnvironmentVariables"]
+        writer = str(self.root.resolve() / "skills/writer-agent")
+        state = str(Path.home() / ".local/state/life-manager/writer")
+        self.assertEqual(environment["ARTICLE_ROOT"], writer)
+        self.assertEqual(environment["ARTICLE_SKILL_DIR"], writer)
+        self.assertEqual(environment["ARTICLE_STATE_DIR"], state)
+        self.assertEqual(environment["WRITER_STATE_DIR"], state)
+        self.assertEqual(environment["WRITER_LOG_DIR"], f"{state}/logs")
+        self.assertEqual(
+            environment["LIFE_MANAGER_ENV_FILE"],
+            str(Path.home() / ".local/state/life-manager/.env"),
+        )
+
     def test_browser_owner_is_projected_into_shared_runtime_environment(self):
         value = registry()
         value["loops"]["example"]["browser_owner"] = {

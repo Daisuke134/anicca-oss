@@ -3,16 +3,12 @@
 # pre-live target set may initialize only its explicitly missing targets in a publication-free tick.
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
-# Load runtime credentials exactly like article-daily.sh so remote reconciles
-# (e.g. publication_remote.devto) never fail closed on a missing API key.
-WRITER_RUNTIME_HOME="${LIFE_MANAGER_STATE_ROOT:-${LIFE_MANAGER_HOME:-$HOME/.local/state/life-manager}}"
-set -a; . "$WRITER_RUNTIME_HOME/.env" 2>/dev/null; set +a
-
-ARTICLE_ROOT="${ARTICLE_ROOT:-${ARTICLE_SKILL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$ARTICLE_ROOT/state}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 ARTICLE_PROVIDER="claude"
 ARTICLE_PROVIDER_COOLDOWN_SECONDS="300"
-LOG="${ARTICLE_RESUME_LOG:-$WRITER_RUNTIME_HOME/logs/article-resume.log}"
+LOG="${ARTICLE_RESUME_LOG:-$WRITER_LOG_DIR/article-resume.log}"
 TELEGRAM_TARGET="${TELEGRAM_TARGET_ID:-${GIG_REPORT_CHAT:-${TELEGRAM_CHAT_ID:-}}}"
 MODEL_RUNNER="${ARTICLE_MODEL_RUNNER:-$ARTICLE_ROOT/runtime/model-runner.sh}"
 MODEL_SUPPORT="${ARTICLE_MODEL_SUPPORT:-$ARTICLE_ROOT/runtime/model-runner-support.py}"

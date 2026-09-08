@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Sourced by every Writer entrypoint. One contract for repository code,
+# mutable state, logs and credentials in both local and cloud runtimes.
+
+WRITER_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+_WRITER_ROOT_CALLER="${ARTICLE_ROOT:-${ARTICLE_SKILL_DIR:-$(cd "$WRITER_SCRIPT_DIR/.." && pwd -P)}}"
+_WRITER_REPO_CALLER="${LIFE_MANAGER_REPO:-$(cd "$_WRITER_ROOT_CALLER/../.." && pwd -P)}"
+_WRITER_STATE_CALLER="${WRITER_STATE_DIR:-${ARTICLE_STATE_DIR:-${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/writer}}}"
+_WRITER_LOG_CALLER="${WRITER_LOG_DIR:-$_WRITER_STATE_CALLER/logs}"
+_WRITER_ENV_CALLER="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+
+# shellcheck source=../../../apps/life-manager/scripts/lib/load-env-file.sh
+source "$_WRITER_REPO_CALLER/apps/life-manager/scripts/lib/load-env-file.sh"
+lm_load_env_file "$_WRITER_ENV_CALLER"
+
+# Dotenv contains credentials, never path ownership. Preserve the caller's
+# immutable release and registry-selected writable roots across sourcing.
+WRITER_ROOT="$_WRITER_ROOT_CALLER"
+LIFE_MANAGER_REPO="$_WRITER_REPO_CALLER"
+WRITER_STATE_DIR="$_WRITER_STATE_CALLER"
+WRITER_LOG_DIR="$_WRITER_LOG_CALLER"
+LIFE_MANAGER_ENV_FILE="$_WRITER_ENV_CALLER"
+unset _WRITER_ROOT_CALLER _WRITER_REPO_CALLER _WRITER_STATE_CALLER
+unset _WRITER_LOG_CALLER _WRITER_ENV_CALLER
+
+case "$WRITER_STATE_DIR/$WRITER_LOG_DIR" in
+  *"/.openclaw/"*|*"/.hermes/"*)
+    printf 'writer runtime refuses legacy state/log roots\n' >&2
+    return 1
+    ;;
+esac
+WRITER_BROWSER_PYTHON="${WRITER_BROWSER_PYTHON:-$(command -v python3)}"
+
+ARTICLE_ROOT="$WRITER_ROOT"
+ARTICLE_SKILL_DIR="$WRITER_ROOT"
+ARTICLE_STATE_DIR="$WRITER_STATE_DIR"
+STATE_DIR="$WRITER_STATE_DIR"
+export LIFE_MANAGER_REPO LIFE_MANAGER_ENV_FILE WRITER_ROOT WRITER_STATE_DIR WRITER_LOG_DIR
+export ARTICLE_ROOT ARTICLE_SKILL_DIR ARTICLE_STATE_DIR STATE_DIR WRITER_BROWSER_PYTHON

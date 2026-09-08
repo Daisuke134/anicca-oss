@@ -79,8 +79,12 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         value["KeepAlive"] = True
     if loop_id.startswith(("article-", "writer-")):
         writer_root = str(release_root / "skills/writer-agent")
+        writer_state = os.path.expanduser(entry["state_root"])
         value["EnvironmentVariables"].update({
             "ARTICLE_ROOT": writer_root, "ARTICLE_SKILL_DIR": writer_root,
+            "ARTICLE_STATE_DIR": writer_state, "WRITER_STATE_DIR": writer_state,
+            "WRITER_LOG_DIR": os.path.expanduser(entry["log_root"]),
+            "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
             "LIFE_MANAGER_REPO": str(release_root),
         })
     return plistlib.dumps(value, fmt=plistlib.FMT_XML, sort_keys=True)

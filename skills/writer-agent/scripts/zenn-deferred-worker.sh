@@ -4,11 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PATH="${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
-set -a
-. "$HOME/.openclaw/.env" 2>/dev/null || true
-set +a
-ARTICLE_ROOT="${ARTICLE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$ARTICLE_ROOT/state}"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
 PUBLICATION_PAUSE_FILE="${ARTICLE_PUBLICATION_PAUSE_FILE:-$STATE_DIR/.publication-paused}"
 if [ -f "$PUBLICATION_PAUSE_FILE" ]; then
   echo "zenn-deferred-worker: publication paused file=$PUBLICATION_PAUSE_FILE"

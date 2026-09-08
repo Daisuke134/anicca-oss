@@ -2,15 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+# shellcheck source=writer-runtime-env.sh
+source "$ROOT/skills/writer-agent/scripts/writer-runtime-env.sh"
 PYTHON="${LIFE_MANAGER_PYTHON:-$(command -v python3)}"
-STATE_DIR="${WRITER_STATE_DIR:-$HOME/.local/state/life-manager/writer}"
-ENV_FILE="${GIG_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
-
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  . "$ENV_FILE"
-  set +a
-fi
 ACCOUNT="${WRITER_GMAIL_ACCOUNT:-${LIFE_MANAGER_GMAIL_ACCOUNT:-${GOG_ACCOUNT:-}}}"
 : "${ACCOUNT:?WRITER_GMAIL_ACCOUNT or LIFE_MANAGER_GMAIL_ACCOUNT is required}"
 

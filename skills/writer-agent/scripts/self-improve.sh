@@ -3,14 +3,11 @@
 set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
-set -a
-. "$HOME/.openclaw/.env" 2>/dev/null || true
-set +a
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_DIR="${ARTICLE_SKILL_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$SKILL_DIR/state}"
-LOG_DIR="$HOME/.openclaw/logs"
+# shellcheck source=writer-runtime-env.sh
+source "$SCRIPT_DIR/writer-runtime-env.sh"
+SKILL_DIR="$WRITER_ROOT"
+LOG_DIR="$WRITER_LOG_DIR"
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 # Score the day's title ledger against real high-performing titles before the

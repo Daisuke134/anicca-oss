@@ -7,24 +7,17 @@
 # capafy died at rc=124 mid-publish, life-manager died at rc=124 having posted nothing; this
 # loop runs until the work is done. This file never asks the agent to self-register a
 # scheduler — launchd is the ONLY scheduler.
-# Reporting uses `openclaw message send --channel telegram` — the built-in local push-notify
-# tool silently no-ops when Remote Control is inactive and left two loops reporting into the
-# void for days.
+# Reporting uses the repository-owned Telegram sender.
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
 set -uo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-ARTICLE_ROOT="${ARTICLE_ROOT:-${ARTICLE_SKILL_DIR:-$SCRIPT_DIR}}"
-STATE_DIR="${ARTICLE_STATE_DIR:-$ARTICLE_ROOT/state}"
-ARTICLE_STATE_DIR="$STATE_DIR"
-export ARTICLE_ROOT ARTICLE_STATE_DIR STATE_DIR
+# shellcheck source=scripts/writer-runtime-env.sh
+source "$SCRIPT_DIR/scripts/writer-runtime-env.sh"
 # Runtime topic stages remain under the mutable state root: state/topics/queue/,
 # state/topics/in-progress/, and state/topics/done/.
-LOG="$HOME/.openclaw/logs/article-daily.log"
+LOG="${ARTICLE_DAILY_LOG:-$WRITER_LOG_DIR/article-daily.log}"
 mkdir -p "$(dirname "$LOG")"
-# task #27 (2026-07-16): the Telegram target ID below used to be hardcoded inline in PROMPT
-# (a personal identifier -- other installers cannot run this loop as-is). Default preserves
-# today's exact behavior; override via ~/.openclaw/.env for a different installer.
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
+# The Telegram target is supplied by the Life Manager environment.
 PUBLICATION_PAUSE_FILE="${ARTICLE_PUBLICATION_PAUSE_FILE:-$STATE_DIR/.publication-paused}"
 if [ -f "$PUBLICATION_PAUSE_FILE" ]; then
   echo "article-daily: publication paused file=$PUBLICATION_PAUSE_FILE at=$(date -u '+%FT%TZ')" >>"$LOG"
@@ -53,7 +46,7 @@ export TELEGRAM_ALERT_CHAT_ID="$TELEGRAM_TARGET_ID"
 # spec #22 self-heal L2: telegram_notify() is the shared out-of-band alert path 211 other
 # crons already use (see the script's own header) -- reused here rather than re-implementing
 # a second `openclaw message send` call site.
-. "$HOME/.openclaw/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || true
+. "$LIFE_MANAGER_REPO/skills/_shared/scripts/telegram-notify.sh" 2>/dev/null || true
 echo "=== article-daily run $(date '+%F %T %Z') ===" >>"$LOG"
 
 # DISK PREFLIGHT (spec writer-loop-spec.md #13.1 item 5 / #13.5): runs at wrapper start, before
@@ -109,25 +102,7 @@ disk_preflight() {
 
   actions=""
 
-  # (1) $HOME/.openclaw/skills/.backups/: keep the newest backup generation exactly, delete the
-  # rest oldest-first. Generation dirs are named with a lexicographically-sortable UTC ISO-8601
-  # timestamp (curator.sh's own `date -u +%Y-%m-%dT%H-%M-%SZ` convention) -- same idiom this file
-  # already uses below to prune state/runs/ (plain name sort ascending is oldest-first, no date
-  # parsing needed), reused here for consistency rather than a second pruning style.
-  local backups_dir="$HOME/.openclaw/skills/.backups"
-  if [ -d "$backups_dir" ]; then
-    local backup_count backup_excess
-    backup_count=$(ls -1 "$backups_dir" 2>/dev/null | wc -l | tr -d ' ')
-    if [ "${backup_count:-0}" -gt 1 ]; then
-      backup_excess=$((backup_count - 1))
-      ls -1 "$backups_dir" 2>/dev/null | sort | head -n "$backup_excess" | while IFS= read -r old_gen; do
-        [ -n "$old_gen" ] && rm -rf -- "$backups_dir/$old_gen"
-      done
-      actions="${actions}deleted ${backup_excess} backup generation(s) under $backups_dir (kept newest 1); "
-    fi
-  fi
-
-  # (2) $HOME/.cache/anicca-clones/: clear its contents, keep the directory itself. mindepth 1
+  # $HOME/.cache/anicca-clones/: clear its contents, keep the directory itself. mindepth 1
   # maxdepth 1 + `-exec rm -rf {} +` never descends into or globs anything outside this one root.
   local clones_dir="$HOME/.cache/anicca-clones"
   if [ -d "$clones_dir" ]; then
@@ -814,7 +789,7 @@ if ! python3 "$DEMAND_AUTHORITY_SCRIPT" \
   exit 75
 fi
 
-PROMPT='Run ONE daily Writer Agent article pass, no daily human in the loop. This pass was triggered by a real launchd daily schedule (ai.anicca.article-daily) -- you do NOT need to register your own recurring scheduler; launchd is the only scheduler for this loop, never self-register one via any cron-creation tool. set -a; . ~/.openclaw/.env; set +a.
+PROMPT='Run ONE daily Writer Agent article pass, no daily human in the loop. This pass was triggered by a real launchd daily schedule (ai.anicca.article-daily) -- you do NOT need to register your own recurring scheduler; launchd is the only scheduler for this loop, never self-register one via any cron-creation tool. The wrapper has already loaded the Life Manager environment; never source another runtime environment.
 
 CURRENT BRAKE SNAPSHOT: the wrapper checked ARTICLE_PUBLICATION_PAUSE_FILE immediately before building this prompt and found PUBLICATION_PAUSE_SNAPSHOT_PLACEHOLDER. Treat only that current filesystem check as pause evidence. A historical "publication paused" line in article-daily.log, an older run directory, or a stale manifest is not current state; when the snapshot is absent, continue through the normal gates and publisher-native readbacks.
 
@@ -830,7 +805,7 @@ CURRENT BRAKE SNAPSHOT: the wrapper checked ARTICLE_PUBLICATION_PAUSE_FILE immed
 
 ★ JUDGE BROKER — HARD BOUNDARY. ★ Every judge/vision model call is served by the wrapper-side judge broker through the model runner. When invoking any gate or the model runner, never clear, unset, or override ARTICLE_NESTED_SANDBOX, ARTICLE_RUN_DIR, or ARTICLE_JUDGE_BROKER_SERVER, and never bypass the judge broker by spawning a provider CLI directly: a direct provider spawn inside the bounded sandbox always fails, poisons provider health for the whole run, and forces every later safety gate to fail closed. If a judge call returns no verdict, record the failure and leave the pair pending; do not retry with altered environment variables.
 
-STEP 0 (SELF-FIX RESULT CHECK -- existence-guarded, run before STEP 1): read ~/.openclaw/state/.self-fix-writer-agent.result if it exists (it will not exist until STEP 6.5 has spawned a fixer at least once -- if absent, skip this step silently and go to STEP 1). If its first word is FAIL, a previous pass hit a render-verify problem its self-fix attempt could not resolve -- read the rest of that line plus the tail of ~/.openclaw/logs/self-fix-writer-agent.log for the real diagnosis, and stay extra alert to that same class of defect (which platform, which rule) while writing and staging todays article; this is context only, never a reason to skip or delay todays pass. If its first word is SUCCESS, a prior self-fix genuinely resolved something -- no action needed. If its first word is RUNNING, a fixer may still be active or may have crashed stale (article-self-fix.sh has its own staleness/respawn logic for that, nothing for you to do here).
+STEP 0 (SELF-FIX RESULT CHECK -- existence-guarded, run before STEP 1): read ARTICLE_STATE_DIR_PLACEHOLDER/.self-fix-writer-agent.result if it exists (it will not exist until STEP 6.5 has spawned a fixer at least once -- if absent, skip this step silently and go to STEP 1). If its first word is FAIL, a previous pass hit a render-verify problem its self-fix attempt could not resolve -- read the rest of that line plus the tail of WRITER_LOG_DIR_PLACEHOLDER/self-fix-writer-agent.log for the real diagnosis, and stay extra alert to that same class of defect (which platform, which rule) while writing and staging todays article; this is context only, never a reason to skip or delay todays pass. If its first word is SUCCESS, a prior self-fix genuinely resolved something -- no action needed. If its first word is RUNNING, a fixer may still be active or may have crashed stale (article-self-fix.sh has its own staleness/respawn logic for that, nothing for you to do here).
 
 STEP 0.5 (SELF-IMPROVE TODO CHECK -- mandatory, spec docs/loop-engineering/47-writer-loop-quality-and-self-improvement.md §7 principle 7, run before STEP 1): run bash ARTICLE_ROOT_PLACEHOLDER/scripts/article-selfimprove-verify.sh. It inspects the most recently completed ARTICLE_STATE_DIR_PLACEHOLDER/runs/ generation against REAL file evidence (gate JSON content, articles.jsonl rows) -- never self-report, never mtime alone -- and writes ARTICLE_STATE_DIR_PLACEHOLDER/.selfimprove-todo.json. If its missing array is non-empty, treat every item as this passs first priority: e.g. if a prior run claims all gates passed but has no matching articles.jsonl row with a real staged editor URL, or a gate JSON that STEP 4/4.6/4.7 mandates is missing from a prior runs/ dir, that is a real gap in what got proven, not just reported -- make sure THIS pass writes every gate JSON into its own run dir (STEP 0.6) and its ledger row (STEP 7) without fail, so the same gap is not repeated. Do not skip this step because you believe everything is fine; self-report is not evidence, only real files are.
 
@@ -954,7 +929,7 @@ STEP 11.5 (REGISTER EXACTLY FOUR ACTIVE TARGETS AND FOUR DORMANT SKIPS BEFORE TH
 
 STEP 12 (FIXED MONEY CONTRACT + TAGS): run python3 ARTICLE_ROOT_PLACEHOLDER/scripts/note-publish/note_monetization_policy.py desired-state and require the JSON to say access_model=one_time_purchase, currency=JPY, price_minor=500, paywall_required=true, publisher_args=["--price","500"]. This executable desired-state contract is authoritative for every newly published note article; article count, follower count, and price-check suggestions cannot switch it to free or change the price. Separately run bash ARTICLE_ROOT_PLACEHOLDER/scripts/_shared/tag-counts.py <6-8 candidate hashtag words for this topic, no leading #> and pick up to 5 from the returned counts, avoiding any tag whose count is in the hundreds of thousands (it will bury this article).
 
-STEP 13 (NOTE JP -- ¥500 go live -- this is the ONLY command in this entire loop that actually clicks the publish button on note.com): immediately before the publish-paid.py attempt, run bash ARTICLE_ROOT_PLACEHOLDER/scripts/note-publish/publish-to-note.sh enable-publish to create the 10-minute sentinel; treat it as single-use for that attempt and never reuse it for a retry. Then run NOTE_MODE=go ~/.openclaw/skills/_shared/venv-cloak/bin/python3 ARTICLE_ROOT_PLACEHOLDER/scripts/note-publish/publish-paid.py --key <KEY from STEP 11> --price 500 --after-chars <your own editorial judgment of where the useful free preview ends and the paid material begins, in characters> --tags "<up to 5 tags from STEP 12, comma-separated, no leading #>" --arm. Require exit code 0 plus PAID_PUBLISHED verified=true and API_VERIFY price=500 before treating note as live. --free is outside this Writer money contract.
+STEP 13 (NOTE JP -- ¥500 go live -- this is the ONLY command in this entire loop that actually clicks the publish button on note.com): immediately before the publish-paid.py attempt, run bash ARTICLE_ROOT_PLACEHOLDER/scripts/note-publish/publish-to-note.sh enable-publish to create the 10-minute sentinel; treat it as single-use for that attempt and never reuse it for a retry. Then run NOTE_MODE=go WRITER_BROWSER_PYTHON_PLACEHOLDER ARTICLE_ROOT_PLACEHOLDER/scripts/note-publish/publish-paid.py --key <KEY from STEP 11> --price 500 --after-chars <your own editorial judgment of where the useful free preview ends and the paid material begins, in characters> --tags "<up to 5 tags from STEP 12, comma-separated, no leading #>" --arm. Require exit code 0 plus PAID_PUBLISHED verified=true and API_VERIFY price=500 before treating note as live. --free is outside this Writer money contract.
 
 STEP 14 (NOTE CONVERSION PREVIEW, ja only): generate the Japanese free-preview derivative for any adapter that explicitly consumes a note conversion artifact (make-free-version.py hardcodes a Japanese paywall footer, so it has no English equivalent): run bash ARTICLE_ROOT_PLACEHOLDER/scripts/_shared/make-free-version.py --markdown-file <the ja.md from STEP 3> --note-url <the live note URL from STEP 13> --price 500 --paid-contents "<your own exact naming of what is behind the paywall>" --summary-file <a small file you write yourself with 3-5 honest summary bullets, no slop> --out <a free.md path> --after-chars <your own editorial judgment, independent of the note paywall line in STEP 13>. Never silently substitute this derivative for the immutable source article; a destination adapter must name it explicitly. The four active destinations consume only their own immutable staging rows.
 
@@ -988,7 +963,7 @@ GENERATION_ARGS=(--run-dir "$RUN_DIR" --run-id "$RUN_TS" --prompt-file "$PROMPT_
 export ARTICLE_RUN_DIR="$RUN_DIR"
 
 writer_capacity_preflight() {
-  local free_kib flag control_dir="$HOME/.openclaw/state"
+  local free_kib flag control_dir="${LIFE_MANAGER_HOST_STATE_DIR:-$HOME/.local/state/life-manager/state}"
   local required_kib="$(( (DISK_LOW_THRESHOLD_BYTES + 1023) / 1024 ))"
   free_kib="$(df -Pk / 2>/dev/null | awk 'NR==2{print $4}')"
   case "$free_kib" in
@@ -1065,6 +1040,8 @@ else
       -e "s|RUN_DIR_PLACEHOLDER|$RUN_TS|g" \
       -e "s|ARTICLE_ROOT_PLACEHOLDER|$ARTICLE_ROOT|g" \
       -e "s|ARTICLE_STATE_DIR_PLACEHOLDER|$STATE_DIR|g" \
+      -e "s|WRITER_LOG_DIR_PLACEHOLDER|$WRITER_LOG_DIR|g" \
+      -e "s|WRITER_BROWSER_PYTHON_PLACEHOLDER|$WRITER_BROWSER_PYTHON|g" \
       >"$PROMPT_FILE"
   python3 "$GENERATION_STATE" "${GENERATION_ARGS[@]}" init >>"$LOG" 2>&1 || exit 1
   python3 "$ARTICLE_ROOT/scripts/media_create_once.py" \
@@ -1089,7 +1066,7 @@ drain_generation_workers() {
 }
 run_model_pass() {
   local active_prompt_file="${1:-$PROMPT_FILE}" rc
-  BOUNDED_EXEC_STOP_PATHS="$HOME/.openclaw/state/disk-writers.stop" \
+  BOUNDED_EXEC_STOP_PATHS="${LIFE_MANAGER_HOST_STATE_DIR:-$HOME/.local/state/life-manager/state}/disk-writers.stop" \
   ARTICLE_RUN_ID="$RUN_TS" ARTICLE_MODEL_LOG="$LOG" \
     python3 "$ARTICLE_ROOT/runtime/bounded-exec.py" \
       "$ARTICLE_MODEL_AGENT_TIMEOUT_SECONDS" \
@@ -1220,6 +1197,6 @@ if pass_is_complete; then
     --state "$RUN_DIR/gates/publication-state.json" --ledger "$LEDGER" \
     --target "$TELEGRAM_TARGET_ID" >>"$LOG" 2>&1 || \
     echo "=== article-daily: active-four completion notification remains pending $(date '+%F %T %Z') ===" >>"$LOG"
-  touch "$HOME/.openclaw/state/.article-loop-last-pass" 2>/dev/null || true
+  touch "$STATE_DIR/.article-loop-last-pass" 2>/dev/null || true
 fi
 exit "$RC"
