@@ -1,6 +1,6 @@
 // telemetry-post-claude-p.mjs — ONE-SHOT signed telemetry POST for claude-p (human-funded, EVM/Polygon
 // instance — this Claude → Polymarket earner). Appended fail-safe to
-// skills/earn/polymarket-trade/run_earner.sh after each trading pass. Posts once and exits — this is a
+// the active Polymarket trading pass. Posts once and exits — this is a
 // launchd one-shot pass, not a daemon.
 //
 // IDENTITY NOTE (2026-07-05 finding, see skills/earn/polymarket-trade/SKILL.md): claude-p's REAL funded

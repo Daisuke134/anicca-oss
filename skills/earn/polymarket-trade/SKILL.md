@@ -157,11 +157,9 @@ modified (per spec: wire existing alpha, don't reinvent it) — their arb-detect
 and-replace logic and other hardcoded constants (`FEE_RATE`, `EDGE`, `MIN_SIZE`, `MARGIN`) are
 pre-existing, already-verified-live parameters.
 
-There is also a separate `run_earner.sh` (hardcoded single-instance paths, `.venv-pysdk`) that already
-invokes `redeem.py` + `bundle_arb.py` + `market_maker.py` on its own schedule — if both it and this
-skill's `run.sh` are scheduled for the same instance, they can fire the same self-gating strategies
-concurrently (each still bounded by its own `MAX_PASS_SPEND` read at call time); that's a pre-existing
-scheduling question (cron config), out of this file's scope.
+The retired single-instance `run_earner.sh` and its hardcoded `.venv-pysdk` path are removed. The
+registry-owned `pm-live-trade` entrypoint is the sole live strategy owner; `pm-decision-loop` remains
+dry unless its existing double opt-in is explicitly configured.
 
 ### `pick.py` → `place_order.py` (the new directional-buy path)
 Neither hardcodes a market or a side — the MODEL (multi-model consensus + smart-money signal) decides;

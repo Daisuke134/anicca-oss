@@ -8,7 +8,6 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "../../..");
 const watch = join(root, "runtime/earn/earn-watch.sh");
 const trade = join(root, "skills/earn/polymarket-trade/run.sh");
-const legacyEarner = join(root, "skills/earn/polymarket-trade/run_earner.sh");
 
 test("earn-watch uses only install-owned identity, state, Python, and redeem paths", () => {
   const work = mkdtempSync(join(tmpdir(), "earn-watch-"));
@@ -204,19 +203,6 @@ test("Polymarket trade rejects repo-contained KILL through a symlinked repositor
     encoding: "utf8",
     cwd: work,
     env: { ...process.env, HOME: work, PM_KILL_SWITCH: join(root, "runtime/earn/KILL") },
-  });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /PM_KILL_SWITCH must resolve outside the repository/);
-});
-
-test("legacy earner rejects repo-contained KILL before execution through a symlinked repository setting", () => {
-  const work = mkdtempSync(join(tmpdir(), "pm-earner-repo-link-"));
-  const repoLink = join(work, "repo-link");
-  symlinkSync(root, repoLink);
-  const result = spawnSync("bash", [legacyEarner], {
-    encoding: "utf8",
-    cwd: work,
-    env: { ...process.env, HOME: work, LIFE_MANAGER_REPO: repoLink, PM_KILL_SWITCH: join(root, "runtime/earn/KILL") },
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /PM_KILL_SWITCH must resolve outside the repository/);
