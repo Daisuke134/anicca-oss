@@ -111,6 +111,8 @@ def migrate(source: Path, target: Path) -> dict[str, int]:
 def configure(target: Path, assignments: list[str]) -> dict[str, int]:
     target = target.expanduser()
     _reject_symlink_chain(target, "Life Manager environment")
+    if target.is_symlink() or (target.exists() and not target.is_file()):
+        raise ValueError("Life Manager environment is unsafe")
     values: dict[str, str] = {}
     for assignment in assignments:
         key, separator, value = assignment.partition("=")
@@ -130,6 +132,7 @@ def configure(target: Path, assignments: list[str]) -> dict[str, int]:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
         if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
             raise ValueError("Life Manager environment is not a regular file")
+        os.fchmod(handle.fileno(), 0o600)
         handle.seek(0)
         current = handle.read()
         target_values = _parse_values(current)
@@ -146,7 +149,6 @@ def configure(target: Path, assignments: list[str]) -> dict[str, int]:
             handle.write(separator + "".join(f"{key}={values[key]}\n" for key in additions))
             handle.flush()
             os.fsync(handle.fileno())
-        os.fchmod(handle.fileno(), 0o600)
     return {"configured": len(additions), "skipped": len(values) - len(additions)}
 
 

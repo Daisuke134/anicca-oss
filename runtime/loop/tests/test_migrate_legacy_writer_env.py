@@ -93,6 +93,24 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "allowlisted"):
                 MODULE.configure(target, ["UNRELATED_SECRET=value"])
 
+    def test_configure_rejects_non_regular_target_before_open(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            fifo = root / "environment.fifo"
+            os.mkfifo(fifo)
+            with self.assertRaisesRegex(ValueError, "unsafe"):
+                MODULE.configure(fifo, ["NOTE_URLNAME=writer"])
+            with self.assertRaisesRegex(ValueError, "unsafe"):
+                MODULE.configure(root, ["NOTE_URLNAME=writer"])
+
+    def test_configure_tightens_existing_permissions_before_append(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "life-manager.env"
+            target.write_text("KEEP=value\n", encoding="utf-8")
+            target.chmod(0o644)
+            MODULE.configure(target, ["NOTE_URLNAME=writer"])
+            self.assertEqual(os.stat(target).st_mode & 0o777, 0o600)
+
 
 if __name__ == "__main__":
     unittest.main()
