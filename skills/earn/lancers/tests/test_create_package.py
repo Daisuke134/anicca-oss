@@ -140,19 +140,10 @@ class _LocatorList:
 
     def click(self, **kwargs) -> None:
         # Mirrors real Playwright strict-mode Locator.click(): only sensible on a locator
-        # resolving to exactly one element. _resolve_create_advance_control's own
-        # `.locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)` call returns exactly this shape.
+        # resolving to exactly one element.
         if len(self._items) != 1:
             raise AssertionError(f"strict mode violation: {len(self._items)} matches")
         self._items[0].click(**kwargs)
-
-
-# A sentinel distinguishing "this field's own click resolves the advance control" (the default --
-# a real <button>/[role=button]/input[type=submit] whose text sits directly on itself) from an
-# explicit `enclosing_interactive=None` (a text node with no interactive ancestor at all) from an
-# explicit `enclosing_interactive=<other _Field>` (text sitting in a child <span> of a real
-# button). See _resolve_create_advance_control's own docstring in storefront_offer.py.
-_SELF_INTERACTIVE = object()
 
 
 class _Field:
@@ -172,16 +163,10 @@ class _Field:
     an unset native `<select>` does, and `select_option()` updates it, so `option:checked` always
     reflects genuine selection state rather than merely "was select_option ever called".
 
-    `enclosing_interactive` models what `_resolve_create_advance_control`'s
-    `.locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)` call resolves to when called on this field: the
-    default `_SELF_INTERACTIVE` means this field is already the real button (ancestor-or-self
-    finds itself, matching every pre-existing test's `_next_button`/`_manual_button`); `None`
-    means a text node with no interactive ancestor exists at all; another `_Field` models a real
-    button enclosing this one as a child text node. `outer_html`, when set, is what `.evaluate()`
-    returns -- modelling `el => el.outerHTML`.
+    `outer_html`, when set, is what `.evaluate()` returns -- modelling `el => el.outerHTML`.
     """
 
-    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = "", attrs: dict[str, str] | None = None, enclosing_interactive: "_Field | None | object" = _SELF_INTERACTIVE, outer_html: str | None = None):
+    def __init__(self, *, options: list[_Option] | None = None, visible: bool = True, text: str = "", step: int | None = None, name: str = "", attrs: dict[str, str] | None = None, outer_html: str | None = None):
         self.fills: list[str] = []
         self.selected: list[dict] = []
         self.presses: list[str] = []
@@ -192,7 +177,6 @@ class _Field:
         self._step = step
         self._name = name
         self._attrs = attrs or {}
-        self._enclosing_interactive = enclosing_interactive
         self._outer_html = outer_html
         self._selected_index: int | None = 0 if self._options else None
         self.page: "_FakeCreatePage | None" = None  # bound by _FakeCreatePage.__init__
@@ -258,15 +242,11 @@ class _Field:
             if self._options and self._selected_index is not None:
                 return _OptionList([self._options[self._selected_index]])
             return _OptionList([])
-        # Any other selector models _resolve_create_advance_control's own
-        # `.locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)` call: resolve to the enclosing
-        # interactive element per `enclosing_interactive` (see this class's own docstring), never
-        # by matching the selector string itself -- the fake doesn't reimplement xpath.
-        if self._enclosing_interactive is _SELF_INTERACTIVE:
-            return _LocatorList([self])
-        if self._enclosing_interactive is None:
-            return _LocatorList([])
-        return _LocatorList([self._enclosing_interactive])
+        # "img" -- the clickable-control census's nested-icon lookup (see
+        # form_observer.clickable_controls). No fixture in this file nests an <img> inside a
+        # control, so this always reads as "no nested image", exactly like a real control with
+        # no icon.
+        return _OptionList([])
 
     def wait_for(self, state: str = "visible", timeout=None) -> None:
         if state != "visible":
@@ -544,9 +524,11 @@ class _FakeCreatePage:
 
         self._next_button = _Field(visible=next_button_visible, text="次へ", name="次へ")
         self._next_button.click = lambda **_kwargs: (_click_next(), setattr(self._next_button, "clicks", self._next_button.clicks + 1))[-1]
-        # What get_by_text("次へ") resolves to -- defaults to the real button itself (the shape
-        # every pre-existing test in this file drives), but a test may swap this for a bare text
-        # node (see _Field's own `enclosing_interactive`) to exercise click-target resolution.
+        # What get_by_text("次へ") resolves to -- consumed only by _create_advance_control_state's
+        # own, unrelated stall-evidence read (click-target resolution itself now goes through the
+        # clickable-control census via `page.locator("button")` above, not get_by_text). Defaults
+        # to the real button itself; a test may still swap this to model get_by_text disagreeing
+        # with the census (see the stall-evidence tests further down this file).
         self._next_button_text_node = self._next_button
 
         self._image_marker = _Field(step=4, text=_IMAGE_STEP_MARKER_TEXT, name="画像ほかマーカー")
@@ -559,7 +541,17 @@ class _FakeCreatePage:
 
     def locator(self, selector: str):
         if selector == "button":
-            return _LocatorList(self._buttons)
+            # The census now reads 次へ straight off `page.locator("button")` (see
+            # storefront_offer._create_click_census), so the real production shape -- 次へ is
+            # itself a real <button> among every other button on the page -- must be modelled
+            # here too, not only via the separate get_by_text("次へ") this fake also still serves
+            # (used by _create_advance_control_state's own, unrelated stall-evidence read).
+            return _LocatorList([self._next_button, *self._buttons])
+        if selector in ("a", 'input[type="submit"]', 'input[type="button"]', '[role="button"]'):
+            # No fixture in this file needs a non-<button> census control by default; a test that
+            # does overrides `page.locator` itself (see e.g.
+            # test_click_next_reaches_a_next_button_expressed_as_a_link below).
+            return _LocatorList([])
         if selector == "textarea:not([name])":
             return self._unnamed_textarea
         if selector == "[class*='error']":
@@ -830,49 +822,66 @@ def test_missing_next_button_raises_create_step_stalled_named_next_button_missin
     assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
 
 
-# 3a. The click target -- 次へ is resolved to its enclosing interactive element, not the bare
-#     text node ---------------------------------------------------------------------------------
+# 3a. The click target -- 次へ is resolved off the shared clickable-control census, reaching past
+#     <button> and past visible text alone ------------------------------------------------------
 #
-# get_by_text(label, exact=True) resolves to the element whose own text equals the label -- on a
-# real button that is commonly a <span> sitting inside the actual <button>. Clicking that span
-# resolves without error and does nothing, which reads exactly like a stalled step from the
-# caller's side. These tests exercise _resolve_create_advance_control (and, through it,
-# _click_create_next_button) directly against small hand-built _Field graphs, independent of the
-# larger wizard-walking fixtures used elsewhere in this file.
+# get_by_text(label, exact=True) used to resolve 次へ to the element whose own text equalled the
+# label -- on a real button that is commonly a <span> sitting inside the actual <button>, so
+# clicking it did nothing (indistinguishable from a stalled step from the caller's side). The
+# search is now a census match instead (see storefront_offer._create_click_census /
+# _create_controls_named): it enumerates real <button>/<a>/input[submit|button]/[role="button"]
+# elements directly and reads each one's own accessible name (text/aria-label/title/value), so
+# there is no longer a bare text node to click by mistake -- a <button>'s own aggregate text
+# already includes whatever a child <span> contributes. These tests exercise
+# _click_create_next_button directly against small hand-built _FakeCreatePage graphs, independent
+# of the larger wizard-walking fixtures used elsewhere in this file.
 
 
-def test_click_next_resolves_to_the_enclosing_button_when_text_sits_in_a_child_span():
+def test_click_next_still_resolves_when_its_text_is_produced_by_a_child_span():
+    """A real <button> whose displayed text comes from a child <span> is still matched by its own
+    aggregate inner_text() -- the census never needs to climb to an ancestor because it already
+    queries the real interactive element, not an arbitrary text node."""
     module = _module()
     page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
-    real_button = page._next_button
-    span = _Field(text="次へ", name="次へ-span", enclosing_interactive=real_button)
-    page._next_button_text_node = span
 
     module._click_create_next_button(page, "基本情報")
 
-    assert real_button.clicks == 1
-    assert span.clicks == 0  # the bare text node itself was never clicked
+    assert page._next_button.clicks == 1
 
 
-def test_click_next_raises_a_named_failure_when_the_text_match_has_no_interactive_ancestor():
+def test_click_next_reaches_a_next_button_expressed_as_a_link():
+    """7. The census's reach extends past <button>: an <a> naming itself 次へ is found and
+    clicked -- the same reach _create_submit_control's own search now gets (see the task this
+    shipped from: a live wake's advance control was neither a <button> nor named by its own
+    text)."""
     module = _module()
-    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
-    orphan = _Field(text="次へ", name="次へ-orphan", enclosing_interactive=None)
-    page._next_button_text_node = orphan
+    page = _FakeCreatePage(fields={}, manual_button_lands_on=None, next_button_visible=False)
+    link = _Field(text="次へ", name="次へ-link")
+    original_locator = page.locator
+    page.locator = lambda selector: _LocatorList([link]) if selector == "a" else original_locator(selector)
 
-    with pytest.raises(module.OfferError) as excinfo:
-        module._click_create_next_button(page, "基本情報")
+    module._click_create_next_button(page, "基本情報")
 
-    assert "create_step_stalled: 基本情報: next_button_missing" in str(excinfo.value)
-    assert orphan.clicks == 0  # never clicked the bare text node as a nearest guess
+    assert link.clicks == 1
+
+
+def test_click_next_matches_a_control_named_only_by_aria_label():
+    """The same accessible-name reach _create_submit_control's search gets: a control with no
+    visible text is still found and clicked, via aria-label alone."""
+    module = _module()
+    control = _Field(text="", name="次へ-aria", attrs={"aria-label": "次へ"})
+    page = _FakeCreatePage(fields={}, buttons=[control], manual_button_lands_on=None, next_button_visible=False)
+
+    module._click_create_next_button(page, "基本情報")
+
+    assert control.clicks == 1
 
 
 def test_click_next_raises_a_named_failure_on_ambiguous_visible_matches():
     module = _module()
-    page = _FakeCreatePage(fields={}, manual_button_lands_on=None)
     first = _Field(text="次へ", name="次へ-1")
     second = _Field(text="次へ", name="次へ-2")
-    page.get_by_text = lambda label, exact=True: _LocatorList([first, second]) if label == "次へ" else _LocatorList([])
+    page = _FakeCreatePage(fields={}, buttons=[first, second], manual_button_lands_on=None, next_button_visible=False)
 
     with pytest.raises(module.OfferError) as excinfo:
         module._click_create_next_button(page, "基本情報")
@@ -1777,6 +1786,89 @@ def test_more_than_one_matching_submit_button_also_raises():
         module._create_submit_control(_FakeCreatePage(buttons=buttons, manual_button_lands_on=None))
 
     assert "create_submit_control_missing" in str(excinfo.value)
+
+
+# 5a. The submit search matches an accessible name from any source, not only visible text --------
+#
+# The incident this task shipped from: create_submit_control_missing: buttons=[''] -- one visible
+# <button>, empty text. _create_submit_control's search used to look only at <button>.inner_text();
+# it now matches any census control's accessible name (see form_observer.clickable_accessible_names
+# -- text, aria-label, title, or value) against _CREATE_SUBMIT_LABELS.
+
+
+def test_submit_control_matches_a_control_named_only_by_aria_label():
+    module = _module()
+    control = _Field(text="", name="submit-aria", attrs={"aria-label": "公開する"})
+    page = _FakeCreatePage(buttons=[control], manual_button_lands_on=None, next_button_visible=False)
+
+    found = module._create_submit_control(page)
+
+    assert found is control
+
+
+def test_submit_control_matches_a_control_named_only_by_value():
+    """An input[type=submit] commonly carries its label in `value`, never in inner_text() at
+    all -- get_attribute("value") is exactly what form_observer.clickable_controls reads (see
+    that module), and _create_submit_control matches against it the same way it matches text."""
+    module = _module()
+    control = _Field(text="", name="submit-value", attrs={"value": "送信"})
+    page = _FakeCreatePage(buttons=[control], manual_button_lands_on=None, next_button_visible=False)
+
+    found = module._create_submit_control(page)
+
+    assert found is control
+
+
+# 8. A "no control matched" failure carries the current step and the URL, not only the buttons --
+
+
+def test_submit_control_missing_failure_carries_the_url():
+    """create_submit_control_missing must say where the page was, not only what it saw -- after
+    an image upload the wizard may not be where the walk thinks it is."""
+    module = _module()
+    page = _FakeCreatePage(buttons=[_Field(text="プレビュー")], manual_button_lands_on=None, next_button_visible=False)
+    page.url = module.ORIGIN + "/myplan/add?type=manual"
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._create_submit_control(page)
+
+    message = str(excinfo.value)
+    payload = json.loads(message[message.index("{"):])
+    assert payload["url"] == module.ORIGIN + "/myplan/add?type=manual"
+
+
+def test_next_button_missing_failure_carries_the_current_step():
+    """next_button_missing's own failure carries the observer's own read of which step is
+    actually showing (per _create_observer_step_state -- the same fact _create_step_evidence
+    already reports for a stalled arrival), not only the controls it saw."""
+    module = _module()
+    page = _ObservablePage(
+        content_html=_wizard_html(0), fields={}, buttons=[], manual_button_lands_on=None,
+        next_button_visible=False,
+    )
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._click_create_next_button(page, "基本情報")
+
+    message = str(excinfo.value)
+    payload = json.loads(message[message.index("{"):])
+    assert payload["step"] == "基本情報"
+
+
+# 10. A census large enough to need it says so, rather than silently dropping controls ----------
+
+
+def test_submit_control_missing_reports_truncation_for_a_large_census():
+    module = _module()
+    buttons = [_Field(text=f"プレビュー{index}" * 20) for index in range(80)]
+    page = _FakeCreatePage(buttons=buttons, manual_button_lands_on=None, next_button_visible=False)
+
+    with pytest.raises(module.OfferError) as excinfo:
+        module._create_submit_control(page)
+
+    message = str(excinfo.value)
+    assert message.endswith(module._CREATE_STALL_TRUNCATION_MARKER)
+    assert len(message) < sum(len(b._text) for b in buttons)
 
 
 # 6. A submit that succeeds but whose public readback fails yields publication_uncertain -------

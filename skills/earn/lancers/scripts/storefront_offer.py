@@ -576,16 +576,23 @@ def _apply(page: Any, product: Mapping[str, Any], image: Path) -> dict[str, Any]
 _CREATE_ADD_URL = f"{ORIGIN}/myplan/add"
 _CREATE_MANUAL_URL = f"{ORIGIN}/myplan/add?type=manual"
 _CREATE_MANUAL_BUTTON_TEXT = "手動でパッケージを作成する"
-# The live DOM read (see the task this shipped from) did not identify which button actually
+# The live DOM read (see the task this shipped from) did not identify which control actually
 # publishes -- only that "プレビュー" and several "のコツ" toggles are also present. Rather than
-# hardcode a guess, the submit control is discovered by matching visible button text against
-# every label a Lancers form has been observed to use for "move this listing forward" elsewhere
-# in this file (_apply uses "保存"/"保存する"; the create chooser flow is known to use
-# "確認画面へ"/"公開する"/"公開" for its multi-step forms). _create_submit_control fails loudly,
-# naming every button text actually present, if zero or more than one match.
+# hardcode a guess, the submit control is discovered by matching a clickable census control's
+# accessible name (see _create_click_census / form_observer.clickable_accessible_names -- text,
+# aria-label, title, or value) against every label a Lancers form has been observed to use for
+# "move this listing forward" elsewhere in this file (_apply uses "保存"/"保存する"; the create
+# chooser flow is known to use "確認画面へ"/"公開する"/"公開" for its multi-step forms).
+# _create_submit_control fails loudly, naming every control actually present, if zero or more
+# than one match.
 # "送信" was added after a live wake dumped this exact form's visible buttons (戻る/下書き保存/
 # 次へ/閉じる/キャンセル/送信) while diagnosing 画像ほか's missing 次へ -- observed on this form,
 # not guessed. Every other label above predates that dump and remains unobserved on this form.
+# A later wake found the true advance control on this same step was a single visible <button>
+# with *empty* text (create_submit_control_missing: buttons=['']) -- the innerText-only, <button>-
+# only search could see that it existed but not what it was. This is why the search now reaches
+# every plausibly-clickable tag and every accessible-name source (see the module comment above
+# _click_create_next_button), not only <button> and not only text.
 _CREATE_SUBMIT_LABELS = ("確認画面へ", "公開する", "公開", "保存する", "保存", "送信")
 # Wherever Lancers lands after a successful create, its path carries the new listing's numeric
 # id under /myplan/<id>/... or /menu/detail/<id> -- every other Lancers route this file already
@@ -880,13 +887,13 @@ def _truncate_hard(value: Any, max_chars: int) -> str | None:
 
 
 def _create_advance_control_state(page: Any) -> dict[str, Any]:
-    """Whether 次へ was found, exactly as _step()/_click_create_next_button match it (exact
-    visible text), and its text and disabled state when found -- so "control missing" and
-    "control present but disabled" read as different observations, not the same failure. Also
-    the control's own outerHTML, hard-truncated: its tag, type and attributes show at a glance
-    whether it is a real submit control, a bare <span>, or something else entirely -- exactly the
-    fact this task's click-target fix (_resolve_create_advance_control) needs a human to be able
-    to confirm from the report alone.
+    """Whether 次へ was found, by exact visible text (independent of _click_create_next_button's
+    own clickable-control census -- this is _create_step_evidence's own read, for a step that
+    stalled *after* a successful click, not a click-target search), and its text and disabled
+    state when found -- so "control missing" and "control present but disabled" read as different
+    observations, not the same failure. Also the control's own outerHTML, hard-truncated: its
+    tag, type and attributes show at a glance whether it is a real submit control, a bare <span>,
+    or something else entirely.
     """
     try:
         matches = [item for item in page.get_by_text(_CREATE_NEXT_BUTTON_TEXT, exact=True).all() if item.is_visible()]
@@ -1040,72 +1047,77 @@ def _create_step_evidence(page: Any, step_name: str, arrival: Any = None, arriva
     return _bounded_create_stall_payload(payload)
 
 
-# get_by_text(label, exact=True) resolves to the element whose OWN text equals the label -- on a
-# real button that is commonly a <span> sitting inside the <button> that actually owns the click
-# handler. Clicking that span is a click that resolves without error and does nothing, which is
-# indistinguishable from a stalled wizard step from the caller's side -- exactly the shape of the
-# stall this task was opened to diagnose. This is a correctness fix regardless of whether it turns
-# out to be that stall's actual cause: _step() itself is untouched (both _apply() and the manual-
-# chooser click in create_package() depend on its exact behaviour), this is a second, independent
-# resolution used only for the wizard's own advance control.
-_CREATE_ADVANCE_INTERACTIVE_XPATH = (
-    "xpath=ancestor-or-self::button[1] | "
-    "ancestor-or-self::*[@role='button'][1] | "
-    "ancestor-or-self::input[@type='submit'][1]"
-)
+# get_by_text(label, exact=True) used to resolve 次へ to the element whose OWN text equalled the
+# label -- on a real button that is commonly a <span> sitting inside the <button> that actually
+# owns the click handler. Clicking that span resolves without error and does nothing, which is
+# indistinguishable from a stalled wizard step. A live wake later hit the mirror-image defect on
+# 画像ほか's own advance control: create_submit_control_missing: buttons=[''] -- one visible
+# <button>, empty text -- because that search only ever looked at <button> elements' own
+# innerText, so a control expressed as an <a>, an input[type=submit]/input[type=button], a
+# [role="button"] element, or a real <button> named only by an aria-label/title/value was
+# invisible to it even when it was the one actually on the page.
+#
+# Both searches now share one census -- form_observer.clickable_controls (see
+# _reach_form_observer) -- covering every shape a "move this listing forward" control has
+# actually been observed to take. Each record already resolves to a genuinely interactive
+# element, never a bare text node needing an ancestor climb, so a caller matches directly by
+# accessible name (form_observer.clickable_accessible_names: text, aria-label, title, value --
+# never img_alt, see that function's own docstring) and either gets exactly one control or a
+# named failure carrying the *entire* census -- every control's every accessible-name source,
+# tag, type, and a hard-truncated outerHTML -- plus the current step and URL. Strictness is
+# unchanged: exactly one match or a named failure, never a nearest guess, never a fallback to
+# "the only visible control".
 
 
-def _resolve_create_advance_control(page: Any, label: str) -> Any:
-    """Exactly one visible text match for `label`, resolved to its enclosing interactive element
-    -- a real <button>, [role="button"], or input[type=submit] -- never the bare node the text
-    itself sits on. Mirrors _step()'s own "exactly one visible match or a named failure"
-    discipline as a second, independent check (not a shared refactor -- _step() must stay
-    unmodified), then adds one more: the match must actually resolve to something clickable.
-    Zero matches, more than one, or a match with no interactive ancestor at all -- each raises a
-    named OfferError; nothing here ever clicks a nearest guess.
+def _create_click_census(page: Any) -> list[dict[str, Any]]:
+    """The one census of every visible, plausibly-clickable control on the create wizard's live
+    page -- reused by every "which control advances this step" search below and by every
+    "nothing matched" failure those searches raise into (see the module comment above). Delegates
+    entirely to form_observer.clickable_controls (see _reach_form_observer); nothing here
+    reimplements what counts as clickable or as visible.
     """
-    matches = [item for item in page.get_by_text(label, exact=True).all() if item.is_visible()]
-    if len(matches) != 1:
-        raise OfferError("advance_control_ambiguous" if len(matches) > 1 else "advance_control_missing")
-    control = matches[0].locator(_CREATE_ADVANCE_INTERACTIVE_XPATH)
-    if control.count() != 1:
-        raise OfferError("advance_control_not_interactive")
-    return control
+    form_observer = _reach_form_observer()
+    return form_observer.clickable_controls(page)
 
 
-def _create_visible_button_texts(page: Any) -> list[str]:
-    """Every visible <button>'s own text -- the same enumeration _create_submit_control already
-    uses to name what it saw when nothing matched (see that function's own
-    create_submit_control_missing message). Reused by every "nothing matched" refusal in the
-    create wizard (next_button_missing here, advance_control_missing on the final content step)
-    so a stall reports what was actually on the page instead of only what wasn't there -- the
-    same discarding-what-you-saw defect _step()/_field() were fixed for."""
-    try:
-        buttons = [button for button in page.locator("button").all() if button.is_visible()]
-    except Exception:
-        return []
-    texts: list[str] = []
-    for button in buttons:
-        try:
-            texts.append(" ".join(str(button.inner_text() or "").split()))
-        except Exception:
-            texts.append("")
-    return texts
+def _create_controls_named(census: Sequence[Mapping[str, Any]], labels: Sequence[str]) -> list[Mapping[str, Any]]:
+    """Every census record whose accessible name (text, aria-label, title, or value -- see
+    form_observer.clickable_accessible_names) exactly equals one of `labels`. The one place both
+    the 次へ search (a single label) and the submit search (_CREATE_SUBMIT_LABELS, several) filter
+    the shared census, so a change to what counts as a match is made in exactly one place.
+    """
+    form_observer = _reach_form_observer()
+    wanted = set(labels)
+    return [record for record in census if wanted & set(form_observer.clickable_accessible_names(record))]
+
+
+def _create_click_failure(page: Any, census: Sequence[Mapping[str, Any]]) -> str:
+    """Everything a "no control matched" refusal can report: the current step (per
+    _create_observer_step_state -- the same fact _create_step_evidence already reports for a
+    stalled arrival), the page URL, and the full clickable-control census -- bounded exactly as
+    the wizard's own stall payload already is (see _bounded_create_stall_payload), so a census
+    large enough to need truncation still says so rather than silently dropping controls.
+    """
+    form_observer = _reach_form_observer()
+    payload = {
+        "url": str(getattr(page, "url", None)),
+        "step": _create_observer_step_state(page).get("current_step"),
+        "controls": [form_observer.clickable_public_record(record) for record in census],
+    }
+    return _bounded_create_stall_payload(payload)
 
 
 def _click_create_next_button(page: Any, step_name: str) -> None:
-    """Click 次へ by resolving it to its enclosing interactive element first (see
-    _resolve_create_advance_control above). A missing/ambiguous/non-interactive match is named
-    against the step that could not advance, not as a bare "form_changed" -- and now also names
-    every visible button-like control actually present (see _create_visible_button_texts), so a
-    live stall answers "what was there instead" in the same wake it happened, rather than needing
-    a second wake with a manual button dump (exactly what 画像ほか's own next_button_missing
-    stall needed before this)."""
-    try:
-        control = _resolve_create_advance_control(page, _CREATE_NEXT_BUTTON_TEXT)
-    except OfferError:
-        raise OfferError(f"create_step_stalled: {step_name}: next_button_missing: buttons={_create_visible_button_texts(page)}") from None
-    control.click()
+    """Click the single visible census control named 次へ (see the module comment above). A
+    missing or ambiguous match is named against the step that could not advance, not as a bare
+    "form_changed" -- and carries the full census plus the current step and URL (see
+    _create_click_failure), so a live stall answers "what was there instead" in the same wake it
+    happened, rather than needing a second wake with a manual dump."""
+    census = _create_click_census(page)
+    matches = _create_controls_named(census, (_CREATE_NEXT_BUTTON_TEXT,))
+    if len(matches) != 1:
+        raise OfferError(f"create_step_stalled: {step_name}: next_button_missing: {_create_click_failure(page, census)}")
+    matches[0]["_element"].click()
 
 
 def _advance_create_step(page: Any, step_name: str, arrival: Any, arrival_field: str) -> None:
@@ -1214,11 +1226,18 @@ def _fill_create_form(page: Any, product: Mapping[str, Any], image: Path) -> dic
 
 
 def _create_submit_control(page: Any) -> Any:
-    buttons = [button for button in page.locator("button").all() if button.is_visible()]
-    texts = [" ".join(str(button.inner_text() or "").split()) for button in buttons]
-    matches = [button for button, text in zip(buttons, texts) if text in _CREATE_SUBMIT_LABELS]
-    if len(matches) != 1: raise OfferError(f"create_submit_control_missing: buttons={texts}")
-    return matches[0]
+    """The single visible census control whose accessible name (see form_observer.
+    clickable_accessible_names -- text, aria-label, title, or value; never img_alt) equals one of
+    _CREATE_SUBMIT_LABELS. Reach and matching are exactly _click_create_next_button's own (see
+    the module comment above that function) -- one census, the same discipline, a different label
+    set. Zero or more than one match raises create_submit_control_missing carrying the full
+    census plus the current step and URL (see _create_click_failure); nothing here ever falls
+    back to "the only visible control"."""
+    census = _create_click_census(page)
+    matches = _create_controls_named(census, _CREATE_SUBMIT_LABELS)
+    if len(matches) != 1:
+        raise OfferError(f"create_submit_control_missing: {_create_click_failure(page, census)}")
+    return matches[0]["_element"]
 
 
 # The wizard's last content step (画像ほか) is the one a live wake found with no 次へ at all --
@@ -1245,23 +1264,22 @@ def _advance_from_final_content_step(page: Any, step_name: str) -> dict[str, Any
     comment above _CREATE_FINAL_CONTENT_STEP): a submit fallback on an earlier step would publish
     a half-filled listing.
 
-    Neither present raises create_step_stalled naming every visible button-like control actually
-    seen (see _create_visible_button_texts) -- the same discipline next_button_missing itself now
-    carries, never a bare "nothing found".
+    Neither present raises create_step_stalled carrying the full clickable-control census (see
+    _create_click_failure) -- the same discipline next_button_missing itself carries, never a
+    bare "nothing found". Both the 次へ probe and the submit fallback below share one census read
+    (see the module comment above _click_create_next_button): a single live DOM read serves both
+    searches and, on failure, the report.
     """
     assert step_name == _CREATE_FINAL_CONTENT_STEP, f"submit fallback is only valid on {_CREATE_FINAL_CONTENT_STEP!r}, got {step_name!r}"
-    try:
-        control = _resolve_create_advance_control(page, _CREATE_NEXT_BUTTON_TEXT)
-    except OfferError:
-        control = None
-    if control is not None:
-        control.click()
+    census = _create_click_census(page)
+    next_matches = _create_controls_named(census, (_CREATE_NEXT_BUTTON_TEXT,))
+    if len(next_matches) == 1:
+        next_matches[0]["_element"].click()
         return {"advanced_via": "next_button"}
-    try:
-        submit = _create_submit_control(page)
-    except OfferError:
-        raise OfferError(f"create_step_stalled: {step_name}: advance_control_missing: buttons={_create_visible_button_texts(page)}") from None
-    submit.click(timeout=20_000)
+    submit_matches = _create_controls_named(census, _CREATE_SUBMIT_LABELS)
+    if len(submit_matches) != 1:
+        raise OfferError(f"create_step_stalled: {step_name}: advance_control_missing: {_create_click_failure(page, census)}")
+    submit_matches[0]["_element"].click(timeout=20_000)
     return {"advanced_via": "submit_control"}
 
 
