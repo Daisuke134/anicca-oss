@@ -67,9 +67,25 @@ def test_a_category_request_carries_no_keyword():
         assert call["query"] is None and call["category"] in loop.DISCOVERY_CATEGORIES
 
 
-def test_the_categories_are_ones_the_fleet_can_serve():
+def test_every_category_the_board_publishes_is_searched():
+    """Measured 2026-09-08: searching five of Lancers' nine left translation, salesmarketing,
+    multimedia and task never once fetched -- 82 project postings, including the two Dais found by
+    hand. 「音楽歌詞の多言語翻訳」 is a text deliverable and 「動画ブランディング相談」 is advice.
+
+    Nothing is left out on a guess about what a category holds: work_fit judges the posting, not
+    the shelf it sits on, and a category omitted is a category never seen."""
     loop = _module("lancers_loop_categories_names", LOOP)
-    assert set(loop.DISCOVERY_CATEGORIES) == {"system", "web", "business", "writing", "design"}
+    assert set(loop.DISCOVERY_CATEGORIES) == {
+        "system", "web", "business", "writing", "design",
+        "translation", "salesmarketing", "multimedia", "task",
+    }
+
+
+def test_the_keywords_supplement_rather_than_carry_the_wake():
+    """Nine categories plus six keywords is fifteen requests, fewer than the seventeen before."""
+    loop = _module("lancers_loop_window_size", LOOP)
+    assert loop.DISCOVERY_WINDOW == 6
+    assert len(loop.DISCOVERY_CATEGORIES) + loop.DISCOVERY_WINDOW <= 17
 
 
 def test_the_url_builder_puts_the_category_in_the_path():
