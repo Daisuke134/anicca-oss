@@ -890,6 +890,16 @@ test("a parent readback after navigation skips every submit path when already re
   ]);
 });
 
+test("a reconciliation-only Connpass candidate is never submitted when provider readback is absent", async () => {
+  const state = fixture({
+    async discoverCandidates() { return [{ ...candidate("connpass", "reconcile-only"), reconciliation_only: true }]; },
+  });
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-reconcile-only", providers: ["connpass"] }, state.dependencies);
+  assert.equal(result.status, "completed_no_effect");
+  assert.equal(state.calls.filter(([name]) => name === "readback").length, 1);
+  assert.equal(state.calls.some(([name]) => ["cache", "direct", "agent", "evidence"].includes(name)), false);
+});
+
 test("an existing verified registration completes evidence after pre-submit readback crosses the wake deadline", async () => {
   const state = fixture({
     async readProviderState() {
