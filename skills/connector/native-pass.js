@@ -19,11 +19,11 @@ const DEFAULT_PROVIDERS = Object.freeze([
   "luma",
   "connpass",
   "peatix",
-  "kokuchpro",
   "meetup",
   "doorkeeper",
   "eventbrite",
   "techplay",
+  "kokuchpro",
 ]);
 
 function unavailable() {

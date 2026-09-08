@@ -2,7 +2,7 @@
 
 Connector maintains a rolling 28-day view of a user's real calendar and runs one bounded pass every 30 minutes. It ranks Tokyo events in this order: YC hackathons, open lightning-talk opportunities, AI, crypto, startup. It applies only to verified strong or moderate matches.
 
-Luma and connpass are the first-priority lanes. When neither can fill an open slot, the same Connector pass continues through Peatix, Kokuchpro, Meetup, Doorkeeper, Eventbrite, and TechPlay. Connpass discovery uses only the official v2 API. Until connpass explicitly permits automated participation for the user's own account, Connector performs zero connpass submissions and sends normalized candidate URLs and slot facts to Telegram.
+Luma and connpass are the first-priority lanes. When neither can fill an open slot, the same Connector pass continues through Peatix, Meetup, Doorkeeper, Eventbrite, TechPlay, and Kokuchpro. Connpass discovery uses only the official v2 API. Until connpass explicitly permits automated participation for the user's own account, Connector performs zero connpass submissions and sends normalized candidate URLs and slot facts to Telegram.
 
 ## Public profile
 
