@@ -166,6 +166,29 @@ test("local runner pins Codex Terra and enforces timeout cancellation and token 
   }));
 });
 
+test("local browser runner supplies the required explicit escalation reason", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "connector-browser-runner-"));
+  const evidenceDir = path.join(root, "evidence");
+  let args;
+  await runLocalAgentRunner({
+    prompt: "x".repeat(200),
+    schema: { type: "object", properties: { control: { type: "string" } }, required: ["control"] },
+    taskClass: "browser-lane-agent", timeoutMs: 30_000, evidenceDir,
+    repoRoot: path.resolve(__dirname, "../../.."), runnerPath: path.join(root, "agent_runner.py"),
+  }, {
+    spawnSync: (_command, suppliedArgs) => {
+      args = suppliedArgs;
+      const resultPath = path.join(evidenceDir, "attempt-01.result.json");
+      fs.writeFileSync(resultPath, JSON.stringify({ control: "continue_button" }), { mode: 0o600 });
+      return { status: 0, stdout: JSON.stringify({ status: "success", selected_provider: "codex", selected_model: "gpt-5.6-terra", result_path: resultPath }), stderr: "" };
+    },
+    isRunnerFile: () => true,
+  });
+  const index = args.indexOf("--escalation-reason");
+  assert.notEqual(index, -1);
+  assert.equal(args[index + 1], "unknown event registration UI requires bounded visual judgment");
+});
+
 test("local runner aborts its real child process instead of orphaning it", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "connector-luna-cancel-"));
   const runnerPath = path.join(root, "agent_runner.py");
