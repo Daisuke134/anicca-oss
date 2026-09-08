@@ -117,6 +117,52 @@ def test_no_effect_classification_is_replay_zero_until_source_event_changes(tmp_
     assert len(decisions) == 2
 
 
+def test_no_effect_replay_uses_inventory_fingerprint_when_official_id_differs(tmp_path):
+    class DifferentOfficialId(Adapter):
+        def observe_one(self, thread_id):
+            row = super().observe_one(thread_id)
+            return {**row, "latest_event_id": f"official-{row['latest_event_id']}"}
+
+    adapter = DifferentOfficialId()
+    decisions = []
+
+    def decide(_context):
+        decisions.append(True)
+        return {"action": "noop", "classification": "no_reply"}
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    adapter.rows[0] = event(latest="buyer-2")
+    changed = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["items"][0]["reason"] == "no_effect_required"
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert changed["items"][0]["reason"] == "no_effect_required"
+    assert len(decisions) == 2
+
+
+def test_failure_backoff_uses_inventory_fingerprint_when_official_id_differs(tmp_path):
+    class DifferentOfficialId(Adapter):
+        def observe_one(self, thread_id):
+            row = super().observe_one(thread_id)
+            return {**row, "latest_event_id": f"official-{row['latest_event_id']}"}
+
+    adapter = DifferentOfficialId()
+    decisions = []
+
+    def decide(_context):
+        decisions.append(True)
+        raise RuntimeError("temporary")
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["failed"] == 1
+    assert replay["failed"] == 0
+    assert replay["items"][0]["reason"] == "retry_backoff"
+    assert len(decisions) == 1
+
+
 def test_human_gate_is_durable_pending_and_does_not_block_another_thread(tmp_path):
     adapter = Adapter([event("human", "buyer-1"), event("ready", "buyer-2")])
 

@@ -1011,6 +1011,17 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    `awaiting_buyer` room on every five-minute wake; only mutation intents had replay-zero. Fence an
    unchanged no-effect classification by the official inbox latest-event identity. A new buyer event changes
    that identity and reopens judgement, while unchanged rooms perform zero browser/thread/model work.
+   Main-derived release `35171075` then ended naturally over all 174 rooms with `effect=0`, improving
+   `failed` from 19 to 11 and official `readback` from 138 to 147; 16 rooms remain durable pending.
+   Bounded `error_detail` now identifies the remaining failures rather than hiding them: four
+   `browser_tab_limit`, three collector contract violations, two officially unavailable send controls,
+   and two semantic contract violations. This is not acceptance. The run also proved that the initial
+   no-effect fence compared incompatible provider identities: Coconala inventory exposes a stable message
+   fingerprint while targeted official readback exposes the provider message ID. Store the inventory
+   fingerprint separately from the official observation identity and use it for unchanged-event replay and
+   retry backoff. New regression coverage uses deliberately different inventory and official IDs; the
+   shared kernel plus Coconala adapter/semantic/no-contact checks pass 73/73. A following main-derived
+   natural wake must materially skip unchanged rooms and expose only genuinely changed or retry-owned work.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
