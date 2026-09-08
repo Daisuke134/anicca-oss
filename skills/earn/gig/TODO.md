@@ -1057,6 +1057,20 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    `waiting_external` before invoking the model or mutation. The same thread is observed again on later
    wakes so a lifted restriction can resume; unrelated threads continue. Kernel and adapter checks pass
    24/24.
+   The next main-derived natural terminal completed in about 20 minutes with `observed=174`,
+   `actionable=24`, `effect=3`, `readback=153`, `failed=4`, and `pending=17`; all three effects have
+   official verification. The materially shorter wake proves the inventory-fingerprint replay fence is
+   skipping unchanged rooms. The four remaining failures are two attachment-context collector failures,
+   one semantic purchase-decision failure, and one server-side sending restriction. Live read-only evidence
+   proves thread `10085794` has a verified attachment message dated before the oldest message still rendered
+   in the current official DOM, while thread `10158735` has no durable attachment manifest. The shared
+   collector now restores an attachment-bearing buyer message only when its verified timestamp is strictly
+   older than the complete current DOM window and exactly one counterparty identity exists; a missing or
+   invalid durable manifest triggers exactly one authenticated same-thread refresh. Ambiguous identity,
+   timestamp or bytes still fails closed. Coconala browser, adapter, owner and shared-kernel regressions pass
+   68/68. This is source evidence, not production acceptance. Next require a pushed-main natural terminal,
+   then close the remaining semantic and server-restriction classes, verify every effect notification, and
+   require the following replay to produce zero duplicate effect before checking this atom.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

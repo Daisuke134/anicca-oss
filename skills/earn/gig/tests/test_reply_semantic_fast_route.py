@@ -832,6 +832,91 @@ def test_merge_verified_dm_attachments_rejects_ambiguous_exact_body():
         queue_snapshot.merge_verified_dm_attachments(dom, document)
 
 
+def test_merge_verified_dm_attachments_restores_verified_message_older_than_dom_window():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": "new-buyer", "author_path": "/users/buyer",
+         "sent_at": "2026-09-01 09:00:00", "body": "確認をお願いします"},
+        {"message_id": "new-seller", "author_path": "/users/seller",
+         "sent_at": "2026-09-01 09:05:00", "body": "確認します"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "sent_at": "2026-08-31 13:58:41",
+            "text": "資料をお送りします",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "budget.xlsx",
+            "bytes": 100, "sha256": "e" * 64,
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }],
+    }
+
+    queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+    restored = dom["messages"][0]
+    assert restored["author_path"] == "/users/buyer"
+    assert restored["sent_at"] == "2026-08-31 13:58:41"
+    assert restored["body"] == "資料をお送りします"
+    assert restored["verified_attachments"][0]["sha256"] == "e" * 64
+
+
+def test_merge_verified_dm_attachments_rejects_missing_message_inside_dom_window():
+    dom = {"own_user_path": "/users/seller", "messages": [
+        {"message_id": "older", "author_path": "/users/buyer",
+         "sent_at": "2026-08-31 09:00:00", "body": "older"},
+    ]}
+    document = {
+        "messages": [{
+            "message_id": None, "side": "buyer", "sent_at": "2026-09-01 09:00:00",
+            "text": "missing",
+            "attachments": [{"url": "https://coconala.com/uploaded_files/view/1"}],
+        }],
+        "attachment_index": [{
+            "url": "https://coconala.com/uploaded_files/view/1", "filename": "file.xlsx",
+            "bytes": 100, "sha256": "f" * 64, "content_type": "application/octet-stream",
+        }],
+    }
+
+    with pytest.raises(queue_snapshot.CollectorUnhealthy, match="dm_attachment_message_identity_changed"):
+        queue_snapshot.merge_verified_dm_attachments(dom, document)
+
+
+def test_merge_or_refresh_durable_dm_attachments_refreshes_only_missing_manifest(monkeypatch):
+    calls = []
+
+    def missing(_dom, _thread_id):
+        raise queue_snapshot.CollectorUnhealthy("dm_attachment_evidence_invalid")
+
+    monkeypatch.setattr(queue_snapshot, "merge_durable_dm_attachments", missing)
+    monkeypatch.setattr(
+        queue_snapshot, "enrich_verified_dm_attachments",
+        lambda dom, **kwargs: calls.append((dom, kwargs)),
+    )
+    dom = {"messages": []}
+
+    queue_snapshot.merge_or_refresh_durable_dm_attachments(
+        dom, helper=Path("helper"), thread_id="123", observed_at="2026-09-08T00:00:00Z",
+    )
+
+    assert calls == [(dom, {
+        "helper": Path("helper"), "thread_id": "123", "observed_at": "2026-09-08T00:00:00Z",
+    })]
+
+
+def test_merge_or_refresh_durable_dm_attachments_preserves_other_failures(monkeypatch):
+    def ambiguous(_dom, _thread_id):
+        raise queue_snapshot.CollectorUnhealthy("dm_attachment_message_identity_changed")
+
+    monkeypatch.setattr(queue_snapshot, "merge_durable_dm_attachments", ambiguous)
+
+    with pytest.raises(queue_snapshot.CollectorUnhealthy, match="dm_attachment_message_identity_changed"):
+        queue_snapshot.merge_or_refresh_durable_dm_attachments(
+            {"messages": []}, helper=Path("helper"), thread_id="123",
+            observed_at="2026-09-08T00:00:00Z",
+        )
+
+
 def test_verified_attachment_denial_debt_allows_one_correction():
     rows = [
         {
