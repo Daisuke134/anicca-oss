@@ -636,6 +636,50 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(report["eligible"], 1)
         self.assertEqual(report["skipped_running"], ["running"])
 
+    def test_release_reconciler_does_not_starve_unproven_scheduled_release(self):
+        release = self._release("release-a").resolve()
+        value = two_loop_registry()
+        for entry in value["loops"].values():
+            entry["provider_route"] = "shared-agent-runner"
+        (release / "config/loop-registry.json").write_text(json.dumps(value))
+        rows = [
+            {
+                "classification": "managed",
+                "provider_route": "shared-agent-runner",
+                "launchd_state": "loaded-idle",
+                "installed_release_sha": "b" * 40,
+                "event_release_sha": event_release,
+                "loop_id": loop_id,
+            }
+            for loop_id, event_release in (
+                ("example", "a" * 40),
+                ("second", "b" * 40),
+            )
+        ]
+        applied = []
+
+        def record_apply(_release_root, *args, **kwargs):
+            applied.append(kwargs["target"])
+            return [{"ok": True, "release_sha": SHA}]
+
+        with (
+            patch.object(lm_loop, "ROOT", release),
+            patch.object(lm_loop, "snapshot", return_value=rows),
+            patch.object(lm_loop, "apply_live", side_effect=record_apply),
+            patch.dict(os.environ, {
+                "LIFE_MANAGER_RELEASE_ROOT": str(release),
+                "LIFE_MANAGER_LOOP_ID": "life-manager-release-reconciler",
+            }),
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(
+                lm_loop.main(["reconcile", "shared-agent-runner", "--loaded-idle-only"]),
+                0,
+            )
+
+        self.assertEqual(applied, ["second"])
+        self.assertEqual(json.loads(output.getvalue())["eligible"], 1)
+
     def test_reconcile_loop_ids_limit_same_route_to_explicit_ids(self):
         release = self._release("release-a").resolve()
         value = registry()
@@ -717,6 +761,7 @@ class LmLoopApplyTest(unittest.TestCase):
             "provider_route": "deterministic",
             "launchd_state": "loaded-idle",
             "installed_release_sha": "b" * 40,
+            "event_release_sha": "b" * 40,
             "loop_id": loop_id,
         } for loop_id in ("hf-gig-paid-direct", "life-manager-disk-cleanup")]
         applied = []

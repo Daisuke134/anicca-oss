@@ -564,6 +564,9 @@ def main(argv: list[str] | None = None) -> int:
         release_root = Path(os.environ.get("LIFE_MANAGER_RELEASE_ROOT", ROOT)).expanduser().resolve(strict=True)
         current_sha = json.loads((release_root / "RELEASE.json").read_text()).get("sha")
         rows = snapshot(registry, "all")
+        automatic_release_reconciler = (
+            os.environ.get("LIFE_MANAGER_LOOP_ID") == "life-manager-release-reconciler"
+        )
         explicitly_reloadable = {
             loop_id for loop_id in requested_ids
             if registry["loops"][loop_id].get("cadence", {}).get("keep_alive") is True
@@ -583,6 +586,9 @@ def main(argv: list[str] | None = None) -> int:
                  or row["loop_id"] in explicitly_reloadable)
             and row["installed_release_sha"]
             and row["installed_release_sha"] != current_sha
+            and (not automatic_release_reconciler
+                 or row["loop_id"] in explicitly_reloadable
+                 or row.get("event_release_sha") == row["installed_release_sha"])
         )]
         applied, failed = [], []
         for row in eligible:
