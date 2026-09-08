@@ -14,6 +14,20 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_ceo_runner_uses_repository_owned_agent_boundary(self):
+        wrapper = (ROOT / "bin/ceo-run.sh").read_text()
+        self.assertIn(
+            'RUN_AGENT="${CEO_RUN_AGENT_BIN:-$HERE/skills/earn/marketing-engine/run_agent.sh}"',
+            wrapper,
+        )
+        self.assertNotIn(
+            "$HOME/anicca/skills/earn/marketing-engine/run_agent.sh",
+            wrapper,
+        )
+        self.assertTrue(
+            (ROOT / "skills/earn/marketing-engine/run_agent.sh").is_file()
+        )
+
     def test_writer_report_wrapper_preserves_external_state_argv(self):
         wrapper = ROOT / "skills/writer-agent/scripts/writer-report-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))
