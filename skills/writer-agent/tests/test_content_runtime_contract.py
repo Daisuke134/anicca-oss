@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 
@@ -10,6 +11,27 @@ SCRIPTS = ROOT / "skills/writer-agent/scripts"
 
 
 class WriterContentRuntimeContractTest(unittest.TestCase):
+    def test_registry_managed_writer_has_no_static_launchd_owner(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())["loops"]
+        labels = {
+            row["label"] for loop_id, row in registry.items()
+            if loop_id.startswith(("article-", "writer-"))
+        }
+        static_labels = {
+            path.stem for path in SCRIPTS.rglob("*.plist")
+        }
+        legacy_jobs = json.loads(
+            (ROOT / "skills/earn/gig/config/launchd-jobs.json").read_text()
+        )["jobs"]
+        legacy_labels = {row["label"] for row in legacy_jobs}
+        self.assertEqual(static_labels, set())
+        self.assertEqual(labels & static_labels, set())
+        self.assertEqual(labels & legacy_labels, set())
+        self.assertIn("ai.anicca.article-repair-candidate", labels)
+        self.assertEqual(list((ROOT / "skills/writer-agent").rglob("*.plist.example")), [])
+        self.assertEqual(list(SCRIPTS.glob("install-writer-*.sh")), [])
+        self.assertFalse((SCRIPTS / "install-zenn-deferred-worker.sh").exists())
+
     def test_active_content_paths_are_repository_or_writer_state_owned(self):
         paths = (
             SCRIPTS / "propose.sh",

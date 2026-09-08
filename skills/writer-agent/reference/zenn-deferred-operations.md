@@ -38,11 +38,10 @@ message is the operator-visible idempotency key.
 ## Install and inspect
 
 ```bash
-bash skills/writer-agent/scripts/install-zenn-deferred-worker.sh
-launchctl print "gui/$(id -u)/ai.anicca.article-zenn-retry"
-tail -50 ~/.openclaw/logs/article-zenn-retry.log
+bin/lm-loop status article-zenn-retry
+bin/lm-loop watch article-zenn-retry
 ```
 
 Expected idle state is `state = not running`, `last exit code = 0`, and `run interval = 300 seconds`.
-Use `launchctl kickstart -k "gui/$(id -u)/ai.anicca.article-zenn-retry"` for an immediate one-shot scan.
+Lifecycle changes are performed only through the final main-derived release and `bin/lm-loop apply --all`.
 Do not run the removed foreground retry loop and do not manually append a Zenn ledger row.

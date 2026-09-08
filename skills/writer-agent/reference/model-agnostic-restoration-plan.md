@@ -61,16 +61,11 @@ skills/writer-agent/
     ├── funnel.jsonl
     └── sales-ledger.jsonl
 
-Mac mini launchd:
+Loop lifecycle:
 
-~/Library/LaunchAgents/
-├── ai.anicca.article-daily.plist
-├── ai.anicca.article-healthcheck.plist
-├── ai.anicca.article-resume.plist
-├── ai.anicca.article-zenn-retry.plist
-├── ai.anicca.article-self-improve.plist
-├── ai.anicca.article-audit-7day.plist
-└── ai.anicca.article-learn-whitelist.plist
+config/loop-registry.json            # sole schedule/lifecycle source
+bin/lm-loop                          # status/watch/apply interface
+~/.local/state/life-manager/writer/  # machine-local state and logs
 ```
 
 The restored tree keeps the proven workflow shape. `runtime/model-runner.sh` and
@@ -81,10 +76,10 @@ engine.
 
 ### Read and preserve
 
-Capture:
+Capture through `bin/lm-loop status <loop-id>` and repository-owned state:
 
-- `launchctl print` for all `article-*` and `writer-*` labels
-- the installed Writer Engine commit or file hashes
+- registry status for all `article-*` and `writer-*` loop IDs
+- the installed immutable Life Manager release commit or file hashes
 - current article database and publication rows
 - current run directory and immutable draft hashes
 - all known public IDs and live URLs
@@ -117,7 +112,7 @@ It does not claim a public output exists without remote readback.
 
 ### Jobs to unload
 
-Unload without deleting their logs or state:
+Disable them through a reviewed registry release without deleting logs or state:
 
 - `ai.anicca.writer-daily`
 - `ai.anicca.writer-resume`
@@ -129,7 +124,7 @@ Also confirm that no old `ai.anicca.article-daily` process is still running.
 
 ### Gate
 
-`launchctl print` MUST show no loaded job capable of creating article
+`bin/lm-loop status <loop-id>` MUST show no active loop capable of creating article
 publication side effects. This maintenance interval intentionally has no daily
 creator until the canary is ready.
 
@@ -310,7 +305,7 @@ A repository search MUST find no operational direct `claude -p` or direct
 
 ### Daily creation
 
-`ai.anicca.article-daily.plist`:
+`config/loop-registry.json` entry `article-daily`:
 
 ```text
 StartCalendarInterval = 06:00
@@ -350,7 +345,8 @@ the local attempt timestamp.
 
 ### Pending worker
 
-Create `ai.anicca.article-resume.plist` with a 300-second interval. Its script:
+Register `article-resume` with a 300-second interval in
+`config/loop-registry.json`. Its script:
 
 1. acquires the same global article publication lock
 2. selects the oldest incomplete run
@@ -462,7 +458,7 @@ scripts/self-improve.sh
 scripts/measure-sales.py
 scripts/_shared/measure-funnel.py
 scripts/article-selfimprove-verify.sh
-scripts/ai.anicca.article-self-improve.plist
+config/loop-registry.json entry `article-self-improve`
 ```
 
 Replace both direct Claude judgments in `self-improve.sh` with

@@ -31,17 +31,11 @@ git clone "$TMP/remote.git" "$TMP/runtime" >/dev/null
 ROOT="$ROOT" RUNTIME_REPO="$TMP/runtime" python3 - <<'PY'
 import importlib.util
 import os
-import plistlib
 from pathlib import Path
 
 root = Path(os.environ["ROOT"])
 runtime = Path(os.environ["RUNTIME_REPO"])
-with (root / "scripts/ai.anicca.article-self-improve.plist").open("rb") as handle:
-    launchd = plistlib.load(handle)
-
 os.environ.pop("ARTICLE_SOURCE_BRANCH", None)
-for key, value in launchd.get("EnvironmentVariables", {}).items():
-    os.environ[str(key)] = str(value)
 
 module_path = root / "scripts/self_improve_control.py"
 spec = importlib.util.spec_from_file_location("self_improve_control", module_path)

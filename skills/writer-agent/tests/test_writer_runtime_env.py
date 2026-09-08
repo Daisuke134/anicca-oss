@@ -72,6 +72,25 @@ class WriterRuntimeEnvTest(unittest.TestCase):
             )
             self.assertEqual(python_result.stdout, "/managed/python|/managed/python")
 
+    def test_dotenv_can_name_the_mutable_source_checkout(self):
+        with tempfile.TemporaryDirectory() as temp:
+            env_file = Path(temp) / "life-manager.env"
+            env_file.write_text("LIFE_MANAGER_SOURCE_REPO=/srv/life-manager-source\n")
+            result = subprocess.run(
+                ["bash", "-c", f'source "{SCRIPT}" && printf "%s" "$LIFE_MANAGER_SOURCE_REPO"'],
+                text=True,
+                capture_output=True,
+                env={
+                    **os.environ,
+                    "HOME": temp,
+                    "LIFE_MANAGER_REPO": str(ROOT),
+                    "LIFE_MANAGER_ENV_FILE": str(env_file),
+                    "LIFE_MANAGER_SOURCE_REPO": "",
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "/srv/life-manager-source")
+
     def test_legacy_state_or_log_override_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             result = self.run_source({
@@ -82,13 +101,13 @@ class WriterRuntimeEnvTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("refuses legacy", result.stderr)
 
-    def test_all_fourteen_registry_entrypoints_use_the_shared_contract(self):
+    def test_all_fifteen_registry_entrypoints_use_the_shared_contract(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         rows = {
             loop_id: row for loop_id, row in registry["loops"].items()
             if loop_id.startswith(("article-", "writer-"))
         }
-        self.assertEqual(len(rows), 14)
+        self.assertEqual(len(rows), 15)
         for loop_id, row in rows.items():
             with self.subTest(loop_id=loop_id):
                 source = (ROOT / row["entrypoint"]).read_text(errors="replace")
