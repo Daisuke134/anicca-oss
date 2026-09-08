@@ -74,6 +74,19 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/anicca/crowdworks"
     },
+    "crowdworks-revenue-reply": {
+      "adapter": "exec",
+      "cadence": {"start_interval_seconds": 300},
+      "cleanup": {"max_age_days": 14, "max_runs": 100},
+      "command": [],
+      "domain": "earn",
+      "effect_class": "message",
+      "entrypoint": "skills/earn/crowdworks/scripts/reply-owner",
+      "label": "ai.anicca.crowdworks-revenue-reply",
+      "log_root": "~/.local/state/anicca/crowdworks/logs",
+      "provider_route": "deterministic",
+      "state_root": "~/.local/state/anicca/crowdworks"
+    },
     "affiliate-browser": {
       "adapter": "exec",
       "browser_owner": {

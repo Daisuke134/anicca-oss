@@ -1120,6 +1120,15 @@ complete. The active engineering atom is `CROWDWORKS-REPLY-1`; its fixed next at
 9. [ ] `CROWDWORKS-REPLY-1` Add only the CrowdWorks Reply adapter to the proven shared entrypoint.
    PASS = one real buyer event reaches official reply/readback and replay-zero without forking the
    shared event, decision, receipt or retry lifecycle.
+   In progress: the authenticated official received-message API currently returns 10 unique rows and
+   all 10 report `is_replied=false`; seven are still `proposal_status=talking`. Message `425906697`
+   officially redirects to proposal `304795711`, where the full buyer event, reply textarea and post
+   control are available. The thin repo adapter now normalizes that inventory and conversation into
+   the existing shared grounding/planner/kernel without copying lifecycle, retry or effect fencing.
+   Its authenticated no-mutation smoke represented all 10 threads exactly once and classified the
+   latest event in thread `303996182` as a buyer event requiring a decision. Remaining acceptance is
+   main-derived production apply, one appropriate real reply with exact official readback and
+   Telegram delivery, then a following natural replay with effect zero.
 10. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
