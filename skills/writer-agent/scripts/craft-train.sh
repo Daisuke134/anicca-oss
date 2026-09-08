@@ -33,8 +33,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="${ARTICLE_SKILL_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 CRAFT_MD="${CRAFT_MD:-$SKILL_DIR/reference/CRAFT.md}"
 VENDOR_DIR="$SKILL_DIR/vendor/skillopt-writing"
-CLIPROXY_CONF="${CLIPROXY_CONF:-/opt/homebrew/etc/cliproxyapi.conf}"
+CLIPROXY_CONF="${CLIPROXY_CONF:-${ARTICLE_CLIPROXY_CONFIG:-}}"
 CLIPROXY_PORT="${CLIPROXY_PORT:-8317}"
+OPENAI_BASE_URL="${ARTICLE_OPENAI_BASE_URL:-http://127.0.0.1:${CLIPROXY_PORT}/v1}"
 
 PY="${ARTICLE_PYTHON:-${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}}"
 command -v "$PY" >/dev/null 2>&1 || PY=python3
@@ -54,16 +55,11 @@ OUT_ROOT="$STATE_DIR/craft-train-output/$(date -u +%Y%m%dT%H%M%SZ)"
 # that starts at 23:10.
 DEADLINE_HOUR="${CRAFT_TRAIN_DEADLINE_HOUR:-05}"
 DEADLINE_MINUTE="${CRAFT_TRAIN_DEADLINE_MINUTE:-00}"
-NOW_EPOCH="$(date +%s)"
-TODAY_DEADLINE_EPOCH="$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date +%Y-%m-%d) ${DEADLINE_HOUR}:${DEADLINE_MINUTE}:00" +%s 2>/dev/null || true)"
-if [ -z "$TODAY_DEADLINE_EPOCH" ]; then
+DEADLINE_VALUES="$("$PY" "$SCRIPT_DIR/craft_deadline.py" "$DEADLINE_HOUR" "$DEADLINE_MINUTE" 2>/dev/null || true)"
+read -r NOW_EPOCH DEADLINE_EPOCH <<<"$DEADLINE_VALUES"
+if [ -z "${NOW_EPOCH:-}" ] || [ -z "${DEADLINE_EPOCH:-}" ]; then
   echo "craft-train.sh: could not compute today's ${DEADLINE_HOUR}:${DEADLINE_MINUTE} deadline -- refusing to run without a deadline" >&2
   exit 0
-fi
-if [ "$TODAY_DEADLINE_EPOCH" -le "$NOW_EPOCH" ]; then
-  DEADLINE_EPOCH=$(( TODAY_DEADLINE_EPOCH + 86400 ))
-else
-  DEADLINE_EPOCH="$TODAY_DEADLINE_EPOCH"
 fi
 
 if [ ! -f "$CRAFT_MD" ]; then
@@ -71,22 +67,25 @@ if [ ! -f "$CRAFT_MD" ]; then
   exit 0
 fi
 
+# A caller may invoke this wrapper through `bash -x` or inherit xtrace.
+# Disable it before any credential value is read or exported.
+set +x
+
 # Read the local CLIProxyAPI key at runtime -- NEVER echo it. Extract only
 # the first entry under `api-keys:` and export it directly into the child
 # process's environment; it is never printed, logged, or written to a file.
-if [ -f "$CLIPROXY_CONF" ]; then
+RAW_KEY="${ARTICLE_OPENAI_API_KEY:-}"
+if [ -z "$RAW_KEY" ] && [ -n "$CLIPROXY_CONF" ] && [ -f "$CLIPROXY_CONF" ]; then
   RAW_KEY="$(awk '/^api-keys:/{f=1; next} f && /^[[:space:]]*-/{print; exit}' "$CLIPROXY_CONF" \
     | sed -E 's/^[[:space:]]*-[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')"
-else
-  RAW_KEY=""
 fi
 
 if [ -z "$RAW_KEY" ]; then
-  echo "craft-train.sh: no api-keys entry found in $CLIPROXY_CONF -- refusing to run with a dummy key" >&2
+  echo "craft-train.sh: ARTICLE_OPENAI_API_KEY or a configured CLIProxy key file is required" >&2
   exit 0
 fi
 
-export AZURE_OPENAI_ENDPOINT="http://127.0.0.1:${CLIPROXY_PORT}/v1"
+export AZURE_OPENAI_ENDPOINT="$OPENAI_BASE_URL"
 export AZURE_OPENAI_API_KEY="$RAW_KEY"
 export AZURE_OPENAI_AUTH_MODE="openai_compatible"
 unset RAW_KEY

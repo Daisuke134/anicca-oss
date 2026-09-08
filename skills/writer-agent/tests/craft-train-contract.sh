@@ -506,6 +506,15 @@ check "guard run: trainer subprocess never invoked" "False" "$([ -f "$T5_DIR/spy
 GUARD_REASON="$(grep -o '"reason": *"[^"]*guard[^"]*"' "$T5_DIR/craft-train.jsonl" 2>/dev/null | head -1)"
 check "guard run: jsonl records a guard reason" "True" "$([ -n "$GUARD_REASON" ] && echo True || echo False)"
 
+TRACE_SECRET="writer-contract-secret-must-not-appear"
+ARTICLE_OPENAI_API_KEY="$TRACE_SECRET" \
+CRAFT_TRAIN_JSONL="$T5_DIR/trace-craft-train.jsonl" \
+CRAFT_TRAIN_RUNS_ROOT="$T5_DIR/runs" \
+CRAFT_MD="$FIXTURE_CRAFT" \
+SKILLOPT_PYTHON="$SPY" \
+  bash -x "$CRAFT_TRAIN_SH" >"$T5_DIR/trace.log" 2>&1
+check "xtrace never emits the direct credential" "False" "$(rg -q "$TRACE_SECRET" "$T5_DIR/trace.log" && echo True || echo False)"
+
 # ---------------------------------------------------------------------------
 # 6. T15 wall-clock follow-up, part 4: the projection refusal fires when
 #    sizes are too large (the real train=119/val=21/test=38 split, WITHOUT
@@ -650,6 +659,10 @@ assert "optimizer_backend: openai_chat" in text
 assert "target_backend: openai_chat" in text
 assert "/tmp/SkillOpt" not in text and "/Users/anicca" not in text
 assert 'SKILLOPT_PYTHON="${SKILLOPT_PYTHON:-$PY}"' in wrapper
+assert "/opt/homebrew/etc/cliproxyapi.conf" not in wrapper
+assert "ARTICLE_OPENAI_API_KEY" in wrapper
+assert "ARTICLE_OPENAI_BASE_URL" in wrapper
+assert "date -j" not in wrapper
 assert '--split-dir "$SPLIT_DIR"' in wrapper
 assert 'OUT_ROOT="$STATE_DIR/craft-train-output/' in wrapper
 assert '"--cfg-options", *config_overrides' in driver
@@ -674,6 +687,35 @@ print("accepted")
 PYEOF
 )
 check "SkillOpt 0.2.0 accepts configured backends and path overrides" "accepted" "$BACKEND_CONFIG"
+
+DST=$("$PY" - <<'PYEOF'
+import os, sys, time
+from datetime import datetime
+from pathlib import Path
+sys.path.insert(0, str(Path("scripts").resolve()))
+from craft_deadline import next_deadline
+old = os.environ.get("TZ")
+try:
+    os.environ["TZ"] = "America/New_York"
+    time.tzset()
+    now = int(time.mktime(datetime(2026, 3, 7, 23, 10).timetuple()))
+    _, deadline = next_deadline(5, 0, now_epoch=now)
+    assert datetime.fromtimestamp(deadline) == datetime(2026, 3, 8, 5, 0)
+    assert deadline - now == 4 * 3600 + 50 * 60
+    fall_now = int(time.mktime(datetime(2026, 10, 31, 23, 10).timetuple()))
+    _, fall_deadline = next_deadline(5, 0, now_epoch=fall_now)
+    assert datetime.fromtimestamp(fall_deadline) == datetime(2026, 11, 1, 5, 0)
+    assert fall_deadline - fall_now == 6 * 3600 + 50 * 60
+    print("dst-safe")
+finally:
+    if old is None:
+        os.environ.pop("TZ", None)
+    else:
+        os.environ["TZ"] = old
+    time.tzset()
+PYEOF
+)
+check "next local deadline preserves DST wall time" "dst-safe" "$DST"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
