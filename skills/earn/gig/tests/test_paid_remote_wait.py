@@ -396,6 +396,45 @@ def test_formal_approval_survives_later_seller_acknowledgement(tmp_path):
     ) == decision
 
 
+def test_initial_purchase_is_buyer_authority_before_first_buyer_message(tmp_path):
+    paid = load("paid_direct")
+    room = "18250352"
+    root = tmp_path / room
+    write_json(root / "state.json", {"talkroom_id": room})
+    system = {
+        "version": 1,
+        "source": "coconala_live_talkroom",
+        "talkroom_id": room,
+        "message_id": "system-delivery-date",
+        "observed_at": "2026-09-08T12:17:26Z",
+        "side": "system",
+        "sent_at": None,
+        "text": "delivery date registered",
+        "attachments": [],
+    }
+    system["content_sha256"] = paid._official_content_sha256(system)
+    messages = root / "source/talkroom/messages.jsonl"
+    messages.parent.mkdir(parents=True)
+    messages.write_text(json.dumps(system) + "\n", encoding="utf-8")
+    feedback = "a" * 64
+    write_json(root / "requirements/live-buyer-reply.json", {
+        "version": 1,
+        "source": "purchased_offer_before_first_buyer_message",
+        "buyer_feedback_stage": "initial_request",
+        "project_id": room,
+        "talkroom_id": room,
+        "feedback_sha256": feedback,
+        "feedback_identity_sha256": feedback,
+        "feedback_message_identities": [f"purchased-offer:{room}"],
+    })
+
+    assert paid._latest_official_buyer_identity(root, room) == {
+        "message_id": f"purchased-offer:{room}",
+        "content_sha256": feedback,
+        "side": "buyer",
+    }
+
+
 def test_file_prepare_creates_missing_project_delivery_directory(tmp_path, monkeypatch):
     paid = load("paid_direct")
     root = tmp_path / "project"
