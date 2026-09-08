@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Board Update Deck Builder icon</title>
+  <desc id="desc">A navy presentation card with a teal metrics line and an amber decision marker.</desc>
+  <rect width="512" height="512" rx="96" fill="#102a43"/>
+  <rect x="92" y="108" width="328" height="260" rx="24" fill="#f7fafc"/>
+  <rect x="120" y="140" width="138" height="24" rx="12" fill="#243b53"/>
+  <rect x="120" y="190" width="272" height="16" rx="8" fill="#d9e2ec"/>
+  <rect x="120" y="220" width="182" height="16" rx="8" fill="#d9e2ec"/>
+  <path d="M126 312 L190 270 L245 294 L318 232 L384 252" fill="none" stroke="#00b8a9" stroke-linecap="round" stroke-linejoin="round" stroke-width="18"/>
+  <circle cx="384" cy="252" r="18" fill="#f6ad55"/>
+  <path d="M256 396 L256 426 M196 426 H316" fill="none" stroke="#f7fafc" stroke-linecap="round" stroke-width="18"/>
+</svg>
