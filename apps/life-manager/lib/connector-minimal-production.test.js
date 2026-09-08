@@ -480,6 +480,49 @@ test("production provider router samples the full candidate window instead of st
   assert.ok(selected.some((candidate) => candidate.event_ref === "connpass-event://event/day-15"));
 });
 
+test("production provider router fills the current three weeks before the fourth week", async () => {
+  const currentWeek = rankingCandidate("current-week", "2026-09-10T09:00:00.000+09:00");
+  const nextWeek = rankingCandidate("next-week", "2026-09-17T09:00:00.000+09:00");
+  const thirdWeek = rankingCandidate("third-week", "2026-09-24T09:00:00.000+09:00");
+  const fourthWeek = rankingCandidate("fourth-week", "2026-10-01T09:00:00.000+09:00", {
+    body: "Lightning talk applications are open.",
+  });
+  const candidates = [fourthWeek, thirdWeek, nextWeek, currentWeek];
+  const emptyWorkflow = {
+    async discoverCandidates() { return []; },
+    async runDirectAction() {},
+    async readProviderState() { return { status: "absent" }; },
+  };
+  const router = createProductionProviderRouter({
+    now: () => new Date("2026-09-09T00:00:00.000Z"),
+    lumaWorkflow: { ...emptyWorkflow, async discoverCandidates() { return candidates; } },
+    connpassWorkflow: emptyWorkflow,
+    eventPreferences: "Tokyo AI events",
+    async rankCandidates(input) {
+      return validateProviderCandidateRanking({ ranked_events: input.candidates.map((candidate) => ({
+        event_ref: candidate.event_ref,
+        priority_class: candidate === fourthWeek ? "open_talk" : "ai",
+        preference_fit: "strong",
+        preference_reason: "Direct AI fit.",
+      })) }, input);
+    },
+    async classifyTalkOpportunity(candidate) {
+      return validateEventTalkOpportunity({
+        participation_kind: "both", talk_format: "lightning_talk", application_status: "open",
+        should_create_talk_application: true, application_url: "https://forms.example.com/fourth-week",
+        evidence_excerpt: "Lightning talk applications are open.", reason: "A public LT application is open.",
+      }, { canonicalUrl: candidate.canonical_url, title: candidate.title, body: candidate.body, now: "2026-09-09T00:00:00.000Z" });
+    },
+    actionCache: { async replay() {}, async saveVerifiedRepair() {} },
+    browserHarness: { async runFallback() {} },
+    async performAction() {},
+  });
+
+  assert.deepEqual((await router.discoverCandidates("luma", [], {})).map((candidate) => candidate.event_ref), [
+    currentWeek.event_ref, nextWeek.event_ref, thirdWeek.event_ref, fourthWeek.event_ref,
+  ]);
+});
+
 test("production provider router rotates the candidate chosen for each date every half hour", async () => {
   const candidates = Array.from({ length: 12 }, (_, day) => ["a", "b"].map((suffix) => rankingCandidate(
     `day-${day + 1}-${suffix}`,

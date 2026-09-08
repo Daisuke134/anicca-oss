@@ -207,6 +207,16 @@ function candidateTokyoDateKey(candidate) {
   return [day.year, day.month, day.day].map((part, index) => String(part).padStart(index === 0 ? 4 : 2, "0")).join("-");
 }
 
+function candidateCoverageWeek(candidate, observed) {
+  const date = candidateTokyoDateKey(candidate);
+  if (!date) return 4;
+  const current = localDay(observed, PRODUCTION_TIME_ZONE);
+  const [year, month, day] = date.split("-").map(Number);
+  const offset = Math.floor((Date.UTC(year, month - 1, day)
+    - Date.UTC(current.year, current.month - 1, current.day)) / 86_400_000);
+  return Math.min(3, Math.max(0, Math.floor(offset / 7)));
+}
+
 function boundedPendingCandidates(candidates, rotation = 0) {
   if (!Number.isSafeInteger(rotation) || rotation < 0) invalid();
   if (candidates.length <= PROVIDER_RANK_MAX_CANDIDATES) return candidates;
@@ -409,13 +419,14 @@ function createProductionProviderRouter(options = {}) {
         const rankingCandidates = boundedPendingCandidates(pending, rotation);
         const ranking = await rankCandidates({ candidates: rankingCandidates, preferences: eventPreferences });
         const sourceByRef = new Map(rankingCandidates.map((candidate) => [candidate.event_ref, candidate]));
+        const observed = exactNow(now());
         const eligible = eligibleRankedCandidates(ranking).map((ranked) => Object.freeze({
           ...sourceByRef.get(ranked.event_ref),
           priority_class: ranked.priority_class,
           preference_fit: ranked.preference_fit,
           preference_reason: ranked.preference_reason,
           auto_apply_eligible: ranked.auto_apply_eligible,
-        }));
+        })).sort((a, b) => candidateCoverageWeek(a, observed) - candidateCoverageWeek(b, observed));
         if (classifyTalkOpportunity == null) return Object.freeze([...reconcile, ...eligible]);
         const enriched = new Array(eligible.length);
         let next = 0;
@@ -446,7 +457,8 @@ function createProductionProviderRouter(options = {}) {
           }
         }
         await Promise.all(Array.from({ length: Math.min(3, eligible.length) }, () => classifyWorker()));
-        enriched.sort((a, b) => Number(b.priority_class === "open_talk") - Number(a.priority_class === "open_talk"));
+        enriched.sort((a, b) => candidateCoverageWeek(a, observed) - candidateCoverageWeek(b, observed)
+          || Number(b.priority_class === "open_talk") - Number(a.priority_class === "open_talk"));
         return Object.freeze([...reconcile, ...enriched]);
       })();
     },
