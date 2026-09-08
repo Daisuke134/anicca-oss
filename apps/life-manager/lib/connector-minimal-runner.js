@@ -455,7 +455,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
             consecutiveFailures += 1;
             return finish("circuit_open", "effect_unknown");
           }
-          const terminalDirectNoEffect = (provider === "connpass" && directFailureReason === "connpass_registration_unavailable")
+          const terminalDirectNoEffect = (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(directFailureReason))
             || (provider === "luma" && directFailureReason === "luma_required_profile_field_unavailable");
           if (!terminalDirectNoEffect) try {
             operation = await action(
@@ -566,7 +566,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
         }
 
         lastSafeReason = directFailureReason || operationSafeReason(operation, "direct_action_unverified");
-        const knownNoEffect = (provider === "connpass" && lastSafeReason === "connpass_registration_unavailable")
+        const knownNoEffect = (provider === "connpass" && ["connpass_registration_unavailable", "connpass_questionnaire_required"].includes(lastSafeReason))
           || (provider === "luma" && ["luma_required_profile_field_unavailable", "private_value_unavailable"].includes(operationSafeReason(operation, lastSafeReason)));
         if (knownNoEffect) continue;
         consecutiveFailures += 1;

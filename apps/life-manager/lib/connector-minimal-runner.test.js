@@ -691,6 +691,27 @@ test("known no-effect registration blockers continue to the next candidate witho
   assert.equal(state.calls.filter(([name]) => name === "agent").length, 0);
 });
 
+test("a Connpass questionnaire blocker skips fallback and continues to the next candidate", async () => {
+  let state = fixture({
+    async discoverCandidates() {
+      return [candidate("connpass", "questionnaire"), candidate("connpass", "next")];
+    },
+    async runDirectAction({ candidate: selected }) {
+      return selected.event_ref.endsWith("/questionnaire")
+        ? Object.freeze({ status: "failed", safe_reason: "connpass_questionnaire_required" })
+        : Object.freeze({ status: "completed", provider_state: { status: "registered" } });
+    },
+    async runAgentFallback() { throw new Error("browser fallback must not run"); },
+    async readProviderState({ candidate: selected, phase }) {
+      return Object.freeze({ status: phase === "pre_submit" || selected.event_ref.endsWith("/questionnaire") ? "absent" : "registered" });
+    },
+    async completeEvidence() { return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-connpass-next", completion_disposition: "created" }); },
+  });
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-connpass-questionnaire", providers: ["connpass"] }, state.dependencies);
+  assert.equal(result.status, "applied_bundle");
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 0);
+});
+
 test("a successful submit action row stays exactly the same shape as before (no provider/safe_reason/error_class)", async () => {
   const state = fixture();
 
