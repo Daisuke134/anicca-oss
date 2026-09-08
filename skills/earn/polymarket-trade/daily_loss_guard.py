@@ -34,9 +34,15 @@ from __future__ import annotations
 import datetime
 import json
 import os
+from pathlib import Path
+
+from state_paths import external_state_path
 
 LEDGER_PATH_DEFAULT = os.path.expanduser("~/anicca/skills/earn/state/earn-ledger.jsonl")
-KILL_SWITCH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "KILL")
+KILL_SWITCH = os.environ.get(
+    "PM_KILL_SWITCH",
+    os.path.expanduser("~/.local/state/life-manager/polymarket/KILL"),
+)
 DEFAULT_DAILY_LOSS_LIMIT_USD = float(os.environ.get("DAILY_LOSS_LIMIT_USD", "3.0"))
 
 
@@ -113,7 +119,11 @@ def write_kill_switch(reason: str) -> None:
     every pass — identical shape to redeem.py's write_kill_switch (kept as a separate function
     here, not imported, because redeem.py's version lives behind a heavier import chain — SDK,
     eth_account, dotenv — that a read-only risk-report script should not have to pull in)."""
-    with open(KILL_SWITCH, "w") as f:
+    kill_switch = external_state_path(
+        KILL_SWITCH, Path(__file__).resolve().parents[3], "PM_KILL_SWITCH"
+    )
+    os.makedirs(os.path.dirname(kill_switch), exist_ok=True)
+    with open(kill_switch, "w") as f:
         f.write(
             f"DAILY-LOSS-GUARD HALT ({datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}): "
             f"{reason}\n"

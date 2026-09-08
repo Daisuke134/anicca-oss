@@ -37,6 +37,9 @@ KEYS = frozenset({
     "ARTICLE_INTERNAL_LINK_URLS",
     "ARTICLE_CTA_URLS",
     "ARTICLE_CLIPROXY_CONFIG",
+    "LIFE_MANAGER_WALLET_HOME",
+    "PM_DEPOSIT_WALLET",
+    "EARN_WATCH_PAYEE",
     "REINVEST_ANICCA_HOME",
 })
 LINE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")

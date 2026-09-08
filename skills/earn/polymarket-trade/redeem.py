@@ -17,7 +17,7 @@ gasless relayer, signed by the owner EOA (`0x810F6D61…`). This is the exact sa
 relayer path `v2_mint_deploy.py` already proved live for wallet deployment: SIWE
 mint (no browser) -> RelayerApiKey -> `polymarket.clients.secure.SecureClient`.
 
-That installed SDK (`polymarket-client` 0.1.0b13, in `.venv-pysdk`) ships a native
+The pinned runtime SDK (`polymarket-client` 0.1.0b13) ships a native
 `SecureClient.redeem_positions(condition_id=...)` (secure.py:2188). It already knows
 how to pick the right on-chain path per market:
   - regular CTF market  -> `ConditionalTokens.redeemPositions` via the collateral
@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -92,26 +93,21 @@ DATA_API = "https://data-api.polymarket.com"
 # key, the client then derived a different wallet, and the money-safety check below
 # aborted the redeem. They could win and never get paid.
 #
-# Resolution order: PM_DEPOSIT_WALLET (set per-instance by run.sh) -> the wallet the
-# instance's own private key resolves to. The check below still fires when an explicit
-# expectation is given, so a misconfigured env can never cash out someone else's wallet.
-DEPOSIT_WALLET = os.environ.get(
-    "PM_DEPOSIT_WALLET", "0x904B50d2e214Da947d83D6a2D32c4E3Ffc17Eb74"
-)
-EXPECT_WALLET = os.environ.get("PM_DEPOSIT_WALLET")  # None => trust the key's own wallet
-AGENT_ENV = os.path.expanduser(
-    os.environ.get(
-        "PM_TRADE_AGENT_ENV", "~/.anicca-founder/agents/polymarket-agent/.env"
-    )
-)
+# PM_DEPOSIT_WALLET is an explicit installation setting. The client must resolve to this
+# exact deposit wallet; a mismatched signer fails closed before position lookup or redemption.
 REPO_ROOT = Path(os.environ.get("LIFE_MANAGER_REPO", Path(__file__).resolve().parents[3]))
 LEDGER_RECORD_JS = str(REPO_ROOT / "skills/earn/lib/record.mjs")
-LEDGER_PATH = str(REPO_ROOT / "skills/earn/state/earn-ledger.jsonl")
+STATE_ROOT = Path(os.environ.get("LIFE_MANAGER_STATE_ROOT", Path.home() / ".local/state/life-manager/earn-watch"))
+LEDGER_PATH = os.environ.get("LIFE_MANAGER_EARN_LEDGER_PATH", str(STATE_ROOT / "earn-ledger.jsonl"))
 EARN_GUARD_JS = str(REPO_ROOT / "skills/_shared/lib/earn-guard.mjs")
+NODE_BIN = os.environ.get("LIFE_MANAGER_NODE", "node")
 # P1 (spec §3/§4): the SAME kill-switch file run.sh (the trading entrypoint, same dir as this
 # script) already checks at the top of every pass — writing it here means a cumulative-net
 # HALT stops the NEXT trading pass with zero changes to run.sh itself.
-KILL_SWITCH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "KILL")
+KILL_SWITCH = os.environ.get(
+    "LIFE_MANAGER_EARN_KILL_PATH",
+    os.environ.get("PM_KILL_SWITCH", str(Path.home() / ".local/state/life-manager/polymarket/KILL")),
+)
 POLYGON_RPC = os.getenv("POLYGON_RPC", "https://polygon-bor-rpc.publicnode.com")
 
 # Verified against the installed SDK's PRODUCTION Environment (environments.py) —
@@ -124,6 +120,15 @@ NEG_RISK_COLLATERAL_ADAPTER = "0xadA2005600Dec949baf300f4C6120000bDB6eAab"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v2_recipe import pusd_balance  # noqa: E402  (reuse the verified balance reader)
+from state_paths import external_state_path  # noqa: E402
+
+
+def configured_deposit_wallet() -> str:
+    """Return the install-selected Polymarket deposit wallet or fail closed."""
+    wallet = os.environ.get("PM_DEPOSIT_WALLET", "")
+    if not re.fullmatch(r"0x[0-9a-fA-F]{40}", wallet):
+        raise RuntimeError("PM_DEPOSIT_WALLET must be a 0x-prefixed 40-hex address")
+    return wallet.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -186,16 +191,15 @@ def compute_recovered_amount(pusd_before: float, pusd_after: float) -> float:
     return delta
 
 
-def build_ledger_line(row: dict, tx_hash: str, status: str, wallet: str = None) -> dict:
+def build_ledger_line(row: dict, tx_hash: str, status: str, wallet: str) -> dict:
     """R3: the earn-ledger.jsonl line for one redeemed condition.
     earn_usdc = gross cash the CTF/neg-risk contract paid out for this condition
     (the first ledger touch for this position — the original buy was never itself
     ledgered); cost_usdc = the original stake; record.mjs derives
     net_usdc = earn - cost = the realized profit for this condition."""
     return {
-        # The redeeming instance's OWN wallet. Falls back to the legacy constant only so
-        # existing callers/tests that predate multi-instance redeeming keep working.
-        "wallet": (wallet or DEPOSIT_WALLET).lower(),
+        # The redeeming install's explicitly verified deposit wallet.
+        "wallet": wallet.lower(),
         "source": "polymarket-redeem",
         "task": row["title"],
         "earn_usdc": round(row["currentValue"], 6),
@@ -212,7 +216,7 @@ def build_ledger_line(row: dict, tx_hash: str, status: str, wallet: str = None) 
 # I/O BOUNDARY — network, chain, relayer. This is the surface to scrutinize.
 # ---------------------------------------------------------------------------
 
-def fetch_positions(wallet: str = DEPOSIT_WALLET) -> list[dict]:
+def fetch_positions(wallet: str) -> list[dict]:
     import requests
     r = requests.get(
         f"{DATA_API}/positions",
@@ -237,16 +241,16 @@ def _mint_relayer_api_key(acct) -> str:
     return mint_relayer_api_key(acct)
 
 
-def build_client():
+def build_client(expected_wallet: str):
     """Authenticate the polymarket-client SDK for the deposit wallet, supplying a REUSED relayer
     api key (via _mint_relayer_api_key, which now lists-before-mints). The SDK's own auth was NOT
     enough: SecureClient.create(private_key, wallet) resolves the wallet but the gasless /submit
     still needs a valid relayer api key in the RelayerApiKey credential — without it, /submit
     rejects with "invalid authorization". _mint_relayer_api_key reuses an existing relayer key
     (Gamma-auth registry, capped at 100/address, no delete endpoint) so we never burn the cap."""
-    from dotenv import load_dotenv
-    load_dotenv(AGENT_ENV)
-    key = os.environ["POLYGON_WALLET_PRIVATE_KEY"]
+    key = os.environ.get("POLYGON_WALLET_PRIVATE_KEY", "")
+    if not key:
+        raise RuntimeError("POLYGON_WALLET_PRIVATE_KEY must be provided by earn-watch")
     key = key if key.startswith("0x") else "0x" + key
 
     from eth_account import Account
@@ -262,16 +266,11 @@ def build_client():
         private_key=key, credentials=creds,
         api_key=RelayerApiKey(key=api_key, address=acct.address),
     )
-    # Money-safety: only assert when the caller stated which wallet it expects. An
-    # instance running on its own key legitimately resolves to its own wallet — asserting
-    # against a hardcoded constant here is what locked every AI except claude-p out of its
-    # own winnings. A wrong key still cannot reach a wallet it does not own: the wallet is
-    # derived FROM the key.
-    if EXPECT_WALLET and str(client.wallet).lower() != EXPECT_WALLET.lower():
+    if str(client.wallet).lower() != expected_wallet:
         client.close()
         raise RuntimeError(
             f"money-safety abort: client resolved to wallet {client.wallet}, "
-            f"but PM_DEPOSIT_WALLET expects {EXPECT_WALLET}"
+            f"but PM_DEPOSIT_WALLET expects {expected_wallet}"
         )
     return client
 
@@ -381,9 +380,10 @@ def record_ledger_line(line: dict, ledger_path: str | None = None) -> bool:
     """R3/R4 bookkeeping: append via the CANONICAL earn-ledger writer (record.mjs)
     so the malice-guard + GATE-0 classifier stay the single source of truth —
     this file does not reimplement ledger schema or profitability rules."""
-    args = ["node", LEDGER_RECORD_JS, json.dumps(line)]
-    if ledger_path:
-        args.append(ledger_path)
+    ledger_path = external_state_path(
+        ledger_path or LEDGER_PATH, REPO_ROOT, "LIFE_MANAGER_EARN_LEDGER_PATH"
+    )
+    args = [NODE_BIN, LEDGER_RECORD_JS, json.dumps(line), ledger_path]
     result = subprocess.run(args, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         raise RuntimeError(f"record.mjs failed: {result.stderr.strip()}")
@@ -396,7 +396,13 @@ def check_cumulative_halt(wallet: str, source: str, ledger_path: str | None = No
     redeem ever recorded, not just this one condition. Fail-closed like record_ledger_line: an
     unexpected error running the guard itself is treated as a HALT, never silently ignored —
     this function never raises."""
-    args = ["node", EARN_GUARD_JS, "check", wallet, source, ledger_path or LEDGER_PATH]
+    try:
+        ledger_path = external_state_path(
+            ledger_path or LEDGER_PATH, REPO_ROOT, "LIFE_MANAGER_EARN_LEDGER_PATH"
+        )
+    except RuntimeError as e:
+        return True, f"guard-error:{e}"
+    args = [NODE_BIN, EARN_GUARD_JS, "check", wallet, source, ledger_path]
     try:
         result = subprocess.run(args, capture_output=True, text=True, timeout=30)
     except Exception as e:  # noqa: BLE001 — fail-closed: can't check -> assume HALT
@@ -410,16 +416,24 @@ def write_kill_switch(reason: str) -> None:
     """Trip the SAME kill-switch file run.sh (this skill's trading entrypoint) already checks
     at the top of every pass — a cumulative HALT here stops the NEXT trading pass with zero
     changes to run.sh's own logic."""
-    with open(KILL_SWITCH, "w") as f:
+    kill_switch = external_state_path(
+        KILL_SWITCH, REPO_ROOT, "LIFE_MANAGER_EARN_KILL_PATH"
+    )
+    os.makedirs(os.path.dirname(kill_switch), exist_ok=True)
+    with open(kill_switch, "w") as f:
         f.write(f"P1 fail-closed HALT ({time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}): {reason}\n")
 
 
 def main() -> int:
+    global LEDGER_PATH, KILL_SWITCH
+    LEDGER_PATH = external_state_path(LEDGER_PATH, REPO_ROOT, "LIFE_MANAGER_EARN_LEDGER_PATH")
+    KILL_SWITCH = external_state_path(KILL_SWITCH, REPO_ROOT, "LIFE_MANAGER_EARN_KILL_PATH")
     # WHO AM I — answered by this instance's own key, not by a constant. The wallet is
     # DERIVED from the key, so an instance can only ever see and cash out positions it
     # actually owns: claude-p cannot redeem Franklin's winnings and Franklin cannot
     # redeem claude-p's, no matter how the environment is misconfigured.
-    client = build_client()
+    expected_wallet = configured_deposit_wallet()
+    client = build_client(expected_wallet)
     wallet = str(client.wallet)
 
     try:
@@ -453,12 +467,14 @@ def main() -> int:
             status = fetch_receipt_status(tx["tx_hash"])
             print(f"  tx={tx['tx_hash']} status={status}")
             line = build_ledger_line(row, tx_hash=tx["tx_hash"], status=status, wallet=wallet)
-            profitable = record_ledger_line(line)
+            profitable = record_ledger_line(line, ledger_path=LEDGER_PATH)
             results.append({**tx, "status": status, "row": row, "profitable": profitable})
             # P1 (spec §3/§4): after EVERY redeem, re-check the cumulative earn>spend
             # invariant. HALT -> stop redeeming further conditions THIS pass AND trip the
             # kill-switch so the trading entrypoint (run.sh) refuses the NEXT pass too.
-            halted, reason = check_cumulative_halt(wallet.lower(), "polymarket-redeem")
+            halted, reason = check_cumulative_halt(
+                wallet.lower(), "polymarket-redeem", ledger_path=LEDGER_PATH
+            )
             if halted:
                 write_kill_switch(reason)
                 print(f"P1 GUARD: cumulative net breach ({reason}) — wrote KILL switch, stopping redeem pass.")

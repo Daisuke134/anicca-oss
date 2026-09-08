@@ -51,7 +51,7 @@ number (a malformed line is treated as unverifiable, never as harmless/zero).
 
 `record.mjs`'s JS API (`record()`) already returns this as `{ line, profitable, halt }` — nothing else
 to wire if a skill only ever calls `record()` directly. For a shell entrypoint, add ONE line mirroring
-the existing kill-switch idiom (`polymarket-trade/run.sh`'s `if [ -f "$SKILL_DIR/KILL" ]`), checked
+the existing kill-switch idiom (`polymarket-trade/run.sh`'s shared external KILL check), checked
 BEFORE doing anything that wake:
 ```bash
 if ! node "$HERE/../_shared/lib/earn-guard.mjs" check "$WALLET" "$SOURCE" "$LEDGER"; then
@@ -74,8 +74,9 @@ proceed, never a reason to skip the check.
   strategy branch — 0xwork/yield/swap/hl/token — inherits it for free).
 - `polymarket-trade/redeem.py` — after EVERY redeemed condition, `check_cumulative_halt()` calls the
   same CLI (scope `{wallet: DEPOSIT_WALLET, source: "polymarket-redeem"}`); on HALT it writes
-  `polymarket-trade/KILL`, so the trading entrypoint's UNCHANGED existing kill-switch check stops the
-  NEXT pass — zero changes needed to `polymarket-trade/run.sh` itself.
+  `~/.local/state/life-manager/polymarket/KILL`, so the trading entrypoint's shared kill-switch check stops the
+  NEXT pass. `PM_KILL_SWITCH` may select another installation-owned absolute path, but both writers and readers
+  receive that same path and reject any value that resolves inside the repository.
 
 **Not yet wired** (these don't append to `state/earn-ledger.jsonl` yet, so there's nothing cumulative
 to guard): `hl-trade`, `sol-trade`, `x402-sell`. Once any of them starts calling `record.mjs`/

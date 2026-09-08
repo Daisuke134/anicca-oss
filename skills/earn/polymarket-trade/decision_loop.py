@@ -30,12 +30,15 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SKILL_DIR)  # so `import pinnacle_edge` / `import pinnacle_observe` resolve
 STATE_DIR = os.path.join(SKILL_DIR, "..", "state")
 DECISIONS_PATH = os.path.join(STATE_DIR, "pm-decisions.jsonl")
-KILL_FILE = os.path.join(SKILL_DIR, "KILL")
+KILL_FILE = os.environ.get(
+    "PM_KILL_SWITCH", os.path.expanduser("~/.local/state/life-manager/polymarket/KILL")
+)
 TELEGRAM_SCRIPT = os.path.join(SKILL_DIR, "..", "..", "_shared", "send-telegram.sh")
 LEDGER_PATH = os.path.expanduser("~/anicca/skills/earn/state/earn-ledger.jsonl")
 
@@ -45,6 +48,7 @@ AGENT_HOME = os.environ.get(
 VENV_PY = os.path.join(AGENT_HOME, ".venv", "bin", "python")
 
 import daily_loss_guard  # noqa: E402  (same-dir import, needs SKILL_DIR on sys.path first)
+from state_paths import external_state_path  # noqa: E402
 
 
 def now_iso() -> str:
@@ -199,9 +203,10 @@ def run_cycle() -> dict:
     cycle: dict = {"ts": ts, "dry_run": not _live_confirmed()}
 
     # money-safety guard #1: the SAME kill-switch every other entrypoint in this skill checks
-    if os.path.exists(KILL_FILE):
+    kill_file = external_state_path(KILL_FILE, Path(__file__).resolve().parents[3], "PM_KILL_SWITCH")
+    if os.path.exists(kill_file):
         try:
-            kill_reason = open(KILL_FILE).read().strip() or "(empty KILL file)"
+            kill_reason = open(kill_file).read().strip() or "(empty KILL file)"
         except Exception:
             kill_reason = "(unreadable KILL file)"
         cycle.update({

@@ -239,7 +239,7 @@ This skill is otherwise a thin harness: run for real, record the trace, let the 
 
 | Guard | How |
 |---|---|
-| kill-switch | `touch KILL` in this dir → next run exits without trading (before any of the 3 strategies run). `rm KILL` to resume |
+| kill-switch | `touch ~/.local/state/life-manager/polymarket/KILL` → next run exits without trading (before any strategy runs). `rm ~/.local/state/life-manager/polymarket/KILL` to resume |
 | per-pass fixed spend ceiling (ALL 3 strategies) | `run.sh` exports `MAX_PASS_SPEND` (default $2); `bundle_arb.py`/`market_maker.py`/`pick.py` each cap their own leg to it — see "PER-PASS RISK ENVELOPE" above (fixed ≤~$6/pass, independent of wallet balance) |
 | per-trade cap (directional path) | `pick.py` Kelly-sizes + caps by `MAX_BET_SIZE` (default $2); `place_order.py` re-caps `AMOUNT<=MAX_BET_SIZE` again |
 | per-trade risk (arb/maker paths) | `bundle_arb.py` / `market_maker.py`'s own pre-existing constants (`FEE_RATE`, `EDGE`, `MIN_SIZE`, `MARGIN`) — unchanged by this task except the new `MAX_PASS_SPEND` cap above |

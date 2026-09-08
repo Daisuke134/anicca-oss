@@ -727,12 +727,13 @@
         "max_age_days": 14,
         "max_runs": 100
       },
-      "domain": "system",
-      "effect_class": "none",
+      "domain": "financial",
+      "effect_class": "money",
       "entrypoint": "runtime/earn/earn-watch.sh",
       "label": "ai.anicca.earn-watch",
       "log_root": "~/.local/state/life-manager/earn-watch/logs",
       "provider_route": "deterministic",
+      "runtime_timeout_seconds": 900,
       "state_root": "~/.local/state/life-manager/earn-watch"
     },
     "earning-health-allslots": {

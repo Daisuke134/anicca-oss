@@ -135,6 +135,20 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
                 target.read_text(encoding="utf-8"),
             )
 
+    def test_configure_accepts_earn_watch_install_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "life-manager.env"
+            result = MODULE.configure(target, [
+                "LIFE_MANAGER_WALLET_HOME=/srv/life-manager/instances/founder",
+                "PM_DEPOSIT_WALLET=0x" + "a" * 40,
+                "EARN_WATCH_PAYEE=0x" + "b" * 40,
+            ])
+            self.assertEqual(result, {"configured": 3, "skipped": 0})
+            body = target.read_text(encoding="utf-8")
+            self.assertIn("LIFE_MANAGER_WALLET_HOME=/srv/life-manager/instances/founder\n", body)
+            self.assertIn("PM_DEPOSIT_WALLET=0x" + "a" * 40 + "\n", body)
+            self.assertIn("EARN_WATCH_PAYEE=0x" + "b" * 40 + "\n", body)
+
 
 if __name__ == "__main__":
     unittest.main()

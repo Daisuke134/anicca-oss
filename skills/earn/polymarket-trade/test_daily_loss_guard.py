@@ -6,7 +6,11 @@ NEVER touches the real ledger file or the KILL file — all inputs are mock dict
 Run: python3 -m pytest test_daily_loss_guard.py -q     (or: python3 test_daily_loss_guard.py)
 """
 import datetime
+import os
+import tempfile
+from unittest import mock
 
+import daily_loss_guard
 from daily_loss_guard import check_daily_loss, _day_bounds_utc
 
 # Fixed "now": 2026-07-25 12:00:00 UTC
@@ -98,6 +102,15 @@ def test_day_bounds_are_midnight_utc():
     start_dt = datetime.datetime.fromtimestamp(start, tz=datetime.timezone.utc)
     assert start_dt.hour == 0 and start_dt.minute == 0 and start_dt.second == 0
     assert end == NOW
+
+
+def test_daily_loss_halt_writes_shared_external_kill_path():
+    with tempfile.TemporaryDirectory() as directory:
+        kill = os.path.join(directory, "polymarket", "KILL")
+        with mock.patch.object(daily_loss_guard, "KILL_SWITCH", kill):
+            daily_loss_guard.write_kill_switch("daily-loss")
+        assert os.path.isfile(kill)
+        assert "daily-loss" in open(kill, encoding="utf-8").read()
 
 
 if __name__ == "__main__":

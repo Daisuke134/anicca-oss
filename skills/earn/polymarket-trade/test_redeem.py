@@ -10,9 +10,12 @@ from unittest import mock
 
 import os
 import tempfile
+from pathlib import Path
 
 import redeem
+from state_paths import external_state_path
 from redeem import (
+    configured_deposit_wallet,
     dedupe_redeemable_conditions,
     classify_market_type,
     compute_recovered_amount,
@@ -20,6 +23,23 @@ from redeem import (
     check_cumulative_halt,
     write_kill_switch,
 )
+
+
+class TestRuntimeConfiguration(unittest.TestCase):
+    def test_explicit_deposit_wallet_is_required_and_normalized(self):
+        with mock.patch.dict(os.environ, {"PM_DEPOSIT_WALLET": "0x" + "A" * 40}, clear=True):
+            self.assertEqual(configured_deposit_wallet(), "0x" + "a" * 40)
+
+    def test_invalid_deposit_wallet_fails_closed(self):
+        with mock.patch.dict(os.environ, {"PM_DEPOSIT_WALLET": "not-a-wallet"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "PM_DEPOSIT_WALLET"):
+                configured_deposit_wallet()
+
+    def test_mutable_state_rejects_relative_and_repository_paths(self):
+        with self.assertRaisesRegex(RuntimeError, "must be absolute"):
+            external_state_path("state/file", redeem.REPO_ROOT, "state")
+        with self.assertRaisesRegex(RuntimeError, "outside the repository"):
+            external_state_path(str(redeem.REPO_ROOT / "state/file"), redeem.REPO_ROOT, "state")
 
 
 class TestDedupeRedeemableConditions(unittest.TestCase):
@@ -96,7 +116,9 @@ class TestBuildLedgerLine(unittest.TestCase):
             "initialValue": 3.7999,
             "cashPnl": 2.9857,
         }
-        line = build_ledger_line(row, tx_hash="0xdeadbeef", status="0x1")
+        line = build_ledger_line(
+            row, tx_hash="0xdeadbeef", status="0x1", wallet="0x" + "a" * 40
+        )
         self.assertEqual(line["source"], "polymarket-redeem")
         self.assertEqual(line["tx"], "0xdeadbeef")
         self.assertEqual(line["status"], "0x1")
@@ -143,13 +165,11 @@ class TestCheckCumulativeHalt(unittest.TestCase):
         self.assertIn("check", called_args)
         self.assertIn("0xabc", called_args)
         self.assertIn("polymarket-redeem", called_args)
-        self.assertIn("/tmp/custom-ledger.jsonl", called_args)
+        self.assertIn(str(Path("/tmp/custom-ledger.jsonl").resolve()), called_args)
 
 
 class TestWriteKillSwitch(unittest.TestCase):
-    """write_kill_switch() must trip the SAME file run.sh's existing kill-switch check reads
-    (`if [ -f "$SKILL_DIR/KILL" ]`) — verified here against a redirected temp path so the test
-    never touches the real polymarket-trade/KILL file."""
+    """write_kill_switch() targets the shared mutable path read by run.sh."""
 
     def test_writes_the_reason_to_the_kill_switch_path(self):
         with tempfile.TemporaryDirectory() as d:

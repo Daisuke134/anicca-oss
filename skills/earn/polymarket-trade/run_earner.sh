@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 LIFE_MANAGER_REPO="${LIFE_MANAGER_REPO:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$LIFE_MANAGER_REPO" ] || { echo "LIFE_MANAGER_REPO could not be resolved" >&2; exit 2; }
+LIFE_MANAGER_REPO="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=False))' "$LIFE_MANAGER_REPO")" || exit 2
 export LIFE_MANAGER_REPO
 # Polymarket no-human earner loop: bundle-arb hunt + market-making refresh.
 # Runs one pass; schedule via launchd/cron every ~10min for continuous earning.
@@ -12,6 +13,10 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 VENV="$HOME/.anicca-founder/agents/polymarket-agent/.venv-pysdk/bin/python"
 DIR="$LIFE_MANAGER_REPO/skills/earn/polymarket-trade"
 LOG="$DIR/earner.log"
+KILL_SWITCH="${PM_KILL_SWITCH:-$HOME/.local/state/life-manager/polymarket/KILL}"
+case "$KILL_SWITCH" in /*) ;; *) echo "PM_KILL_SWITCH must be absolute" >&2; exit 2 ;; esac
+KILL_SWITCH="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=False))' "$KILL_SWITCH")" || exit 2
+case "$KILL_SWITCH/" in "$LIFE_MANAGER_REPO/"*) echo "PM_KILL_SWITCH must resolve outside the repository" >&2; exit 2 ;; esac
 ts(){ date -u +%Y-%m-%dT%H:%M:%SZ; }
 TO="$(command -v gtimeout || command -v timeout || true)"
 run(){ if [ -n "$TO" ]; then "$TO" 200 "$@"; else "$@"; fi; }  # python has its own net timeouts
@@ -25,7 +30,7 @@ run "$VENV" "$DIR/redeem.py"       >> "$LOG" 2>&1 || echo "[$(ts)] redeem exit $
 # cumulative net_usdc < reserve. run.sh honored KILL but this launchd entrypoint did NOT, so the
 # valve was dead in production. redeem above still runs (collects wins, reduces exposure); if halted,
 # skip the new-risk trading passes below.
-if [ -f "$DIR/KILL" ]; then
+if [ -f "$KILL_SWITCH" ]; then
   echo "[$(ts)] KILL present — cumulative-loss guard: skipping bundle_arb/market_maker" >> "$LOG"
   exit 0
 fi

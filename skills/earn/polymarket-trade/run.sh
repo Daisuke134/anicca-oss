@@ -6,8 +6,19 @@
 # registration → one real live pass (NO dry-run, HARD 0.24) → structured trace (H1).
 set -u
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
+REPO_ROOT="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=False))' "$REPO_ROOT")" || exit 2
 STATE_DIR="${POLYMARKET_STATE_ROOT:-${EARN_STATE_ROOT:-${LIFE_MANAGER_SKILLS_STATE_ROOT:-${ANICCA_HOME:-$HOME/.local/state/life-manager}/state/skills}/earn}}"; mkdir -p "$STATE_DIR"
 TRACE="$STATE_DIR/pm-trade.trace.jsonl"
+KILL_SWITCH="${PM_KILL_SWITCH:-$HOME/.local/state/life-manager/polymarket/KILL}"
+case "$KILL_SWITCH" in
+  /*) ;;
+  *) echo "PM_KILL_SWITCH must be absolute" >&2; exit 2 ;;
+esac
+KILL_SWITCH="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=False))' "$KILL_SWITCH")" || exit 2
+case "$KILL_SWITCH/" in
+  "$REPO_ROOT/"*) echo "PM_KILL_SWITCH must resolve outside the repository" >&2; exit 2 ;;
+esac
 AGENT_HOME="${PM_TRADE_AGENT_HOME:-$HOME/.anicca-founder/agents/polymarket-agent}"
 export PM_TRADE_AGENT_HOME="$AGENT_HOME"
 
@@ -22,8 +33,8 @@ export BLOCKRUN_BASE_URL="${BLOCKRUN_BASE_URL:-http://127.0.0.1:8402/v1}"
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
-# money-safety guard #1: kill-switch (touch KILL next to this script to stop)
-if [ -f "$SKILL_DIR/KILL" ]; then
+# money-safety guard #1: shared mutable kill-switch written by the redeem guard.
+if [ -f "$KILL_SWITCH" ]; then
   echo "{\"ts\":\"$(now)\",\"slot\":\"earn/pm-trade\",\"action\":\"skip\",\"reason\":\"kill-switch\"}" >> "$TRACE"
   exit 0
 fi

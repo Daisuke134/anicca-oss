@@ -243,6 +243,10 @@ class CleanUserInstallTest(unittest.TestCase):
         self.assertIn("keyring==25.7.0", requirements)
         self.assertIn("markdown-it-py==3.0.0", requirements)
         self.assertIn("pydantic==2.12.5", requirements)
+        self.assertIn("polymarket-client==0.1.0b13", requirements)
+        self.assertIn("eth-account==0.13.7", requirements)
+        self.assertIn("requests==2.34.2", requirements)
+        self.assertIn("web3==7.16.0", requirements)
         bootstrap = (ROOT / "scripts/bootstrap.sh").read_text()
         self.assertIn('-r "$TARGET/requirements-runtime.txt"', bootstrap)
 

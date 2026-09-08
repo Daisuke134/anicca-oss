@@ -4,6 +4,10 @@ ALREADY-PRINTED strategy output — never invents a decision/reason that wasn't 
 
 Run: python3 -m pytest test_decision_loop.py -q     (or: python3 test_decision_loop.py)
 """
+import os
+import tempfile
+
+import decision_loop
 from decision_loop import classify
 
 
@@ -79,6 +83,23 @@ def test_empty_output_exit_zero_is_no_trade_unknown():
     out = classify("", 0)
     assert out["decision"] == "no_trade"
     assert "no decision line matched" in out["reason"]
+
+
+def test_shared_external_kill_stops_decision_cycle_before_strategies():
+    with tempfile.TemporaryDirectory() as directory:
+        kill = os.path.join(directory, "polymarket", "KILL")
+        os.makedirs(os.path.dirname(kill))
+        with open(kill, "w", encoding="utf-8") as handle:
+            handle.write("daily-loss\n")
+        previous = decision_loop.KILL_FILE
+        decision_loop.KILL_FILE = kill
+        try:
+            result = decision_loop.run_cycle()
+        finally:
+            decision_loop.KILL_FILE = previous
+        assert result["action"] == "skip"
+        assert result["strategies_run"] == []
+        assert "daily-loss" in result["reason"]
 
 
 if __name__ == "__main__":
