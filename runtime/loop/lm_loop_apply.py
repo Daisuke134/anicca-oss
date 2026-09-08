@@ -78,6 +78,7 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "CLOAK_TARGET_OWNERS_FILE": str(
                 Path.home() / ".cloak/vault/coconala-reply-targets.json"
             ),
+            "CLOAK_CONTEXT_PARK_ON_IDLE": "1",
             "GIG_CDP_HEALTH_URL": "http://127.0.0.1:9222/json/version",
         })
     key, cadence = next(iter(entry["cadence"].items()))

@@ -19,6 +19,25 @@ import cdp_tab_gc as tab_gc  # noqa: E402
 import target_ownership as ownership  # noqa: E402
 
 
+def test_idle_context_parks_when_owner_requests_reuse(tmp_path, monkeypatch):
+    registry = tmp_path / "target-owners.json"
+    monkeypatch.setenv("CLOAK_TARGET_OWNERS_FILE", str(registry))
+    monkeypatch.setenv("CLOAK_CONTEXT_PARK_ON_IDLE", "1")
+    calls = []
+    monkeypatch.setattr(
+        default_tab.cdp_context_lease, "park",
+        lambda owner: calls.append(("park", owner)) or {"ok": True},
+    )
+    monkeypatch.setattr(
+        default_tab.cdp_context_lease, "release",
+        lambda owner: calls.append(("release", owner)) or {"ok": True},
+    )
+
+    default_tab._release_context_if_idle("gig-reply-detector")
+
+    assert calls == [("park", "gig-reply-detector")]
+
+
 def test_registry_release_refuses_foreign_owner(tmp_path, monkeypatch):
     registry = tmp_path / "target-owners.json"
     monkeypatch.setenv("CLOAK_TARGET_OWNERS_FILE", str(registry))
