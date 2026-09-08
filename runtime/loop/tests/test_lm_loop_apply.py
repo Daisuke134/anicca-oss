@@ -212,6 +212,7 @@ class LmLoopApplyTest(unittest.TestCase):
             environment["CLOAK_TARGET_OWNERS_FILE"],
             str(Path.home() / ".cloak/vault/coconala-reply-targets.json"),
         )
+        self.assertEqual(environment["CLOAK_CONTEXT_PARK_ON_IDLE"], "1")
 
     def test_generic_install_does_not_secure_launchd_log_files(self):
         log_root = self.root / ".local/state/test-log-root"
