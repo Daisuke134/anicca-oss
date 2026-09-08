@@ -85,7 +85,10 @@ DISCOVERY_QUERIES = _discovery_queries()
 # queries added, on a board that is polled every 60 seconds; probing a marketplace harder than it
 # expects is how the Coconala session earned a 403 on 2026-09-07. The window rotates, so coverage
 # is the whole vocabulary over time at today's cost per wake.
-DISCOVERY_WINDOW = 12
+# Categories are now the primary source and cover the board, so the keywords supplement rather
+# than carry it. Nine categories plus six keywords is fifteen requests a wake, fewer than the
+# seventeen this replaces, for roughly twice the postings.
+DISCOVERY_WINDOW = 6
 # Lancers publishes its own category facet, and it is a far better question than a keyword.
 # Measured 2026-09-07 with type[]=project: 「業務システム」 returns 3 postings; /system returns 23,
 # /writing 30, /design 23, /web 17, /business 12. Five category requests therefore see about three
@@ -94,7 +97,16 @@ DISCOVERY_WINDOW = 12
 #
 # Keywords are kept and still rotate: a category is broad, and the catalogue nouns reach postings
 # filed somewhere unexpected. Categories run first so a thin keyword slice cannot decide the wake.
-DISCOVERY_CATEGORIES = ("system", "web", "business", "writing", "design")
+# All nine of them. Measured 2026-09-08: the lane searched five and had never once looked at
+# translation, salesmarketing, multimedia or task -- 82 more project postings, and the two Dais
+# found by hand were in the first two of those. 「音楽歌詞の多言語翻訳」 is a text deliverable and
+# 「動画ブランディング相談」 is advice; neither is prohibited, and neither was ever fetched.
+#
+# Nothing is excluded here on a guess about what the category contains. multimedia holds video the
+# fleet refuses, and task holds work that is often too small -- but work_fit judges the posting,
+# not the shelf it sits on, and a category left out is a category never seen.
+DISCOVERY_CATEGORIES = ("system", "web", "business", "writing", "design",
+                        "translation", "salesmarketing", "multimedia", "task")
 # The lane wakes every 60 seconds (config/loop-registry.json), and the window steps by one query
 # per wake, so the whole vocabulary is read inside half an hour instead of over fourteen hours.
 WAKE_INTERVAL_SECONDS = 60
