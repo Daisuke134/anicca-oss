@@ -133,6 +133,27 @@ def test_gmail_inventory_reuses_unchanged_full_thread(monkeypatch):
     assert len(calls) == 2
 
 
+def test_gmail_inventory_reuses_legacy_integer_internal_date(monkeypatch):
+    calls = []
+
+    def run(argv, **_kwargs):
+        calls.append(argv)
+        messages = ([{"id": "in_1", "threadId": "thread_1",
+                     "from": "person@mercor.com", "subject": "Question"}]
+                    if argv[4].startswith("from:") else [])
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": messages}), "")
+
+    prior = [{"threadId": "thread_1", "messages": [
+        {"id": "in_1", "threadId": "thread_1", "internalDate": 1788888888000,
+         "labels": ["INBOX"], "from": "person@mercor.com",
+         "to": "owner@example.com", "subject": "Question", "body": "Question"},
+    ]}]
+    monkeypatch.setattr(snapshot.subprocess, "run", run)
+
+    assert snapshot._gmail("owner@example.com", "gog", prior) == prior
+    assert len(calls) == 2
+
+
 def test_gmail_inventory_refreshes_thread_with_new_inbound_message(monkeypatch):
     calls = []
 
