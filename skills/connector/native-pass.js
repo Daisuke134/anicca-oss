@@ -185,7 +185,7 @@ async function runNativePass(options = {}) {
     ownerToken,
     stateDir,
     providers: DEFAULT_PROVIDERS,
-    maxConsecutiveFailures: 3,
+    maxConsecutiveFailures: 8,
     maxWakeMs: 600_000,
     maxAgentSteps: 15,
   }), dependencies);

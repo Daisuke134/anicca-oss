@@ -63,7 +63,7 @@ test("official native pass forwards only the bounded minimal wake contract", asy
     assert.deepEqual(result, { status: "circuit_open", safe_reason: "fixture" });
     assert.equal(observed.length, 1);
     assert.deepEqual(observed[0].input.providers, ["luma", "connpass", "peatix", "meetup", "doorkeeper", "eventbrite", "techplay", "kokuchpro"]);
-    assert.equal(observed[0].input.maxConsecutiveFailures, 3);
+    assert.equal(observed[0].input.maxConsecutiveFailures, 8);
     assert.equal(observed[0].input.maxWakeMs, 600_000);
     assert.equal(observed[0].input.maxAgentSteps, 15);
     assert.deepEqual(observed[0].dependencies, { boundary: "fixture" });
