@@ -1085,6 +1085,18 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    with a real control still fails closed. The combined shared/Coconala Reply regression passes 71/71.
    Release `20260908T155805-542ddcf6` contains the prior attachment and official-send-restriction fixes and
    is installed only for Coconala Reply; its first natural wake is active, so no acceptance claim is made.
+   That release ended naturally with `observed=174`, `effect=0`, `readback=155`, `failed=2`, and
+   `pending=17`: the server-side sending restriction moved to durable pending as designed, while the
+   attachment and prior semantic rows remained under their existing retry backoff. Release
+   `20260908T160256-400ee210` then included the official estimate-control wait and ended naturally with
+   `observed=174`, `effect=0`, `readback=155`, `failed=1`, and `pending=18`; both formerly failing estimate
+   rows are now resumable pending. The sole current failure is `semantic_reply_audit_unexpected` after a
+   corrective model response placed unresolved buyer questions in `reply_audit` while choosing `wait`.
+   The correction contract now states that non-reply actions keep every reply-audit collection empty and
+   put unresolved facts in `uncertainty`; it also preserves the authoritative latest role and maps a
+   buyer-side provider notice with no question or request to `unknown/wait` rather than inventing an effect.
+   The focused shared/Coconala Reply regression remains 71/71. This awaits a pushed-main natural run after
+   the durable backoff timestamps, not a state reset or manual retry.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
