@@ -29,13 +29,23 @@ reply_planner = importlib.util.module_from_spec(PLANNER_SPEC)
 sys.modules[PLANNER_SPEC.name] = reply_planner
 PLANNER_SPEC.loader.exec_module(reply_planner)
 
+GROUNDING_SPEC = importlib.util.spec_from_file_location(
+    "anicca_shared_reply_grounding",
+    HERE.parents[2] / "_shared/marketplace-core/scripts/reply_grounding.py",
+)
+if GROUNDING_SPEC is None or GROUNDING_SPEC.loader is None:
+    raise RuntimeError("reply_grounding_unavailable")
+reply_grounding = importlib.util.module_from_spec(GROUNDING_SPEC)
+sys.modules[GROUNDING_SPEC.name] = reply_grounding
+GROUNDING_SPEC.loader.exec_module(reply_grounding)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class LancersReplyAdapter:
-    def __init__(self, state_path: Path):
+    def __init__(self, state_path: Path, grounding: Mapping[str, Any] | None = None):
         self.state_path = state_path
         self.browser = None
         self.page = None
@@ -43,6 +53,7 @@ class LancersReplyAdapter:
         self._boards: dict[str, tuple[Mapping[str, Any], Mapping[str, Any], list[Mapping[str, Any]]]] = {}
         self._posted: dict[str, str] = {}
         self._verified_proposals: set[str] = set()
+        self._grounding = dict(grounding or {})
 
     def _open(self) -> None:
         if self.page is not None:
@@ -128,6 +139,7 @@ class LancersReplyAdapter:
             "conversation": conversation,
             "reply_required": bool(conversation and conversation[-1]["role"] == "buyer"),
             "verified_proposal": proposal,
+            "grounding": self._grounding,
         }
 
     def mutate(self, intent: dict[str, Any]) -> None:
@@ -187,16 +199,29 @@ def compose(context: dict[str, Any], state_path: Path) -> str | None:
     ]
     return work_sync._compose_reply(
         board, messages, state_path,
-        {"verified_proposal": context.get("verified_proposal")},
+        {**dict(context.get("grounding") or {}),
+         "verified_proposal": context.get("verified_proposal")},
     )
 
 
 def build(argv: list[str]):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--state-path", required=True, type=Path)
+    parser.add_argument(
+        "--candidate-profile", type=Path,
+        default=Path.home() / ".config/anicca/job-search/profile.json",
+    )
+    parser.add_argument(
+        "--provider-profile", type=Path,
+        default=Path.home() / ".config/anicca/crowdworks/public-profile.json",
+    )
     args = parser.parse_args(argv)
     state_path = args.state_path.expanduser().resolve()
-    adapter = LancersReplyAdapter(state_path)
+    grounding = reply_grounding.build_reply_grounding(
+        candidate_profile_path=args.candidate_profile,
+        provider_profile_path=args.provider_profile,
+    )
+    adapter = LancersReplyAdapter(state_path, grounding)
 
     return adapter, reply_planner.ReplyPlanner(
         lambda context: compose(context, state_path)

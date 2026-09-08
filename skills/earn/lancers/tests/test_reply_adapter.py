@@ -132,3 +132,22 @@ def test_sender_identity_not_required_reply_flag_owns_role(monkeypatch, tmp_path
         "event_id": "7", "role": "buyer", "body": "よろしいですか？",
     }]
     assert context["reply_required"] is True
+
+
+def test_context_carries_shared_candidate_grounding(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(
+        tmp_path / "state.json",
+        {"candidate": {"age_band": "20代"}, "verified_facts": []},
+    )
+    adapter._boards["board-1"] = (
+        {"id": "board-1", "title": "work"},
+        {},
+        [{
+            "id": "1", "description": "年代を教えてください",
+            "send_user": {"is_client": True},
+        }],
+    )
+
+    context = adapter.context("board-1")
+
+    assert context["grounding"]["candidate"]["age_band"] == "20代"

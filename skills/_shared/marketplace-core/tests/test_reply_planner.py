@@ -126,3 +126,15 @@ def test_provider_can_require_cumulative_model_judgement_for_seller_last_debt():
         "estimate_terms": {"title": "開発", "price_jpy": 10000},
     })
     assert planner(value)["action"] == "estimate"
+
+
+def test_missing_fact_decision_never_becomes_a_customer_reply():
+    planner = planner_module.ReplyPlanner(lambda _context: {
+        "next_action": "wait",
+        "uncertainty": ["性別"],
+    })
+    assert planner(row()) == {
+        "action": "wait",
+        "reason": "official_context_required",
+        "remaining_work": ["性別"],
+    }
