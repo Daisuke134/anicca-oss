@@ -140,7 +140,12 @@ def validate_deferred_artifact(artifact: dict[str, Any], run_id: str, topic_id: 
 
     module.validate_artifact(
         artifact,
-        Path.home() / ".openclaw/workspace/zenn-articles",
+        Path(
+            os.environ.get(
+                "ZENN_REPO_PATH",
+                str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles"),
+            )
+        ),
         run_id,
         topic_id,
     )
@@ -164,7 +169,7 @@ def valid_zenn_pending(path: Path, run_id: str, topic_id: str | None) -> bool:
         and artifact["markdown_file"]
         and isinstance(artifact.get("handed_off_at"), str)
         and artifact["handed_off_at"]
-        and artifact.get("live_url") == f"https://zenn.dev/anicca/articles/{artifact['slug']}"
+        and artifact.get("live_url") == f"https://zenn.dev/{os.environ.get('ZENN_ACCOUNT', '')}/articles/{artifact['slug']}"
     )
     if not shape_valid or topic_id is None:
         return False

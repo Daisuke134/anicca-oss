@@ -5,13 +5,18 @@
 # Spec: anicca-project/docs/superpowers/specs/2026-06-24-publish-to-zenn-F4a.md. NEVER /tmp; SSH remote (no PAT).
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$HOME/.openclaw/workspace/zenn-articles"
-PY="${WRITER_BROWSER_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3)}}"
-WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
-USER_NAME="anicca"
-export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes"
+# shellcheck source=../writer-runtime-env.sh
+source "$DIR/../writer-runtime-env.sh"
+REPO="$ZENN_REPO_PATH"
+PY="$WRITER_BROWSER_PYTHON"
+WORK="$WRITER_STATE_DIR/zenn-preview"; mkdir -p "$WORK"
+USER_NAME="${ZENN_ACCOUNT:?ZENN_ACCOUNT is required}"
+if [ -n "${ZENN_SSH_KEY:-}" ]; then
+  export GIT_SSH_COMMAND="ssh -i $ZENN_SSH_KEY -o IdentitiesOnly=yes"
+fi
+"$PY" "$DIR/../zenn_checkout.py" >/dev/null || exit 2
 filt(){ grep -vE "Update available|pip install|fonts loaded|新しいバージョン|npm install zenn" || true; }
-gitz(){ git -C "$REPO" -c url.git@github.com:.insteadOf= -c user.email=anicca@aniccaai.com -c user.name=anicca "$@"; }
+gitz(){ git -C "$REPO" "$@"; }
 
 # generic first-person run/test/next-chapter claims that must NEVER appear in a free 解説 (no-lie gate)
 LIE_PATTERNS=(次の章 動かしてみた 動かしました 動かしてみた結果 動かしてみたら 実際の動かし方 動かして検証 \

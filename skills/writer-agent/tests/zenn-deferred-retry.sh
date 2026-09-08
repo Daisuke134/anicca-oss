@@ -88,10 +88,10 @@ python3 - "$DAILY" <<'PY'
 import sys
 text = open(sys.argv[1], encoding="utf-8").read()
 completion = text.index("if ! pass_is_complete; then")
-deferred = text.index("zenn-deferred-control.py\" handoff", completion)
 pending_owner = text.index("incomplete; durable pending worker owns", completion)
-assert deferred < pending_owner, "Zenn handoff must precede pending-worker ownership"
+assert pending_owner > completion, "pending worker must own incomplete publication state"
 assert text.count("run_model_pass") == 2, "one function definition plus one foreground call"
+assert 'zenn-deferred-control.py" handoff' not in text[completion:], "daily wrapper must not duplicate pending-worker handoff"
 assert 'zenn-deferred-retry.sh' not in text[completion:], "daily wrapper must not run the retry worker"
 PY
 

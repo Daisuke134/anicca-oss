@@ -628,7 +628,7 @@ image-count verify. The scripts are still Automaton-hardcoded — parameterize (
 
 ## ★ ZENN ONE-SHOT PUBLISH (git-based sibling of the note pipeline) ★ (2026-06-24, built+verified)
 Zenn = funnel（正本）: 全文無料を恒久維持。役割は発見面と信頼構築、note/Substack subscription への導線。常に有料化対象ではない。
-Scripts: scripts/zenn-publish/ (zenn-adapt.py + publish-to-zenn.sh). Zenn = `git push` to the configured Zenn articles repo (remote comes from ZENN_REPO_PATH; never write the operator's handle into an article)
+Scripts: scripts/zenn-publish/ (zenn-adapt.py + publish-to-zenn.sh). Zenn = `git push` to the configured Zenn articles repo. The checkout is Life Manager-managed at `$WRITER_STATE_DIR/checkouts/zenn-articles`; its remote and public identity come from `ZENN_REPOSITORY_URL` and `ZENN_ACCOUNT` (never write the operator's handle into an article).
 (SSH remote, NO inline PAT) deploys the article; mermaid + markdown tables render NATIVELY (NO image upload).
 The article is a FREE HONEST explainer — it must NEVER claim a run/result (that lives only in the paid note).
   1. ADAPT (zenn-adapt.py): source md → zenn md. Frontmatter (single emoji, type tech/idea, ≤5 topics, stable

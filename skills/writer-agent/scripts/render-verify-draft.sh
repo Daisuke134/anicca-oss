@@ -76,7 +76,7 @@ log_gate_verdict() {
 }
 
 # --- zenn: git-based, NO browser session (task #76, 2026-07-17 correction) ---
-# Zenn publish is a plain `git push` to Daisuke134/zenn-articles (SKILL.md "ZENN ONE-SHOT
+# Zenn publish is a plain `git push` to the configured publication repository (SKILL.md "ZENN ONE-SHOT
 # PUBLISH") -- there is no login-gated dashboard in this loop's actual publish path, so
 # screenshotting zenn.dev/dashboard (what an earlier version of this task mistakenly tried) is
 # wrong on two counts: it needs a browser session this loop never otherwise uses, AND it does
@@ -84,7 +84,7 @@ log_gate_verdict() {
 # --url accepts a full zenn.dev URL, a local `npx zenn preview` URL, or a bare slug -- only the
 # last path segment (the slug) is used.
 if [ "$PLATFORM" = "zenn" ]; then
-  ZENN_REPO="${ZENN_ARTICLES_REPO:-$HOME/.openclaw/workspace/zenn-articles}"
+  ZENN_REPO="${ZENN_REPO_PATH:-${ZENN_ARTICLES_REPO:-$HOME/.local/state/life-manager/writer/checkouts/zenn-articles}}"
   SLUG="${URL##*/}"
   MD="$ZENN_REPO/articles/$SLUG.md"
   PROBLEMS=(); ADVISORY=()

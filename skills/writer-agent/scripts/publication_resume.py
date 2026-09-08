@@ -123,7 +123,7 @@ PAIR_HOSTS = {
 }
 EXPECTED_DESTINATION_IDENTITIES = {
     "note/ja": "anicca123",
-    "zenn-article/ja": "anicca",
+    "zenn-article/ja": os.environ.get("ZENN_ACCOUNT", ""),
     "devto/en": "anicca_301094325e",
     "substack/ja": "aniccabuddha.substack.com",
     "substack/en": "aniccabuddha.substack.com",
@@ -245,6 +245,10 @@ def configured_destination_identities(
 
     values = os.environ if environ is None else environ
     identities = dict(EXPECTED_DESTINATION_IDENTITIES)
+    zenn = values.get("ZENN_ACCOUNT", identities["zenn-article/ja"]).strip().lower()
+    if re.fullmatch(r"[a-z0-9_-]+", zenn) is None:
+        raise InvariantError("ZENN_ACCOUNT is required and invalid")
+    identities["zenn-article/ja"] = zenn
     japanese = values.get("SUBSTACK_PUBLICATION_JA", "").strip().lower()
     english = values.get("SUBSTACK_PUBLICATION_EN", "").strip().lower()
     if not japanese:

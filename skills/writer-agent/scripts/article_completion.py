@@ -66,10 +66,16 @@ def validate_live_set(
 def terminal_artifact_complete(artifact: dict, run_id: str, topic_id: str | None) -> bool:
     """Recognize terminal evidence without consulting mutable source or the network."""
     slug = artifact.get("slug")
-    canonical_url = f"https://zenn.dev/anicca/articles/{slug}"
+    canonical_url = artifact.get("live_url")
     return (
         isinstance(slug, str)
         and re.fullmatch(r"[a-z0-9_-]{12,50}", slug) is not None
+        and isinstance(canonical_url, str)
+        and re.fullmatch(
+            rf"https://zenn\.dev/[A-Za-z0-9_-]+/articles/{re.escape(slug)}",
+            canonical_url,
+        )
+        is not None
         and artifact.get("status") == "complete"
         and artifact.get("run_id") == run_id
         and topic_id is not None

@@ -314,7 +314,7 @@ def recover_state(state_path: Path, *, allow_zenn_intent: bool = False) -> None:
     zenn_repo = Path(
         os.environ.get(
             "ARTICLE_ZENN_REPO",
-            str(Path.home() / ".openclaw/workspace/zenn-articles"),
+            str(Path.home() / ".local/state/life-manager/writer/checkouts/zenn-articles"),
         )
     )
     zenn_article = zenn_repo / "articles" / f"{zenn_slug}.md"

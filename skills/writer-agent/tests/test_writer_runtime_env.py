@@ -126,6 +126,74 @@ class WriterRuntimeEnvTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "/managed/python|/managed/python")
 
+    def test_zenn_checkout_is_writer_managed_and_config_is_user_supplied(self):
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp) / "writer"
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    f'source "{SCRIPT}" && printf "%s|%s|%s|%s" "$ZENN_REPO_PATH" "$ARTICLE_ZENN_REPO" "$ZENN_REPOSITORY_URL" "$ZENN_ACCOUNT"',
+                ],
+                text=True,
+                capture_output=True,
+                env={
+                    **os.environ,
+                    "LIFE_MANAGER_REPO": str(ROOT),
+                    "ARTICLE_STATE_DIR": str(state),
+                    "ZENN_REPOSITORY_URL": "https://github.com/example/articles.git",
+                    "ZENN_ACCOUNT": "example-writer",
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            expected = str(state / "checkouts/zenn-articles")
+            self.assertEqual(
+                result.stdout,
+                f"{expected}|{expected}|https://github.com/example/articles.git|example-writer",
+            )
+
+    def test_zenn_runtime_has_no_legacy_checkout_or_operator_repository(self):
+        paths = [
+            SCRIPTS / "publish-zenn.sh",
+            SCRIPTS / "post-zenn.py",
+            SCRIPTS / "render-verify-draft.sh",
+            SCRIPTS / "article_daily_start_control.py",
+            SCRIPTS / "article_completion.py",
+            SCRIPTS / "publication_resume.py",
+            SCRIPTS / "recover-known-unavailable.py",
+            SCRIPTS / "zenn-deferred-control.py",
+            SCRIPTS / "zenn-deferred-worker.py",
+            SCRIPTS / "zenn-deferred-worker.sh",
+            SCRIPTS / "zenn-publish/current_run_zenn.py",
+            SCRIPTS / "zenn-publish/publish-to-zenn.sh",
+            SCRIPTS / "devto-publish/devto.py",
+        ]
+        forbidden = (
+            ".openclaw/workspace/zenn-articles",
+            ".openclaw/workspace/writer-agent",
+            "Daisuke134/zenn-articles",
+            "zenn.dev/anicca",
+            "username=anicca",
+            "anicca@aniccaai.com",
+        )
+        offenders = []
+        for path in paths:
+            body = path.read_text(encoding="utf-8")
+            for value in forbidden:
+                if value in body:
+                    offenders.append(f"{path.relative_to(ROOT)}:{value}")
+        self.assertEqual(offenders, [])
+        self.assertTrue(os.access(SCRIPTS / "zenn-publish/publish-to-zenn.sh", os.X_OK))
+        publisher = (SCRIPTS / "zenn-publish/publish-to-zenn.sh").read_text(encoding="utf-8")
+        self.assertLess(
+            publisher.index("export GIT_SSH_COMMAND"),
+            publisher.index('"$PY" "$DIR/../zenn_checkout.py"'),
+        )
+        self.assertFalse((SCRIPTS / "ai.anicca.article-zenn-retry.plist").exists())
+        prompt = (SCRIPTS / "zenn-publish/zenn-agent-prompt.md").read_text(encoding="utf-8")
+        self.assertNotIn(".openclaw", prompt)
+        self.assertIn('publish-to-zenn.sh adapt "$MD" "$SLUG"', prompt)
+
     def test_writer_scripts_have_no_legacy_or_host_specific_python(self):
         legacy = (
             ".openclaw/skills/_shared/venv-cloak/bin/python3",
