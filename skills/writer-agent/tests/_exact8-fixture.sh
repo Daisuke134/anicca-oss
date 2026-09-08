@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # Shared exact8 publication-state fixture for shell contract tests.
 export ARTICLE_TEST_ONLY=1
+# Portable, non-secret destination identities for publication-state fixtures.
+# Production requires the installer to provide its own values; shell tests own
+# explicit synthetic identities instead of inheriting one operator's env.
+export NOTE_URLNAME=writer-note
+export ZENN_ACCOUNT=writer-zenn
+export DEVTO_ACCOUNT_HANDLE=writer-devto
+export SUBSTACK_PUBLICATION_JA=writer-ja.substack.com
+export SUBSTACK_PUBLICATION_EN=writer-en.substack.com
+export X_ACCOUNT_HANDLE=writer-x
+export ARTICLE_PRODUCT_LANDING_URL=https://writer.example/product
+export ARTICLE_SELF_OWNED_BASE_URL=https://writer.example
 
 exact8_init_state() {
   local root="$1"
@@ -13,11 +24,11 @@ exact8_init_state() {
   local helper="$root/skills/writer-agent/scripts/publication_resume.py"
 
   mkdir -p "$run_dir/gates"
-  printf '# ja\n\nhttps://aniccaai.com/?product_id=anicca&run_id=%s&artifact_id=article-ja&variant_id=fixture-ja&click_id=%s-article-ja\n' \
+  printf '# ja\n\nhttps://writer.example/product?product_id=fixture&run_id=%s&artifact_id=article-ja&variant_id=fixture-ja&click_id=%s-article-ja\n' \
     "$run_id" "$run_id" >"$run_dir/article-ja.md"
   printf '%s\n' '---' 'title: "Exact8 fixture"' 'tags: ai, agents' '---' '# en' '' \
     >"$run_dir/article-en.md"
-  printf 'https://aniccaai.com/?product_id=anicca&run_id=%s&artifact_id=article-en&variant_id=fixture-en&click_id=%s-article-en\n' \
+  printf 'https://writer.example/product?product_id=fixture&run_id=%s&artifact_id=article-en&variant_id=fixture-en&click_id=%s-article-en\n' \
     "$run_id" "$run_id" >>"$run_dir/article-en.md"
   # Publication init refuses drafts without the canonical media envelope;
   # attach it through the same mechanical boundary production uses.
@@ -25,7 +36,7 @@ exact8_init_state() {
     --file "$run_dir/article-ja.md" >/dev/null
   python3 "$root/skills/writer-agent/scripts/canonical_media.py" attach \
     --file "$run_dir/article-en.md" >/dev/null
-  printf 'short post\n\nhttps://aniccaai.com/?product_id=anicca&run_id=%s&artifact_id=x-post-ja&variant_id=fixture-x&click_id=%s-x-post-ja\n' \
+  printf 'short post\n\nhttps://writer.example/product?product_id=fixture&run_id=%s&artifact_id=x-post-ja&variant_id=fixture-x&click_id=%s-x-post-ja\n' \
     "$run_id" "$run_id" >"$run_dir/x-post-ja.txt"
   printf 'headline\n' >"$run_dir/headline-image.png"
   printf 'diagram\n' >"$run_dir/body-diagram.png"
@@ -114,13 +125,13 @@ exact8_record_other_seven() {
   local pair public_id live_url evidence
   for pair in note/ja devto/en substack/ja substack/en x-article/ja x-article/en x-post/ja; do
     case "$pair" in
-      note/ja) public_id=note-current; live_url=https://note.com/anicca/n/note-current ;;
-      devto/en) public_id=1001; live_url=https://dev.to/anicca/1001 ;;
-      substack/ja) public_id=1002; live_url=https://anicca.substack.com/p/1002 ;;
-      substack/en) public_id=1003; live_url=https://anicca.substack.com/p/1003 ;;
-      x-article/ja) public_id=3001; live_url=https://x.com/anicca/article/3001 ;;
-      x-article/en) public_id=3002; live_url=https://x.com/anicca/article/3002 ;;
-      x-post/ja) public_id=4001; live_url=https://x.com/anicca/status/4001 ;;
+      note/ja) public_id=note-current; live_url=https://note.com/writer-note/n/note-current ;;
+      devto/en) public_id=1001; live_url=https://dev.to/writer-devto/1001 ;;
+      substack/ja) public_id=1002; live_url=https://writer-ja.substack.com/p/1002 ;;
+      substack/en) public_id=1003; live_url=https://writer-en.substack.com/p/1003 ;;
+      x-article/ja) public_id=3001; live_url=https://x.com/writer-x/article/3001 ;;
+      x-article/en) public_id=3002; live_url=https://x.com/writer-x/article/3002 ;;
+      x-post/ja) public_id=4001; live_url=https://x.com/writer-x/status/4001 ;;
     esac
     evidence="$(python3 - "$state" "$pair" "$public_id" <<'PY'
 import json

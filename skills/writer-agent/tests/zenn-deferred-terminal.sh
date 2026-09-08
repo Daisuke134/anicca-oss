@@ -19,14 +19,14 @@ exact8_record_other_seven "$ROOT" "$TMP/runs/$RUN" "$LEDGER"
 exact8_write_zenn_readback \
   "$TMP/runs/$RUN/gates/publication-state.json" "$TMP/zenn-readback.json" \
   terminal-slug-1 2026-07-22T03:00:00+00:00 \
-  https://zenn.dev/anicca/articles/terminal-slug-1
+  https://zenn.dev/writer-zenn/articles/terminal-slug-1
 python3 "$CONTROL" handoff --test-allow-local-source --repo "$TMP/repo" --ledger "$LEDGER" \
   --run-id "$RUN" --artifact "$ARTIFACT" >/dev/null
 python3 "$CONTROL" record --test-allow-local-source --repo "$TMP/repo" --ledger "$LEDGER" \
   --run-id "$RUN" --artifact "$ARTIFACT" \
   --published-at 2026-07-22T03:00:00+00:00 \
   --test-public-readback-json "$TMP/zenn-readback.json" \
-  --live-url https://zenn.dev/anicca/articles/terminal-slug-1 >/dev/null
+  --live-url https://zenn.dev/writer-zenn/articles/terminal-slug-1 >/dev/null
 jq --arg run "$RUN" '. + {
   status:"complete", run_id:$run, topic_id:"topic-terminal",
   completion_check:"passed", notification_status:"sent",

@@ -22,13 +22,14 @@ chmod +x "$TMP/bin/model-runner"
 export ARTICLE_MODEL_RUNNER="$TMP/bin/model-runner"
 export ARTICLE_RUN_DIR="$TMP/run"
 export CAPTURED_PROMPT="$TMP/prompt.txt"
+export ARTICLE_PRODUCT_LANDING_URL=https://writer.example/product
 ARTICLE="$ARTICLE_RUN_DIR/article-ja.md"
 cat >"$ARTICLE" <<'EOF'
 # 実測結果
 
 検索結果を比較した。
 
-[次の実行を記録する](https://aniccaai.com/?product_id=anicca&run_id=daily-cta-contract&artifact_id=article-ja&variant_id=measured-cta&click_id=daily-cta-contract-article-ja)
+[次の実行を記録する](https://writer.example/product?product_id=fixture&run_id=daily-cta-contract&artifact_id=article-ja&variant_id=measured-cta&click_id=daily-cta-contract-article-ja)
 EOF
 BEFORE_HASH="$(shasum -a 256 "$ARTICLE" | awk '{print $1}')"
 

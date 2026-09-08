@@ -37,7 +37,7 @@ fi
 
 # The final exact-eight validator enforces the same single-topic/http(s) contract.
 cp "$LEDGER" "$TMP/eight.jsonl"
-printf '{"run_id":"%s","topic_id":"topic-2","platform":"zenn-article","lang":"ja","live_url":"https://zenn.dev/anicca/articles/strict-slug-1","published":true,"reality_gate":"PASS"}\n' "$RUN" >>"$TMP/eight.jsonl"
+printf '{"run_id":"%s","topic_id":"topic-2","platform":"zenn-article","lang":"ja","live_url":"https://zenn.dev/writer-zenn/articles/strict-slug-1","published":true,"reality_gate":"PASS"}\n' "$RUN" >>"$TMP/eight.jsonl"
 if python3 "$COMPLETE" --ledger "$TMP/eight.jsonl" --run-id "$RUN" --armed 1 --publication-state "$STATE"; then
   echo 'FAIL: mixed-topic exact-eight passed' >&2
   exit 1

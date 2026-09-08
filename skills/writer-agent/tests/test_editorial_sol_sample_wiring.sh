@@ -49,9 +49,9 @@ bash "$GATE" "$ARTICLE_RUN_DIR/article-ja.md" --lang ja >/dev/null
 jq -e '.verdict == "PASS" and .article_sha256 != null' \
   "$ARTICLE_RUN_DIR/gates/sol-audit-ja.json" >/dev/null
 
-# Same bytes reuse the durable audit; Terra may recheck, Sol may not.
+# Same bytes reuse the durable editorial and Sol audits; neither model reruns.
 bash "$GATE" "$ARTICLE_RUN_DIR/article-ja.md" --lang ja >/dev/null
-[ "$(grep -c '^terra$' "$CALLS")" -eq 2 ]
+[ "$(grep -c '^terra$' "$CALLS")" -eq 1 ]
 [ "$(grep -c '^sol$' "$CALLS")" -eq 1 ]
 
 # The non-selected language never calls Sol for the JA sample slot.

@@ -17,7 +17,7 @@ if [ -z "${ARTICLE_RUN_ID:-}" ] || [ -z "${ARTICLE_RUN_DIR:-}" ]; then
   exit 0
 fi
 
-STATE="${ARTICLE_SOL_SAMPLE_STATE:-${ARTICLE_STATE_DIR:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}/state}}/sol-quality-sample.json"
+STATE="${ARTICLE_SOL_SAMPLE_STATE:-${ARTICLE_STATE_DIR:-${ARTICLE_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}/state}/sol-quality-sample.json}"
 GATES="$ARTICLE_RUN_DIR/gates"
 TRIGGER="$GATES/sol-trigger-$LANG_A.json"
 AUDIT="$GATES/sol-audit-$LANG_A.json"

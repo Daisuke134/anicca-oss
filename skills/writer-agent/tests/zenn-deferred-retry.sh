@@ -40,7 +40,7 @@ assets = [item["sha256"] for item in state["media"]["body_assets"]]
 urls = [f"https://assets.example/{index}.png" for index, _ in enumerate(assets)]
 value = {
     "status": "live",
-    "live_url": "https://zenn.dev/anicca/articles/target-slug-1",
+    "live_url": "https://zenn.dev/writer-zenn/articles/target-slug-1",
     "verified": True,
     "public_id": "target-slug-1",
     "published_at": "2026-07-21T17:08:36+00:00",
@@ -61,7 +61,7 @@ value = {
     ],
     "asset_verified": True,
     "body_media_verified": True,
-    "destination_identity": "anicca",
+    "destination_identity": "writer-zenn",
     "identity_verified": True,
     "identity_source": "zenn-username-scoped-api",
 }
@@ -141,7 +141,7 @@ cat >"$TMP/reality-gate.sh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
 test "$1" = ssr
-test "$2" = 'https://zenn.dev/anicca/articles/target-slug-1'
+test "$2" = 'https://zenn.dev/writer-zenn/articles/target-slug-1'
 test "$3" = 'Target title'
 test "$(cat "$REALITY_MODE")" = pass
 printf 'VERDICT=PASS\n'

@@ -122,10 +122,10 @@ cat > "$TMP/outage-root/run-x/gates/beat-rate-en.json" <<'JSON'
  "candidates":[{"title":"We measured 40 percent","role":"chosen","beat_rate":0.0,"scorable_pairs":0},
                {"title":"A plain headline","role":"rejected","beat_rate":0.5,"scorable_pairs":4}]}
 JSON
-OUT_OUTAGE=$(ROOT="$TMP/outage-root" "$PY" -c '
+OUT_OUTAGE=$(ROOT="$TMP/outage-root" SCRIPT_DIR="$SCRIPT_DIR" "$PY" -c '
 import os, sys
 from pathlib import Path
-sys.path.insert(0, "scripts")
+sys.path.insert(0, os.environ["SCRIPT_DIR"])
 import goodhart
 print(len(goodhart.load_candidates_from_runs(Path(os.environ["ROOT"]))))
 ')
