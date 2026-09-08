@@ -7,6 +7,7 @@ const { isVerifiedLumaDateInventory } = require("./luma-date-inventory.js");
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 const FITS = Object.freeze(["strong", "moderate", "weak", "unknown"]);
 const PRIORITY_CLASSES = Object.freeze(["yc_hackathon", "open_talk", "ai", "crypto", "startup", "other"]);
+const EXPLICIT_RELEVANCE = /(?:\b(?:ai|artificial intelligence|machine learning|llm|agentic|crypto|web3|blockchain|startup|founder|venture capital|vc|pitch|hackathon|lightning talk|lt)\b|人工知能|生成ai|機械学習|暗号資産|ブロックチェーン|スタートアップ|起業|創業|投資家|ハッカソン|ライトニングトーク|(?:LT|ライトニングトーク).{0,12}登壇)/i;
 const PRIORITY_ORDER = new Map(PRIORITY_CLASSES.map((value, index) => [value, index]));
 const FIT_ORDER = new Map(FITS.map((value, index) => [value, index]));
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -161,12 +162,13 @@ function validateProviderCandidateRanking(value, input) {
       || !PRIORITY_CLASSES.includes(row.priority_class)) invalid();
     seen.add(eventRef);
     const candidate = candidates.get(eventRef);
+    const explicitRelevance = EXPLICIT_RELEVANCE.test(`${candidate.title}\n${candidate.body}`);
     return Object.freeze({
       ...candidate,
       priority_class: row.priority_class,
       preference_fit: row.preference_fit,
       preference_reason: safeText(row.preference_reason, 500),
-      auto_apply_eligible: row.priority_class !== "other" && ["strong", "moderate"].includes(row.preference_fit),
+      auto_apply_eligible: explicitRelevance && row.priority_class !== "other" && ["strong", "moderate"].includes(row.preference_fit),
     });
   }).sort((a, b) => PRIORITY_ORDER.get(a.priority_class) - PRIORITY_ORDER.get(b.priority_class)
     || FIT_ORDER.get(a.preference_fit) - FIT_ORDER.get(b.preference_fit)
