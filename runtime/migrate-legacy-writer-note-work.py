@@ -21,7 +21,6 @@ LIVE_FILES = (
     "draft-ledger.json",
     "note-cookies.json",
     "substack-img-cache.json",
-    "thumb.png",
 )
 
 
