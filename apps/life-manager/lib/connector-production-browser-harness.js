@@ -1767,7 +1767,11 @@ function createPrivateValueResolver(options = {}) {
       return typeof value === "string" && value.length > 0 && value.length <= 2_000 && value === value.trim() ? value : null;
     }
     if (["checkbox", "radio"].includes(control.kind)) {
-      if (input.provider === "connpass") return input.state === "connpass_join" && connpassSafeRadioCategory(control) ? true : null;
+      if (input.provider === "connpass") {
+        if (input.state !== "connpass_join") return null;
+        if (connpassSafeRadioCategory(control)) return true;
+        return approvedOption(await safeProfile(readFormProfile), question, label) ? true : null;
+      }
       const profile = await safeProfile(readPeatixProfile);
       const knownPrivacyOption = label === normalizedLabel("確認し同意する。") && /^.+のプライバシーポリシーを読んだ・確認した$/.test(question);
       if ((LABEL.privacy.test(label) || knownPrivacyOption) && profile && profile.accept_organizer_privacy === true) return true;
@@ -2275,7 +2279,26 @@ function createProductionBrowserHarness(options = {}) {
           ? Object.freeze({ state: "registration_page", controls: Object.freeze([]) })
           : observed(page, input.provider, input.candidate, false, { signal });
       },
-      async proposeAction(input) { if (extensionAuthRequired) return null; const proposal = await proposeAction(input); const token = String(proposal && typeof proposal === "object" ? proposal.control || "" : ""); const control = input.observation.controls.find((item) => item.control === token); return CONTROL.test(token) && control ? actionForControl(control) : null; },
+      async proposeAction(proposalInput) {
+        if (extensionAuthRequired) return null;
+        const proposal = await proposeAction(proposalInput);
+        const token = String(proposal && typeof proposal === "object" ? proposal.control || "" : "");
+        let control = proposalInput.observation.controls.find((item) => item.control === token);
+        if (input.provider === "connpass" && control && control.kind === "radio") {
+          const sameQuestion = proposalInput.observation.controls.filter((item) => (
+            item.kind === "radio" && item.question === control.question && item.required && !item.completed
+          ));
+          const approved = [];
+          for (const option of sameQuestion) {
+            const optionAction = actionForControl(option);
+            if (optionAction && await resolveValue({ provider: "connpass", page: input.page, candidate: input.candidate,
+              control: option, action: optionAction, state: proposalInput.observation.state }) === true) approved.push(option);
+          }
+          if (approved.length !== 1) return null;
+          [control] = approved;
+        }
+        return CONTROL.test(String(control && control.control || "")) && control ? actionForControl(control) : null;
+      },
       async performAction(action) {
         const selected = action.action || action;
         const cached = registry.get(action.page);
