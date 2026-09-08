@@ -132,7 +132,7 @@ acceptance receipt changes a cell.
 | Coconala | **Broken in the latest installed wake.** The 30-minute owner on `da17ed20` ended `entrypoint_exit_1`; no new official application receipt closes `APPLY-REPORT-9`, although the all-category and deliverable-vs-topic corrections are now in main. | **Effect-accepted but identity-safety open.** Shared official reply/readback/replay-zero is proven and the latest owner terminal passes with `observed=174`, `readback=159`, `failed=0`, `pending=15`. The shared private-identity fence found by the CrowdWorks receipt audit is still required. | **Broken in the latest installed wakes.** The owner on `da17ed20` repeatedly ends `entrypoint_exit_1`; historical publish proof does not make the current lane healthy. | **Historical reference acceptance, current regression.** `COCONALA-PAID-1` through `3C` prove the five-room receipt chain, failed zero, formal delivery off and replay-zero, but the latest installed wakes on `da17ed20` end `entrypoint_exit_1`. |
 | Lancers | **Broken in the latest installed wake.** Historical proposal `27861812` proves an application/replay-zero, but the current owner on `d2d8262e` ends `entrypoint_exit_1` and produces no new contract. | **Effect-accepted but identity-safety open.** Official correction `59145491`, Telegram and replay-zero are proven; the latest shared-kernel aggregate is `observed=5`, `readback=5`, `failed=0`, `pending=0`. The shared private-identity fence is still required. | **Runtime pass, revenue unproven.** The latest installed owner passes. Catalog connection and public readback fixes are in main, while the state-preservation/diagnostic correction remains only on unmerged branch `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Broken and no revenue proof.** The latest aggregate is `provider_inventory` failure with `observed=0`, `failed=1`; official state still has no working project or received payment. |
 | CrowdWorks | **Runtime pass with application history, current revenue absent.** The latest installed owner passes and earlier durable receipts prove submissions; no accepted contract/revenue receipt is current. | **Effect-accepted but identity-safety open.** Five provider receipts and Telegram receipts are replay-zero; the latest aggregate is `observed=10`, `readback=10`, `failed=0`, `pending=0`. Receipt `426101743` proves the shared composer can leak private identity, so safety acceptance remains open. | **Not implemented.** The former storefront label is disabled. | **Empty-inventory runtime pass, not positive acceptance.** Latest aggregate is `observed=0`, `effect=0`, `failed=0`; no real contract, delivery or payout receipt exists. |
-| Mercor | **Working.** The latest installed 30-minute owner passes; prior consecutive natural wakes submitted distinct ready listings with official success readback and deduplicated Telegram receipts. | **Not installed; active implementation atom.** Thin adapter/owner code exists only in the active feature worktree. Production `lm-loop` reports the loop ID unknown. Snapshot reliability, the shared identity fence, a natural installed terminal, one truthful effect/handoff receipt and replay-zero remain open. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Monitoring only, not live-accepted.** Latest shared Paid aggregate is `pending`, `observed=0`, `failed=0`, `pending=1`; no real accepted work item, submission or payout receipt exists. |
+| Mercor | **Working.** The latest installed 30-minute owner passes; prior consecutive natural wakes submitted distinct ready listings with official success readback and deduplicated Telegram receipts. | **Working.** Installed release `20198997` ended consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` with `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`. Official auth is authenticated; the one actionable human handoff read back existing Telegram receipt `70005` with `attempted=0`, and the outbox remains exactly three delivered rows with attempt count one. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Monitoring only, not live-accepted.** Latest shared Paid aggregate is `pending`, `observed=0`, `failed=0`, `pending=1`; no real accepted work item, submission or payout receipt exists. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
@@ -212,8 +212,8 @@ Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in 
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
 contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` and
-`CROWDWORKS-REPLY-1` are complete. The active engineering atom is `MERCOR-REPLY-1`; its fixed next
-atom is `NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
+`CROWDWORKS-REPLY-1` and `MERCOR-REPLY-1` are complete. The active engineering atom is
+`NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
 
 Fresh cross-owner handoff audit:
 
@@ -1163,7 +1163,7 @@ Fresh cross-owner handoff audit:
    adapter retains only authenticated inventory, CrowdWorks IDs/DOM, mutation and official readback;
    event lifecycle, model decision, grounding, intent fencing, retry, receipts and notification remain
    shared. The active cursor advances to `MERCOR-REPLY-1` without reordering.
-10. [ ] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
+10. [x] `MERCOR-REPLY-1` Add Mercor only as a thin adapter to the shared Reply entrypoint. PASS = the
    owner observes every official selection, buyer message, assessment and interview event; replies
    autonomously where truthful and permitted; otherwise sends one deduplicated Telegram request with
    exact human action, deadline and work-item identity; then persists official readback and replay-zero.
@@ -1194,8 +1194,17 @@ Fresh cross-owner handoff audit:
    provider mutation. Coconala now carries the same grounding envelope into that kernel instead of
    bypassing the output fence. Sixty-one focused shared/Coconala/Lancers/CrowdWorks/Mercor Reply tests
    pass, including the historical leak shape and an allowed `Kaito｜AI自動化` public-name control.
-   Production remains unchanged and this atom stays unchecked until main merge, installed natural
-   terminals, official no-new-leak readback and replay-zero complete the acceptance.
+   Complete: PR `#4683` merged the delivered-notification replay readback and PR `#4687` added a
+   one-second bounded delay between the existing two Gmail attempts while retaining fail-closed
+   freshness and secret-free failure classification. Targeted apply receipt
+   `94939f8fc9dcb8f476b1b7c9` installed immutable main release `20198997` for Mercor Reply only.
+   Its consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` both passed with
+   `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`; official auth
+   remained authenticated. The sole actionable application durably remains `waiting_human` and both
+   wakes adopted its already delivered Telegram receipt `70005` with `attempted=0`, so the outbox
+   stayed exactly three delivered rows with attempt count one and no duplicate. The shared private
+   identity fence is in the installed release, and no new provider or Telegram content leaked a
+   private identity. The active cursor advances to `NEXT-MARKETPLACE-PAID-1` without reordering.
 11. [ ] `NEXT-MARKETPLACE-PAID-1` Complete Mercor as the selected next marketplace without changing
    the shared Paid lifecycle. PASS = provider-only config/transport/
    effect/readback changes plus one real official receipt chain and replay-zero.
