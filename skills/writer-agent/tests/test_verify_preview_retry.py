@@ -17,7 +17,10 @@ def load_module():
     spec = importlib.util.spec_from_file_location("verify_preview", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
-    spec.loader.exec_module(module)
+    with mock.patch.dict(
+        "os.environ", {"SUBSTACK_PUBLICATION": "writer-test.substack.com"}
+    ):
+        spec.loader.exec_module(module)
     return module
 
 
