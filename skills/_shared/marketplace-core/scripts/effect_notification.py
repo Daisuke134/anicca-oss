@@ -41,10 +41,28 @@ def notify_effect(
     """
     outbox = _load("marketplace_effect_outbox", HERE / "telegram_outbox.py")
     delivery = _load("marketplace_effect_delivery", HERE / "telegram_delivery.py")
-    outbox.enqueue(
-        Path(database), event_key, message, observed_at,
-        repeat_after_seconds=repeat_after_seconds,
-    )
+    try:
+        outbox.enqueue(
+            Path(database), event_key, message, observed_at,
+            repeat_after_seconds=repeat_after_seconds,
+        )
+    except outbox.IdempotencyConflict:
+        prior = next(
+            (item for item in outbox.list_items(Path(database))
+             if item.event_key == event_key),
+            None,
+        )
+        if prior is None or prior.status != "delivered":
+            raise
+        return {
+            "event_key": event_key,
+            "delivery": prior.status,
+            "provider_message_id": prior.provider_message_id,
+            "attempted": 0,
+            "delivered": 0,
+            "delivery_uncertain": 0,
+            "pre_send_failed": 0,
+        }
     current = next(
         item for item in outbox.list_items(Path(database))
         if item.event_key == event_key
