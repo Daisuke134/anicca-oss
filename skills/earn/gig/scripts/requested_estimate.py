@@ -360,7 +360,7 @@ def validate_semantic_judgement(
     if state == "explicit_estimate_request" and action == "reply":
         raise SemanticJudgementError("semantic_estimate_request_reply_conflict")
     purchase_decision = _unanswered_purchase_decision(rows)
-    if purchase_decision is not None:
+    if purchase_decision is not None and state in {"question", "negotiating", "ready_to_buy"}:
         body = payload.get("reply_body")
         proactive = type(body) is str and body.strip().startswith(
             ("はい、いけます", "はい、ぜひ", "ぜひ対応", "対応可能です", "できます")

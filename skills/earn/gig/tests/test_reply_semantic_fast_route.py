@@ -624,6 +624,30 @@ def test_purchase_decision_reply_cannot_lead_with_internal_confirmation():
         requested_estimate.validate_semantic_judgement(payload, rows)
 
 
+def test_system_notice_with_purchase_words_does_not_force_customer_reply():
+    rows = [{
+        "message_id": "system-notice", "role": "buyer",
+        "sent_at": "2026-09-08T00:00:00Z",
+        "body": "購入者へ対応できない場合は運営までご連絡ください。",
+    }]
+    payload = {
+        "conversation_state": "unknown", "next_action": "wait",
+        "cycle_start_message_id": "system-notice", "evidence_message_ids": [],
+        "required_official_context": "none", "estimate_terms": None,
+        "reply_body": None,
+        "reply_audit": {
+            "answered_buyer_message_ids": [], "unanswered_questions": [],
+            "unsupported_claims": [], "unrequested_cta": False,
+            "repeats_seller_message": False, "off_platform_contact": False,
+        },
+        "uncertainty": ["運営からの送信専用通知"],
+    }
+
+    assert requested_estimate.validate_semantic_judgement(payload, rows)[
+        "conversation_state"
+    ] == "unknown"
+
+
 def test_acknowledged_existing_purchase_cannot_generate_another_estimate():
     rows = [
         {

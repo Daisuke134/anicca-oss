@@ -1033,6 +1033,12 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    `公開中` contracts for reply grounding. The actual ledger now validates as 406 historical rows and
    24 current public contracts; 36 semantic checks pass. Storefront business code and its ledger are
    unchanged.
+   The remaining `semantic_purchase_decision_requires_proactive_reply` was a false deterministic
+   override: a provider system notice appeared on the buyer side of the DOM and happened to contain
+   the words `購入`, `場合` and `対応`, while both model attempts correctly classified it as
+   `unknown/wait`. Apply the existing purchase-response guard only when the semantic state is
+   `question`, `negotiating` or `ready_to_buy`; do not force a customer reply for an `unknown` system
+   notice. The real purchase-decision guards remain covered and 37 semantic checks pass.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
