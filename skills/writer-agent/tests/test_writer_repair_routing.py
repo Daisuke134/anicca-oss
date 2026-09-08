@@ -438,6 +438,15 @@ def _fake_df_env(tmp_path: Path) -> str:
     return str(env_file)
 
 
+def _copy_resume_runtime(scripts: Path) -> None:
+    for name in (
+        "article-resume-pending.sh",
+        "writer-runtime-env.sh",
+        "writer_capacity_floor.py",
+    ):
+        shutil.copy(ROOT / "scripts" / name, scripts)
+
+
 def test_dispatch_claims_the_blocking_revenue_set_incident_before_an_older_distribution_one(
     tmp_path: Path,
 ) -> None:
@@ -782,7 +791,7 @@ def test_resume_loop_dispatches_repair_routing_after_the_incident_bridge(
     scripts.mkdir(parents=True)
     (scripts / "_shared").mkdir()
     runtime.mkdir()
-    shutil.copy(ROOT / "scripts" / "article-resume-pending.sh", scripts)
+    _copy_resume_runtime(scripts)
     shutil.copy(ROOT / "scripts" / "_shared" / "notifier.sh", scripts / "_shared")
     (scripts / "article_daily_start_control.py").write_text(
         'print(\'{"action":"skip-pending-worker"}\')\n'
@@ -811,6 +820,8 @@ def test_resume_loop_dispatches_repair_routing_after_the_incident_bridge(
             **os.environ,
             "ARTICLE_ROOT": str(fake_root),
             "ARTICLE_STATE_DIR": str(state_dir),
+            "LIFE_MANAGER_REPO": str(ROOT.parents[1]),
+            "LIFE_MANAGER_ENV_FILE": str(tmp_path / "missing.env"),
             "ARTICLE_LOCAL_DATE": "2026-08-07",
             "ARTICLE_RESUME_LOG": str(tmp_path / "resume.log"),
             "ARTICLE_MODEL_RUNNER": str(runtime / "model-runner.sh"),
@@ -863,7 +874,7 @@ def test_resume_loop_older_backlog_does_not_suppress_new_daily_schedule(
     scripts = fake_root / "scripts"
     (state_dir / "runs").mkdir(parents=True)
     scripts.mkdir(parents=True)
-    shutil.copy(ROOT / "scripts" / "article-resume-pending.sh", scripts)
+    _copy_resume_runtime(scripts)
     marker = tmp_path / "daily-started"
     (fake_root / "article-daily.sh").write_text(
         f"#!/usr/bin/env bash\nprintf '%s\\n' daily > {str(marker)!r}\n"
@@ -885,6 +896,8 @@ def test_resume_loop_older_backlog_does_not_suppress_new_daily_schedule(
             **os.environ,
             "ARTICLE_ROOT": str(fake_root),
             "ARTICLE_STATE_DIR": str(state_dir),
+            "LIFE_MANAGER_REPO": str(ROOT.parents[1]),
+            "LIFE_MANAGER_ENV_FILE": str(tmp_path / "missing.env"),
             "ARTICLE_OWNER_FENCE_ACTIVE": "1",
             "ARTICLE_LOCAL_DATE": "2026-08-21",
             "ARTICLE_LOCAL_HOUR": "06",
@@ -916,7 +929,7 @@ def test_resume_loop_future_or_unknown_backlog_still_suppresses_new_daily(
         scripts = fake_root / "scripts"
         (state_dir / "runs").mkdir(parents=True)
         scripts.mkdir(parents=True)
-        shutil.copy(ROOT / "scripts" / "article-resume-pending.sh", scripts)
+        _copy_resume_runtime(scripts)
         marker = case / "daily-started"
         (fake_root / "article-daily.sh").write_text(
             f"#!/usr/bin/env bash\nprintf '%s\\n' daily > {str(marker)!r}\n"
@@ -942,6 +955,8 @@ def test_resume_loop_future_or_unknown_backlog_still_suppresses_new_daily(
                 **os.environ,
                 "ARTICLE_ROOT": str(fake_root),
                 "ARTICLE_STATE_DIR": str(state_dir),
+                "LIFE_MANAGER_REPO": str(ROOT.parents[1]),
+                "LIFE_MANAGER_ENV_FILE": str(case / "missing.env"),
                 "ARTICLE_OWNER_FENCE_ACTIVE": "1",
                 "ARTICLE_LOCAL_DATE": "2026-08-21",
                 "ARTICLE_LOCAL_HOUR": "06",
