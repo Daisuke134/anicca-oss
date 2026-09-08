@@ -333,6 +333,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
         if (consecutiveFailures >= settings.maxConsecutiveFailures) {
           return finish("circuit_open", lastSafeReason);
         }
+        consecutiveFailures = 0;
         continue;
       }
       for (const selected of candidates) {
@@ -575,6 +576,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           return finish("circuit_open", lastSafeReason);
         }
       }
+      consecutiveFailures = 0;
     }
     return finish("completed_no_effect", providerDiscoveryFailed
       ? discoveryFailureReason : connpassBoundaryFailed ? "connpass_action_boundary_failed"
