@@ -6,6 +6,7 @@ import argparse
 import asyncio
 from collections import deque
 from datetime import datetime, timezone
+from email.utils import getaddresses
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,11 @@ ENDPOINTS = {
     "contracts": "https://aws.api.mercor.com/work/jobs",
     "interviews": "https://coil.mercor.com/work/interviews?isComplete=1",
 }
+
+
+def _has_mercor_address(value: object) -> bool:
+    return any(address.casefold().rpartition("@")[2] in {"mercor.com", "mail.mercor.com"}
+               for _name, address in getaddresses([str(value or "")]))
 
 
 async def _capture(ws_url: str) -> dict[str, object]:
@@ -120,19 +126,51 @@ def _valid_cached_thread(row: object, thread_id: str) -> bool:
 
 def _gmail(account: str, executable: str,
            previous: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
-    query = ("(from:(mercor.com OR mail.mercor.com) "
-             "OR to:(mercor.com OR mail.mercor.com)) newer_than:30d")
-    search = subprocess.run(
-        [executable, "gmail", "messages", "search", query, "--max", "100",
-         "--account", account, "--json", "--no-input"],
-        capture_output=True, text=True, check=False, timeout=60,
+    searches = []
+    queries = (
+        "from:(mercor.com OR mail.mercor.com) newer_than:30d",
+        "in:sent mercor newer_than:30d",
     )
-    if search.returncode != 0:
-        raise RuntimeError("mercor_gmail_inventory_unavailable")
-    try:
-        rows = json.loads(search.stdout).get("messages", [])
-    except (AttributeError, ValueError):
-        raise RuntimeError("mercor_gmail_inventory_invalid") from None
+    for query in queries:
+        try:
+            search = subprocess.run(
+                [executable, "gmail", "messages", "search", query, "--max", "100",
+                 "--account", account, "--json", "--no-input"],
+                capture_output=True, text=True, check=False, timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("mercor_gmail_inventory_unavailable") from None
+        if search.returncode != 0:
+            raise RuntimeError("mercor_gmail_inventory_unavailable")
+        try:
+            found = json.loads(search.stdout).get("messages", [])
+        except (AttributeError, ValueError):
+            raise RuntimeError("mercor_gmail_inventory_invalid") from None
+        if not isinstance(found, list):
+            raise RuntimeError("mercor_gmail_inventory_invalid")
+        if any(not isinstance(raw, dict) for raw in found):
+            raise RuntimeError("mercor_gmail_inventory_invalid")
+        searches.append(found)
+
+    inbound_rows, sent_rows = searches
+    inbound_thread_ids = {
+        raw.get("threadId") for raw in inbound_rows
+        if _has_mercor_address(raw.get("from"))
+        and isinstance(raw.get("threadId"), str) and raw.get("threadId")
+    }
+    rows = list(inbound_rows)
+    seen_message_ids = {
+        raw.get("id") for raw in rows
+        if isinstance(raw.get("id"), str) and raw.get("id")
+    }
+    for raw in sent_rows:
+        if raw.get("threadId") not in inbound_thread_ids:
+            continue
+        message_id = raw.get("id")
+        if not isinstance(message_id, str) or not message_id or message_id not in seen_message_ids:
+            rows.append(raw)
+            if isinstance(message_id, str) and message_id:
+                seen_message_ids.add(message_id)
     auth_thread_ids = set()
     for raw in rows:
         if not isinstance(raw, dict):
