@@ -717,14 +717,24 @@ async function captureProviderEvidence({ provider, providerName, page, candidate
   }
   let captureUrl;
   if (providerName === "kokuchpro") captureUrl = await verifyKokuchProPage({ provider, page, candidate, eventUrl });
-  const screenshot = await page.screenshot({ type: "png", fullPage: true });
-  if (!Buffer.isBuffer(screenshot) || screenshot.length < 5_000 || !screenshot.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) invalid();
-  if (providerName === "kokuchpro") {
-    let afterCaptureUrl;
-    try { afterCaptureUrl = String(page.url()); } catch { invalid(); }
-    if (afterCaptureUrl !== captureUrl) invalid();
-    kokuchproPageUrl(afterCaptureUrl, eventUrl);
+  else captureUrl = providerName === "connpass" || providerName === "meetup" || providerName === "doorkeeper" || providerName === "eventbrite" || providerName === "techplay"
+    ? eventUrl : "about:blank";
+  const exactCapturePage = () => {
+    let currentUrl;
+    try { currentUrl = String(page.url()); } catch { invalid(); }
+    if (currentUrl !== captureUrl) invalid();
+  };
+  exactCapturePage();
+  let screenshot;
+  try {
+    screenshot = await page.screenshot({ type: "png", fullPage: true });
+  } catch {
+    exactCapturePage();
+    screenshot = await page.screenshot({ type: "png", fullPage: false });
   }
+  exactCapturePage();
+  if (!Buffer.isBuffer(screenshot) || screenshot.length < 5_000 || !screenshot.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) invalid();
+  if (providerName === "kokuchpro") kokuchproPageUrl(captureUrl, eventUrl);
   const artifactSha = sha256(screenshot);
   const evidence = await provider.store.record({ tenantId, eventRef: candidate.event_ref, observedAt, screenshot });
   const artifactMatch = ARTIFACT_REF.exec(String(evidence && evidence.artifact_ref || ""));
