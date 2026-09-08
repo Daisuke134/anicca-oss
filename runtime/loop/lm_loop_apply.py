@@ -67,6 +67,8 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         value["EnvironmentVariables"]["CLOAK_SESSION_VAULT_FILE"] = str(
             Path.home() / ".cloak/vault/gig-daily-driver/auth-state.json"
         )
+    if loop_id == "hf-gig-apply-direct":
+        value["EnvironmentVariables"]["CLOAK_CONTEXT_PARK_ON_IDLE"] = "1"
     if loop_id == "hf-gig-reply-detector":
         value["EnvironmentVariables"].update({
             "CLOAK_CDP_BASE_URL": "http://127.0.0.1:9222",

@@ -277,6 +277,14 @@ class LmLoopApplyTest(unittest.TestCase):
             str(Path.home() / ".cloak/vault/gig-daily-driver/auth-state.json"),
         )
 
+    def test_apply_parks_authenticated_context_between_natural_wakes(self):
+        value = registry()
+        value["loops"]["hf-gig-apply-direct"] = value["loops"].pop("example")
+        rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
+        self.assertEqual(
+            rendered["EnvironmentVariables"]["CLOAK_CONTEXT_PARK_ON_IDLE"], "1",
+        )
+
     def test_coconala_reply_uses_healthy_shared_cdp_with_gig_auth(self):
         value = registry()
         value["loops"]["hf-gig-reply-detector"] = value["loops"].pop("example")
