@@ -1,7 +1,8 @@
 # NOTE (VSDD F3 FIND-011): this path is DRAFT-ONLY by construction — it calls note-mcp update_article →
 # draft_save?is_temp_saved=true (status=DRAFT); it never calls publish_article(). No public publish here.
 import sys, json, time, asyncio, urllib.request, os, subprocess, re
-sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", "/Users/anicca/.openclaw/external/note-mcp/src"))
+from pathlib import Path
+sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", str(Path(__file__).resolve().parents[1] / "vendor/note-mcp/src")))
 from note_mcp.models import Session, ArticleInput
 from note_mcp.api.articles import update_article, generate_image_html
 from note_s3_upload import upload_body_image

@@ -52,22 +52,14 @@ python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-note "$MD_FILE" >&2 || exit $?
 # USE_FILE_SESSION=1" -- see note_mcp/auth/session.py), which stores the
 # session as a plain JSON file instead. Use it always here.
 export USE_FILE_SESSION=1
-# Default points at the real clone (~/.openclaw/external/note-mcp): the
-# ~/.cache/anicca-clones/note-mcp path was never populated on this machine
-# (verified 2026-07-12: dir does not exist), so every unattended run of this
-# script hit "FATAL: note-mcp not cloned" before ever reaching login. The
-# 2026-07-12 fix further below already assumed callers would override
-# NOTE_MCP_DIR to the real location "as we do" -- but nothing in the daily
-# loop actually sets that override, so make the working default correct
-# instead of relying on an override that doesn't exist.
-NOTE_MCP_DIR="${NOTE_MCP_DIR:-$HOME/.openclaw/external/note-mcp}"
-
-[[ -d "$NOTE_MCP_DIR" ]] || { echo "FATAL: note-mcp not cloned at $NOTE_MCP_DIR" >&2; exit 2; }
-
-# note-mcp venv (checked early — needed both for create_draft below and for the
-# stage1-manifest title patch that runs before it).
-PY_VENV="$NOTE_MCP_DIR/.venv/bin/python"
-bash "$SCRIPT_DIR/ensure-note-mcp-runtime.sh" "$NOTE_MCP_DIR"
+NOTE_MCP_DIR="${NOTE_MCP_DIR:-$WRITER_ROOT/vendor/note-mcp}"
+NOTE_MCP_SRC="${NOTE_MCP_SRC:-$NOTE_MCP_DIR/src}"
+[[ -f "$NOTE_MCP_SRC/note_mcp/__init__.py" ]] || {
+  echo "FATAL: vendored note-mcp source missing at $NOTE_MCP_SRC" >&2; exit 2;
+}
+PY_VENV="$WRITER_BROWSER_PYTHON"
+export NOTE_MCP_DIR NOTE_MCP_SRC
+export PYTHONPATH="$NOTE_MCP_SRC${PYTHONPATH:+:$PYTHONPATH}"
 
 # Life Manager managed Python has cloakbrowser for the table-to-PNG render step.
 CLOAK_PY="$WRITER_BROWSER_PYTHON"
@@ -235,13 +227,8 @@ fi
 if OUT=$(COOKIE_DB="$COOKIE_DB" USE_DIRECT_LOGIN="$USE_DIRECT_LOGIN" NOTE_EMAIL="$NOTE_EMAIL" NOTE_PASSWORD="$NOTE_PASSWORD" MD_FILE="$MD_FILE" TITLE="$TITLE" DESCRIPTION="$DESCRIPTION" TAGS_RAW="$TAGS_RAW" NOTE_MCP_DIR="$NOTE_MCP_DIR" NOTE_MANIFEST="$MANIFEST_ARG" LEDGER_ACTION="$LEDGER_ACTION" LEDGER_ARTICLE_ID="$LEDGER_ARTICLE_ID" LEDGER_KEY_FORMAT_OK="$LEDGER_KEY_FORMAT_OK" \
   "$PY_VENV" - <<'PY' 2>&1
 import json, os, re, sys, asyncio, time, subprocess, tempfile
-# NOTE_MCP_DIR-relative src path (2026-07-12 fix): this used to hardcode
-# ~/.cache/anicca-clones/note-mcp/src regardless of $NOTE_MCP_DIR, which silently worked
-# only because uv sync installs note_mcp into the venv's own site-packages (editable
-# install) -- so the bogus insert was a no-op, not a real fix. Use the actual configured
-# dir so a caller pointing NOTE_MCP_DIR elsewhere (as we do, at ~/.openclaw/external/note-mcp)
-# gets the right src tree if the editable install ever isn't in play.
-sys.path.insert(0, os.path.join(os.environ.get("NOTE_MCP_DIR", os.path.expanduser("~/.cache/anicca-clones/note-mcp")), "src"))
+# Use the release-owned vendored source selected by writer-runtime-env.sh.
+sys.path.insert(0, os.environ["NOTE_MCP_SRC"])
 from note_mcp.models import Session, ArticleInput, ArticleStatus
 from note_mcp.api.articles import create_draft, get_article_via_api, update_article
 from note_mcp.auth.browser import login_with_browser
@@ -406,7 +393,7 @@ if [[ "$STAGE1_OK" == "true" && -n "$DRAFT_NUM" ]]; then
   # bug (verified in note_mcp/api/articles.py update_article: it tries to resolve the key via
   # get_article_via_api(numeric_id), which itself rejects numeric IDs). DRAFT_KEY is already
   # available here from create_draft()'s output, same as DRAFT_NUM.
-  if STAGE2_OUT=$(NOTE_WORK="$WORK" NOTE_NUM="$DRAFT_NUM" NOTE_KEY="$DRAFT_KEY" NOTE_SRC="$MD_FILE" NOTE_TAGS="$TAGS_RAW" NOTE_MCP_SRC="$NOTE_MCP_DIR/src" \
+  if STAGE2_OUT=$(NOTE_WORK="$WORK" NOTE_NUM="$DRAFT_NUM" NOTE_KEY="$DRAFT_KEY" NOTE_SRC="$MD_FILE" NOTE_TAGS="$TAGS_RAW" NOTE_MCP_SRC="$NOTE_MCP_SRC" \
     "$PY_VENV" "$SCRIPT_DIR/note-stage2-publish.py" 2>&1); then
     STAGE2_RC=0
   else

@@ -156,7 +156,7 @@ class NoteMcpAdapter:
         note_mcp = Path(
             os.environ.get(
                 "NOTE_MCP_SRC",
-                "/Users/anicca/.openclaw/external/note-mcp/src",
+                str(SCRIPTS.parent / "vendor/note-mcp/src"),
             )
         )
         if str(note_mcp) not in sys.path:

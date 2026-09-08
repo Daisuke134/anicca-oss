@@ -4,7 +4,8 @@ the note eyecatch). Real paths only — NEVER /tmp. Draft-only (update_article �
 This is the RESTORE after my keyboard-demote deleted ~25 images. Tables/figs already rendered to the assets dir;
 this only UPLOADS them and places them at the markers — it does not re-render or change text."""
 import sys, json, time, asyncio, os, re, html, subprocess
-sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", "/Users/anicca/.openclaw/external/note-mcp/src"))
+from pathlib import Path
+sys.path.insert(0, os.environ.get("NOTE_MCP_SRC", str(Path(__file__).resolve().parents[2] / "vendor/note-mcp/src")))
 from note_mcp.models import Session, ArticleInput
 from note_mcp.api.articles import update_article, generate_image_html
 from note_mcp.api.images import upload_body_image

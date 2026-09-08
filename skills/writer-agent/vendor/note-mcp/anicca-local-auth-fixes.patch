@@ -1,0 +1,208 @@
+From 62765f383aa0b91d042ea2c810204189a06cc276 Mon Sep 17 00:00:00 2001
+From: Anicca Agent <anicca@aniccaai.com>
+Date: Sun, 12 Jul 2026 15:00:45 +0900
+Subject: [PATCH 1/2] fix(auth): headless auto-login + selectors match current
+ note.com login page
+
+Local fix (not pushed upstream, third-party repo drillan/note-mcp) for our
+headless server invocation, applied 2026-07-12:
+- login_with_browser hardcoded headless=False; a headful chromium.launch()
+  hangs indefinitely (0% CPU, no browser process ever spawned) in a
+  non-interactive server context. Use headless whenever credentials are
+  supplied (automatic login, nobody needs to watch it).
+- note.com's login form now uses id="email"/id="password" with no name
+  attribute at all (LOGIN_EMAIL_SELECTOR/LOGIN_PASSWORD_SELECTOR were
+  input[name=...], matched nothing, always raised LoginError).
+- The login button is type="button" (data-type="primary"), not
+  type="submit" -- switched to a text-based selector.
+Remaining known gap: the login button stays disabled=true after fill() even
+with the corrected selectors (likely Vue reactivity needs dispatched
+input/change events beyond what .fill() sends) -- login still does not
+complete end-to-end; noted for a future pass, not resolved here.
+
+diff --git a/src/note_mcp/auth/browser.py b/src/note_mcp/auth/browser.py
+index 2ad455f..3de4e0c 100644
+--- a/src/note_mcp/auth/browser.py
++++ b/src/note_mcp/auth/browser.py
+@@ -32,9 +32,17 @@ OPTIONAL_COOKIES = ["note_gql_auth_token", "XSRF-TOKEN"]
+ DEFAULT_LOGIN_TIMEOUT = 300
+ 
+ # Login form selectors
+-LOGIN_EMAIL_SELECTOR = 'input[name="email"]'
+-LOGIN_PASSWORD_SELECTOR = 'input[name="password"]'
+-LOGIN_SUBMIT_SELECTOR = 'button[type="submit"]'
++# note.com's login form now identifies fields by id, not name (name="" on both inputs,
++# verified 2026-07-12 by dumping every <input> on https://note.com/login: id="email" /
++# id="password", no name attribute at all) -- the old name= selectors matched nothing and
++# _perform_auto_login always raised "ログインフォームが見つかりません" after a 10s timeout.
++LOGIN_EMAIL_SELECTOR = '#email'
++LOGIN_PASSWORD_SELECTOR = '#password'
++# The login button is type="button" (not "submit") with no text/name attribute Playwright
++# can key off directly except its visible label (verified 2026-07-12: outerHTML shows
++# type="button" data-type="primary", no type="submit" anywhere on the page) -- match by
++# the visible Japanese label instead of the no-longer-present submit type.
++LOGIN_SUBMIT_SELECTOR = 'button:has-text("ログイン")'
+ 
+ # Obstacle detection selectors
+ RECAPTCHA_SELECTOR = '[class*="recaptcha"], iframe[src*="recaptcha"]'
+@@ -349,9 +357,15 @@ async def login_with_browser(
+     logger.info("Closing existing browser...")
+     await manager.close()
+ 
+-    # Get fresh page in headful mode (user needs to see browser for manual login)
+-    logger.info("Getting fresh page in headful mode...")
+-    page = await manager.get_page(headless=False)
++    # Headful mode is for a human watching a manual login; when credentials are supplied
++    # this is a fully automatic login and nobody needs to see the window. On a headless
++    # server invocation (no attached interactive Window Server session) a headful
++    # chromium.launch() hangs forever at 0% CPU with no error (verified 2026-07-12: two
++    # note-mcp processes sat idle for 5+ minutes, no browser process ever appeared) -- use
++    # headless whenever we already have credentials to drive the login ourselves.
++    use_headless = credentials is not None
++    logger.info(f"Getting fresh page (headless={use_headless})...")
++    page = await manager.get_page(headless=use_headless)
+ 
+     # Check for saved session and inject cookies if available
+     session_manager = SessionManager()
+
+From 69260af68ee818b977b58287fe89f426fd80792b Mon Sep 17 00:00:00 2001
+From: Anicca Agent <anicca@aniccaai.com>
+Date: Sun, 12 Jul 2026 15:34:02 +0900
+Subject: [PATCH 2/2] fix(auth): type like a human + fix false-positive
+ recaptcha detection
+
+Two root causes were blocking automated note.com login end-to-end even
+after the earlier headless-hang and selector fixes:
+
+1. _perform_auto_login used Locator.fill() to set #email/#password.
+   note.com's login form is a Vue component whose v-model + submit-button
+   disabled state only update in response to real keyboard events.
+   fill() sets the DOM .value and fires one synthetic 'input' event, which
+   Vue's listener never observes -- verified by screenshot: the input
+   boxes render visibly empty and the button keeps disabled="disabled"
+   even though a JS readback of .value shows the filled text, so
+   Locator.click() times out after 30s with "element is not enabled".
+   Fixed by typing with press_sequentially() (real per-character
+   keydown/keypress/input/keyup), plus a networkidle wait + short settle
+   delay before the first keystroke -- typing too early (right after
+   domcontentloaded) races Vue's hydration and silently drops the first
+   1-2 characters of the first field typed.
+
+2. _check_login_obstacles used a broad '[class*="recaptcha"], iframe[...]'
+   selector to detect an actual login-blocking reCAPTCHA challenge. But
+   note.com renders Google reCAPTCHA v3's required branding badge
+   (.grecaptcha-badge / .grecaptcha-logo) visibly on every single /login
+   load, challenge or not -- so this check raised RECAPTCHA_DETECTED on
+   100% of logins, including successful ones, the moment the fill() bug
+   above was fixed and login could reach this check at all. Narrowed the
+   selector to the actual widget slot note.com would populate for a real
+   challenge (.g-recaptcha.o-login__recaptcha), which stays invisible
+   unless a challenge is genuinely shown.
+
+Verified end-to-end: automated login now reaches /settings/account,
+extracts urlname=anicca123, and note-mcp's create_draft() successfully
+stages a real DRAFT on note.com using this session.
+
+Not pushed: origin (github.com/drillan/note-mcp) is a read-only upstream
+clone (gh api confirms push:false for this account) -- this is a local
+vendored checkout, not our repo to push to.
+
+diff --git a/src/note_mcp/auth/browser.py b/src/note_mcp/auth/browser.py
+index 3de4e0c..bc7e6bd 100644
+--- a/src/note_mcp/auth/browser.py
++++ b/src/note_mcp/auth/browser.py
+@@ -45,7 +45,19 @@ LOGIN_PASSWORD_SELECTOR = '#password'
+ LOGIN_SUBMIT_SELECTOR = 'button:has-text("ログイン")'
+ 
+ # Obstacle detection selectors
+-RECAPTCHA_SELECTOR = '[class*="recaptcha"], iframe[src*="recaptcha"]'
++# note.com embeds Google reCAPTCHA v3 unconditionally on every /login render:
++# a `.grecaptcha-badge` + `.grecaptcha-logo` (Google's required branding icon,
++# genuinely visible in the bottom-right corner of every page load) plus a
++# hidden `g-recaptcha-response` textarea and bare `<iframe>`. A selector that
++# matches `[class*="recaptcha"]` broadly -- even gated on Playwright
++# `visible=true` -- still matches that branding badge on 100% of loads
++# (verified 2026-07-12: `.grecaptcha-badge` reports `is_visible() == True` on
++# a pristine, pre-interaction login page), so it can never distinguish a real
++# challenge from normal page furniture. The actual interactive widget slot
++# note.com would populate if it challenges a login is
++# `.g-recaptcha.o-login__recaptcha` -- present but `is_visible() == False`
++# unless a challenge is actually shown. Target that specific container only.
++RECAPTCHA_SELECTOR = '.g-recaptcha.o-login__recaptcha'
+ TWO_FACTOR_SELECTOR = '[data-testid="two-factor"], input[name="otp"], input[placeholder*="認証コード"]'
+ 
+ # Timeout constants (in milliseconds)
+@@ -246,7 +258,17 @@ async def _check_login_obstacles(page: Page) -> None:
+         LoginError: 障害検出時
+     """
+     # reCAPTCHA検出
+-    recaptcha = page.locator(RECAPTCHA_SELECTOR)
++    # note.com renders Google reCAPTCHA v3 unconditionally on every load of
++    # /login (verified 2026-07-12: a fresh, pre-interaction page already
++    # contains .g-recaptcha, .grecaptcha-badge, .grecaptcha-logo, a
++    # g-recaptcha-response textarea, and a bare <iframe> -- all matched by
++    # RECAPTCHA_SELECTOR, all invisible/off-screen since v3 has no checkbox
++    # UI unless note.com actually challenges the login). A plain
++    # `.count() > 0` therefore fires on 100% of logins, including successful
++    # ones, and made this check useless. Only a genuine v2-style challenge
++    # renders `.g-recaptcha.o-login__recaptcha` (or its iframe) *visibly* --
++    # gate on visibility, not presence.
++    recaptcha = page.locator(f"{RECAPTCHA_SELECTOR} >> visible=true")
+     if await recaptcha.count() > 0:
+         raise LoginError(
+             code="RECAPTCHA_DETECTED",
+@@ -254,8 +276,8 @@ async def _check_login_obstacles(page: Page) -> None:
+             resolution="手動でログインしセッションを保存してください",
+         )
+ 
+-    # 2FA検出
+-    two_factor = page.locator(TWO_FACTOR_SELECTOR)
++    # 2FA検出（同様に、実際に表示されている場合のみ障害とみなす）
++    two_factor = page.locator(f"{TWO_FACTOR_SELECTOR} >> visible=true")
+     if await two_factor.count() > 0:
+         raise LoginError(
+             code="TWO_FACTOR_REQUIRED",
+@@ -298,11 +320,41 @@ async def _perform_auto_login(page: Page, username: str, password: str) -> None:
+             message="ログインフォームが見つかりません",
+             resolution="note.comのログインページが正しく読み込まれていることを確認してください",
+         ) from e
+-    await email_input.fill(username)
++
++    # note.com's login form is a Vue component with a v-model bound to the visible
++    # input box and a computed `disabled` on the submit button that only flips to
++    # false once Vue's own input handler sees the value change. `.fill()` sets the
++    # underlying DOM `.value` and fires a single synthetic "input" event, but Vue
++    # never observes it (verified 2026-07-12: after fill(), `#email`/`#password`
++    # read back the filled value via JS, yet the rendered boxes stay visibly empty
++    # and the button keeps `disabled="disabled"` -- Locator.click() then times out
++    # after 30s with "element is not enabled"). Fix: type like a human via
++    # press_sequentially(), which dispatches real keydown/keypress/input/keyup per
++    # character, the same events Vue's listener is wired for.
++    #
++    # A second, independent race exists even with real typing: if keystrokes start
++    # immediately after "domcontentloaded", Vue's hydration hasn't finished
++    # attaching its v-model listener yet, so the first 1-2 characters of the very
++    # first field get silently swallowed (verified: "contact@..." became
++    # "ontact@..." then "ntact@..." depending on timing -- login then fails with
++    # "メールアドレスおよびパスワードをご確認ください" even though the button was
++    # enabled and clickable). Fix: wait for networkidle + a short settle delay
++    # before touching the form, and click-then-pause before each field's keystrokes
++    # so hydration has landed and focus has committed.
++    await page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
++    await page.wait_for_timeout(500)
++
++    await email_input.click()
++    await page.wait_for_timeout(200)
++    await email_input.press_sequentially(username, delay=50)
+ 
+     # パスワード入力
+     password_input = page.locator(LOGIN_PASSWORD_SELECTOR)
+-    await password_input.fill(password)
++    await page.wait_for_timeout(200)
++    await password_input.click()
++    await page.wait_for_timeout(200)
++    await password_input.press_sequentially(password, delay=50)
++    await page.wait_for_timeout(300)
+ 
+     # ログインボタンクリック
+     submit_button = page.locator(LOGIN_SUBMIT_SELECTOR)

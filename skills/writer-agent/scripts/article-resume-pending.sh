@@ -1039,21 +1039,12 @@ if [ "$INITIALIZATION_COUNT" -eq 0 ] \
   NOTE_STATUS="$(jq -r '.pairs["note/ja"].status // empty' "$STATE_PATH")"
   NOTE_CODE_ARGS=()
   if [ "$NOTE_STATUS" = "repair-required" ]; then
-    NOTE_MCP_DIR="${NOTE_MCP_DIR:-$WRITER_RUNTIME_HOME/external/note-mcp}"
-    bash "$ARTICLE_ROOT/scripts/ensure-note-mcp-runtime.sh" \
-      "$NOTE_MCP_DIR" >>"$LOG" 2>&1 || {
-      echo "article-resume: note-mcp runtime restore failed closed" >>"$LOG"
-      exit 1
-    }
-    export NOTE_MCP_DIR
-    export NOTE_MCP_SRC="$NOTE_MCP_DIR/src"
     NOTE_COMMAND=(
-      "$NOTE_MCP_DIR/.venv/bin/python"
+      "$WRITER_BROWSER_PYTHON"
       "$ARTICLE_ROOT/scripts/note-publish/note_inplace_repair.py"
     )
     NOTE_CODE_ARGS=(
       --code-file "$ARTICLE_ROOT/scripts/note-publish/note_inplace_repair.py"
-      --code-file "$ARTICLE_ROOT/scripts/ensure-note-mcp-runtime.sh"
     )
   elif [ "$NOTE_STATUS" = "intent" ]; then
     NOTE_COMMAND=(python3 "$ARTICLE_ROOT/scripts/publish-note-managed.py")
@@ -1062,7 +1053,6 @@ if [ "$INITIALIZATION_COUNT" -eq 0 ] \
       --code-file "$ARTICLE_ROOT/scripts/note-publish/set-eyecatch-draft.py"
       --code-file "$ARTICLE_ROOT/scripts/note-publish/set-eyecatch-api.py"
       --code-file "$ARTICLE_ROOT/scripts/note-publish/publish-paid.py"
-      --code-file "$ARTICLE_ROOT/scripts/ensure-note-mcp-runtime.sh"
     )
   else
     echo "article-resume: note deterministic dispatch refused status=$NOTE_STATUS" >>"$LOG"

@@ -101,7 +101,14 @@ def test_note_resume_prioritizes_publication_and_uses_failure_circuit(
     shutil.copy(ROOT / "scripts" / "publication_remote.py", scripts)
     shutil.copy(ROOT / "scripts" / "publication_resume.py", scripts)
     shutil.copy(ROOT / "scripts" / "resume_failure_circuit.py", scripts)
+    shutil.copy(ROOT / "scripts" / "writer_capacity_floor.py", scripts)
     shutil.copy(ROOT / "scripts" / "_shared" / "notifier.sh", scripts / "_shared")
+    (scripts / "writer-runtime-env.sh").write_text(
+        "WRITER_LOG_DIR=\"$ARTICLE_STATE_DIR/logs\"\n"
+        "STATE_DIR=\"$ARTICLE_STATE_DIR\"\n"
+        "WRITER_BROWSER_PYTHON=python3\n"
+        "export WRITER_LOG_DIR STATE_DIR WRITER_BROWSER_PYTHON\n"
+    )
     (scripts / "note-publish" / "set-eyecatch-draft.py").write_text(
         "selector_version = 1\n"
     )
@@ -109,9 +116,6 @@ def test_note_resume_prioritizes_publication_and_uses_failure_circuit(
         (scripts / "note-publish" / dependency).write_text(
             "dependency_version = 1\n"
         )
-    (scripts / "ensure-note-mcp-runtime.sh").write_text(
-        "#!/usr/bin/env bash\nexit 0\n"
-    )
 
     (scripts / "article_daily_start_control.py").write_text(
         'print(\'{"action":"new"}\')\n'
@@ -206,7 +210,9 @@ def test_note_resume_prioritizes_publication_and_uses_failure_circuit(
         for _ in range(3)
     ]
 
-    assert [result.returncode for result in results] == [1, 0, 0]
+    assert [result.returncode for result in results] == [1, 0, 0], [
+        result.stderr for result in results
+    ]
     assert calls.read_text().splitlines() == ["call", "call"]
     assert bridge_calls.read_text().splitlines() == ["incident-bridge"] * 3
     assert "same-failure-circuit-open" in log.read_text()

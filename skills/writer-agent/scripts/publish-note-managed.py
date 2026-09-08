@@ -109,25 +109,30 @@ def main() -> int:
         raise SystemExit("refuse managed note publish: money policy drifted")
 
     cloak_python = os.environ.get("WRITER_BROWSER_PYTHON", sys.executable)
+    note_mcp = Path(
+        os.environ.get("NOTE_MCP_DIR", str(HERE.parent / "vendor/note-mcp"))
+    )
+    note_source = Path(os.environ.get("NOTE_MCP_SRC", str(note_mcp / "src")))
     if os.environ.get("NOTE_EYECATCH_COMMAND"):
         eyecatch_argv = command("NOTE_EYECATCH_COMMAND", [])
     else:
-        note_mcp = Path(
-            os.environ.get(
-                "NOTE_MCP_DIR", str(HOME / ".openclaw/external/note-mcp")
-            )
-        )
-        run(["bash", str(HERE / "ensure-note-mcp-runtime.sh"), str(note_mcp)])
+        if not (note_source / "note_mcp/__init__.py").is_file():
+            raise SystemExit("refuse managed note publish: vendored note-mcp source missing")
         adapted_eyecatch = work / "note-eyecatch-1280x670.png"
         adapt_note_eyecatch(headline_path, adapted_eyecatch)
         eyecatch_argv = [
-            str(note_mcp / ".venv/bin/python"),
+            cloak_python,
             str(NOTE / "set-eyecatch-api.py"),
             str(adapted_eyecatch),
         ]
     eyecatch = run(
         eyecatch_argv,
-        env={**os.environ, "NOTE_KEY": target},
+        env={
+            **os.environ,
+            "NOTE_KEY": target,
+            "NOTE_MCP_SRC": str(note_source),
+            "PYTHONPATH": str(note_source) + (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else ""),
+        },
     )
     if not re.search(
         r"EYECATCH_IN_EDITOR:\s+https://assets\.st-note\.com/\S+",

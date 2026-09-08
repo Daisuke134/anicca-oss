@@ -141,6 +141,29 @@ class WriterRuntimeEnvTest(unittest.TestCase):
                 offenders.append(str(path.relative_to(ROOT)))
         self.assertEqual(offenders, [])
 
+    def test_note_adapter_uses_release_owned_vendor_source(self):
+        result = subprocess.run(
+            [
+                "bash", "-c",
+                f'source "{SCRIPT}" && printf "%s|%s" "$NOTE_MCP_DIR" "$NOTE_MCP_SRC"',
+            ],
+            text=True,
+            capture_output=True,
+            env={**os.environ, "LIFE_MANAGER_REPO": str(ROOT)},
+        )
+        vendor = ROOT / "skills/writer-agent/vendor/note-mcp"
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"{vendor}|{vendor / 'src'}")
+        self.assertTrue((vendor / "LICENSE").is_file())
+        self.assertTrue((vendor / "src/note_mcp/api/articles.py").is_file())
+        runtime_text = "\n".join(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in (ROOT / "skills/writer-agent/scripts").rglob("*")
+            if path.is_file() and "__pycache__" not in path.parts
+        )
+        self.assertNotIn(".openclaw/external/note-mcp", runtime_text)
+        self.assertNotIn("ensure-note-mcp-runtime", runtime_text)
+
     def test_writer_credential_consumers_have_no_openclaw_env_dependency(self):
         consumers = (
             "opportunity_response.py",
