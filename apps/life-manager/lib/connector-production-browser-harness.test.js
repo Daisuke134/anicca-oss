@@ -859,6 +859,53 @@ test("Connpass join inspector normalizes the measured ticket and question DOM", 
   assert.equal(wrongNameControls[0].question, undefined);
 });
 
+test("Connpass join inspector exposes required scalar questions and privacy consent without q ids", async () => {
+  const form = {};
+  const makeGroup = (textContent) => ({ querySelector(selector) { return selector === ":scope > .question" ? { textContent } : null; } });
+  const make = (element) => ({
+    dataset: {}, labels: [], innerText: "", options: [], value: "", checked: false,
+    required: false, disabled: false, form, getAttribute(name) { return name === "name" ? this.name || "" : ""; },
+    closest() { return null; }, ...element,
+  });
+  const specs = [
+    ["q_1", "必須 氏名（入場手続きのために必要となります）", "氏名"],
+    ["q_2", "必須 企業名・学校名（入場手続きのために必要となります）", "所属企業（学校）名"],
+    ["q_3", "必須 職種・専門領域・学部", "職種"],
+    ["q_4", "必須 メールアドレス（入場手続きのために必要となります）", "メールアドレス"],
+  ];
+  const elements = specs.map(([name, question]) => make({ tagName: "INPUT", type: "text", name,
+    closest(selector) { return selector === ".question_list" ? makeGroup(question) : null; } }));
+  elements.push(make({ tagName: "INPUT", type: "checkbox", name: "q_5", labels: [{ innerText: "個人情報の取り扱いに同意します" }],
+    closest(selector) { return selector === ".question_list" ? makeGroup("必須 本応募フォームで取得した回答内容及び、個人情報は株式会社が取り扱います") : null; } }));
+  const page = { url() { return "https://wbccollege.connpass.com/event/403786/join/"; }, locator() { return { async evaluateAll(callback, context) { return callback(elements, context); } }; } };
+  const controls = await inspectPageControls({ page, provider: "connpass" });
+  assert.deepEqual(controls.map(({ label, required }) => ({ label, required })), [
+    ...specs.map(([, , label]) => ({ label, required: true })),
+    { label: "個人情報の取り扱いに同意します", required: true },
+  ]);
+  assert.equal(controls.some(({ label }) => /^q_/.test(label)), false);
+});
+
+test("Connpass resolver uses parent-owned identity, form answers, and explicit privacy consent", async () => {
+  const resolver = createPrivateValueResolver({
+    readPeatixProfile: async () => ({ name: "Private Name", email: "private@example.test", accept_organizer_privacy: true }),
+    readFormProfile: async () => ({ form_answers: { "所属企業（学校）名": "Private Company", "職種": "Private Role" } }),
+  });
+  const base = { provider: "connpass", state: "connpass_join", action: { purpose: "fill" } };
+  for (const [label, expected] of [["氏名", "Private Name"], ["メールアドレス", "private@example.test"], ["所属企業（学校）名", "Private Company"], ["職種", "Private Role"]]) {
+    assert.equal(await resolver({ ...base, control: { control: `control_${label.length}`, kind: "input", label, required: true, completed: false, submittable: false } }), expected);
+  }
+  const privacy = (question) => ({ ...base, control: { control: "privacy", kind: "checkbox", label: "個人情報の取り扱いに同意します", question, required: true, completed: false, submittable: false } });
+  const exactPrivacy = "本応募フォームで取得した回答内容及び、個人情報は株式会社アピリッツが取り扱いいたします。 詳細は以下よりご確認ください。▼株式会社アピリッツ https://appirits.com/privacy_policy.html";
+  assert.equal(await resolver(privacy(exactPrivacy)), true);
+  for (const question of [
+    "個人情報を広告会社へ販売し第三者提供することに同意しますか",
+    "本応募フォームで取得した回答内容及び、個人情報は株式会社例が取り扱いいたします。 詳細は以下よりご確認ください。第三者へ共有します",
+  ]) assert.equal(await resolver(privacy(question)), null);
+  const rejecting = createPrivateValueResolver({ readPeatixProfile: async () => ({ accept_organizer_privacy: false }), readFormProfile: async () => ({ form_answers: {} }) });
+  assert.equal(await rejecting(privacy(exactPrivacy)), null);
+});
+
 test("Connpass exact join does not adopt a generic question outside .question_list", async () => {
   const form = {};
   const genericTitle = { textContent: "必須 参加枠" };
