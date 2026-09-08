@@ -127,6 +127,7 @@ def test_one_thread_failure_is_isolated(tmp_path):
 
     result = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
     assert result["failed"] == 1
+    assert result["items"][0]["error_detail"] == "model failed"
     assert result["effect"] == 1
     assert result["items"][1]["status"] == "verified"
 
