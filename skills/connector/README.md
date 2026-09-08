@@ -12,6 +12,16 @@ Copy `examples/public-profile.json` to `apps/life-manager/config/connector/<tena
 
 Requirements are Node.js, `gog`, a running user-owned CloakBrowser daily-driver at CDP `:9222`, and a mode-0600 environment file containing only the allowlisted variables accepted by `lib/load-connector-env.js`.
 
+From an existing checkout, one command builds an immutable release, installs only the
+Connector owner, starts one bounded pass, and prints its status:
+
+```sh
+./install.sh connector
+```
+
+Re-running the same command upgrades and restarts Connector without replacing private
+configuration, state, browser sessions, Calendar receipts, or Telegram receipts.
+
 Render first; the renderer never changes launchd:
 
 ```sh
