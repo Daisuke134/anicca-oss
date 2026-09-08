@@ -337,6 +337,25 @@ def test_gmail_inventory_retries_one_transient_thread_timeout(monkeypatch):
     assert thread_attempts == 2
 
 
+def test_gmail_inventory_retries_one_transient_search_timeout(monkeypatch):
+    inbound_attempts = 0
+
+    def run(argv, **_kwargs):
+        nonlocal inbound_attempts
+        if "search" in argv:
+            if argv[4].startswith("from:"):
+                inbound_attempts += 1
+                if inbound_attempts == 1:
+                    raise subprocess.TimeoutExpired(argv, 30)
+            return subprocess.CompletedProcess(argv, 0, json.dumps({"messages": []}), "")
+        raise AssertionError("empty inventory must not fetch a thread")
+
+    monkeypatch.setattr(snapshot.subprocess, "run", run)
+
+    assert snapshot._gmail("owner@example.com", "gog") == []
+    assert inbound_attempts == 2
+
+
 def test_snapshot_retries_one_transient_official_source_miss(monkeypatch):
     attempts = 0
 

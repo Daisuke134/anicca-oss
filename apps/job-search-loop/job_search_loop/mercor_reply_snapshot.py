@@ -135,15 +135,20 @@ def _gmail(account: str, executable: str,
         "in:sent mercor newer_than:30d",
     )
     for query in queries:
-        try:
-            search = subprocess.run(
-                [executable, "gmail", "messages", "search", query, "--max", "100",
-                 "--account", account, "--json", "--no-input"],
-                capture_output=True, text=True, check=False, timeout=30,
-            )
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("mercor_gmail_inventory_unavailable") from None
-        if search.returncode != 0:
+        search = None
+        argv = [executable, "gmail", "messages", "search", query, "--max", "100",
+                "--account", account, "--json", "--no-input"]
+        for _attempt in range(2):
+            try:
+                candidate = subprocess.run(
+                    argv, capture_output=True, text=True, check=False, timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                continue
+            if candidate.returncode == 0:
+                search = candidate
+                break
+        if search is None:
             raise RuntimeError("mercor_gmail_inventory_unavailable")
         try:
             found = json.loads(search.stdout).get("messages", [])
