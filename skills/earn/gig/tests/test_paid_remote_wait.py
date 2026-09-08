@@ -79,6 +79,39 @@ def test_talkroom_readback_retries_transient_tab_open_timeout(monkeypatch) -> No
     assert len(attempts) == 2
 
 
+def test_talkroom_readback_retries_hidden_helper_transport_timeout(monkeypatch) -> None:
+    snapshot = load("coconala_queue_snapshot")
+    attempts = []
+
+    class Tab:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def __enter__(self):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise RuntimeError(
+                    "failed to open authenticated hidden target: "
+                    "{'ok': False, 'reason': 'URLError: <urlopen error "
+                    "[Errno 60] Operation timed out>'}"
+                )
+            return SimpleNamespace(ws="ws://ready")
+
+        def __exit__(self, *_args):
+            return False
+
+    async def inspect(*_args, **_kwargs):
+        return {"ok": True}
+
+    monkeypatch.setattr(snapshot, "DefaultTab", Tab)
+    monkeypatch.setattr(snapshot, "inspect_page", inspect)
+
+    assert snapshot.inspect_page_with_retry(
+        Path("helper"), "https://example.test", "1", None
+    ) == {"ok": True}
+    assert len(attempts) == 2
+
+
 def test_buyer_attachment_fetch_has_a_finite_timeout() -> None:
     snapshot = load("coconala_queue_snapshot")
 
