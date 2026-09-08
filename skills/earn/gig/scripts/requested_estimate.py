@@ -648,8 +648,9 @@ class SemanticJudge:
             rows, resolved_official_context, self.seller_facts, thread_id=thread_id,
         )
         judgement: dict[str, Any] | None = None
-        for correction in (None, (
-            "\n前回出力は構造契約違反です。conversation_stateが"
+        correction: str | None = None
+        correction_guidance = (
+            "conversation_stateが"
             "explicit_estimate_requestならnext_action=replyは禁止です。"
             "また最新roleがsellerならreply/clarifyは禁止です。buyerが承認済みで"
             "sellerの公式見積り送付約束が未履行ならsend_estimate、履行義務がなければwaitです。"
@@ -660,7 +661,9 @@ class SemanticJudge:
             "buyerが成果物・投稿文・サンプルの全文を今ここで求めている場合、"
             "『後で見せます／送ります』と延期せず、会話内の原文から要求された実物全文を"
             "ラベル付きでreply_bodyへ含めてください。根拠不足なら最小情報だけclarifyしてください。"
-        )):
+            "message_idと各evidence_message_idsは入力中の値を一文字も変えずコピーしてください。"
+        )
+        for attempt in range(2):
             run_evidence = evidence if correction is None else evidence / "corrective-1"
             run_evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
             completed = subprocess.run(
@@ -687,13 +690,12 @@ class SemanticJudge:
                 judgement = validate_semantic_judgement(payload, rows)
                 break
             except SemanticJudgementError as error:
-                if correction is not None or str(error) not in {
-                    "semantic_estimate_request_reply_conflict",
-                    "semantic_seller_last_reply_conflict",
-                    "semantic_inline_artifact_deferred",
-                    "semantic_purchase_decision_requires_proactive_reply",
-                }:
+                if attempt:
                     raise
+                correction = (
+                    f"\n前回出力は構造契約違反です。違反コード: {error}。"
+                    f"{correction_guidance}全項目を再評価し、契約に適合するJSONを返してください。"
+                )
             except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
                 raise SemanticJudgementError("semantic_evidence_invalid") from error
         if judgement is None:

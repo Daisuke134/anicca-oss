@@ -277,6 +277,53 @@ def test_semantic_judge_uses_fast_task_class_and_bounded_outer_timeout(tmp_path,
     assert kwargs["timeout"] == 150
 
 
+def test_semantic_judge_corrects_any_model_validation_error_once(tmp_path, monkeypatch):
+    schema = GIG_ROOT / "schemas" / "reply_semantic_judgement.schema.json"
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(kwargs["input"])
+        evidence = Path(argv[argv.index("--evidence-dir") + 1])
+        result_path = evidence / "result.json"
+        result_path.write_text("{}", encoding="utf-8")
+        (evidence / "summary.json").write_text(json.dumps({
+            "status": "success", "result_path": str(result_path),
+        }), encoding="utf-8")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    validations = iter((requested_estimate.SemanticJudgementError(
+        "semantic_content_evidence_invalid"
+    ), {"next_action": "wait"}))
+
+    def validate(_payload, _rows):
+        value = next(validations)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(requested_estimate.subprocess, "run", fake_run)
+    monkeypatch.setattr(requested_estimate, "validate_semantic_judgement", validate)
+    judge = requested_estimate.SemanticJudge(
+        runner=RUNNER_PATH, schema=schema, workdir=tmp_path,
+        evidence_root=tmp_path / "evidence",
+    )
+    receipt = judge({
+        "url": "https://coconala.com/messages/123", "title": "メッセージ詳細",
+        "container_present": True, "own_user_path": "/users/seller",
+        "messages": [
+            {"message_id": "seller-1", "author_path": "/users/seller",
+             "body": "こんにちは", "sent_at": "2026-08-19T00:00:00Z"},
+            {"message_id": "buyer-1", "author_path": "/users/buyer",
+             "body": "質問です", "sent_at": "2026-08-19T00:01:00Z"},
+        ],
+    }, "https://coconala.com/messages/123")
+
+    assert receipt["judgement"] == {"next_action": "wait"}
+    assert len(calls) == 2
+    assert "semantic_content_evidence_invalid" in calls[1]
+    assert "一文字も変えずコピー" in calls[1]
+
+
 def test_semantic_judge_accepts_compatible_receipts_and_rejects_unknown_profile(tmp_path):
     schema = GIG_ROOT / "schemas" / "reply_semantic_judgement.schema.json"
     judge = requested_estimate.SemanticJudge(
