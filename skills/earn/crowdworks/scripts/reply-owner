@@ -10,5 +10,7 @@ exec "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/reply_kernel.py" \
   --state-root "$STATE_ROOT/reply" \
   --output "$STATE_ROOT/reply/latest.json" \
   --max-workers 1 \
+  --telegram-chat-config "$HOME/.config/anicca/crowdworks/telegram.env" \
+  --telegram-database "$STATE_ROOT/reply/telegram-outbox.sqlite3" \
   -- --state-path "$STATE_ROOT/reply/state.json" \
   "$@"
