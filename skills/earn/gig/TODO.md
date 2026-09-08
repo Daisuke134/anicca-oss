@@ -1027,6 +1027,12 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    official application evidence, but the Reply owner allowed only one owned target. Set this one owner to
    a hard limit of two so the proven nested read can run while a third target still fails closed. Do not
    restart or globally loosen the browser. Owner and target-ownership checks pass 12/12.
+   The `semantic_service_contract_invalid` failure was also deterministic: the Reply reader rejected
+   the official Storefront state `受付休止中`, so 42 valid paused rows invalidated the entire 406-row
+   append-only contract ledger. Accept that provider state while continuing to return only the latest
+   `公開中` contracts for reply grounding. The actual ledger now validates as 406 historical rows and
+   24 current public contracts; 36 semantic checks pass. Storefront business code and its ledger are
+   unchanged.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

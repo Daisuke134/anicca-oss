@@ -1135,7 +1135,8 @@ def load_service_contracts(path: Path | None = None, *, latest_only: bool = True
             valid = (
                 row.get("version") == 1 and str(row["service_id"]).isdigit()
                 and row["public_url"] == f"https://coconala.com/services/{row['service_id']}"
-                and row.get("state") in {"公開中", "非公開", "下書き"} and type(row.get("price_jpy")) is int
+                and row.get("state") in {"公開中", "受付休止中", "非公開", "下書き"}
+                and type(row.get("price_jpy")) is int
                 and bool(str(row.get("title") or "").strip()) and bool(str(row.get("category") or "").strip())
                 and hashlib.sha256(str(row.get("scope_text") or "").encode()).hexdigest() == row["public_content_sha256"]
                 and hashlib.sha256(canonical.encode()).hexdigest() == row.get("service_version_sha256")
