@@ -7,4 +7,6 @@ STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
 exec "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/paid_kernel.py" \
   --provider-adapter "$ROOT/skills/earn/mercor/scripts/paid_adapter.py" \
   --state-root "$STATE_ROOT/shared-paid" --output "$STATE_ROOT/paid-latest.json" -- \
-  --account-id "${MERCOR_OPERATOR_ID:-default}" --work-events "$STATE_ROOT/work-events.jsonl"
+  --account-id "${MERCOR_OPERATOR_ID:-default}" \
+  --official-snapshot "$STATE_ROOT/reply/official-snapshot.json" \
+  --work-events "$STATE_ROOT/work-events.jsonl"
