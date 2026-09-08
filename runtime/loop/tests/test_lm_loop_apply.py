@@ -1575,6 +1575,7 @@ class LmLoopApplyTest(unittest.TestCase):
         target = values["agents_dir"] / "ai.anicca.agent-economy-loop.plist"
         installed = plistlib.loads(rendered["plist_bytes"])
         installed["EnvironmentVariables"].update({
+            "ANICCA_ECONOMY_CREATE_EVM_WALLET": "1",
             "ANICCA_RELEASE_ID": "legacy-release",
             "ANICCA_RELEASE_SHA": "b" * 40,
             "CEO_EFFECTIVE_CRON_DIR": "/legacy/cron",
@@ -1592,7 +1593,8 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertTrue(result[0]["changed"])
         environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
         self.assertTrue({
-            "ANICCA_RELEASE_ID", "ANICCA_RELEASE_SHA", "CEO_EFFECTIVE_CRON_DIR",
+            "ANICCA_ECONOMY_CREATE_EVM_WALLET", "ANICCA_RELEASE_ID",
+            "ANICCA_RELEASE_SHA", "CEO_EFFECTIVE_CRON_DIR",
         }.isdisjoint(environment))
         self.assertEqual(environment["AGENT_ECONOMY_OPERATIONAL_SETTING"], "kept")
 
