@@ -439,6 +439,23 @@ def _notifier(*, database: Path, chat_id: str, env_file: Path):
     return send
 
 
+def _chat_id(value: str, config: Path | None) -> str:
+    if value.strip():
+        return value.strip()
+    if config is None:
+        return ""
+    try:
+        lines = config.expanduser().read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for raw in lines:
+        name, separator, candidate = raw.partition("=")
+        if separator and name.strip() in {"CROWDWORKS_REPORT_CHAT", "LANCERS_REPORT_CHAT", "GIG_REPORT_CHAT"}:
+            if candidate.strip():
+                return candidate.strip()
+    return ""
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider-adapter", required=True, type=Path)
@@ -446,6 +463,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--max-workers", type=int, default=4)
     parser.add_argument("--telegram-chat-id", default=os.environ.get("GIG_REPORT_CHAT", ""))
+    parser.add_argument("--telegram-chat-config", type=Path)
     parser.add_argument(
         "--telegram-database", type=Path,
         default=Path(os.environ.get("LIFE_MANAGER_STATE_ROOT", ".")) / "telegram-outbox.sqlite3",
@@ -459,10 +477,11 @@ def main(argv: list[str] | None = None) -> int:
         provider_argv = provider_argv[1:]
     adapter, decide = _load_provider(args.provider_adapter, provider_argv)
     notify = None
-    if args.telegram_chat_id.strip():
+    chat_id = _chat_id(args.telegram_chat_id, args.telegram_chat_config)
+    if chat_id:
         notify = _notifier(
             database=args.telegram_database.expanduser().resolve(),
-            chat_id=args.telegram_chat_id.strip(),
+            chat_id=chat_id,
             env_file=args.telegram_env_file.expanduser().resolve(),
         )
     result = run_wake(adapter=adapter, decide=decide,

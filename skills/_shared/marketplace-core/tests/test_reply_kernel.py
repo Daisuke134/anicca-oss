@@ -313,6 +313,13 @@ def test_readback_exception_after_intent_preserves_reconcile_fence(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_chat_id_reads_declared_provider_config_without_repo_literal(tmp_path):
+    config = tmp_path / "telegram.env"
+    config.write_text("CROWDWORKS_REPORT_CHAT=operator-chat\n", encoding="utf-8")
+    assert reply_kernel._chat_id("", config) == "operator-chat"
+    assert reply_kernel._chat_id("explicit", config) == "explicit"
+
+
 def test_pre_effect_readback_must_prove_authoritative_absence(tmp_path):
     class UnknownBeforeEffect(Adapter):
         def readback(self, _intent):
