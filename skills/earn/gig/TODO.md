@@ -957,7 +957,7 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
       a customer-facing answer, and ordinary profile questionnaires must not create a Telegram human gate.
       Do not replace model judgment with keyword/regex classification. Irreversible financial, legal,
       identity or qualification claims still require authoritative facts rather than invention.
-   3. Send one natural corrective answer on board `9058411`, require the exact official message readback,
+   3. Send one natural corrective answer to the `ママさん応援団` buyer on board `9058411`, require the exact official message readback,
       then require a following natural replay with zero duplicate effect.
    4. Keep shared Telegram handoff only for genuinely person-bound or irreversible actions, not missing
       ordinary questionnaire fields; all other threads continue independently.
@@ -971,6 +971,11 @@ atom is now `MERCOR-APPLY-1`, explicitly assigned here by Dais because no parall
    contract no longer tells a buyer that internal profile/context is unavailable. Grounding, planner, kernel and
    Lancers adapter checks pass 26/26. This is pushed source evidence only, not production acceptance;
    the corrective official reply/readback and replay-zero remain open.
+   Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
+   context and components. This does not reorder the executable cursor: the immediate work inside
+   `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context
+   proof. CrowdWorks remains the later `CROWDWORKS-REPLY-1` thin-adapter acceptance rather than being
+   pulled ahead of the fixed intervening atoms.
    CrowdWorks must not be described as having no reply opportunities: no shared Reply adapter currently
    observes its official inbox, so that fact is unknown. Its Apply ledger nevertheless records fresh
    verified applications `304755537`, `304757474` and `304759404` on September 7; acquisition exists,
