@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# publish-substack.sh — publish article to aniccabuddha.substack.com via Substack API
+# publish-substack.sh — publish an article to the configured Substack publication
 # Substack has an undocumented but working API at /api/v1/drafts that we POST to.
 # Uses SUBSTACK_SESSION_COOKIE loaded from LIFE_MANAGER_ENV_FILE.
 #
@@ -36,7 +36,7 @@ python3 "$DIR/pii-gate.py" --stage publish-substack "$MD_FILE" >&2 || exit $?
 
 case "${ARTICLE_PUBLISH_PAIR:-}" in
   substack/ja)
-    PUBLICATION="${SUBSTACK_PUBLICATION_JA:-${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}}"
+    PUBLICATION="${SUBSTACK_PUBLICATION_JA:?SUBSTACK_PUBLICATION_JA is required for managed substack/ja}"
     export SUBSTACK_SESSION_COOKIE="${SUBSTACK_SESSION_COOKIE_JA:-${SUBSTACK_SESSION_COOKIE:-}}"
     ;;
   substack/en)
@@ -44,7 +44,7 @@ case "${ARTICLE_PUBLISH_PAIR:-}" in
     export SUBSTACK_SESSION_COOKIE="${SUBSTACK_SESSION_COOKIE_EN:?SUBSTACK_SESSION_COOKIE_EN is required for managed substack/en}"
     ;;
   *)
-    PUBLICATION="${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}"
+    PUBLICATION="${SUBSTACK_PUBLICATION:?SUBSTACK_PUBLICATION is required}"
     ;;
 esac
 [[ -n "${SUBSTACK_SESSION_COOKIE:-}" ]] || { echo "FATAL: Substack session cookie is missing" >&2; exit 2; }

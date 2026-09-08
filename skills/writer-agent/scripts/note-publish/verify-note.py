@@ -6,6 +6,9 @@ import json, os, sys, time, urllib.request
 from cloakbrowser import launch_context
 
 KEY = sys.argv[1] if len(sys.argv) > 1 else "na3a631e63d1a"
+NOTE_URLNAME = os.environ.get("NOTE_URLNAME", "").strip()
+if not NOTE_URLNAME:
+    raise SystemExit("NOTE_URLNAME is required")
 EXPECT_GATED = (sys.argv[2].lower() in ("1", "true", "gated")) if len(sys.argv) > 2 else True
 WORK = os.path.expanduser("~/.cloak/note-work"); os.makedirs(WORK, exist_ok=True)
 SHOT = f"{WORK}/verify-{KEY}.png"
@@ -21,7 +24,7 @@ shot_ok = False
 try:
     ctx = launch_context(headless=True, humanize=False)
     pg = ctx.new_page(); pg.set_viewport_size({"width": 1100, "height": 1200})
-    pg.goto(f"https://note.com/anicca123/n/{KEY}", wait_until="domcontentloaded", timeout=45000); time.sleep(6)
+    pg.goto(f"https://note.com/{NOTE_URLNAME}/n/{KEY}", wait_until="domcontentloaded", timeout=45000); time.sleep(6)
     pg.evaluate("window.scrollTo(0,0)"); time.sleep(1); pg.screenshot(path=SHOT); shot_ok = True
     ctx.close()
 except Exception as e:

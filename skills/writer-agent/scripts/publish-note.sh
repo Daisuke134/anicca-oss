@@ -38,6 +38,7 @@ python3 "$SCRIPT_DIR/pii-gate.py" --stage publish-note "$MD_FILE" >&2 || exit $?
 
 
 [[ -n "${NOTE_EMAIL:-}" && -n "${NOTE_PASSWORD:-}" ]] || { echo "FATAL: NOTE_EMAIL / NOTE_PASSWORD missing from LIFE_MANAGER_ENV_FILE" >&2; exit 1; }
+[[ -n "${NOTE_USER_ID:-}" && -n "${NOTE_URLNAME:-}" ]] || { echo "FATAL: NOTE_USER_ID / NOTE_URLNAME missing from LIFE_MANAGER_ENV_FILE" >&2; exit 1; }
 # note-mcp's login_with_browser() unconditionally calls SessionManager().save()
 # after a successful login, and by default that goes through the macOS
 # Keychain. On this machine (unattended/background shell, no unlocked GUI
@@ -71,7 +72,7 @@ sleep 2
 
 # Step 1: Login via camofox if needed, extract _note_session_v5 cookie
 # Approach: fresh tab → /login → fill email + pw → submit → wait for redirect → read live cookies.sqlite
-USER_ID="${ANICCA_NOTE_USER_ID:-anicca-pure}"
+USER_ID="${NOTE_BROWSER_PROFILE_ID:-note-publisher}"
 SESSION_KEY="${ANICCA_NOTE_SESSION_KEY:-note-daily}"
 
 # Always probe live cookies first — if session is already alive, skip login.
@@ -231,7 +232,7 @@ import json, os, re, sys, asyncio, time, subprocess, tempfile
 sys.path.insert(0, os.environ["NOTE_MCP_SRC"])
 from note_mcp.models import Session, ArticleInput, ArticleStatus
 from note_mcp.api.articles import create_draft, get_article_via_api, update_article
-from note_mcp.auth.browser import login_with_browser
+from note_mcp.auth.browser import get_current_user, login_with_browser
 from note_mcp.auth.session import SessionManager
 
 async def load_session():
@@ -249,9 +250,15 @@ async def load_session():
   for line in res.strip().split('\n'):
     if '=' in line:
       k,v = line.split('=', 1); cookies[k] = v
-  return Session(cookies=cookies, user_id=os.environ.get("NOTE_USER_ID", "14651590"), username=os.environ.get("NOTE_URLNAME", "anicca123"), created_at=int(time.time()))
+  return Session(cookies=cookies, user_id=os.environ["NOTE_USER_ID"], username=os.environ["NOTE_URLNAME"], created_at=int(time.time()))
 
 session = asyncio.run(load_session())
+actual = asyncio.run(get_current_user(session.cookies))
+if (
+  str(actual.get("id", "")) != os.environ["NOTE_USER_ID"]
+  or str(actual.get("urlname", "")).lower() != os.environ["NOTE_URLNAME"].lower()
+):
+  raise SystemExit("authenticated Note account does not match NOTE_USER_ID / NOTE_URLNAME")
 # cache this session's cookies for note-stage2-publish.py (reads them from this fixed path,
 # same convention as scripts/note-publish/extract-note-cookies.py) so stage2 does not need
 # its own independent login.

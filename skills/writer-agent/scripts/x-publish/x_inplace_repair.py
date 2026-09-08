@@ -853,6 +853,7 @@ class XBrowserAdapter:
         title: str,
         source: str,
         cover: str,
+        expected_identity: str,
         protected: dict[str, Any] | None = None,
         readability_receipt: Path | None = None,
     ) -> dict[str, Any]:
@@ -1064,7 +1065,7 @@ class XBrowserAdapter:
                 raise XRepairRefused("X publish confirmation is missing")
             confirm_visible[-1].click()
             page.wait_for_timeout(8_000)
-            identity = "diceai0"
+            identity = expected_identity
             if isinstance(protected, dict):
                 live_path = urlparse(
                     str(protected.get("live_url", ""))
@@ -1125,7 +1126,7 @@ def repair(
         live_url = str(protected.get("live_url", ""))
         public_id = str(protected.get("public_id", ""))
         expected_identity = (
-            state.get("destination_identities", {}).get(pair) or "diceai0"
+            state.get("destination_identities", {}).get(pair) or ""
         )
         if (
             not public_id
@@ -1135,8 +1136,10 @@ def repair(
                 "X repair lost the protected public Article ID"
             )
     expected_identity = (
-        state.get("destination_identities", {}).get(pair) or "diceai0"
+        state.get("destination_identities", {}).get(pair) or ""
     )
+    if not expected_identity:
+        raise XRepairRefused("persisted X destination identity is required")
     browser = adapter or XBrowserAdapter()
     if browser.authenticated_identity() != expected_identity:
         raise XRepairRefused(
@@ -1351,6 +1354,7 @@ def repair(
         title,
         str(adapted),
         str(cover),
+        expected_identity,
         protected if isinstance(protected, dict) else None,
         readability_receipt=work / "media-readability.json",
     )

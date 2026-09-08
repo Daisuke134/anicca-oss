@@ -315,7 +315,7 @@ def build_paid_publish_payload(
 ) -> dict:
     """Build the Note paid-article PUT payload note has actually accepted.
 
-    Recovered from the only accepted publish, https://note.com/anicca123/n/n190c1d92bf10:
+    Recovered from an accepted publish receipt on the configured Note account:
     nineteen keys, `separator` = the id of the LAST FREE top-level block, `pay_body`
     starting at the block after it.  note stored `separator`
     "ec072720-e1e2-4d03-a893-477022e422c8", which is exactly that block, and the same
@@ -715,7 +715,7 @@ def main() -> int:
             raise
         effect["state"] = "response"
         # Keep the flag as evidence, never as the verdict.  The one PUT note has
-        # accepted -- https://note.com/anicca123/n/n190c1d92bf10, publish_at
+        # accepted -- configured canonical Note URL and publish_at
         # 2026-08-07T00:32:19+09:00, ¥500 -- answered HTTP 200 with no truthy
         # `data.result` and published the article anyway.  Treating that as a
         # logical failure reported the only success as FATAL.  Whether the

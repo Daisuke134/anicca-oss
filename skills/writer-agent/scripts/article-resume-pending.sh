@@ -955,6 +955,7 @@ fi
 if [ -n "${ARTICLE_SELF_OWNED_LANDING_ROOT:-}" ] \
   && [ -n "${ARTICLE_SELF_OWNED_REMOTE:-}" ] \
   && [ -n "${ARTICLE_SELF_OWNED_BRANCH:-}" ]; then
+  : "${ARTICLE_SELF_OWNED_BASE_URL:?ARTICLE_SELF_OWNED_BASE_URL is required when self-owned publishing is enabled}"
   (
     SELF_OWNED_LOCK="$RUN_DIR/gates/self-owned-worker.lock"
     if ! mkdir "$SELF_OWNED_LOCK" 2>/dev/null; then
@@ -967,7 +968,7 @@ if [ -n "${ARTICLE_SELF_OWNED_LANDING_ROOT:-}" ] \
       --landing-root "$ARTICLE_SELF_OWNED_LANDING_ROOT" \
       --remote "$ARTICLE_SELF_OWNED_REMOTE" \
       --branch "$ARTICLE_SELF_OWNED_BRANCH" \
-      --base-url "${ARTICLE_SELF_OWNED_BASE_URL:-https://aniccaai.com}"
+      --base-url "$ARTICLE_SELF_OWNED_BASE_URL"
   ) >>"$LOG" 2>&1 </dev/null || \
     echo "article-resume: self-owned worker remains pending" >>"$LOG"
 fi

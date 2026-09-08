@@ -51,6 +51,7 @@ def test_cross_day_adoption_precedes_both_quality_plans_and_never_starts_daily(
     scripts.mkdir(parents=True, exist_ok=True)
     runtime.mkdir()
     shutil.copy(ROOT / "scripts/article-resume-pending.sh", scripts)
+    shutil.copy(ROOT / "scripts/writer-runtime-env.sh", scripts)
     calls = tmp_path / "calls"
     _write(
         state / "articles.jsonl",

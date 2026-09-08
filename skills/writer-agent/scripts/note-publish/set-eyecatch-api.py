@@ -29,8 +29,8 @@ async def main() -> int:
     )
     session = Session(
         cookies=cookies,
-        user_id=os.environ.get("NOTE_USER_ID", "14651590"),
-        username=os.environ.get("NOTE_URLNAME", "anicca123"),
+        user_id=os.environ["NOTE_USER_ID"],
+        username=os.environ["NOTE_URLNAME"],
         created_at=int(time.time()),
     )
     uploaded = await upload_eyecatch_image(session, str(image), target)

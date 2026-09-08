@@ -25,7 +25,10 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
             )
             target.write_text("KEEP=this-line\n")
             result = MODULE.migrate(source, target)
-            self.assertEqual(result, {"copied": 2, "skipped": 0, "missing": 6})
+            self.assertEqual(
+                result,
+                {"copied": 2, "skipped": 0, "missing": len(MODULE.KEYS) - 2},
+            )
             body = target.read_text()
             self.assertTrue(body.startswith("KEEP=this-line\n"))
             self.assertIn("DEVTO_API_KEY='secret value'\n", body)

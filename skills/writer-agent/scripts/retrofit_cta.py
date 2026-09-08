@@ -34,19 +34,21 @@ LIST_URL = "https://dev.to/api/articles/me/published?per_page=100"
 UA = "anicca-cta-retrofit/1.0"
 TIMEOUT = 25
 
-# Any of these already counts as a door; a piece carrying one is left alone.
-PATH_MARKERS = ("aniccaai.com", "substack", "note.com", "github.com/daisuke134")
-
-# Written to be useful rather than promotional: the reader arrived with a
-# problem, so the offer is more of the same kind of help, not a pitch.
-CTA_BLOCK = """
-
----
-
-I write up one of these every day — real failures, the measurements behind
-them, and what actually fixed it. The archive and the notes live at
-https://aniccaai.com/ if this one saved you time.
-"""
+def configured_cta() -> tuple[tuple[str, ...], str]:
+    landing = os.environ.get("ARTICLE_PRODUCT_LANDING_URL", "").strip()
+    if not landing.startswith(("https://", "http://")):
+        raise ValueError("ARTICLE_PRODUCT_LANDING_URL is required")
+    markers = tuple(
+        marker.strip().lower()
+        for marker in os.environ.get("ARTICLE_CTA_URLS", landing).split(",")
+        if marker.strip()
+    )
+    block = (
+        "\n\n---\n\nI write up one of these every day — real failures, "
+        "the measurements behind them, and what actually fixed it. "
+        f"The archive and the notes live at {landing} if this one saved you time.\n"
+    )
+    return markers, block
 
 
 def api(url: str, key: str, *, method: str = "GET", payload: dict | None = None) -> dict | list:
@@ -66,9 +68,9 @@ def api(url: str, key: str, *, method: str = "GET", payload: dict | None = None)
         return json.load(response)
 
 
-def needs_cta(body: str) -> bool:
+def needs_cta(body: str, markers: tuple[str, ...]) -> bool:
     lowered = body.lower()
-    return not any(marker in lowered for marker in PATH_MARKERS)
+    return not any(marker in lowered for marker in markers)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,6 +82,11 @@ def main(argv: list[str] | None = None) -> int:
     key = os.environ.get("DEVTO_API_KEY", "").strip()
     if not key:
         print("DEVTO_API_KEY is not set", file=sys.stderr)
+        return 1
+    try:
+        path_markers, cta_block = configured_cta()
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
         return 1
 
     rows = api(LIST_URL, key)
@@ -96,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"skip {row['id']}: {exc}", file=sys.stderr)
             continue
         body = article.get("body_markdown") or ""
-        if not needs_cta(body):
+        if not needs_cta(body, path_markers):
             skipped += 1
         else:
             planned.append((row, body))
@@ -115,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "plan":
         print("\n--- block that would be appended ---")
-        print(CTA_BLOCK.strip())
+        print(cta_block.strip())
         return 0
 
     changed = 0
@@ -125,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"https://dev.to/api/articles/{row['id']}",
                 key,
                 method="PUT",
-                payload={"article": {"body_markdown": body + CTA_BLOCK}},
+                payload={"article": {"body_markdown": body + cta_block}},
             )
             changed += 1
         except (urllib.error.URLError, urllib.error.HTTPError) as exc:

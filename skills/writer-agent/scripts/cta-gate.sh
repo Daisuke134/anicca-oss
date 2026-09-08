@@ -19,6 +19,7 @@ set -uo pipefail
 
 MD="${1:-}"
 [ -f "$MD" ] || { echo "FATAL: usage: cta-gate.sh <article.md>" >&2; exit 2; }
+: "${ARTICLE_PRODUCT_LANDING_URL:?ARTICLE_PRODUCT_LANDING_URL is required}"
 shift
 EXPECTED_RUN_ID=""
 EXPECTED_ARTIFACT_ID=""
@@ -30,7 +31,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-python3 - "$MD" "$EXPECTED_RUN_ID" "$EXPECTED_ARTIFACT_ID" <<'PY'
+python3 - "$MD" "$EXPECTED_RUN_ID" "$EXPECTED_ARTIFACT_ID" "$ARTICLE_PRODUCT_LANDING_URL" <<'PY'
 import html
 import json
 import re
@@ -48,11 +49,22 @@ required = (
 body = html.unescape(Path(sys.argv[1]).read_text(encoding="utf-8"))
 expected_run_id = sys.argv[2]
 expected_artifact_id = sys.argv[3]
+landing = urlparse(sys.argv[4])
+if landing.scheme not in {"http", "https"} or not landing.netloc:
+    raise SystemExit("FATAL: ARTICLE_PRODUCT_LANDING_URL must be an absolute HTTP(S) URL")
+landing_path = landing.path.rstrip("/")
 lineage_mismatch = False
 for raw in re.findall(r"https?://[^\s<>\]\[()\"']+", body):
     url = raw.rstrip(".,;:!?")
     parsed = urlparse(url)
-    if parsed.hostname not in {"aniccaai.com", "www.aniccaai.com"}:
+    if (
+        parsed.scheme != landing.scheme
+        or parsed.netloc.lower() != landing.netloc.lower()
+        or not (
+            parsed.path.rstrip("/") == landing_path
+            or parsed.path.startswith(f"{landing_path}/")
+        )
+    ):
         continue
     query = parse_qs(parsed.query, keep_blank_values=True)
     values = {
@@ -72,7 +84,7 @@ for raw in re.findall(r"https?://[^\s<>\]\[()\"']+", body):
         print(json.dumps({
             "gate": "cta",
             "verdict": "PASS",
-            "destination": "aniccaai.com",
+            "destination": landing.netloc,
             **values,
         }, ensure_ascii=False, separators=(",", ":")))
         raise SystemExit(0)

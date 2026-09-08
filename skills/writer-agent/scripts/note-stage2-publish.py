@@ -53,7 +53,7 @@ figpaths=resolve_mermaid_images(
     os.environ.get("ARTICLE_PUBLICATION_STATE", ""),
     render_remote_mermaid,
 )
-sess=Session(cookies=ck, user_id=os.environ.get("NOTE_USER_ID", "14651590"), username=os.environ.get("NOTE_URLNAME", "anicca123"), created_at=int(time.time()))
+sess=Session(cookies=ck, user_id=os.environ["NOTE_USER_ID"], username=os.environ["NOTE_URLNAME"], created_at=int(time.time()))
 async def main():
     nb=body  # no body hero (the cover is the note eyecatch, set separately) — avoids the duplicate
     total=0; ok=0; failed=[]   # embed accounting — this is what makes a partial failure visible to the caller

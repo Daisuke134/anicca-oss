@@ -72,9 +72,7 @@ def _state() -> dict[str, Any]:
 
 
 def _publication() -> str:
-    value = os.environ.get(
-        "SUBSTACK_PUBLICATION", "aniccabuddha.substack.com"
-    ).strip().lower()
+    value = os.environ.get("SUBSTACK_PUBLICATION", "").strip().lower()
     if not value.endswith(".substack.com"):
         raise SubstackRepairRefused("Substack publication host is invalid")
     return value

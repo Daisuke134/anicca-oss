@@ -191,7 +191,9 @@ finally:
 def measure_substack_pages(cdp_port: int) -> dict:
     """Same shape as measure_note_pages: one new tab, two page loads (overview home + earnings
     stats), raw body text handed back to the parent for regex parsing."""
-    pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+    pub = (os.environ.get("SUBSTACK_PUBLICATION_JA") or os.environ.get("SUBSTACK_PUBLICATION", "")).strip()
+    if not pub:
+        return {"error": "SUBSTACK_PUBLICATION missing (configure LIFE_MANAGER_ENV_FILE first)"}
     home_url = f"https://{pub}/publish/home"
     earnings_url = f"https://{pub}/publish/stats/earnings"
     script = f"""
@@ -624,7 +626,7 @@ def main(argv: list[str] | None = None) -> int:
             NOTE_SALES_URL,
         )
         rows += unknown_note_view_rows(note_artifacts, reason)
-    substack_pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+    substack_pub = (os.environ.get("SUBSTACK_PUBLICATION_JA") or os.environ.get("SUBSTACK_PUBLICATION", "")).strip()
     rows += measure_platform(
         "substack",
         [

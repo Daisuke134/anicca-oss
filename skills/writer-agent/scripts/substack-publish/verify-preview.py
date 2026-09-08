@@ -9,7 +9,9 @@ import os, sys, time
 from playwright.sync_api import sync_playwright
 from playwright._impl._errors import TargetClosedError
 
-PUB = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com").rstrip("/")
+PUB = os.environ.get("SUBSTACK_PUBLICATION", "").strip().rstrip("/")
+if not PUB:
+    raise SystemExit("SUBSTACK_PUBLICATION is required")
 W = os.path.expanduser("~/.cloak/note-work")
 CDP = "http://localhost:9222"
 MAX_TARGET_CLOSED_ATTEMPTS = 3

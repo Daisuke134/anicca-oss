@@ -250,9 +250,7 @@ def recover_state(state_path: Path, *, allow_zenn_intent: bool = False) -> None:
             or re.fullmatch(r"[1-9][0-9]*", target) is None
         ):
             continue
-        account = str(
-            identities.get(pair, "aniccabuddha.substack.com")
-        ).strip().lower()
+        account = str(identities.get(pair, "")).strip().lower()
         if re.fullmatch(r"[a-z0-9-]+\.substack\.com", account) is None:
             continue
         verifier = os.environ.get(

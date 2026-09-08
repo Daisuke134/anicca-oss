@@ -172,6 +172,7 @@ class NoteMcpAdapter:
             upload_eyecatch_image,
         )
         from note_mcp.models import Session  # pylint: disable=import-outside-toplevel
+        from note_mcp.auth.browser import get_current_user  # pylint: disable=import-outside-toplevel
 
         cookie_path = Path.home() / ".cloak/note-work/note-cookies.json"
         cookies = json.loads(cookie_path.read_text(encoding="utf-8"))
@@ -179,8 +180,8 @@ class NoteMcpAdapter:
             raise NoteRepairRefused("note cookie cache is empty")
         self.session = Session(
             cookies=cookies,
-            user_id=os.environ.get("NOTE_USER_ID", "14651590"),
-            username=os.environ.get("NOTE_URLNAME", "anicca123"),
+            user_id=os.environ["NOTE_USER_ID"],
+            username=os.environ["NOTE_URLNAME"],
             created_at=int(time.time()),
         )
         self._get = get_article_raw_html
@@ -189,9 +190,20 @@ class NoteMcpAdapter:
         self._upload_body = upload_body_image
         self._upload_eyecatch = upload_eyecatch_image
         self._image_html = generate_image_html
+        self._get_current_user = get_current_user
 
     async def identity(self) -> str:
-        return str(self.session.username)
+        actual = await self._get_current_user(self.session.cookies)
+        actual_id = str(actual.get("id", ""))
+        actual_urlname = str(actual.get("urlname", "")).strip().lower()
+        if (
+            actual_id != os.environ["NOTE_USER_ID"]
+            or actual_urlname != os.environ["NOTE_URLNAME"].strip().lower()
+        ):
+            raise NoteRepairRefused(
+                "authenticated Note account does not match NOTE_USER_ID / NOTE_URLNAME"
+            )
+        return actual_urlname
 
     async def fetch(self, target: str) -> dict[str, Any]:
         article = await self._get(self.session, target)
@@ -290,14 +302,13 @@ async def _repair(adapter: Any) -> dict[str, Any]:
         str(protected.get("public_id", "")) != target
         or parsed.scheme != "https"
         or parsed.hostname != "note.com"
-        or parsed.path != f"/anicca123/n/{target}"
+        or parsed.path != f"/{state.get('destination_identities', {}).get(pair, '')}/n/{target}"
     ):
         raise NoteRepairRefused(
             "note repair target is not the protected live key"
         )
     expected_identity = (
         state.get("destination_identities", {}).get(pair)
-        or "anicca123"
     )
     if await adapter.identity() != expected_identity:
         raise NoteRepairRefused(

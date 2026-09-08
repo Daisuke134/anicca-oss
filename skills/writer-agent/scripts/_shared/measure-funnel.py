@@ -150,7 +150,9 @@ def measure_substack(entry: dict) -> dict:
     cookie = os.environ.get("SUBSTACK_SESSION_COOKIE", "")
     if not cookie:
         return {"error": "SUBSTACK_SESSION_COOKIE missing (configure LIFE_MANAGER_ENV_FILE first)"}
-    pub = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+    pub = (os.environ.get("SUBSTACK_PUBLICATION_JA") or os.environ.get("SUBSTACK_PUBLICATION", "")).strip()
+    if not pub:
+        return {"error": "SUBSTACK_PUBLICATION missing (configure LIFE_MANAGER_ENV_FILE first)"}
     data = http_get_json(f"https://{pub}/api/v1/drafts/{post_id}", headers={"Cookie": cookie})
     if not data:
         return {"error": f"{pub}/api/v1/drafts/{post_id} unreachable or malformed response"}

@@ -496,9 +496,9 @@ def _guard(command: str, target: str) -> dict[str, Any]:
 
 def _identity(api_key: str) -> None:
     me = _request("https://dev.to/api/users/me", api_key)
-    expected = os.environ.get(
-        "DEVTO_ACCOUNT_HANDLE", "anicca_301094325e"
-    ).strip().lstrip("@").lower()
+    expected = os.environ.get("DEVTO_ACCOUNT_HANDLE", "").strip().lstrip("@").lower()
+    if not expected:
+        raise DevtoRefused("DEVTO_ACCOUNT_HANDLE is required")
     if not isinstance(me, dict) or str(me.get("username", "")).lower() != expected:
         raise DevtoRefused("Dev.to API identity does not match configured account")
 

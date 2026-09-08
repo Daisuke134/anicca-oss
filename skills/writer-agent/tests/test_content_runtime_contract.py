@@ -77,10 +77,28 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
             self.assertIn("refuses legacy", result.stderr)
 
     def test_entrypoints_have_no_operator_identity_defaults(self):
-        body = "\n".join(
-            (SCRIPTS / name).read_text(encoding="utf-8")
-            for name in ("propose.sh", "run.sh", "seo-gate.sh")
+        paths = (
+            SCRIPTS / "propose.sh",
+            SCRIPTS / "run.sh",
+            SCRIPTS / "seo-gate.sh",
+            SCRIPTS / "publication_resume.py",
+            SCRIPTS / "publish-note.sh",
+            SCRIPTS / "publish-substack.sh",
+            SCRIPTS / "devto-publish/devto.py",
+            SCRIPTS / "note-stage2-publish.py",
+            SCRIPTS / "note-draft-ledger.py",
+            SCRIPTS / "note-publish/set-eyecatch-api.py",
+            SCRIPTS / "note-publish/note_inplace_repair.py",
+            SCRIPTS / "substack-publish/verify-preview.py",
+            SCRIPTS / "substack-publish/substack_inplace_repair.py",
+            SCRIPTS / "_shared/embed-mermaid-substack.py",
+            SCRIPTS / "_shared/publish-substack-mermaid.sh",
+            SCRIPTS / "_shared/price-check.py",
+            SCRIPTS / "x-post/publish.py",
+            SCRIPTS / "x-publish/x-go.py",
+            SCRIPTS / "x-publish/x_inplace_repair.py",
         )
+        body = "\n".join(path.read_text(encoding="utf-8") for path in paths)
         for identity in (
             "anicca-daisuke",
             "anicca_301094325e",
@@ -88,6 +106,9 @@ class WriterContentRuntimeContractTest(unittest.TestCase):
             "aniccabuddha.substack.com",
             "aniccaai.substack.com",
             "note.com/anicca123",
+            "anicca123",
+            "14651590",
+            "diceai0",
         ):
             with self.subTest(identity=identity):
                 self.assertNotIn(identity, body)

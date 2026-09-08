@@ -134,6 +134,8 @@ def cmd_resolve(args: argparse.Namespace) -> None:
 
 
 def cmd_record(args: argparse.Namespace) -> None:
+    if not args.account:
+        raise ValueError("NOTE_URLNAME or --account is required")
     md_abs = os.path.abspath(args.md)
     # Lock spans load+merge+write: without it, two concurrent `record` processes can both load
     # the same pre-update snapshot and each write back a copy missing the other's entry (see
@@ -167,7 +169,7 @@ def main() -> None:
     pc.add_argument("--key", required=True)
     pc.add_argument("--num", default="")
     pc.add_argument("--title", default="")
-    pc.add_argument("--account", default="anicca123")
+    pc.add_argument("--account", default=os.environ.get("NOTE_URLNAME", ""))
     pc.set_defaults(func=cmd_record)
 
     args = p.parse_args()

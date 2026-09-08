@@ -121,15 +121,15 @@ PAIR_HOSTS = {
     "x-article/en": {"x.com", "www.x.com", "twitter.com", "www.twitter.com"},
     "x-post/ja": {"x.com", "www.x.com", "twitter.com", "www.twitter.com"},
 }
-EXPECTED_DESTINATION_IDENTITIES = {
-    "note/ja": "anicca123",
-    "zenn-article/ja": os.environ.get("ZENN_ACCOUNT", ""),
-    "devto/en": "anicca_301094325e",
-    "substack/ja": "aniccabuddha.substack.com",
-    "substack/en": "aniccabuddha.substack.com",
-    "x-article/ja": "diceai0",
-    "x-article/en": "diceai0",
-    "x-post/ja": "diceai0",
+DESTINATION_IDENTITY_ENV = {
+    "note/ja": "NOTE_URLNAME",
+    "zenn-article/ja": "ZENN_ACCOUNT",
+    "devto/en": "DEVTO_ACCOUNT_HANDLE",
+    "substack/ja": "SUBSTACK_PUBLICATION_JA",
+    "substack/en": "SUBSTACK_PUBLICATION_EN",
+    "x-article/ja": "X_ACCOUNT_HANDLE",
+    "x-article/en": "X_ACCOUNT_HANDLE",
+    "x-post/ja": "X_ACCOUNT_HANDLE",
 }
 IDENTITY_CONFLICT_REASON = "substack-publication-identity-conflict"
 
@@ -244,19 +244,14 @@ def configured_destination_identities(
     """Resolve protected identities without allowing JA/EN Substack conflation."""
 
     values = os.environ if environ is None else environ
-    identities = dict(EXPECTED_DESTINATION_IDENTITIES)
-    zenn = values.get("ZENN_ACCOUNT", identities["zenn-article/ja"]).strip().lower()
-    if re.fullmatch(r"[a-z0-9_-]+", zenn) is None:
-        raise InvariantError("ZENN_ACCOUNT is required and invalid")
-    identities["zenn-article/ja"] = zenn
-    japanese = values.get("SUBSTACK_PUBLICATION_JA", "").strip().lower()
-    english = values.get("SUBSTACK_PUBLICATION_EN", "").strip().lower()
-    if not japanese:
-        japanese = identities["substack/ja"]
-    if not english:
-        raise InvariantError(
-            "SUBSTACK_PUBLICATION_EN is required for active-four initialization"
-        )
+    identities: dict[str, str] = {}
+    for pair, key in DESTINATION_IDENTITY_ENV.items():
+        identity = values.get(key, "").strip().lstrip("@").lower()
+        if not identity:
+            raise InvariantError(f"{key} is required for Writer initialization")
+        identities[pair] = identity
+    japanese = identities["substack/ja"]
+    english = identities["substack/en"]
     if japanese == english:
         raise InvariantError(
             "English Substack publication must be distinct from Japanese publication"
@@ -265,7 +260,19 @@ def configured_destination_identities(
         if not identity.endswith(".substack.com") or "/" in identity:
             raise InvariantError(f"invalid Substack publication identity for {pair}")
         identities[pair] = identity
+    validate_destination_identities(identities)
     return identities
+
+
+def _validate_identity(pair: str, identity: Any) -> None:
+    if not isinstance(identity, str) or not identity.strip():
+        raise InvariantError(f"destination identity is missing for {pair}")
+    value = identity.strip().lower()
+    if pair in {"substack/ja", "substack/en"}:
+        if not value.endswith(".substack.com") or "/" in value:
+            raise InvariantError(f"invalid Substack publication identity for {pair}")
+    elif re.fullmatch(r"[a-z0-9_-]+", value) is None:
+        raise InvariantError(f"invalid destination identity for {pair}")
 
 
 def validate_destination_identities(identities: Any) -> None:
@@ -273,14 +280,10 @@ def validate_destination_identities(identities: Any) -> None:
 
     if not isinstance(identities, dict):
         raise InvariantError("destination identities must be an object")
-    if set(identities) != set(EXPECTED_DESTINATION_IDENTITIES):
+    if set(identities) != set(DESTINATION_IDENTITY_ENV):
         raise InvariantError("destination identities have an unexpected pair set")
     for pair, identity in identities.items():
-        if not isinstance(identity, str) or not identity.strip():
-            raise InvariantError(f"destination identity is missing for {pair}")
-        if pair not in {"substack/ja", "substack/en"} \
-                and identity.strip().lower() != EXPECTED_DESTINATION_IDENTITIES[pair]:
-            raise InvariantError(f"destination identity changed for {pair}")
+        _validate_identity(pair, identity)
     japanese = identities["substack/ja"].strip().lower()
     english = identities["substack/en"].strip().lower()
     if any(
@@ -314,7 +317,7 @@ def validate_persisted_destination_identities(state: dict[str, Any]) -> None:
 
     if not isinstance(identities, dict):
         raise InvariantError("destination identities must be an object")
-    if set(identities) != set(EXPECTED_DESTINATION_IDENTITIES):
+    if set(identities) != set(DESTINATION_IDENTITY_ENV):
         raise InvariantError("destination identities have an unexpected pair set")
     japanese = identities.get("substack/ja")
     english = identities.get("substack/en")
@@ -344,8 +347,7 @@ def validate_persisted_destination_identities(state: dict[str, Any]) -> None:
     for pair, identity in identities.items():
         if pair in {"substack/ja", "substack/en"}:
             continue
-        if identity != EXPECTED_DESTINATION_IDENTITIES.get(pair):
-            raise InvariantError(f"destination identity changed for {pair}")
+        _validate_identity(pair, identity)
     if any(
         not isinstance(value, str)
         or not value.strip().lower().endswith(".substack.com")
@@ -568,6 +570,7 @@ def is_self_owned_publication_receipt(
     """Recognize a strict adjunct receipt without expanding the exact8 set."""
     live_url = row.get("live_url")
     parsed = urlparse(live_url) if isinstance(live_url, str) else None
+    configured_base = urlparse(str(state.get("self_owned_base_url", "")))
     lang = row.get("lang")
     return (
         row.get("run_id") == state.get("run_id")
@@ -579,8 +582,13 @@ def is_self_owned_publication_receipt(
         and row.get("verified") is True
         and parsed is not None
         and parsed.scheme == "https"
-        and parsed.hostname == "aniccaai.com"
-        and re.fullmatch(r"/blog/[a-z0-9][a-z0-9-]{0,99}", parsed.path) is not None
+        and configured_base.scheme == "https"
+        and bool(configured_base.hostname)
+        and parsed.netloc.lower() == configured_base.netloc.lower()
+        and re.fullmatch(
+            rf"{re.escape(configured_base.path.rstrip('/'))}/blog/[a-z0-9][a-z0-9-]{{0,99}}",
+            parsed.path,
+        ) is not None
         and row.get("artifact_id") == f"{state.get('run_id')}__self-owned__{lang}"
         and all(
             re.fullmatch(r"[0-9a-f]{64}", str(row.get(field, ""))) is not None
@@ -589,6 +597,38 @@ def is_self_owned_publication_receipt(
             )
         )
     )
+
+
+def _self_owned_base_from_rows(
+    rows: list[dict[str, Any]], state: dict[str, Any]
+) -> str:
+    bases: set[str] = set()
+    for row in rows:
+        if (
+            row.get("run_id") != state.get("run_id")
+            or row.get("topic_id") != state.get("topic_id")
+            or row.get("platform") != "self-owned"
+            or row.get("published") is not True
+        ):
+            continue
+        parsed = urlparse(str(row.get("live_url", "")))
+        match = re.fullmatch(r"(.*)/blog/[a-z0-9][a-z0-9-]{0,99}", parsed.path)
+        if parsed.scheme != "https" or not parsed.hostname or match is None:
+            raise InvariantError("legacy self-owned receipt URL is invalid")
+        bases.add(f"https://{parsed.netloc.lower()}{match.group(1).rstrip('/')}")
+    if len(bases) > 1:
+        raise InvariantError("legacy self-owned receipts disagree on base URL")
+    return next(iter(bases), "")
+
+
+def _configured_self_owned_base_url() -> str:
+    raw = os.environ.get("ARTICLE_SELF_OWNED_BASE_URL", "").strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise InvariantError("ARTICLE_SELF_OWNED_BASE_URL must be an absolute HTTPS URL")
+    return f"https://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
 
 
 def validate_target(pair: str, kind: str, target: str) -> None:
@@ -1081,7 +1121,7 @@ class PublicationStore:
 
     def _read_locked(self) -> dict[str, Any]:
         try:
-            return self._decode(self.state_path)
+            state = self._decode(self.state_path)
         except (OSError, json.JSONDecodeError, TypeError, InvariantError) as primary_error:
             try:
                 recovered = self._decode(self.backup_path)
@@ -1095,7 +1135,26 @@ class PublicationStore:
                 )
                 shutil.copy2(self.state_path, corrupt)
             self._atomic_write_path(self.state_path, recovered)
-            return recovered
+            state = recovered
+        return self._upgrade_legacy_self_owned_base_locked(
+            state, _configured_self_owned_base_url()
+        )
+
+    def _upgrade_legacy_self_owned_base_locked(
+        self, state: dict[str, Any], configured_base: str
+    ) -> dict[str, Any]:
+        if "self_owned_base_url" in state:
+            return state
+        derived_base = _self_owned_base_from_rows(self._ledger_rows_locked(), state)
+        if not derived_base and not configured_base:
+            return state
+        if derived_base and (not configured_base or derived_base != configured_base):
+            raise InvariantError(
+                "legacy self-owned receipt does not match configured base URL"
+            )
+        state["self_owned_base_url"] = derived_base or configured_base
+        self._write_locked(state)
+        return state
 
     def _lock(self):
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1294,6 +1353,7 @@ class PublicationStore:
             else configured_destination_identities()
         )
         validate_destination_identities(destination_identities)
+        self_owned_base_url = _configured_self_owned_base_url()
         resolved_run = self._validate_layout(
             run_id,
             run_dir,
@@ -1345,6 +1405,7 @@ class PublicationStore:
             "ledger_path": str(self.ledger_path.resolve(strict=False)),
             "topic_id": topic_id,
             "destination_identities": destination_identities,
+            "self_owned_base_url": self_owned_base_url,
             "safety_status": safety_status,
             "drafts": {
                 lang: {"path": str(Path(path).resolve()), "sha256": sha256(Path(path))}
@@ -1384,9 +1445,12 @@ class PublicationStore:
         with self._lock():
             if self.state_path.exists():
                 current = self._read_locked()
+                current = self._upgrade_legacy_self_owned_base_locked(
+                    current, self_owned_base_url
+                )
                 immutable = (
                     "run_id", "run_dir", "state_path", "ledger_path", "topic_id",
-                    "destination_identities", "drafts", "x_post", "media"
+                    "destination_identities", "self_owned_base_url", "drafts", "x_post", "media"
                 )
                 if require_quality:
                     immutable = (*immutable, "quality_receipts")

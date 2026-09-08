@@ -340,11 +340,15 @@ def x_content_evidence_gap(
         source = Path(artifact).read_text(encoding="utf-8")
     except (OSError, UnicodeError):
         return None
+    product_landing_url = os.environ.get("ARTICLE_PRODUCT_LANDING_URL", "").strip()
+    landing = urlparse(product_landing_url)
+    if landing.scheme not in {"http", "https"} or not landing.netloc:
+        return None
     cta_lines = [
         line
         for line in source.splitlines()
         if (
-            "https://aniccaai.com/" in line
+            product_landing_url.rstrip("/") in line
             and "product_id=" in line
             and "run_id=" in line
             and "artifact_id=" in line

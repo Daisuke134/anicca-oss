@@ -35,8 +35,8 @@ checked explicitly at the call site (FATAL with an install command if missing), 
 silently borrowed from another venv.
 
 Env (same names/source as scripts/publish-substack.sh): SUBSTACK_SESSION_COOKIE
-(required, full Cookie header value), SUBSTACK_PUBLICATION (default
-aniccabuddha.substack.com). Load from LIFE_MANAGER_ENV_FILE before running, or export them.
+(required, full Cookie header value), SUBSTACK_PUBLICATION (required).
+Load them from LIFE_MANAGER_ENV_FILE before running, or export them.
 
 Assets + the upload cache are PERSISTENT, never /tmp (repo rule): default assets dir is
 ~/.cloak/note-work/<slug>-substack-assets/, cache is
@@ -207,7 +207,9 @@ def main(argv: list[str] | None = None) -> int:
     cookie = os.environ.get("SUBSTACK_SESSION_COOKIE", "")
     if not cookie:
         fatal("SUBSTACK_SESSION_COOKIE missing (configure LIFE_MANAGER_ENV_FILE first)")
-    publication = os.environ.get("SUBSTACK_PUBLICATION", "aniccabuddha.substack.com")
+    publication = os.environ.get("SUBSTACK_PUBLICATION", "").strip()
+    if not publication:
+        fatal("SUBSTACK_PUBLICATION missing (configure LIFE_MANAGER_ENV_FILE first)")
 
     slug = src_path.stem
     assets_dir = Path(args.assets_dir or os.path.expanduser(f"~/.cloak/note-work/{slug}-substack-assets"))

@@ -19,7 +19,7 @@ source "$DIR/writer-runtime-env.sh"
 VC="${VC:-$WRITER_BROWSER_PYTHON}"   # only for the verify-preview vision gate
 WORK="$HOME/.cloak/note-work"; mkdir -p "$WORK"
 
-SUBSTACK_PUBLICATION="${SUBSTACK_PUBLICATION:-aniccabuddha.substack.com}"
+SUBSTACK_PUBLICATION="${SUBSTACK_PUBLICATION:?SUBSTACK_PUBLICATION is required}"
 
 cmd="${1:-}"; shift || true
 case "$cmd" in

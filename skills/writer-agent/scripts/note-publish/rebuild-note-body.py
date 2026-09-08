@@ -62,7 +62,11 @@ def dims(p):
 def compact(url, png, cw=480):
     w,h = dims(png); return generate_image_html(url, width=cw, height=max(1,round(cw*h/w)))
 
-sess = Session(cookies=ck, user_id=os.environ.get("NOTE_USER_ID", "14651590"), username=os.environ.get("NOTE_URLNAME", "anicca123"), created_at=int(time.time()))
+note_user_id = os.environ.get("NOTE_USER_ID", "").strip()
+note_urlname = os.environ.get("NOTE_URLNAME", "").strip()
+if not note_user_id or not note_urlname:
+    raise SystemExit("NOTE_USER_ID and NOTE_URLNAME are required")
+sess = Session(cookies=ck, user_id=note_user_id, username=note_urlname, created_at=int(time.time()))
 async def main():
     nb = body
     for n in range(1, tbl_n+1):

@@ -11,32 +11,54 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(MODULE)
 
 
+def configured(**overrides: str) -> dict[str, str]:
+    values = {
+        "NOTE_URLNAME": "writer-note",
+        "ZENN_ACCOUNT": "writer-zenn",
+        "DEVTO_ACCOUNT_HANDLE": "writer_devto",
+        "SUBSTACK_PUBLICATION_JA": "writer-ja.substack.com",
+        "SUBSTACK_PUBLICATION_EN": "writer-en.substack.com",
+        "X_ACCOUNT_HANDLE": "writer_x",
+    }
+    values.update(overrides)
+    return values
+
+
 def test_substack_identities_are_resolved_separately() -> None:
     identities = MODULE.configured_destination_identities(
-        {
-            "SUBSTACK_PUBLICATION_JA": "aniccabuddha.substack.com",
-            "SUBSTACK_PUBLICATION_EN": "anicca-global.substack.com",
-        }
+        configured()
     )
 
-    assert identities["substack/ja"] == "aniccabuddha.substack.com"
-    assert identities["substack/en"] == "anicca-global.substack.com"
+    assert identities["substack/ja"] == "writer-ja.substack.com"
+    assert identities["substack/en"] == "writer-en.substack.com"
     MODULE.validate_destination_identities(identities)
 
 
 def test_substack_identity_conflation_fails_closed() -> None:
     with pytest.raises(MODULE.InvariantError, match="distinct"):
         MODULE.configured_destination_identities(
-            {
-                "SUBSTACK_PUBLICATION_JA": "aniccabuddha.substack.com",
-                "SUBSTACK_PUBLICATION_EN": "aniccabuddha.substack.com",
-            }
+            configured(SUBSTACK_PUBLICATION_EN="writer-ja.substack.com")
         )
 
     with pytest.raises(MODULE.InvariantError, match="required"):
         MODULE.configured_destination_identities(
-            {"SUBSTACK_PUBLICATION_JA": "aniccabuddha.substack.com"}
+            configured(SUBSTACK_PUBLICATION_EN="")
         )
+
+
+def test_every_destination_identity_is_installation_configuration() -> None:
+    for key in (
+        "NOTE_URLNAME",
+        "ZENN_ACCOUNT",
+        "DEVTO_ACCOUNT_HANDLE",
+        "SUBSTACK_PUBLICATION_JA",
+        "SUBSTACK_PUBLICATION_EN",
+        "X_ACCOUNT_HANDLE",
+    ):
+        values = configured()
+        values.pop(key)
+        with pytest.raises(MODULE.InvariantError, match=key):
+            MODULE.configured_destination_identities(values)
 
 
 def test_headline_and_body_media_must_have_distinct_bytes(tmp_path: Path) -> None:
