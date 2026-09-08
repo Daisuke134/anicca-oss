@@ -26,6 +26,44 @@ SEARCH_BUDGET_SECONDS = 240
 # actually read, once per wake, covers the whole catalogue in four wakes instead of never.
 WAKE_INTERVAL_SECONDS = 300
 LISTINGS_READ_PER_WAKE = 5
+# CrowdWorks files every posting under one of nineteen groups. Searching the catalogue's own
+# twenty nouns instead asked the board only about work we already sell, so a posting the fleet can
+# do but has no listing phrased for stayed invisible -- the same blindness that had Lancers
+# skipping translation and salesmarketing entirely. Walk the board; price with the catalogue.
+#
+# Nothing is dropped here on a guess about what a group holds. video_contents and sounds do carry
+# production work the fleet refuses, hardware_development and living carry physical work, but
+# work_fit judges the posting rather than the shelf, and a group left out is a group never seen.
+JOB_GROUPS = (
+    "development", "software_development", "web_products", "ai_machine_learning", "ai_bpo",
+    "ec", "business", "writing_beginner", "translation_and_interpretation", "idea",
+    "design", "multimedia", "video_contents", "sounds", "3dcg", "task",
+    "parttime_system_operations", "hardware_development", "living",
+)
+GROUPS_READ_PER_WAKE = 5
+
+
+def _groups(now):
+    """A rotating slice of the board, advancing every wake so all nineteen are read in four."""
+    total = max(1, len(JOB_GROUPS))
+    try:
+        wake = int(now.timestamp() // WAKE_INTERVAL_SECONDS)
+    except (AttributeError, OSError, OverflowError, TypeError, ValueError):
+        wake = 0
+    start = (wake * GROUPS_READ_PER_WAKE) % total
+    return tuple(JOB_GROUPS[(start + offset) % total] for offset in range(min(GROUPS_READ_PER_WAKE, total)))
+
+
+def _listing_for(listings, title, detail):
+    """The first catalogue listing whose own nouns appear in this posting, or None.
+
+    The board decides what exists and the catalogue decides what it is worth. Before this the
+    catalogue decided both, by being the only thing the lane ever searched for.
+    """
+    for listing in listings:
+        if any(term in title or term in detail for term in listing["terms"]):
+            return listing
+    return None
 
 
 def _rotation(now, listings):
@@ -148,11 +186,9 @@ def _work_fit_verdict(job_id, title, body):
     return verdicts[str(job_id)]
 
 
-def _candidate(page, listings, rotation):
-    """Search the catalog's own terms and return the first job a catalog tier can actually serve."""
-    # Rotation decides where to start, not where to stop: capping at a handful of listings meant a
-    # day whose slice happened to be quiet reported no work while other listings had live jobs.
-    ordered = listings[rotation:] + listings[:rotation]
+def _candidate(page, listings, groups):
+    """Walk a slice of the board and return the first posting a catalogue tier can serve."""
+    ordered = list(groups)
     seen = _applied(); already = len(seen); # Every way out of the loop below is counted. Measured 2026-09-07: one wake reported
     # inspected=63 against counters summing to 26, so 37 postings were looked at and dropped with
     # nothing said about them -- the same anonymous refusal that cost a day on Lancers, one level
@@ -167,7 +203,7 @@ def _candidate(page, listings, rotation):
         if time.monotonic() > deadline:
             rejected["out_of_time"] += len(ordered) - ordered.index(listing)
             break
-        page.goto("https://crowdworks.jp/public/jobs/search?hide_expired=true&search%5Bkeywords%5D="+quote(listing["terms"][0]));account._wait(page);page.wait_for_timeout(3000)
+        page.goto(f"https://crowdworks.jp/public/jobs/group/{quote(listing)}?hide_expired=true");account._wait(page);page.wait_for_timeout(3000)
         # Result titles only. A bare a[href*="/public/jobs/"] also returns the category sidebar and
         # the recommendation rail: 227 links for a 20-result search, nearly all unrelated.
         links=page.locator('h3 a[href*="/public/jobs/"]').evaluate_all("els => els.map(e => ({href:e.getAttribute('href') || '',title:(e.innerText || '').trim()}))")
@@ -190,7 +226,8 @@ def _candidate(page, listings, rotation):
             # Match the posting itself, not the sidebar and footer: whole-page matching pulled in a
             # 医療事務 job because unrelated navigation text mentioned our nouns.
             detail=text[text.find("仕事の詳細"):text.find("クライアント情報")] if "仕事の詳細" in text and "クライアント情報" in text else ""
-            if not any(term in title or term in detail for term in listing["terms"]):rejected["off_topic"]+=1;continue
+            matched = _listing_for(listings, title, detail)
+            if matched is None:rejected["off_topic"]+=1;continue
             # The 医療事務 staffing post that matched on the word AI機能 alone, and would have
             # received a 240,000円 web-app proposal, is still refused here -- by what it is rather
             # than by not being on a list of approved category names.
@@ -199,11 +236,11 @@ def _candidate(page, listings, rotation):
                 rejected["wrong_category"]+=1
                 _decline(declined,job_id,title,f"募集カテゴリ「{_category(text)}」は受注できない区分（{refusal[0]}）です")
                 continue
-            tier=_priced(listing,text)
+            tier=_priced(matched,text)
             if tier is None:
                 rejected["budget"]+=1
                 budget=_budget(text)
-                _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{listing['tiers'][0]['price_jpy']:,}円に届きません" if budget else "報酬額を読み取れませんでした")
+                _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{matched['tiers'][0]['price_jpy']:,}円に届きません" if budget else "報酬額を読み取れませんでした")
                 continue
             # The category label got this far; the posting text decides. Without this the lane
             # applied to 「採用支援事業のパートナー募集」 and two more like it on 2026-09-07 --
@@ -218,7 +255,7 @@ def _candidate(page, listings, rotation):
                 reason, evidence_quote = verdict
                 _decline(declined,job_id,title,f"募集文の「{evidence_quote}」が対応できない条件（{reason}）に当たります" if evidence_quote else f"対応できない条件（{reason}）に当たります")
                 continue
-            return {"external_id":job_id,"title":re.sub(r"\s+"," ",title).strip()},listing,tier,{"inspected":len(seen)-already,**rejected,"declined":declined}
+            return {"external_id":job_id,"title":re.sub(r"\s+"," ",title).strip()},matched,tier,{"inspected":len(seen)-already,**rejected,"declined":declined}
     return None,None,None,{"inspected":len(seen)-already,**rejected,"declined":declined}
 
 def _proposal(listing, tier):
@@ -271,7 +308,7 @@ def main():
             imported=_reconcile(page) if configured.get("ok") else 0
             if not configured.get("ok"):
                 result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
-            elif (candidate_result:=_candidate(page,_listings(),_rotation(now,_listings())))[0] is None:
+            elif (candidate_result:=_candidate(page,_listings(),_groups(now)))[0] is None:
                 result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
             else:
                 candidate,listing,tier,_inspected=candidate_result
