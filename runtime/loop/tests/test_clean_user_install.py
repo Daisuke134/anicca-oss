@@ -43,11 +43,15 @@ class CleanUserInstallTest(unittest.TestCase):
             }
 
             accepted = subprocess.run(
-                [str(launcher)], env={
-                    **env, "ANICCA_ECONOMY_CREATE_EVM_WALLET": "1",
-                }, capture_output=True, text=True)
+                [str(launcher)], env=env, capture_output=True, text=True)
             self.assertEqual(accepted.returncode, 0, accepted.stderr)
             self.assertIn(release.name, accepted.stdout)
+
+            normal_env = {**env, "ANICCA_ECONOMY_CREATE_EVM_WALLET": "1"}
+            normal_env.pop("ANICCA_VALIDATE_RELEASE_ONLY")
+            normal = subprocess.run(
+                [str(launcher)], env=normal_env, capture_output=True, text=True)
+            self.assertEqual(normal.returncode, 0, normal.stderr)
 
             metadata.chmod(0o644)
             writable = subprocess.run(
