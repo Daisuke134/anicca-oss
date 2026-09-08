@@ -1076,6 +1076,15 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    production acceptance. Next require a pushed-main natural terminal, close the remaining semantic class,
    verify every effect notification, and
    require the following replay to produce zero duplicate effect before checking this atom.
+   The final old-release wake then ended naturally with `observed=174`, `effect=0`, `readback=152`,
+   `failed=7`, and `pending=15`. It retained the two attachment failures, semantic failure and server-side
+   sending restriction above, and exposed three additional `coconala_estimate_source_invalid` rows. Their
+   semantic receipts all authorize `send_estimate`, but the official DOM has no estimate creation control.
+   Absence of that provider control is now a reversible `provider_estimate_control_unavailable` external
+   wait; if the control later appears the unchanged buyer event is reevaluated, while an evidence mismatch
+   with a real control still fails closed. The combined shared/Coconala Reply regression passes 71/71.
+   Release `20260908T155805-542ddcf6` contains the prior attachment and official-send-restriction fixes and
+   is installed only for Coconala Reply; its first natural wake is active, so no acceptance claim is made.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

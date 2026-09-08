@@ -163,6 +163,37 @@ def test_semantic_composer_projects_validated_judgement_without_provider_decide(
     assert calls[0][1].endswith("/12")
 
 
+def test_semantic_composer_waits_when_official_estimate_control_is_absent():
+    class Adapter:
+        def semantic_dom(self, _thread_id):
+            return {"version": "official", "estimate_url": None}
+
+        def official_application_context(self, _thread_id):
+            raise AssertionError("application context not requested")
+
+    def judge(_dom, _url, **_kwargs):
+        return {"context_sha256": "a" * 64, "judgement": {
+            "next_action": "send_estimate",
+            "required_official_context": "none",
+            "evidence_message_ids": ["m1"],
+            "estimate_terms": {
+                "title": "開発", "content": "実装", "quantity": 1,
+                "price_jpy": 10000, "delivery_days": 7, "purchase_plan": "single",
+            },
+        }}
+
+    result = adapter_module.CoconalaSemanticComposer(Adapter(), judge)({
+        "thread_id": "12",
+        "conversation": [{"message_id": "m1", "sent_at": "2026-09-08T00:00:00Z"}],
+    })
+
+    assert result == {
+        "action": "wait",
+        "reason": "provider_estimate_control_unavailable",
+        "remaining_work": ["Wait for the official estimate control to become available"],
+    }
+
+
 def test_semantic_composer_refreshes_required_official_application_once():
     class Adapter:
         def __init__(self):
