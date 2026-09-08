@@ -1022,6 +1022,11 @@ atom is `SHARED-REPLY-1`; its next atom is `CROWDWORKS-REPLY-1` by Dais's explic
    retry backoff. New regression coverage uses deliberately different inventory and official IDs; the
    shared kernel plus Coconala adapter/semantic/no-contact checks pass 73/73. A following main-derived
    natural wake must materially skip unchanged rooms and expose only genuinely changed or retry-owned work.
+   The four `browser_tab_limit` failures are one bounded configuration defect, not browser instability:
+   a direct-message target remains open while the semantic collector opens one nested read-only target for
+   official application evidence, but the Reply owner allowed only one owned target. Set this one owner to
+   a hard limit of two so the proven nested read can run while a third target still fails closed. Do not
+   restart or globally loosen the browser. Owner and target-ownership checks pass 12/12.
    Dais reconfirmed the product scope as Coconala, Lancers and CrowdWorks Reply sharing the same
    context and components. This does not reorder the executable cursor: the immediate work inside
    `SHARED-REPLY-1` is the Lancers `ママさん応援団` correction first, then Coconala shared-context

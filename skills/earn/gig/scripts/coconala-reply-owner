@@ -5,6 +5,9 @@ ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 PYTHON="${HF_GIG_PYTHON:-$(command -v python3)}"
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
 export CLOAK_BROWSER_OWNER="coconala-shared-reply"
+# Reading a direct-message thread may open one nested, read-only application
+# evidence target. Keep that legitimate pair bounded while rejecting a third tab.
+export CLOAK_BROWSER_MAX_TABS_PER_OWNER="2"
 
 if [[ ! -x "$PYTHON" ]]; then
   echo "coconala-reply-owner: managed Python is unavailable: $PYTHON" >&2
