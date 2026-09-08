@@ -98,6 +98,25 @@ def test_new_buyer_event_gets_a_distinct_reply(tmp_path):
     assert len(adapter.effects) == 2
 
 
+def test_no_effect_classification_is_replay_zero_until_source_event_changes(tmp_path):
+    adapter = Adapter()
+    decisions = []
+
+    def decide(_context):
+        decisions.append(True)
+        return {"action": "noop", "classification": "no_reply"}
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    adapter.rows[0] = event(latest="buyer-2")
+    changed = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["items"][0]["reason"] == "no_effect_required"
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert changed["items"][0]["reason"] == "no_effect_required"
+    assert len(decisions) == 2
+
+
 def test_human_gate_is_durable_pending_and_does_not_block_another_thread(tmp_path):
     adapter = Adapter([event("human", "buyer-1"), event("ready", "buyer-2")])
 
