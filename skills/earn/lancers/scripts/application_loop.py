@@ -86,6 +86,15 @@ DISCOVERY_QUERIES = _discovery_queries()
 # expects is how the Coconala session earned a 403 on 2026-09-07. The window rotates, so coverage
 # is the whole vocabulary over time at today's cost per wake.
 DISCOVERY_WINDOW = 12
+# Lancers publishes its own category facet, and it is a far better question than a keyword.
+# Measured 2026-09-07 with type[]=project: 「業務システム」 returns 3 postings; /system returns 23,
+# /writing 30, /design 23, /web 17, /business 12. Five category requests therefore see about three
+# times what twelve keyword requests do, at under half the request rate -- which matters, because
+# probing a marketplace harder than it expects is how the Coconala session earned a 403.
+#
+# Keywords are kept and still rotate: a category is broad, and the catalogue nouns reach postings
+# filed somewhere unexpected. Categories run first so a thin keyword slice cannot decide the wake.
+DISCOVERY_CATEGORIES = ("system", "web", "business", "writing", "design")
 # The lane wakes every 60 seconds (config/loop-registry.json), and the window steps by one query
 # per wake, so the whole vocabulary is read inside half an hour instead of over fourteen hours.
 WAKE_INTERVAL_SECONDS = 60
@@ -285,8 +294,12 @@ def _run_exhaustive_discovery(timeout: float, tick_value: object = None) -> Mapp
     merged: dict[str, Mapping[str, object]] = {}
     last: Mapping[str, object] = {"ok": False, "error": "no_normalized_opportunities", "opportunities": []}
     seen_ok = False
-    for query in (_discovery_window(tick_value) if tick_value is not None else DISCOVERY_QUERIES):
-        last = status.run_discovery(query=query, limit=MAX_OPPORTUNITIES, timeout=timeout)
+    queries = _discovery_window(tick_value) if tick_value is not None else DISCOVERY_QUERIES
+    for category, query in ([(name, None) for name in DISCOVERY_CATEGORIES]
+                            + [(None, name) for name in queries]):
+        last = (status.run_discovery(query=None, limit=MAX_OPPORTUNITIES, timeout=timeout, category=category)
+                if category is not None
+                else status.run_discovery(query=query, limit=MAX_OPPORTUNITIES, timeout=timeout))
         if last.get("ok") is not True:
             if last.get("error") != "no_normalized_opportunities":
                 return last

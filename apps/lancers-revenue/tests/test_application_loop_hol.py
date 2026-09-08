@@ -1124,13 +1124,22 @@ class ExhaustiveDiscoveryTests(unittest.TestCase):
         calls = []
 
         def discover(**kwargs):
+            # Categories are read first and carry query=None; they contribute nothing here so the
+            # union assertions below stay about the keywords they were written for.
+            if kwargs.get("category") is not None:
+                calls.append(("category", kwargs["category"]))
+                return {"ok": False, "error": "no_normalized_opportunities", "opportunities": []}
             calls.append(kwargs["query"])
             return responses[kwargs["query"]]
 
         with patch.object(application_loop.status, "run_discovery", side_effect=discover):
             result = application_loop._run_exhaustive_discovery(20.0)
 
-        self.assertEqual(calls, list(application_loop.DISCOVERY_QUERIES))
+        self.assertEqual(
+            calls,
+            [("category", name) for name in application_loop.DISCOVERY_CATEGORIES]
+            + list(application_loop.DISCOVERY_QUERIES),
+        )
         ids = sorted(row["external_id"] for row in result["opportunities"])
         self.assertEqual(len(ids), len(application_loop.DISCOVERY_QUERIES) + 1)
         self.assertEqual(ids.count("9999"), 1)
@@ -1168,7 +1177,10 @@ class ExhaustiveDiscoveryTests(unittest.TestCase):
         ]
 
         with patch.object(application_loop.status, "run_discovery",
-                          side_effect=lambda **kw: responses[kw["query"]]):
+                          side_effect=lambda **kw: ({"ok": False, "error": "no_normalized_opportunities",
+                                                    "opportunities": []}
+                                                   if kw.get("category") is not None
+                                                   else responses[kw["query"]])):
             result = application_loop._run_exhaustive_discovery(20.0)
 
         rows = [r for r in result["opportunities"] if r["external_id"] == "42"]
@@ -1183,7 +1195,10 @@ class ExhaustiveDiscoveryTests(unittest.TestCase):
         responses[queries[1]]["opportunities"] = [{"external_id": "7", "title": "second"}]
 
         with patch.object(application_loop.status, "run_discovery",
-                          side_effect=lambda **kw: responses[kw["query"]]):
+                          side_effect=lambda **kw: ({"ok": False, "error": "no_normalized_opportunities",
+                                                    "opportunities": []}
+                                                   if kw.get("category") is not None
+                                                   else responses[kw["query"]])):
             result = application_loop._run_exhaustive_discovery(20.0)
 
         rows = [r for r in result["opportunities"] if r["external_id"] == "7"]
