@@ -430,6 +430,18 @@ test("production router rotates durable Connpass reconciliation candidates every
   assert.notEqual(firstRefs[0], firstRefs[1]);
 });
 
+test("production router bounds durable reconciliation before ordinary Connpass candidates", async () => {
+  const queue = Array.from({ length: 5 }, (_, index) => rankingCandidate(`queue-${index}`, `2026-09-${String(10 + index).padStart(2, "0")}T09:00:00.000Z`));
+  const ordinary = rankingCandidate("ordinary-after-reconcile", "2026-09-20T09:00:00.000Z");
+  const workflow = { async discoverCandidates() { return [ordinary]; }, async runDirectAction() {}, async readProviderState() { return { status: "absent" }; } };
+  const router = createProductionProviderRouter({ now: () => new Date("2026-09-08T19:00:00.000Z"), lumaWorkflow: workflow, connpassWorkflow: workflow,
+    actionCache: { async replay() {}, async saveVerifiedRepair() {} }, browserHarness: { async runFallback() {} }, async performAction() {},
+    reconciliationStore: { list() { return queue; }, save() {}, remove() {} } });
+  const result = await router.discoverCandidates("connpass", [], {});
+  assert.equal(result.filter((candidate) => candidate.reconciliation_only === true).length, 3);
+  assert.equal(result[3].event_ref, ordinary.event_ref);
+});
+
 test("production provider router samples the full candidate window instead of starving later weeks", async () => {
   const candidates = Array.from({ length: 28 }, (_, index) => rankingCandidate(
     `day-${index + 1}`,

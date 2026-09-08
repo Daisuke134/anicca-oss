@@ -62,6 +62,7 @@ const STALE_TARGET_MAX_IDLE_MS = 660_000;
 const CONNECTOR_CDP_CONNECT_TIMEOUT_MS = 120_000;
 const PROVIDER_RANK_MAX_DATES = 12;
 const PROVIDER_RANK_MAX_CANDIDATES = 12;
+const CONNPASS_DURABLE_RECONCILE_LIMIT = 3;
 
 function invalid() {
   throw new Error("Connector minimal production unavailable");
@@ -389,7 +390,7 @@ function createProductionProviderRouter(options = {}) {
           : Math.floor(exactNow(now()).getTime() / 1_800_000) % pendingReconciliation.length;
         const rotatedReconciliation = Object.freeze([
           ...pendingReconciliation.slice(queueOffset), ...pendingReconciliation.slice(0, queueOffset),
-        ]);
+        ].slice(0, CONNPASS_DURABLE_RECONCILE_LIMIT));
         const queued = rotatedReconciliation.map((candidate) => Object.freeze({
           ...candidate,
           registration_status: "registered",
