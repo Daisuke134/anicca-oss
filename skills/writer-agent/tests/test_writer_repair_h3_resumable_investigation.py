@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -38,7 +37,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DISPATCH = ROOT / "scripts" / "writer_repair_dispatch.py"
-LIVE_RUN = Path.home() / "profitable-claude" / "skills" / "writer-agent" / "state" / "runs"
+from writer_repair_fixture import write_repair_run_gates
 
 NOTE_422 = (
     'NoteNativePublishError: Note native publish HTTP 422: '
@@ -163,13 +162,7 @@ def _seed_state(tmp_path: Path) -> Path:
     state = tmp_path / "state"
     (state / "self-heal").mkdir(parents=True)
     run_gates = state / "runs" / "daily-2026-08-07" / "gates"
-    run_gates.mkdir(parents=True)
-    source = LIVE_RUN / "daily-2026-08-07" / "gates"
-    for name in (
-        "generation-state.json", "quality-self-heal.json",
-        "publication-state.json", "resume-failure-circuit.json",
-    ):
-        shutil.copy(source / name, run_gates / name)
+    write_repair_run_gates(run_gates, NOTE_422)
     return state
 
 
@@ -475,8 +468,11 @@ def test_investigation_slices_are_bounded_and_then_stop_spending_model_time(
 
     # The safest known state is preserved: the circuit receipt is untouched.
     circuit = state / "runs" / "daily-2026-08-07" / "gates" / "resume-failure-circuit.json"
-    live = LIVE_RUN / "daily-2026-08-07" / "gates" / "resume-failure-circuit.json"
-    assert circuit.read_bytes() == live.read_bytes()
+    before = json.dumps({
+        "version": 1,
+        "pairs": {"note/ja": {"open": True, "signature": NOTE_422}},
+    }).encode()
+    assert circuit.read_bytes() == before
 
 
 def test_a_finished_investigation_is_never_re_run_for_the_same_trigger(
@@ -822,8 +818,11 @@ def test_an_unroutable_incident_stops_consuming_ticks_after_its_bound(
 
     # The circuit receipt is untouched by the escalation.
     circuit = state / "runs" / "daily-2026-08-07" / "gates" / "resume-failure-circuit.json"
-    live = LIVE_RUN / "daily-2026-08-07" / "gates" / "resume-failure-circuit.json"
-    assert circuit.read_bytes() == live.read_bytes()
+    before = json.dumps({
+        "version": 1,
+        "pairs": {"note/ja": {"open": True, "signature": NOTE_422}},
+    }).encode()
+    assert circuit.read_bytes() == before
 
 
 def test_an_exhausted_routing_failure_rearms_on_a_genuinely_new_occurrence(

@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LIVE_RUN = Path.home() / "profitable-claude" / "skills" / "writer-agent" / "state" / "runs"
+from writer_repair_fixture import write_repair_run_gates
 
 
 def _module(name: str):
@@ -284,15 +284,7 @@ def _seed_state(tmp_path: Path, *, with_run: bool = True) -> Path:
     (state / "self-heal").mkdir(parents=True)
     if with_run:
         run_gates = state / "runs" / "daily-2026-08-07" / "gates"
-        run_gates.mkdir(parents=True)
-        source = LIVE_RUN / "daily-2026-08-07" / "gates"
-        # The exact receipts the trace projection needs to reproduce the real
-        # `destination:note/ja` failure, copied read-only out of live state.
-        for name in (
-            "generation-state.json", "quality-self-heal.json",
-            "publication-state.json", "resume-failure-circuit.json",
-        ):
-            shutil.copy(source / name, run_gates / name)
+        write_repair_run_gates(run_gates, NOTE_422)
     return state
 
 
@@ -468,7 +460,7 @@ def test_dispatch_claims_the_blocking_revenue_set_incident_before_an_older_distr
     assert stored["c" * 64]["state"] == "OPEN", "a free-distribution failure must wait"
 
 
-def test_dispatch_claims_exactly_one_incident_per_tick_and_holds_a_lease(
+def test_dispatch_recovers_completed_handoff_before_claiming_next_incident(
     tmp_path: Path,
 ) -> None:
     state = _seed_state(tmp_path)
@@ -485,8 +477,9 @@ def test_dispatch_claims_exactly_one_incident_per_tick_and_holds_a_lease(
     assert second["fingerprint"] == "d" * 64
     assert first["lease_id"] != second["lease_id"]
     stored = json.loads(queue_path.read_text())["items"]
-    assert [stored[key]["state"] for key in ("b" * 64, "d" * 64)] == ["CLAIMED", "CLAIMED"]
-    assert stored["b" * 64]["lease_id"] == first["lease_id"]
+    assert [stored[key]["state"] for key in ("b" * 64, "d" * 64)] == ["WAIT", "CLAIMED"]
+    assert "lease_id" not in stored["b" * 64]
+    assert second["recovered_orphaned_handoffs"][0]["fingerprint"] == "b" * 64
 
     third = _dispatch(state, tmp_path, observed_at="2026-08-07T08:10:00Z")
     assert third["status"] == "NO_ACTIONABLE_INCIDENT"
