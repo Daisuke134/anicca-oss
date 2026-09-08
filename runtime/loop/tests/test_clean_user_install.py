@@ -14,6 +14,52 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_agent_economy_accepts_the_common_immutable_release_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sha = "a" * 40
+            release = root / "releases" / f"20260909T000000-{sha[:8]}"
+            launcher = release / "skills/agent-economy/launch.sh"
+            launcher.parent.mkdir(parents=True)
+            launcher.write_bytes((ROOT / "skills/agent-economy/launch.sh").read_bytes())
+            launcher.chmod(0o555)
+            daemon = release / "runtime/anicca-daemon.sh"
+            daemon.parent.mkdir(parents=True)
+            daemon.write_text("#!/bin/bash\nexit 0\n")
+            daemon.chmod(0o555)
+            metadata = release / "RELEASE.json"
+            metadata.write_text(json.dumps({
+                "sha": sha,
+                "ref": "origin/main",
+                "provenance": "ancestor-of-origin-main",
+                "release_paths": "ALL",
+            }))
+            metadata.chmod(0o444)
+            env = {
+                **os.environ,
+                "ANICCA_RELEASE_ROOT": str(root.resolve()),
+                "ANICCA_REPO": str(release.resolve()),
+                "ANICCA_VALIDATE_RELEASE_ONLY": "1",
+            }
+
+            accepted = subprocess.run(
+                [str(launcher)], env=env, capture_output=True, text=True)
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            self.assertIn(release.name, accepted.stdout)
+
+            metadata.chmod(0o644)
+            writable = subprocess.run(
+                [str(launcher)], env=env, capture_output=True, text=True)
+            self.assertEqual(writable.returncode, 2)
+            self.assertIn("sealed release metadata is invalid", writable.stderr)
+
+            metadata.write_text(json.dumps({"sha": "b" * 40}))
+            metadata.chmod(0o444)
+            mismatched = subprocess.run(
+                [str(launcher)], env=env, capture_output=True, text=True)
+            self.assertEqual(mismatched.returncode, 2)
+            self.assertIn("sealed release metadata is invalid", mismatched.stderr)
+
     def test_ceo_runner_uses_repository_owned_agent_boundary(self):
         wrapper = (ROOT / "bin/ceo-run.sh").read_text()
         self.assertIn(
