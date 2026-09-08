@@ -44,6 +44,11 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _message_body(value: Any) -> str:
+    """Normalize the provider's CRLF storage without changing message content."""
+    return str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+
+
 class LancersReplyAdapter:
     def __init__(self, state_path: Path, grounding: Mapping[str, Any] | None = None):
         self.state_path = state_path
@@ -171,7 +176,7 @@ class LancersReplyAdapter:
         found = None
         for row in rows:
             if (work_sync._id(row.get("board_id")) == intent["thread_id"]
-                    and row.get("description") == body):
+                    and _message_body(row.get("description")) == _message_body(body)):
                 message_id = work_sync._id(row.get("id"))
                 if provider_id is None or provider_id == message_id:
                     found = message_id
