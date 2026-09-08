@@ -440,7 +440,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
         } catch (error) {
           operation = Object.freeze({
             status: "failed",
-            safe_reason: error && error.unknownEffect === true ? "effect_unknown" : "direct_action_failed",
+            safe_reason: safeSubmitReason(error, "direct_action_failed"),
           });
         }
         if (deadlineReached()) return finish("circuit_open", "wake_deadline");

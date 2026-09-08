@@ -660,7 +660,9 @@ test("an unavailable Connpass registration page does not invoke browser fallback
       return [candidate("connpass", "unavailable")];
     },
     async runDirectAction() {
-      return Object.freeze({ status: "failed", safe_reason: "connpass_registration_unavailable" });
+      const error = new Error("private provider detail");
+      error.code = "CONNPASS_REGISTRATION_UNAVAILABLE";
+      throw error;
     },
     async runAgentFallback() { throw new Error("browser fallback must not run"); },
   });
