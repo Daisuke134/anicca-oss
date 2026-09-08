@@ -455,7 +455,9 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
             consecutiveFailures += 1;
             return finish("circuit_open", "effect_unknown");
           }
-          if (!(provider === "connpass" && directFailureReason === "connpass_registration_unavailable")) try {
+          const terminalDirectNoEffect = (provider === "connpass" && directFailureReason === "connpass_registration_unavailable")
+            || (provider === "luma" && directFailureReason === "luma_required_profile_field_unavailable");
+          if (!terminalDirectNoEffect) try {
             operation = await action(
               "submit", "browser_harness",
               () => deps.runAgentFallback({
@@ -563,8 +565,11 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           return finish("applied_bundle", "applied_bundle", bundle);
         }
 
-        consecutiveFailures += 1;
         lastSafeReason = directFailureReason || operationSafeReason(operation, "direct_action_unverified");
+        const knownNoEffect = (provider === "connpass" && lastSafeReason === "connpass_registration_unavailable")
+          || (provider === "luma" && ["luma_required_profile_field_unavailable", "private_value_unavailable"].includes(operationSafeReason(operation, lastSafeReason)));
+        if (knownNoEffect) continue;
+        consecutiveFailures += 1;
         if (ambiguousAgentEffect) return finish("circuit_open", "effect_unknown");
         if (consecutiveFailures >= settings.maxConsecutiveFailures) {
           return finish("circuit_open", lastSafeReason);

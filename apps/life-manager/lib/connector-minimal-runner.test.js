@@ -671,6 +671,26 @@ test("an unavailable Connpass registration page does not invoke browser fallback
   assert.equal(state.calls.some(([name, row]) => name === "history" && row.safe_reason === "unsafe_agent_action"), false);
 });
 
+test("known no-effect registration blockers continue to the next candidate without opening the circuit", async () => {
+  let state = fixture({
+    async discoverCandidates(provider) {
+      state.calls.push(["discover", provider]);
+      return [candidate(provider, "blocked"), candidate(provider, "next")];
+    },
+    async runDirectAction({ candidate: selected }) {
+      if (selected.event_ref.endsWith("/blocked")) return Object.freeze({ status: "failed", safe_reason: "luma_required_profile_field_unavailable" });
+      return Object.freeze({ status: "completed", provider_state: { status: "registered" } });
+    },
+    async readProviderState({ candidate: selected, phase }) {
+      return Object.freeze({ status: phase === "pre_submit" || selected.event_ref.endsWith("/blocked") ? "absent" : "registered" });
+    },
+    async completeEvidence() { return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-next", completion_disposition: "created" }); },
+  });
+  const result = await runMinimalConnectorWake({ ownerToken: "owner-token-known-no-effect", providers: ["luma"] }, state.dependencies);
+  assert.equal(result.status, "applied_bundle");
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 0);
+});
+
 test("a successful submit action row stays exactly the same shape as before (no provider/safe_reason/error_class)", async () => {
   const state = fixture();
 
