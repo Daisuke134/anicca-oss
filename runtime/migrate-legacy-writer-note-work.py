@@ -29,9 +29,11 @@ def selected_files(source_root: Path) -> dict[Path, Path]:
     selected: dict[Path, Path] = {}
     for name in LIVE_FILES:
         path = source_root / name
+        if path.is_symlink():
+            raise ValueError(f"legacy Writer work item is unsafe: {name}")
         if not path.exists():
             continue
-        if path.is_symlink() or not path.is_file():
+        if not path.is_file():
             raise ValueError(f"legacy Writer work item is unsafe: {name}")
         selected[Path(name)] = Path(name)
     return selected

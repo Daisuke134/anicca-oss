@@ -38,9 +38,7 @@ class WriterNoteWorkMigrationTest(unittest.TestCase):
             root = Path(temporary).resolve()
             source = root / "legacy"
             source.mkdir()
-            outside = root / "outside"
-            outside.write_text("secret", encoding="utf-8")
-            (source / "note-cookies.json").symlink_to(outside)
+            (source / "note-cookies.json").symlink_to(root / "missing")
             with self.assertRaisesRegex(ValueError, "unsafe"):
                 MODULE.migrate(source, root / "target")
 
