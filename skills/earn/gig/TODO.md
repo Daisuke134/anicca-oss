@@ -2098,6 +2098,16 @@ from the chat, and two of them contradict what this cursor had previously report
     not force a false fixed-price proposal. PASS = first close fixed-price official application,
     Telegram and replay-zero, then extend the shared terms contract and submit one hourly job with
     exact official rate/weekly-limit readback. This atom stays open while hourly inventory is skipped.
+    Shared pricing terms and receipt/readback support landed in `4273bdf2`; the thin CrowdWorks
+    hourly adapter and Telegram wording landed in `b1ae7e76`; selection interviews no longer make
+    an otherwise deliverable job ineligible in `3d3bc487`. Production release `5b61fafb` also
+    replaced wall-clock group hopping with a durable five-group cursor, so a long wake cannot skip
+    most of the board. Its first natural wake started from the development groups and submitted the
+    next eligible fixed-price job `13429022` (LP speed improvement) as official proposal
+    `305126036`, with `effect_delta=1`, terminal `pass`, installed/event SHA `5b61fafb`, and one
+    receipt. The cursor advanced from 0 to 5. Keep this checkbox open until a natural wake reaches
+    an hourly job, records the exact hourly rate and weekly limit in the official receipt, delivers
+    that receipt to Telegram, and the following wake proves replay-zero.
 
 
 
