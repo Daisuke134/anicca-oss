@@ -34,12 +34,39 @@ DEST=""
 
 die() { echo "cut-loop-release: $*" >&2; exit 1; }
 
+SHA="$(git -C "$REPO_ROOT" rev-parse "$REF" 2>/dev/null)" || die "cannot resolve ref '$REF'"
+SHORT="${SHA:0:8}"
+
 # The central disk governor owns this flag and clears it only after recovery.
-# A release export is a large producer, so defer before Git, locks, or mkdir.
+# Full exports are large producers and always defer. An explicitly sparse export may proceed only
+# when its tracked tar payload is measured below the bounded recovery ceiling before locks or mkdir.
 PRESSURE_FILE="${LIFE_MANAGER_DISK_PRESSURE_FILE:-$HOME/.openclaw/state/disk-pressure.block}"
 if [ -f "$PRESSURE_FILE" ]; then
-  echo "cut-loop-release: disk pressure is active; release build deferred" >&2
-  exit 75
+  read -r -a PRESSURE_ARCHIVE_PATHS <<<"$RELEASE_PATHS"
+  if [ "${#PRESSURE_ARCHIVE_PATHS[@]}" -eq 0 ]; then
+    echo "cut-loop-release: disk pressure is active; full release build deferred" >&2
+    exit 75
+  fi
+  PRESSURE_HAS_BIN=0
+  PRESSURE_HAS_SHARED=0
+  for path in "${PRESSURE_ARCHIVE_PATHS[@]}"; do
+    [ "$path" = "bin" ] && PRESSURE_HAS_BIN=1
+    [ "$path" = "skills/_shared" ] && PRESSURE_HAS_SHARED=1
+  done
+  if [ "$PRESSURE_HAS_BIN" -eq 1 ] && [ "$PRESSURE_HAS_SHARED" -eq 0 ]; then
+    PRESSURE_ARCHIVE_PATHS+=("skills/_shared")
+  fi
+  PRESSURE_MAX_ARCHIVE_BYTES="${LOOPS_PRESSURE_MAX_ARCHIVE_BYTES:-268435456}"
+  [[ "$PRESSURE_MAX_ARCHIVE_BYTES" =~ ^[1-9][0-9]*$ ]] || die "invalid pressure archive ceiling"
+  if ! PRESSURE_ARCHIVE_BYTES="$(git -C "$REPO_ROOT" archive --format=tar "$SHA" -- \
+      "${PRESSURE_ARCHIVE_PATHS[@]}" | wc -c | tr -d '[:space:]')"; then
+    die "cannot measure sparse release under disk pressure"
+  fi
+  [[ "$PRESSURE_ARCHIVE_BYTES" =~ ^[0-9]+$ ]] || die "invalid sparse release measurement"
+  if [ "$PRESSURE_ARCHIVE_BYTES" -gt "$PRESSURE_MAX_ARCHIVE_BYTES" ]; then
+    echo "cut-loop-release: disk pressure is active; sparse release exceeds bounded ceiling" >&2
+    exit 75
+  fi
 fi
 
 cleanup() {
@@ -72,9 +99,6 @@ prune_releases_after() {
     python3 "$SCRIPT_ROOT/runtime/loop/central_cleanup.py" --release-gc-only >/dev/null || \
     die "safe release pruning failed"
 }
-
-SHA="$(git -C "$REPO_ROOT" rev-parse "$REF" 2>/dev/null)" || die "cannot resolve ref '$REF'"
-SHORT="${SHA:0:8}"
 
 # A release nobody else can fetch is not reproducible, and the acceptance bar this house already
 # applies to the gig lanes is that the installed SHA is an ancestor of origin/main.
@@ -113,14 +137,15 @@ if [ -n "$RELEASE_PATHS" ]; then
   # bootstrap preflight first. A sparse release that includes the wrapper but omits this module
   # cannot safely kick an owner, so close that dependency automatically instead of relying on
   # every caller to remember a second path.
-  case " $RELEASE_PATHS " in
-    *" bin "*)
-      case " $RELEASE_PATHS " in
-        *" skills/_shared "*) ;;
-        *) ARCHIVE_PATHS+=("skills/_shared") ;;
-      esac
-      ;;
-  esac
+  HAS_BIN=0
+  HAS_SHARED=0
+  for path in "${ARCHIVE_PATHS[@]}"; do
+    [ "$path" = "bin" ] && HAS_BIN=1
+    [ "$path" = "skills/_shared" ] && HAS_SHARED=1
+  done
+  if [ "$HAS_BIN" -eq 1 ] && [ "$HAS_SHARED" -eq 0 ]; then
+    ARCHIVE_PATHS+=("skills/_shared")
+  fi
 fi
 if [ "${#ARCHIVE_PATHS[@]}" -eq 0 ]; then
   git -C "$REPO_ROOT" archive --format=tar "$SHA" | tar -x -C "$DEST"
