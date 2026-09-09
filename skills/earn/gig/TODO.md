@@ -142,8 +142,12 @@ acceptance receipt changes a cell.
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
-**Host-wide runtime incident.** The Data volume previously reached 100% capacity. The latest check
-has about 5.1 GiB free after another owner reclaimed space; this owner deleted nothing.
+**Host-wide runtime incident.** The Data volume is currently at 100% capacity with only about
+510 MiB free. The temporary recovery to about 5.1 GiB did not hold: a later immutable release was
+cut while the host was under pressure. This owner removed one unreferenced, incomplete release
+(`20260910T004123-14230525`, about 225 MiB allocated); it was regenerable but is not recoverable as
+that incomplete directory. Canonical protected-release GC removed no valid release, and the
+canonical disk governor reclaimed only about 6 KiB because its remaining candidates were open.
 Earlier Coconala, Lancers and CrowdWorks failures contain `ENOSPC`, SQLite disk-I/O failures and
 state/evidence temporary-write failures. Protected immutable-release GC evaluated 32 releases and
 removed none because all 32 are still referenced. Therefore no failing lane may be declared repaired
