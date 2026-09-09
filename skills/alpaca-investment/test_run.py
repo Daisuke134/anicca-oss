@@ -215,20 +215,23 @@ class ShadowReadOnlyTest(unittest.TestCase):
     def test_shadow_never_submits_campaign_exit_or_allocator_order(self):
         observation = {"account": {"cash": "100000", "equity": "100000"},
                        "activities_count": 0, "clock": {"observed_at": "2026-09-05T00:00:00Z"},
-                       "open_and_closed_orders_count": 0, "positions": []}
+                       "open_and_closed_orders_count": 0,
+                       "positions": [{"unrealized_pl": "-0.25"}]}
         with tempfile.TemporaryDirectory() as directory, patch.dict(MODULE.os.environ, {
             "LIFE_MANAGER_INVESTMENT_MODE": "shadow", "LIFE_MANAGER_INVESTMENT_DEPLOYMENT": "local",
             "ALPACA_INVESTMENT_SHADOW_CREDENTIALS_FILE": str(Path(directory) / "live.json"),
             "ALPACA_INVESTMENT_SHADOW_STATE_DIR": str(Path(directory) / "shadow-state"),
         }, clear=True), patch.object(MODULE, "reconcile_started", return_value={"pending": 0, "reconciled": 0, "unresolved": 0}), \
-                patch.object(MODULE, "observe", return_value=observation), patch.object(MODULE, "read_campaign_snapshot"), \
-                patch.object(MODULE, "reconcile", return_value={"exit_status": "EXIT_READY", "exit_credit_usd": "0.50", "unrealized_pnl_usd": "0.00"}), \
+                patch.object(MODULE, "observe", return_value=observation), patch.object(MODULE, "read_campaign_snapshot") as campaign_read, \
+                patch.object(MODULE, "reconcile", return_value={"exit_status": "EXIT_READY", "exit_credit_usd": "0.50", "unrealized_pnl_usd": "0.00"}) as campaign_reconcile, \
                 patch.object(MODULE, "exit_order", return_value={"asset_class": "option_spread_close"}), \
                 patch.object(MODULE, "read_allocator_snapshot", return_value={"risk": {}}), patch.object(MODULE, "build_candidates", return_value=[]), \
                 patch.object(MODULE, "choose", return_value={"approved": True, "candidate_ref": "crypto://BTC/USD", "candidate": {"asset_class": "crypto"}, "gate": "approved", "observed_at": "2026-09-05T00:00:00Z"}), \
                 patch.object(MODULE, "order_for", return_value={"asset_class": "crypto"}), patch.object(MODULE, "submit_order") as submit, \
                 patch.object(MODULE, "deliver", return_value={"message_id": "123"}):
             self.assertEqual(MODULE.main(wake_id="shadow-read-only"), 0)
+        campaign_read.assert_not_called()
+        campaign_reconcile.assert_not_called()
         submit.assert_not_called()
 
 
