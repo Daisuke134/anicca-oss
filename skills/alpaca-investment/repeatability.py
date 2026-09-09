@@ -86,14 +86,25 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
     terminal_runs = [row.get("run_id") for row in terminal]
     pids = {match.group(1) for row in terminal
             if (match := re.search(r"-(\d+)$", str(row.get("run_id"))))}
-    delivered = [row for row in outbox if row["status"] == "delivered"
+    delivered = [row for row in outbox if str(row["event_key"]).startswith("alpaca-wake:")
+                 and row["status"] == "delivered"
                  and row["provider_message_id"] and row["delivered_at"]
                  and row["last_error_code"] is None]
+    execute_by_run = {row.get("run_id"): parse_instant(row["timestamp"])
+                      for row in events if row.get("phase") == "execute"}
+    deliveries_by_run = []
+    for row in terminal:
+        execute_at = execute_by_run.get(row.get("run_id"))
+        report_at = parse_instant(row["timestamp"])
+        deliveries_by_run.append(0 if execute_at is None else sum(
+            execute_at <= parse_instant(delivery["created_at"]) <= report_at
+            for delivery in delivered))
     official = _official_orders(credentials, cli)
     checks = {
         "calendar_days": len(days) >= required_days and _consecutive_days(days),
         "natural_wakes": len(terminal) >= required_wakes,
-        "telegram_every_wake": len(delivered) == len(terminal),
+        "telegram_every_wake": len(delivered) == len(terminal)
+                               and all(count == 1 for count in deliveries_by_run),
         "unique_runtime_events": len(event_ids) == len(set(event_ids)),
         "one_terminal_per_run": len(terminal_runs) == len(set(terminal_runs)),
         "multiple_processes": len(pids) >= 2,

@@ -39,7 +39,7 @@ class RepeatabilityTest(unittest.TestCase):
         for index in range(wakes):
             at = start + timedelta(days=index % days, seconds=index)
             database.execute("INSERT INTO telegram_outbox VALUES (?,?,?,?,?,?,?,?,?,?)",
-                             (f"wake-{index}", "hash", "fixture", "delivered", 1, str(index),
+                             (f"alpaca-wake:{index}", "hash", "fixture", "delivered", 1, str(index),
                               at.isoformat(), None, (at + timedelta(seconds=1)).isoformat(), None))
         database.commit(); database.close()
         return shadow, live, start
@@ -83,11 +83,31 @@ class RepeatabilityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             shadow, live, start = self.fixture(Path(directory), 100, 30)
             database = sqlite3.connect(shadow / "telegram-outbox.sqlite3")
-            database.execute("DELETE FROM telegram_outbox WHERE event_key='wake-99'")
+            database.execute("DELETE FROM telegram_outbox WHERE event_key='alpaca-wake:99'")
             database.commit(); database.close()
             result = repeatability.evaluate(
                 shadow_state=shadow, live_state=live, start=start, required_days=30,
                 required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertFalse(result["checks"]["telegram_every_wake"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_extra_delivery_cannot_hide_a_missing_wake_report(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 100, 30)
+            database = sqlite3.connect(shadow / "telegram-outbox.sqlite3")
+            database.execute(
+                "DELETE FROM telegram_outbox WHERE event_key='alpaca-wake:99'")
+            at = start + timedelta(microseconds=500000)
+            database.execute("INSERT INTO telegram_outbox VALUES (?,?,?,?,?,?,?,?,?,?)",
+                             ("alpaca-wake:extra", "hash", "fixture", "delivered", 1,
+                              "extra", at.isoformat(), None,
+                              (at + timedelta(microseconds=100000)).isoformat(), None))
+            database.commit(); database.close()
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["observed"]["delivered_reports"], 100)
         self.assertFalse(result["checks"]["telegram_every_wake"])
 
 
