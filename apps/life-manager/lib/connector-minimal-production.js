@@ -31,6 +31,7 @@ const { createEventbriteScriptFirstWorkflow } = require("./connector-eventbrite-
 const { createTechPlayDiscoveryWorkflow } = require("./connector-techplay-workflow.js");
 const { createKokuchProDiscoveryWorkflow } = require("./connector-kokuchpro-workflow.js");
 const { readLumaFormProfile } = require("./luma-form-profile.js");
+const { runConnectorAgenticRegistration } = require("./connector-agentic-registration.js");
 const {
   createBoundedActionProposer,
   createPrivateValueResolver,
@@ -648,6 +649,11 @@ function createMinimalProductionDependencies(options = {}) {
     now,
     onDiscoveryAudit: operations.recordDiscoveryAudit || (() => {}),
     readLumaFormProfile: () => readLumaFormProfile({ path: lumaFormProfilePath }),
+    agenticRegister: options.lumaAgenticRegister || ((input) => runConnectorAgenticRegistration({
+      ...input,
+      evidenceDir: lunaEvidenceDir,
+      repoRoot,
+    })),
     hasAppliedBundle: (candidate) => evidenceChain.hasAppliedBundle({
       provider: "luma",
       event_ref: candidate.event_ref,

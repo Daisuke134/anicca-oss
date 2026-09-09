@@ -158,6 +158,7 @@ function createLumaScriptFirstWorkflow(options = {}) {
   const submitOnPage = options.submitOnPage || submitLumaOnPage;
   const readProviderStateOnPage = options.readProviderStateOnPage || defaultReadProviderStateOnPage;
   const readLumaFormProfile = options.readLumaFormProfile;
+  const agenticRegister = options.agenticRegister;
   const onDiscoveryAudit = options.onDiscoveryAudit || (() => {});
   // Fail closed: until production wiring proves an event has no bundle,
   // treat it as bundled so a mis-wired caller can never re-surface it.
@@ -168,6 +169,7 @@ function createLumaScriptFirstWorkflow(options = {}) {
     || typeof submitOnPage !== "function" || typeof readProviderStateOnPage !== "function"
     || typeof onDiscoveryAudit !== "function" || typeof hasAppliedBundle !== "function"
     || (readLumaFormProfile != null && typeof readLumaFormProfile !== "function")
+    || (agenticRegister != null && typeof agenticRegister !== "function")
   ) invalid();
 
   return Object.freeze({
@@ -230,7 +232,7 @@ function createLumaScriptFirstWorkflow(options = {}) {
       try {
         const outcome = await submitOnPage(page, selected, {
           readLumaFormProfile,
-          agenticRegister: undefined,
+          agenticRegister,
         });
         return outcome && outcome.status === "registered"
           ? Object.freeze({ status: "completed", method: "luma_direct_submit" })
