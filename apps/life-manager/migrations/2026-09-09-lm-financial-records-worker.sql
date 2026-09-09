@@ -1,4 +1,4 @@
--- Immutable common FinancialRecord persistence for cloud runtimes.
+-- Private Railway worker persistence for the shared FinancialRecord contract.
 CREATE TABLE IF NOT EXISTS public.lm_financial_records (
   record_id text NOT NULL CHECK (char_length(record_id) BETWEEN 1 AND 128),
   subject_id text NOT NULL CHECK (char_length(subject_id) BETWEEN 1 AND 128),
@@ -20,17 +20,6 @@ CREATE TABLE IF NOT EXISTS public.lm_financial_records (
 
 CREATE INDEX IF NOT EXISTS lm_financial_records_subject_time_idx
   ON public.lm_financial_records (subject_id, occurred_at, record_id);
-
-ALTER TABLE public.lm_financial_records ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.lm_financial_records FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT ON TABLE public.lm_financial_records TO service_role;
-
-DROP POLICY IF EXISTS lm_financial_records_service_select ON public.lm_financial_records;
-CREATE POLICY lm_financial_records_service_select ON public.lm_financial_records
-  FOR SELECT TO service_role USING (true);
-DROP POLICY IF EXISTS lm_financial_records_service_insert ON public.lm_financial_records;
-CREATE POLICY lm_financial_records_service_insert ON public.lm_financial_records
-  FOR INSERT TO service_role WITH CHECK (true);
 
 CREATE OR REPLACE FUNCTION public.reject_lm_financial_record_mutation()
 RETURNS trigger
