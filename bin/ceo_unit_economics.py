@@ -18,15 +18,16 @@ from registry_write_gate import atomic_write_registry  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("base", type=Path)
+    parser.add_argument("--config-root", type=Path, default=ROOT)
     parser.add_argument("--date", type=date.fromisoformat)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    config_path = args.base / "config" / "ceo-unit-economics.json"
+    config_path = args.config_root / "config" / "ceo-unit-economics.json"
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
         if not isinstance(config, dict):
             raise ValueError("config is not an object")
-        snapshot = build_snapshot(args.base, config, args.date)
+        snapshot = build_snapshot(args.base, config, args.date, config_root=args.config_root)
         output = args.output or args.base / "ledgers" / "ceo-unit-economics.latest.json"
         atomic_write_registry(str(output), snapshot)
     except Exception as error:

@@ -12,7 +12,7 @@ import sys
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO_ROOT, "lib"))
-from cost_self_report_check import record_cost_claim_warnings, stamp_last_observed_at  # noqa: E402
+from ceo_allocation import effective_registry  # noqa: E402
 
 LEDGER_NAMES = ["cost-events", "loop-evaluations", "ceo-decisions", "lessons"]
 
@@ -58,15 +58,8 @@ def main():
     ledgers_dir = os.path.join(base, "ledgers")
     _ensure_ledgers(ledgers_dir)
 
-    registry_path = os.path.join(base, "config", "loop-registry.json")
-    if not os.path.isfile(registry_path):
-        print("registry: missing")
-        _print_compute_runway(ledgers_dir)
-        return 0
-
     try:
-        with open(registry_path) as f:
-            registry = json.load(f)
+        registry = effective_registry(os.environ.get("CEO_CONFIG_ROOT", _REPO_ROOT), base)
     except Exception as e:
         print(f"registry: corrupt ({e})")
         _print_compute_runway(ledgers_dir)
@@ -100,20 +93,6 @@ def main():
         print(f"loop={loop} status={status} allocation={alloc.get('status')} "
               f"mult={alloc.get('pass_frequency_multiplier')} cadence={entry.get('cadence_contract')} "
               f"evidence={evidence} cost={cost} revenue={revenue}")
-
-    # REQ-CEO-020: cost self-report cross-check -- fresh last-pass marker + zero matching
-    # cost-events row for a live loop is flagged as a lessons.jsonl warning + printed here.
-    # CEO_HOME_OVERRIDE lets tests point the marker lookup at an isolated tmpdir instead of the
-    # real $HOME; unset in production, so real $HOME is used exactly like the existing
-    # *-healthcheck.sh scripts' own hardcoded HB= paths.
-    home_override = os.environ.get("CEO_HOME_OVERRIDE") or None
-    for flagged in record_cost_claim_warnings(base, home_dir=home_override):
-        print(f"cost_claim_warning: loop={flagged['loop']} issue=cost-claim-unbacked detail={flagged['detail']}")
-
-    # REQ-CEO-023: stamp last_observed_at (ISO8601 JST) for every loop whose last-pass marker
-    # exists, using the same marker-path table + CEO_HOME_OVERRIDE convention as the cost-claim
-    # cross-check above. Loops with no marker are left untouched (last_observed_at stays null).
-    stamp_last_observed_at(base, home_dir=home_override)
 
     # per-loop budget lines -- delegates the one effectful check to bin/budget-check.sh (no --loop:
     # every registry loop in one call), keeping this script's own code read+render only.

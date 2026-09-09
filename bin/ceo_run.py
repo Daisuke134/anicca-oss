@@ -3,7 +3,7 @@
 
     ceo_run.py apply-decision <base> <payload.json>
         Validates an agent-proposed allocation decision (enum/range/unknown-loop/negative-capital
-        rejection) and, only if valid, atomically writes it to config/loop-registry.json AND
+        rejection) and, only if valid, atomically writes the runtime allocation override AND
         appends one row to ledgers/ceo-decisions.jsonl (registry write first, per REQ-CEO-008's
         documented order -- a write failure leaves ceo-decisions.jsonl untouched).
 
@@ -27,10 +27,10 @@ import time
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LIB_DIR = os.path.join(_REPO_ROOT, "lib")
 sys.path.insert(0, _LIB_DIR)
-from registry_write_gate import atomic_write_registry, append_jsonl  # noqa: E402
+from registry_write_gate import append_jsonl  # noqa: E402
 from ceo_budget import CANONICAL_LOOPS  # noqa: E402
-from cost_self_report_check import record_cost_claim_warnings, stamp_last_observed_at  # noqa: E402
 from ceo_unit_economics import validate_allocation_policy  # noqa: E402
+from ceo_allocation import effective_registry, write_allocation  # noqa: E402
 
 ALLOCATION_STATUS_ENUM = {"normal", "paused", "reduce", "double_down"}
 
@@ -75,8 +75,8 @@ def validate_decision(payload, registry):
 
 
 def cmd_apply_decision(base, payload_path):
-    registry_path = os.path.join(base, "config", "loop-registry.json")
     decisions_path = os.path.join(base, "ledgers", "ceo-decisions.jsonl")
+    config_root = os.environ.get("CEO_CONFIG_ROOT", _REPO_ROOT)
 
     try:
         payload = _load_json(payload_path)
@@ -85,13 +85,13 @@ def cmd_apply_decision(base, payload_path):
         return 1
 
     try:
-        registry = _load_json(registry_path)
+        registry = effective_registry(config_root, base)
     except Exception as e:
-        print(f"ceo-run: cannot read registry at {registry_path} ({e})", file=sys.stderr)
+        print(f"ceo-run: cannot read repository registry ({e})", file=sys.stderr)
         return 1
 
     errs = validate_decision(payload, registry)
-    policy_config_path = os.path.join(base, "config", "ceo-unit-economics.json")
+    policy_config_path = os.path.join(config_root, "config", "ceo-unit-economics.json")
     if os.path.isfile(policy_config_path) and not errs:
         snapshot_path = os.path.join(base, "ledgers", "ceo-unit-economics.latest.json")
         try:
@@ -104,10 +104,8 @@ def cmd_apply_decision(base, payload_path):
         return 1
 
     loop = payload["loop"]
-    registry["loops"][loop]["allocation"] = payload["allocation"]
-
     try:
-        atomic_write_registry(registry_path, registry)
+        write_allocation(base, loop, payload["allocation"])
     except Exception as e:
         print(f"ceo-run: registry write failed ({e}); decision NOT applied, ceo-decisions.jsonl untouched", file=sys.stderr)
         return 1
@@ -155,7 +153,7 @@ def cmd_apply_evaluation(base, evaluation_path):
     try:
         evaluation = _load_json(evaluation_path)
         snapshot = _load_json(os.path.join(base, "ledgers", "ceo-unit-economics.latest.json"))
-        registry = _load_json(os.path.join(base, "config", "loop-registry.json"))
+        registry = effective_registry(os.environ.get("CEO_CONFIG_ROOT", _REPO_ROOT), base)
     except Exception as e:
         print(f"ceo-run: evaluation unavailable ({e})", file=sys.stderr)
         return 1
@@ -210,9 +208,8 @@ def cmd_apply_evaluation(base, evaluation_path):
 
 
 def cmd_light_pass(base):
-    registry_path = os.path.join(base, "config", "loop-registry.json")
     try:
-        registry = _load_json(registry_path)
+        registry = effective_registry(os.environ.get("CEO_CONFIG_ROOT", _REPO_ROOT), base)
         loops = list(registry.get("loops", {}).keys())
     except Exception:
         loops = list(CANONICAL_LOOPS)
@@ -222,7 +219,11 @@ def cmd_light_pass(base):
     env["CEO_STATE_DIR"] = base
 
     snapshot_cli = os.path.join(_REPO_ROOT, "bin", "ceo_unit_economics.py")
-    snapshot_proc = subprocess.run([sys.executable, snapshot_cli, base], capture_output=True, text=True)
+    snapshot_proc = subprocess.run(
+        [sys.executable, snapshot_cli, base, "--config-root", env.get("CEO_CONFIG_ROOT", _REPO_ROOT)],
+        capture_output=True,
+        text=True,
+    )
     if snapshot_proc.stdout:
         sys.stdout.write(snapshot_proc.stdout)
     if snapshot_proc.stderr:
@@ -239,16 +240,6 @@ def cmd_light_pass(base):
         except Exception as e:
             print(f"budget: {loop} ERROR ({e})")
 
-    # REQ-CEO-020/023: the daily deterministic --light-pass (this function, driven by the
-    # ai.anicca.ceo-runner launchd job) is the pass that actually runs unattended every day --
-    # bin/ceo-status.sh only runs these same two checks when a human/agent invokes it manually.
-    # Run them here too so the cost self-report cross-check and last_observed_at staleness stamp
-    # happen on every autonomous daily pass, not only on-demand. CEO_HOME_OVERRIDE keeps the same
-    # test-isolation convention bin/ceo_status.py already uses (unset in production -> real $HOME).
-    home_override = os.environ.get("CEO_HOME_OVERRIDE") or None
-    for flagged in record_cost_claim_warnings(base, home_dir=home_override):
-        print(f"cost_claim_warning: loop={flagged['loop']} issue=cost-claim-unbacked detail={flagged['detail']}")
-    stamp_last_observed_at(base, home_dir=home_override)
     return 0
 
 

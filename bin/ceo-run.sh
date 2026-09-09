@@ -7,7 +7,7 @@
 #
 #   bash ceo-run.sh --apply-decision <payload.json>
 #       Deterministic write gate: validates an allocation-decision payload and, only if valid,
-#       atomically writes config/loop-registry.json + appends ledgers/ceo-decisions.jsonl.
+#       atomically writes the external allocation overlay + appends ledgers/ceo-decisions.jsonl.
 #
 #   bash ceo-run.sh   (no args)
 #       Compact weekly evaluation: builds a deterministic aggregate snapshot, skips without an
@@ -16,7 +16,12 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3
-BASE="${CEO_STATE_DIR:-$HERE}"
+if [ -n "${LIFE_MANAGER_RELEASE_SHA:-}" ]; then
+  BASE="${LIFE_MANAGER_CEO_STATE_ROOT:-$HOME/.local/state/life-manager/ceo-runner}"
+else
+  BASE="${CEO_STATE_DIR:-${LIFE_MANAGER_CEO_STATE_ROOT:-$HOME/.local/state/life-manager/ceo-runner}}"
+fi
+export CEO_CONFIG_ROOT="$HERE"
 
 case "${1:-}" in
   --light-pass)
@@ -52,7 +57,7 @@ case "${1:-}" in
     ;;
   --snapshot)
     shift
-    exec "$PY" "$HERE/bin/ceo_unit_economics.py" "$BASE" "$@"
+    exec "$PY" "$HERE/bin/ceo_unit_economics.py" "$BASE" --config-root "$CEO_CONFIG_ROOT" "$@"
     ;;
   "")
     # true no-args invocation -- fall through to the full weekly-evaluation default mode below.
@@ -74,7 +79,7 @@ for f in ceo-decisions lessons; do
   [ -f "$BASE/ledgers/$f.jsonl" ] || : > "$BASE/ledgers/$f.jsonl"
 done
 
-"$PY" "$HERE/bin/ceo_unit_economics.py" "$BASE" || exit $?
+"$PY" "$HERE/bin/ceo_unit_economics.py" "$BASE" --config-root "$CEO_CONFIG_ROOT" || exit $?
 SNAPSHOT="$BASE/ledgers/ceo-unit-economics.latest.json"
 ELIGIBLE="$($PY - "$SNAPSHOT" <<'PY'
 import json,sys

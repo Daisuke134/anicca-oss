@@ -9,7 +9,12 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=/opt/homebrew/bin/python3; [ -x "$PY" ] || PY=python3
-BASE="${CEO_STATE_DIR:-$HERE}"
+if [ -n "${LIFE_MANAGER_RELEASE_SHA:-}" ]; then
+  BASE="${LIFE_MANAGER_CEO_STATE_ROOT:-$HOME/.local/state/life-manager/ceo-runner}"
+else
+  BASE="${CEO_STATE_DIR:-${LIFE_MANAGER_CEO_STATE_ROOT:-$HOME/.local/state/life-manager/ceo-runner}}"
+fi
+export CEO_CONFIG_ROOT="$HERE"
 
 LOOP=""
 if [ "${1:-}" = "--loop" ]; then

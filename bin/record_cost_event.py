@@ -18,10 +18,11 @@ CANONICAL_LOOPS = {
 
 
 def _known_loops(base):
-    registry_path = os.path.join(base, "config", "loop-registry.json")
+    config_root = os.environ.get("CEO_CONFIG_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     try:
-        with open(registry_path) as f:
-            registry = json.load(f)
+        sys.path.insert(0, os.path.join(config_root, "lib"))
+        from ceo_allocation import effective_registry
+        registry = effective_registry(config_root, base)
         loops = registry.get("loops")
         if isinstance(loops, dict) and loops:
             return set(loops.keys())
