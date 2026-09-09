@@ -142,6 +142,8 @@ class MacosLoopRegistryTest(unittest.TestCase):
 
     def test_release_reconciler_scopes_each_route_to_the_four_gig_owners(self):
         script = (ROOT / "bin/reconcile-agent-runner-release.sh").read_text()
+        self.assertIn("':(exclude)docs/**'", script)
+        self.assertIn("':(exclude)skills/earn/gig/TODO.md'", script)
         self.assertIn(
             "reconcile shared-agent-runner --loaded-idle-only "
             "--loop-id hf-gig-apply-direct",

@@ -14,13 +14,14 @@ current_complete=0
 [ "$current_paths" = "ALL" ] && current_complete=1
 release_sha_target="$main_sha"
 
-# The public spec lives under docs/, but launchd jobs execute no file from there. Re-exporting the
-# complete tree for a docs-only main commit consumes about a GiB while changing no runnable byte.
+# The public specs and the Gig progress ledger are not runtime inputs. Re-exporting the complete
+# tree for a progress-only main commit consumes about a GiB while changing no runnable byte.
 # Keep reconciling stale target labels to the existing complete release; cut a new release as soon
-# as any path outside docs/ differs. A missing/non-ancestor current SHA fails closed into a cut.
+# as any other path differs. A missing/non-ancestor current SHA fails closed into a cut.
 if [ "$current_complete" -eq 1 ] && [ -n "$current_sha" ] \
   && git -C "$SOURCE_REPO" merge-base --is-ancestor "$current_sha" "$main_sha" 2>/dev/null \
-  && git -C "$SOURCE_REPO" diff --quiet "$current_sha" "$main_sha" -- . ':(exclude)docs/**'; then
+  && git -C "$SOURCE_REPO" diff --quiet "$current_sha" "$main_sha" -- . \
+    ':(exclude)docs/**' ':(exclude)skills/earn/gig/TODO.md'; then
   release_sha_target="$current_sha"
 fi
 
