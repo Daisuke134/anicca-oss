@@ -14,7 +14,7 @@ const SINCE_H = Number(process.env.REPORT_WINDOW_H || 24);
 const TO = String(process.env.REPORT_TO || "").split(",").map((value) => value.trim()).filter(Boolean);
 if (TO.length === 0) throw new Error("REPORT_TO is required");
 const INBOX = process.env.AGENTMAIL_INBOX || "anicca-genesis@agentmail.to";
-const PROXY = (process.env.OPENAI_BASE_URL || "http://127.0.0.1:8402/v1").replace(/\/+$/, "");
+const PROXY = (process.env.OPENAI_BASE_URL || "http://127.0.0.1:18402/v1").replace(/\/+$/, "");
 const MODEL = process.env.ANICCA_MODEL || process.env.ANICCA_FREE_MODEL || "free/glm-4.7";
 const NAME = (() => { try { return fs.readFileSync(ANICCA_HOME + "/identity/name", "utf8").trim(); } catch { return "anicca"; } })();
 

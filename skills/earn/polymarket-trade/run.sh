@@ -17,11 +17,11 @@ BOUNDED_EXEC="$REPO_ROOT/runtime/loop/bounded-exec.py"
 # BRAIN ENV for pick.py's blockrun_llm consensus analyzer (FIX 2026-07-12: pick.py always
 # returned WAIT "analyzer-unavailable" because these were unset + the SDK was missing → the
 # directional +EV engine never ran. The SDK is now pinned in the managed runtime; point it at the shared
-# ClawRouter :8402 (free models = $0) so multi-model consensus actually runs each wake.
-export OPENAI_BASE_URL="${OPENAI_BASE_URL:-http://127.0.0.1:8402/v1}"
+# repository-owned compute proxy :18402 (free models = $0) so multi-model consensus runs each wake.
+export OPENAI_BASE_URL="${OPENAI_BASE_URL:-http://127.0.0.1:18402/v1}"
 export OPENAI_API_KEY="${OPENAI_API_KEY:-x402-local}"
-export BLOCKRUN_API_URL="${BLOCKRUN_API_URL:-http://127.0.0.1:8402/v1}"
-export BLOCKRUN_BASE_URL="${BLOCKRUN_BASE_URL:-http://127.0.0.1:8402/v1}"
+export BLOCKRUN_API_URL="${BLOCKRUN_API_URL:-http://127.0.0.1:18402/v1}"
+export BLOCKRUN_BASE_URL="${BLOCKRUN_BASE_URL:-http://127.0.0.1:18402/v1}"
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 

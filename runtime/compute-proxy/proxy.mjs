@@ -13,6 +13,7 @@ const pk = loadEvmKey();
 if (pk) process.env.BASE_CHAIN_WALLET_KEY = pk;
 const br = new BlockrunClient();
 const PORT = process.env.COMPUTE_PROXY_PORT || 18402;
+const HOST = "127.0.0.1";
 // Strip any ClawRouter profile prefix/word the caller might send; map to a concrete frontier id.
 const FRONTIER = process.env.ANICCA_FRONTIER_MODEL || "anthropic/claude-sonnet-4-6";
 const server = http.createServer((req, res) => {
@@ -29,4 +30,4 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ object: "list", data: [] }));
   } else { res.writeHead(404); res.end(); }
 });
-server.listen(PORT, () => console.log(`anicca compute-proxy on :${PORT} — x402 self-pay (frontier=${FRONTIER})`));
+server.listen(PORT, HOST, () => console.log(`anicca compute-proxy on ${HOST}:${PORT} — x402 self-pay (frontier=${FRONTIER})`));

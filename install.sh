@@ -189,20 +189,14 @@ echo
 # ─── 5. supervised, self-updating daemon (optional host mutation) ──────
 cyan "[5/6] daemon registration…"
 if [ "$LIFE_MANAGER_INSTALL_DAEMON" = "1" ]; then
-  chmod +x "$REPO_ROOT/runtime/anicca-daemon.sh" 2>/dev/null || true
   if [ "$(uname)" = "Darwin" ]; then
-    PLIST="$HOME/Library/LaunchAgents/com.anicca.daemon.plist"
-    mkdir -p "$HOME/Library/LaunchAgents"
-    sed -e "s#__REPO__#$REPO_ROOT#g" -e "s#__ANICCA_HOME__#$ANICCA_HOME#g" -e "s#__HOME__#$HOME#g" \
-      "$REPO_ROOT/runtime/com.anicca.daemon.plist.template" > "$PLIST"
-    launchctl unload "$PLIST" 2>/dev/null || true
-    if launchctl load -w "$PLIST" 2>/dev/null; then
-      green "  ✓ launchd daemon loaded (com.anicca.daemon)"
-    else
-      cyan "  ! launchctl load failed; load it yourself: launchctl load -w $PLIST"
-    fi
+    LOOPS_KEEP_RELEASES=2 "$REPO_ROOT/bin/cut-loop-release.sh" HEAD >/dev/null
+    RELEASE_ROOT="$(readlink "${LOOPS_ROOT:-$HOME/loops}/current")"
+    LIFE_MANAGER_RELEASE_ROOT="$RELEASE_ROOT" \
+      "$RELEASE_ROOT/bin/lm-loop" reconcile deterministic --loop-id compute-proxy --include-running >/dev/null
+    green "  ✓ repository compute proxy loaded (ai.anicca.compute-proxy)"
   else
-    green "  Linux/cloud: run runtime/anicca-daemon.sh under your process supervisor."
+    green "  Linux/cloud: run runtime/compute-proxy/start-local.sh --proxy-only under your process supervisor."
   fi
 else
   green "  ✓ disabled (LIFE_MANAGER_INSTALL_DAEMON=0); no LaunchAgent/system service changed"

@@ -8,6 +8,13 @@ import { fileURLToPath } from 'node:url';
 
 const scriptPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'start-local.sh');
 const script = readFileSync(scriptPath, 'utf8');
+const proxy = readFileSync(path.resolve(path.dirname(scriptPath), 'proxy.mjs'), 'utf8');
+
+test('compute proxy listens only on loopback', () => {
+  assert.match(proxy, /const HOST = ["']127\.0\.0\.1["']/);
+  assert.match(proxy, /server\.listen\(PORT, HOST,/);
+  assert.doesNotMatch(proxy, /server\.listen\(PORT,\s*\(\)/);
+});
 
 test('proxy-only mode is explicit and never launches the loop command', () => {
   assert.match(script, /--proxy-only/);
