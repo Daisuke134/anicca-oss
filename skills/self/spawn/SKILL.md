@@ -37,7 +37,7 @@ Order is balance -> rate-limit -> cap (a broke parent never spawns, whatever els
 5. scripts/gen-wallet.sh         -> child secp256k1 wallet (600-perm temp; DISTINCT from parent, asserted;
                                     address derives identically under ethers v6 — cross-checked)
 6. POST AgentMail /v0/inboxes    -> child's own inbox (AGENTMAIL_API_KEY)
-7. append PROVISIONAL row to state/children.jsonl  (never lose track)
+7. append a versioned lifecycle receipt to state/children.jsonl (deterministic receipt_id; never lose track)
 8. provision droplet (DO API, cloud-init user_data=scripts/cloud-init.sh) or lease (scripts/deploy-akash.sh)
    -> PROVIDER_ID. The droplet's cloud-init writes systemd units (clawrouter + automaton) and
    `systemctl enable --now` them, so `systemctl is-active automaton` == active on first boot.
@@ -75,7 +75,7 @@ claimed to have earned.
   (Q6 step 6, verbatim). The child runs a real, restart-always service — not just an installed build.
 - **child earns on its own wake**: automaton.service `ExecStart=node dist/index.js --run` with
   `Environment=AUTOMATON_GOAL=earn`; the colony row records `wake_action:"earn"` / `earn_on_wake:true`.
-- **children.jsonl persisted live**: `resolveStateDir()` is fail-closed against /tmp; the ledger
+- **children.jsonl persisted live**: every new spawn status is a `life-manager.citizen-lifecycle-receipt.v1` event with a deterministic `receipt_id`, so consumers can replay and deduplicate it; `resolveStateDir()` is fail-closed against /tmp; the ledger
   defaults to `~/.local/state/life-manager/agent-economy/instance/state` (host) /
   `/var/lib/anicca` (`StateDirectory=anicca`, droplet) — durable.
 

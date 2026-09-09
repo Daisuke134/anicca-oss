@@ -193,7 +193,10 @@ test("FIND-001(b): seedStep itself fails -> reclaim is correctly SKIPPED (no rec
   assert.equal(reclaimCalls, 0, "reclaim must never be attempted when the gas seed itself never landed");
   const rows = readLedgerRows(deps.ledgerFile).filter((r) => r.child_id === result.childId);
   assert.equal(rows.length, 1);
-  assert.deepEqual(Object.keys(rows[0]).sort(), ["attempted_ms", "child_id", "error", "status"], "no reclaim/lease_id fields when no reclaim was ever attempted");
+  assert.deepEqual(Object.keys(rows[0]).sort(), [
+    "attempted_ms", "child_id", "citizen_id", "error", "event_type",
+    "lifecycle_status", "occurred_at_ms", "receipt_id", "schema", "status",
+  ], "no reclaim/lease_id fields when no reclaim was ever attempted");
 });
 
 test("FIND-001(c): a reclaim that itself fails is swallowed and recorded as reclaimed:false, never masking the original failure", async () => {

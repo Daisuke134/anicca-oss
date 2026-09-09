@@ -159,23 +159,31 @@ test("PROP-307b structural: executeSpawnAttempt contains no arithmetic/boolean e
 
 // ---------------------------------------------------------------------------
 // PROP-307c / CRIT-203: a failure injected at each of the 9 canonical steps in turn.
-// Steps 1-6 (before a complete identity anchor exists) -> minimal direct appendChild row.
+// Steps 1-6 (before a complete identity anchor exists) -> minimal business fields plus the shared
+// lifecycle-receipt envelope.
 // Steps 7-9 (after REQ-204 has genuinely succeeded) -> buildChildSpec-based failure row.
 // ---------------------------------------------------------------------------
 
 // `extraKeys` (FIND-001): steps 1-5 fail before the gas seed ever lands, so their row stays the
-// strictly minimal 4-key shape; step 6 (registerIdentity) fails AFTER a successful seedStep, so its
-// row also carries the reclaim-attempt outcome + lease_id -- callers pass the exact keys they expect.
+// strictly minimal business shape; every row also carries the lifecycle-receipt envelope. Step 6
+// (registerIdentity) fails AFTER a successful seedStep, so its row additionally carries the
+// reclaim-attempt outcome + lease_id -- callers pass the exact keys they expect.
 function assertMinimalFailedRow(row, expectStep, extraKeys = []) {
   assert.equal(row.status, "failed", `step ${expectStep}: row must be status:"failed"`);
   assert.equal(typeof row.child_id, "string");
   assert.equal(typeof row.attempted_ms, "number");
   assert.equal(typeof row.error, "string");
   assert.ok(row.error.length > 0);
+  assert.equal(row.schema, "life-manager.citizen-lifecycle-receipt.v1");
+  assert.equal(row.event_type, "citizen.lifecycle");
+  assert.equal(row.citizen_id, row.child_id);
+  assert.equal(row.lifecycle_status, "failed");
+  assert.equal(row.occurred_at_ms, row.attempted_ms);
+  assert.match(row.receipt_id, /^[a-f0-9]{64}$/);
   const keys = Object.keys(row).sort();
   assert.deepEqual(
     keys,
-    ["attempted_ms", "child_id", "error", "status", ...extraKeys].sort(),
+    ["attempted_ms", "child_id", "citizen_id", "error", "event_type", "lifecycle_status", "occurred_at_ms", "receipt_id", "schema", "status", ...extraKeys].sort(),
     `step ${expectStep}: a pre-identity-anchor failure row must be the MINIMAL shape (+ any explicitly expected extra keys) only -- never buildChildSpec's fields (wallet/parent_wallet/etc.), never via buildChildSpec`
   );
 }
@@ -522,6 +530,12 @@ test("REQ-305 call-site: the ledger's active row sets active_since, and attempte
   assert.equal(rows[0].status, "active");
   assert.equal(typeof rows[0].active_since, "number");
   assert.equal(rows[0].attempted_ms, nowMs);
+  assert.equal(rows[0].schema, "life-manager.citizen-lifecycle-receipt.v1");
+  assert.equal(rows[0].event_type, "citizen.lifecycle");
+  assert.equal(rows[0].citizen_id, result.childId);
+  assert.equal(rows[0].lifecycle_status, "active");
+  assert.equal(rows[0].occurred_at_ms, rows[0].active_since);
+  assert.match(rows[0].receipt_id, /^[a-f0-9]{64}$/);
 });
 
 test("REQ-204 call-site: registerIdentity is invoked with the step-2-generated child private key, and a successful agentId/txHash feed buildChildSpec's identity anchor", async () => {

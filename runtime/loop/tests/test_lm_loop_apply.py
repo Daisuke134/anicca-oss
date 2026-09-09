@@ -1760,22 +1760,6 @@ class LmLoopApplyTest(unittest.TestCase):
         }.isdisjoint(environment))
         self.assertEqual(environment["AGENT_ECONOMY_OPERATIONAL_SETTING"], "kept")
 
-    def test_citizens_monitor_reads_the_agent_economy_instance_registry(self):
-        loop_id = "citizens-diff-monitor"
-        release = self._release("release-citizens-monitor").resolve()
-        registry_value = registry()
-        entry = registry_value["loops"].pop("example")
-        entry["label"] = "ai.anicca.citizens-diff-monitor"
-        registry_value["loops"][loop_id] = entry
-
-        rendered = build_apply_plan(registry_value, release, SHA)[0]
-        environment = plistlib.loads(rendered["plist_bytes"])["EnvironmentVariables"]
-
-        self.assertEqual(
-            environment["CITIZENS_REGISTRY_PATH"],
-            str(Path.home() / ".local/state/life-manager/agent-economy/instance/state/citizens.json"),
-        )
-
     def test_writer_targets_retire_only_legacy_log_environment(self):
         retired = {"ARTICLE_DAILY_LOG", "ARTICLE_MODEL_LOG", "GIG_LOG_DIR"}
         loop_ids = (
