@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import stat
@@ -471,3 +472,149 @@ def read_live_canary(*, credentials_path: Path, cli_path: Path,
         raise ValueError("live_canary_fill_mismatch") from error
     return {"status": "verified", "verified": True, "order": order,
             "fills": fills, "position": positions[0]}
+
+
+def read_live_close_snapshot(*, credentials_path: Path, cli_path: Path) -> dict[str, Any]:
+    """Read the narrow official state needed to close the L09 BTC holding."""
+    env = _context(credentials_path, cli_path, "live")
+    account = _run(cli_path, ["account", "get", "--quiet", "--jq",
+        "{status,trading_blocked,transfers_blocked,account_blocked,crypto_status}"], env)
+    orders = _run(cli_path, ["order", "list", "--quiet", "--status", "open", "--limit", "500",
+        "--jq", "[.[]|{id,client_order_id,status,symbol,side}]"], env)
+    positions = _run(cli_path, ["position", "list", "--quiet", "--jq",
+        "[.[]|{symbol,qty,market_value,unrealized_pl}]"], env)
+    asset = _run(cli_path, ["asset", "get", "--symbol-or-asset-id", "BTC/USDC", "--quiet", "--jq",
+        "{symbol,status,tradable}"], env)
+    quote = _run(cli_path, ["data", "crypto", "latest-quotes", "--symbols", "BTC/USDC",
+        "--quiet", "--jq", ".quotes[\"BTC/USDC\"]|{bp,ap,t}"], env)
+    fees = _run(cli_path, ["account", "activity", "list", "--activity-types", "CFEE",
+        "--direction", "asc", "--quiet", "--jq",
+        "[.[]|{activity_type,order_id,symbol,qty,price,date}]"], env)
+    bank_flows = _run(cli_path, ["account", "activity", "list", "--activity-types", "CSD,CSW",
+        "--direction", "asc", "--quiet", "--jq",
+        "[.[]|{activity_type,id,date,net_amount}]"], env)
+    transfers = _run(cli_path, ["api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
+        "[.[]|{id,asset,usd_value,direction,status}]"], env)
+    if not isinstance(account, dict) or not isinstance(orders, list) \
+            or not isinstance(positions, list) or not isinstance(asset, dict) \
+            or not isinstance(quote, dict) or not isinstance(fees, list) \
+            or not isinstance(bank_flows, list) or not isinstance(transfers, list):
+        raise ValueError("live_close_snapshot_invalid")
+    return {"account": account, "open_orders": orders, "positions": positions,
+            "asset": asset, "quote": quote, "fees": fees,
+            "external_flow_fingerprint": _digest_rows([*bank_flows, *transfers])}
+
+
+def _digest_rows(rows: list[dict[str, Any]]) -> str:
+    return hashlib.sha256(json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def submit_live_close(*, credentials_path: Path, cli_path: Path, client_order_id: str,
+                      frozen_qty: str, order: dict[str, Any]) -> dict[str, Any]:
+    """Submit only the frozen full-size BTC/USDC close; scheduled code never calls this."""
+    expected = {"asset_class": "crypto", "qty": frozen_qty, "side": "sell",
+                "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+    try:
+        valid_qty = Decimal(frozen_qty) > 0 and Decimal(frozen_qty).as_tuple().exponent >= -9
+    except InvalidOperation:
+        valid_qty = False
+    if order != expected or not valid_qty \
+            or not re.fullmatch(r"lm-ai-[0-9a-f]{24}", client_order_id):
+        raise ValueError("live_close_shape_invalid")
+    if _selected_mode() != "live":
+        raise ValueError("investment_mode_effect_forbidden")
+    env = _context(credentials_path, cli_path, "live")
+    result = _run(cli_path, ["order", "submit", "--quiet", "--symbol", "BTC/USDC",
+        "--qty", frozen_qty, "--side", "sell", "--type", "market", "--time-in-force", "gtc",
+        "--client-order-id", client_order_id, "--jq",
+        "{id,client_order_id,status,submitted_at,symbol,qty,side,type,time_in_force}"], env)
+    if (not isinstance(result, dict) or result.get("client_order_id") != client_order_id
+            or result.get("symbol") not in {"BTC/USDC", "BTCUSDC"}
+            or Decimal(str(result.get("qty"))) != Decimal(frozen_qty)
+            or result.get("side") != "sell" or result.get("type") != "market"
+            or result.get("time_in_force") != "gtc"):
+        raise ValueError("live_close_ack_invalid")
+    return result
+
+
+def read_live_close(*, credentials_path: Path, cli_path: Path, client_order_id: str,
+                    frozen_qty: str, pre_usdc_qty: str, buy_gross_cost_usdc: str,
+                    external_flow_fingerprint: str) -> dict[str, Any]:
+    """Verify one close from its official order, all FILLs, and post-close positions."""
+    env = _context(credentials_path, cli_path, "live")
+    query = (f"first(.[]|select(.client_order_id=={json.dumps(client_order_id)})) // "
+             "{found:false}|if .found==false then . else "
+             "{found:true,id,client_order_id,status,filled_qty,symbol,side,qty,type,time_in_force} end")
+    order = _run(cli_path, ["order", "list", "--quiet", "--status", "all", "--limit", "500",
+                            "--jq", query], env)
+    if order == {"found": False}:
+        return {"status": "absent", "verified": False}
+    try:
+        expected_qty = Decimal(frozen_qty)
+        filled_qty = Decimal(str(order.get("filled_qty") or "0"))
+        if (order.get("found") is not True or order.get("client_order_id") != client_order_id
+                or order.get("symbol") not in {"BTC/USDC", "BTCUSDC"}
+                or order.get("side") != "sell" or Decimal(str(order.get("qty"))) != expected_qty
+                or order.get("type") != "market" or order.get("time_in_force") != "gtc"):
+            raise ValueError
+    except (AttributeError, InvalidOperation, TypeError, ValueError) as error:
+        raise ValueError("live_close_order_mismatch") from error
+    if order.get("status") in {"canceled", "expired", "rejected"} and filled_qty == 0:
+        return {"status": "terminal_failure", "verified": False, "order": order}
+    if order.get("status") in {"canceled", "expired", "rejected"}:
+        return {"status": "partial_terminal", "verified": False, "order": order}
+    if order.get("status") != "filled":
+        return {"status": "pending", "verified": False, "order": order}
+    fills = _run(cli_path, ["account", "activity", "list", "--activity-types", "FILL",
+        "--order-id", str(order["id"]), "--page-size", "100", "--direction", "desc", "--quiet",
+        "--jq", f"[.[]|select(.order_id=={json.dumps(order['id'])})|"
+        "{order_id,symbol,side,qty,price,transaction_time}]"], env)
+    positions = _run(cli_path, ["position", "list", "--quiet", "--jq",
+        "[.[]|{symbol,qty,market_value}]"], env)
+    open_orders = _run(cli_path, ["order", "list", "--quiet", "--status", "open", "--limit", "500",
+        "--jq", "length"], env)
+    fees = _run(cli_path, ["account", "activity", "list", "--activity-types", "CFEE",
+        "--direction", "asc", "--quiet", "--jq",
+        f"[.[]|select(.order_id=={json.dumps(order['id'])})|"
+        "{activity_type,order_id,symbol,qty,price,date}]"], env)
+    bank_flows = _run(cli_path, ["account", "activity", "list", "--activity-types", "CSD,CSW",
+        "--direction", "asc", "--quiet", "--jq",
+        "[.[]|{activity_type,id,date,net_amount}]"], env)
+    transfers = _run(cli_path, ["api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
+        "[.[]|{id,asset,usd_value,direction,status}]"], env)
+    try:
+        fill_total = sum((Decimal(str(fill["qty"])) for fill in fills), Decimal("0"))
+        btc = [row for row in positions if row.get("symbol") in {"BTCUSD", "BTCUSDC", "BTC/USDC"}]
+        usdc = [row for row in positions if row.get("symbol") == "USDCUSD"]
+        post_usdc = Decimal(str(usdc[0]["qty"]))
+        if (not fills or any(fill.get("order_id") != order["id"] or fill.get("side") != "sell"
+                or fill.get("symbol") not in {"BTC/USDC", "BTCUSDC"} for fill in fills)
+                or fill_total != filled_qty or filled_qty != expected_qty or btc or len(usdc) != 1
+                or len(positions) != 1 or post_usdc <= Decimal(pre_usdc_qty) or open_orders != 0
+                or _digest_rows([*bank_flows, *transfers]) != external_flow_fingerprint):
+            raise ValueError
+        gross = sum((Decimal(str(fill["qty"])) * Decimal(str(fill["price"])) for fill in fills),
+                    Decimal("0"))
+        usdc_delta = post_usdc - Decimal(pre_usdc_qty)
+    except (InvalidOperation, KeyError, TypeError, ValueError) as error:
+        raise ValueError("live_close_fill_mismatch") from error
+    preliminary = {"order": order, "fills": fills, "post_usdc_qty": str(post_usdc),
+                   "gross_proceeds_usdc": str(gross), "official_usdc_delta": str(usdc_delta)}
+    if not fees:
+        return {"status": "fee_pending", "verified": False, **preliminary}
+    try:
+        if len(fees) != 1 or fees[0].get("symbol") != "USDCUSD" \
+                or fees[0].get("order_id") != order["id"]:
+            raise ValueError
+        sell_fee = -Decimal(str(fees[0]["qty"]))
+        discrepancy = gross - usdc_delta
+        if (sell_fee < 0 or sell_fee > gross * Decimal("0.01")
+                or abs(discrepancy - sell_fee) > Decimal("0.00001")):
+            raise ValueError
+        realised = usdc_delta - Decimal(buy_gross_cost_usdc)
+    except (InvalidOperation, KeyError, TypeError, ValueError) as error:
+        raise ValueError("live_close_fee_mismatch") from error
+    return {"status": "verified", "verified": True, **preliminary,
+            "post_usdc_qty": str(post_usdc), "gross_proceeds_usdc": str(gross),
+            "sell_fee_usdc": str(sell_fee), "realised_net_pnl_usdc": str(realised),
+            "fee_activity": fees[0]}
