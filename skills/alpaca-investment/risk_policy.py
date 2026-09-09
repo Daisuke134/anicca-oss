@@ -51,14 +51,16 @@ def evaluate_entry(snapshot: dict[str, Any], max_loss_usd: Any,
         loss = _number(max_loss_usd)
         allocated = _number(snapshot.get("allocated_capital_usd"))
         _number(snapshot.get("cash_flow_ny_day_usd"))
-        realized = _number(snapshot.get("realized_pnl_ny_day_usd"))
-        unrealized = _number(snapshot.get("unrealized_pnl_usd"))
+        equity_pnl = _number(snapshot.get("equity_pnl_ny_day_usd"))
+        official_pnl = _number(snapshot.get("official_pnl_ny_day_usd"))
+        if snapshot.get("risk_day_ready") is not True:
+            raise ValueError
         observed = parse_instant(snapshot.get("observed_at"))
         current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         ny_day = current.astimezone(ZoneInfo("America/New_York")).date().isoformat()
         checks = {
             "allocated_capital": allocated >= 0 and allocated + loss <= CAPITAL_CAP,
-            "daily_loss": realized + unrealized > -DAILY_LOSS_CAP,
+            "daily_loss": min(equity_pnl, official_pnl) > -DAILY_LOSS_CAP,
             "fresh": Decimal(str((current - observed).total_seconds())) >= 0
                      and Decimal(str((current - observed).total_seconds())) <= MAX_AGE_SECONDS,
             "new_york_day": snapshot.get("ny_day") == ny_day,

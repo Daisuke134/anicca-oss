@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from risk_day import reconcile as reconcile_risk_day
+
 from risk_policy import parse_instant
 
 
@@ -22,7 +24,7 @@ LIVE_ENDPOINT = "https://api.alpaca.markets/v2"
 MAX_CREDENTIAL_BYTES = 1_048_576
 MAX_OUTPUT_BYTES = 64 * 1024
 CLI_OPERATIONS = frozenset({
-    "account_activity", "account_get", "asset_get", "clock_get", "data_crypto",
+    "account_activity", "account_get", "api_GET", "asset_get", "clock_get", "data_crypto",
     "data_latest-quotes", "data_latest-trade", "data_option", "order_list",
     "order_submit", "position_list",
 })
@@ -238,7 +240,7 @@ def read_campaign_snapshot(
 
 
 def read_allocator_snapshot(
-    *, credentials_path: Path, cli_path: Path,
+    *, credentials_path: Path, cli_path: Path, risk_day_path: Path,
 ) -> dict[str, Any]:
     """Read only the official fields needed to offer trade candidates."""
     env = _context(credentials_path, cli_path)
@@ -265,6 +267,10 @@ def read_allocator_snapshot(
         "--until", day_end.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
         "--direction", "asc", "--quiet", "--jq",
         "[.[]|{activity_type,date,net_amount}]",
+    ], env)
+    crypto_transfers = _run(cli_path, [
+        "api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
+        "[.[]|{id,asset,usd_value,direction,status}]",
     ], env)
     positions = _run(cli_path, ["position", "list", "--quiet", "--jq",
         "[.[]|{symbol,market_value,unrealized_pl}]"], env)
@@ -303,24 +309,23 @@ def read_allocator_snapshot(
     if (not isinstance(positions, list) or isinstance(orders, bool)
             or not isinstance(orders, int) or orders < 0):
         raise ValueError("alpaca_allocator_shape_invalid")
-    if not isinstance(cash_activities, list) or not isinstance(crypto, list) or not isinstance(options, list):
+    if (not isinstance(cash_activities, list) or not isinstance(crypto_transfers, list)
+            or not isinstance(crypto, list) or not isinstance(options, list)):
         raise ValueError("alpaca_allocator_shape_invalid")
     try:
         equity = Decimal(str(account["equity"]))
-        last_equity = Decimal(str(account["last_equity"]))
         allocated = sum((abs(Decimal(str(row["market_value"]))) for row in positions), Decimal("0"))
         unrealized = sum((Decimal(str(row["unrealized_pl"])) for row in positions), Decimal("0"))
         if any(not isinstance(row, dict) or row.get("activity_type") not in {"CSD", "CSW"}
                for row in cash_activities):
             raise ValueError
         cash_flow = sum((Decimal(str(row["net_amount"])) for row in cash_activities), Decimal("0"))
-        values = (equity, last_equity, allocated, unrealized, cash_flow)
+        values = (equity, allocated, unrealized, cash_flow)
         if any(not value.is_finite() for value in values):
             raise ValueError
-        realized = equity - last_equity - cash_flow - unrealized
-        risk = {"allocated_capital_usd": str(allocated),
-                "cash_flow_ny_day_usd": str(cash_flow),
-                "realized_pnl_ny_day_usd": str(realized),
+        daily = reconcile_risk_day(risk_day_path, observed_at=observed, equity=equity,
+                                   bank_cash_flow=cash_flow, transfers=crypto_transfers)
+        risk = {"allocated_capital_usd": str(allocated), **daily,
                 "unrealized_pnl_usd": str(unrealized),
                 "observed_at": clock["timestamp"],
                 "ny_day": ny_day}
