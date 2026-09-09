@@ -507,10 +507,23 @@ class MacosLoopRegistryTest(unittest.TestCase):
 
     def test_marketing_owner_reports_are_retired_after_financial_manager_consolidation(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        self.assertNotIn("marketing-daily-report", registry["loops"])
         self.assertNotIn("marketing-owner-daily", registry["loops"])
         self.assertNotIn("marketing-owner-weekly", registry["loops"])
+        self.assertIn("ai.anicca.marketing-daily-report", registry["retired_labels"])
         self.assertIn("ai.anicca.marketing-owner-daily", registry["retired_labels"])
         self.assertIn("ai.anicca.marketing-owner-weekly", registry["retired_labels"])
+
+    def test_legacy_marketing_helpers_are_retired_not_external_owners(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for label in (
+            "ai.anicca.marketing-account-audit",
+            "ai.anicca.marketing-post-metrics",
+            "ai.anicca.marketing-post-notify",
+        ):
+            with self.subTest(label=label):
+                self.assertNotIn(label, registry["external_labels"])
+                self.assertIn(label, registry["retired_labels"])
 
     def test_self_improve_evolve_uses_direct_python_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())

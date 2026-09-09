@@ -187,6 +187,36 @@ const ALLOWLIST = [
     lineIncludes: "LM_LEGACY_STATE_ROOT",
     reason: "fail-loud guard names the legacy lm-video state only to refuse silent empty-state starts",
   },
+  {
+    file: "runtime/loop/central_cleanup.py",
+    lineIncludes: 'str(home / "' + "." + 'openclaw/state")',
+    reason: "central cleanup names the legacy state root only as an explicit deletion candidate",
+  },
+  {
+    file: "runtime/migrate-legacy-writer-env.py",
+    lineIncludes: 'default=Path.home() / "' + "." + 'openclaw/.env"',
+    reason: "copy-only migration names the legacy environment only as its source",
+  },
+  {
+    file: "runtime/migrate-legacy-zenn-untracked.py",
+    lineIncludes: 'default=Path.home() / "' + "." + 'openclaw/workspace/zenn-articles"',
+    reason: "copy-only migration names the legacy checkout only as its source",
+  },
+  {
+    file: "skills/earn/marketing-engine/ops/scheduler_inventory.py",
+    lineIncludes: 'default=home / "' + "." + 'openclaw/cron/jobs.json"',
+    reason: "retirement inventory reads the legacy scheduler store by design",
+  },
+  {
+    file: "skills/earn/marketing-engine/ops/scheduler_inventory.py",
+    lineIncludes: 'default=home / "profitable' + '-claude/config/openclaw/larry-fixed-strings.json"',
+    reason: "retirement inventory reads the legacy scheduler policy by design",
+  },
+  {
+    file: "skills/earn/marketing-engine/ops/scheduler_inventory.py",
+    lineIncludes: 'default=[home / "anicca/.env", home / "' + "." + 'openclaw/.env"]',
+    reason: "retirement inventory reads legacy integration ids without executing from those roots",
+  },
 ];
 
 function isTestFile(filePath) {

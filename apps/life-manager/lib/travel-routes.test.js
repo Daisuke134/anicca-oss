@@ -4,6 +4,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 const { parseDurationSeconds, minutesFromSeconds, buildDriveBody, clampDepartIso, directionsMinutes, acceptRouteResults } = require("./travel.js");
+const { makeRouteCache } = require("./route-cache.js");
+const freshCache = () => makeRouteCache({ store: new Map(), ttlMs: 600000 });
 
 // ── fetch-injection helpers for the never-late ordering tests ────────────────────────────────────
 // Route by URL: legacy Directions (transit) vs Routes API (drive). Each test supplies the two bodies.
@@ -121,7 +123,7 @@ test("transit anchors arrival_time to EVENT start (not departure_time=now) for a
   try {
     const now = Date.parse("2026-06-21T00:00:00Z");
     const eventStart = Date.parse("2026-06-21T09:00:00Z");
-    await directionsMinutes("A", "B", "k", eventStart, now);
+    await directionsMinutes("A", "B", "k", eventStart, now, false, { _routeCache: freshCache() });
     assert.ok(transitUrl.includes(`arrival_time=${Math.floor(eventStart / 1000)}`), "must carry event-start arrival_time");
     assert.ok(!transitUrl.includes("departure_time=now"), "must NOT use departure_time=now for a future event");
   } finally { restore(); }

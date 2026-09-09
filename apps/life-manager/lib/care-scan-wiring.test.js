@@ -13,7 +13,7 @@ const scheduler = require("../scheduler.js");
 const NOW = Date.parse("2026-07-26T00:00:00Z");
 const USER = {
   uid: "u-care-wire", telegram_chat_id: "1", phone: "+819012345678", home_address: "東京都新宿区",
-  wake_policy: "all-events", call_enabled: true, notifications_enabled: true,
+  wake_policy: "all-events", call_enabled: true, notifications_enabled: true, paid: true,
 };
 // starts in exactly the T-10 window (no location → resolveDeparture returns event start)
 const WAKEABLE = { summary: "stand-up", location: null, startMs: NOW + 10 * 60000, endMs: NOW + 40 * 60000, startIso: "s", endIso: "e" };
@@ -25,6 +25,7 @@ function deps(overrides = {}) {
     lateNotice: async () => null,
     mental: async () => null,
     care: async () => ({ status: "abstained" }),
+    placeCall: async () => ({ ok: true }),
     claimWake: async () => false, // observed, then declined — no dial in tests
     ...overrides,
   };

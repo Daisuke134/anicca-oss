@@ -26,11 +26,11 @@ import pathlib
 import sys
 
 LIB = pathlib.Path(os.path.expanduser(os.environ.get(
-    "MKT_LIBRARY_DIR", "~/.openclaw/state/content-library")))
+    "MKT_LIBRARY_DIR", "~/.local/state/life-manager/marketing-engine/content-library")))
 POST_METRICS = LIB / "post-metrics.jsonl"
 HISTORY = LIB / "account-history.jsonl"
 BRAIN = pathlib.Path(os.path.expanduser(os.environ.get(
-    "MKT_BRAIN", "~/.openclaw/state/content-library/brain.json")))
+    "MKT_BRAIN", "~/.local/state/life-manager/marketing-engine/content-library/brain.json")))
 
 
 def rows(path: pathlib.Path) -> list[dict]:

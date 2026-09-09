@@ -71,12 +71,6 @@ function isMarkerHash(value) {
   return /^[a-f0-9]{64}$/.test(String(value || ""));
 }
 
-function traceInvalidated(trace) {
-  return Array.isArray(trace) && trace.some((entry) =>
-    entry && entry.stage === "auth_context_invalidated" && entry.meta && entry.meta.invalidated === true,
-  );
-}
-
 function terminalEvidence(row, expected) {
   if (!row || row.id !== expected.jobId || row.uid !== expected.uid || !TERMINAL_STATUSES.has(row.status)) {
     throw new Error("browser auth terminal durable job unavailable");
@@ -92,11 +86,11 @@ function terminalEvidence(row, expected) {
   if (!isMarkerHash(row.auth_marker_hash) || !isMarkerHash(receipt.auth_marker_hash)) {
     throw new Error("browser auth terminal marker hash unavailable");
   }
-  if (receipt.steel_released !== true) throw new Error("browser auth terminal Steel release unavailable");
   const sessionId = boundedId(receipt.session_id, "Steel session id");
   const evidenceId = boundedId(receipt.evidence_message_id, "Telegram evidence id");
 
   if (expected.mode === "verify-provider-context" || expected.mode === "verify-two-tenant-contexts") {
+    if (receipt.steel_released !== true) throw new Error("browser auth terminal Steel release unavailable");
     if (row.status !== "completed"
       || provider.status !== "authenticated"
       || provider.confirmed !== true
@@ -111,9 +105,9 @@ function terminalEvidence(row, expected) {
       || provider.handoff_reason !== "login") {
       throw new Error("browser auth structured provider login handoff unavailable");
     }
-    if (!traceInvalidated(row.trace)) throw new Error("browser auth exact tenant invalidation unavailable");
+    if (receipt.steel_released !== false) throw new Error("browser auth handoff Steel session was not held");
   }
-  return { sessionId, evidenceId, markerHash: row.auth_marker_hash };
+  return { sessionId, evidenceId, markerHash: row.auth_marker_hash, released: receipt.steel_released === true };
 }
 
 async function runBrowserAuthProductionE2E({ mode, env = process.env, deps } = {}) {
@@ -146,6 +140,7 @@ async function runBrowserAuthProductionE2E({ mode, env = process.env, deps } = {
     telegram_evidence_ids: [],
     released: false,
   };
+  let allReleased = true;
 
   const generatedMarkerHashes = new Set();
   for (const tenant of tenants) {
@@ -167,11 +162,12 @@ async function runBrowserAuthProductionE2E({ mode, env = process.env, deps } = {
     result.job_ids.push(jobId);
     result.steel_session_ids.push(evidence.sessionId);
     result.telegram_evidence_ids.push(evidence.evidenceId);
+    allReleased = allReleased && evidence.released;
   }
   if (new Set(result.context_hashes).size !== tenants.length) {
     throw new Error("browser auth tenant marker hashes are not isolated");
   }
-  result.released = true;
+  result.released = allReleased;
   return Object.freeze(result);
 }
 

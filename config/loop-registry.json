@@ -11,9 +11,6 @@
     "ai.anicca.freelancer-revenue-work-sync",
     "ai.anicca.job-search-camofox",
     "ai.anicca.job-search-observability",
-    "ai.anicca.marketing-account-audit",
-    "ai.anicca.marketing-post-metrics",
-    "ai.anicca.marketing-post-notify",
     "ai.anicca.probe-rollback-1782857566-85245-proactive",
     "ai.anicca.provision-browser.buyma.na-l5-client",
     "ai.anicca.provision-browser.instagram.capafy-provision",
@@ -2111,25 +2108,6 @@
       "provider_route": "shared-agent-runner",
       "state_root": "~/.local/state/life-manager/lm-recording-store"
     },
-    "marketing-daily-report": {
-      "cadence": {
-        "calendar_interval": {
-          "Hour": 22,
-          "Minute": 0
-        }
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "growth",
-      "effect_class": "message",
-      "entrypoint": "skills/earn/marketing-engine/report/daily_report.py",
-      "label": "ai.anicca.marketing-daily-report",
-      "log_root": "~/.local/state/life-manager/marketing-daily-report/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/marketing-daily-report"
-    },
     "marketing-dashboard": {
       "adapter": "python",
       "cadence": {
@@ -3286,8 +3264,12 @@
     "ai.anicca.life-manager-money-printer-symphony-bridge",
     "ai.anicca.life-manager-upwork-browser",
     "ai.anicca.life-manager-upwork-free-loop",
+    "ai.anicca.marketing-account-audit",
+    "ai.anicca.marketing-daily-report",
     "ai.anicca.marketing-owner-daily",
     "ai.anicca.marketing-owner-weekly",
+    "ai.anicca.marketing-post-metrics",
+    "ai.anicca.marketing-post-notify",
     "ai.anicca.monkey-watchdog",
     "ai.anicca.openclaw-conformity-monkey",
     "ai.anicca.openclaw-core-backup",
