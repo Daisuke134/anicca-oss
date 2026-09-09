@@ -2217,8 +2217,15 @@ from the chat, and two of them contradict what this cursor had previously report
     must persist a `high|medium|low` band plus posting/fact evidence for every inspected listing.
     The inspection ledger retains those fields for later outcome-band comparison. Focused Apply,
     Mercor pass/reporting, submit-guard and receipt verification passes 43 tests plus 2 subtests.
-    Remaining PASS is production-only: main-derived natural wake, full priority-window inspection,
-    highest-grounded official submission, Telegram receipt, then replay-zero.
+    Main-derived installed/event release `464216b430c52e9ccd0691943abfebea67ba7927`
+    then ended a natural PASS at `2026-09-09T12:27:55Z`. It inspected the complete visible priority
+    window of 17 listings and persisted evidence-backed bands for all of them: high `4`, medium `4`,
+    low `9`. It spent its one mutation on high-band `Operations / Program Management Experts`, whose
+    official application page reads `4 of 4 steps done`, `100%` and `Your application has been
+    submitted!`; the reused Domain Expert Interview was already complete. Telegram acknowledged the
+    deduplicated report once as message `71721`. Remaining PASS is the following natural wake's
+    replay-zero for listing `list_AAABndzg1d29zpYtIMRL2JC_`, followed by later score-band outcome
+    comparison when Mercor supplies interview or contract outcomes.
 
 
 
