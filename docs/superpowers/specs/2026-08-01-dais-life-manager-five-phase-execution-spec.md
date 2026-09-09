@@ -1435,7 +1435,7 @@ Current active atomは順序2の**CONNECTOR-RUNTIME**である。後続atomを�
 
 - [x] **CG-42** `git fetch`後のclean integration commitで全変更をcanonical `main`へnon-force統合し、remote ancestryとimmutable release bytesを確認する。
 - [x] **CG-43** `bin/launchctl-safe`だけでnative plistをrender/install/reloadし、loaded args、`StartInterval=3600`、native owner exact 1、legacy owner 0、process/lock 0をreadbackする。BrowserとConnectorは互いのcleanupでreleaseを失わないper-loop current rootを使う。Release/install receiptは `docs/evidence/outbound/2026-08-27-connector-hourly-release-install.json`。
-- [ ] **CG-44** manual kickstartなしの既存hourly ownerで、本物の`strong/moderate`候補一件についてprovider readback→Calendar exact 1→PNG/receipt→Telegram IDs→bundleを完成する。現対象は登録済みKokuchPro eventであり、既存provider checkpointからevidenceだけをreconcileする。旧releaseの安全停止とGemini schema修復後のLuma/connpass成功・適格候補0 canaryは `docs/evidence/outbound/2026-08-27-connector-owned-release-canary.json` と `docs/evidence/outbound/2026-08-27-connector-ranking-recovery-canary.json` に保存し、外部作用acceptanceには数えない。
+- [ ] **CG-44** manual kickstartなしの既存hourly ownerで、本物の新規Luma `strong/moderate`候補一件についてprovider readback→Calendar exact 1→PNG/receipt→Telegram IDs→bundleを完成する。過去の登録済みKokuchPro/Connpass bundleは現在のacceptanceに代用しない。旧releaseの安全停止とGemini schema修復後のLuma/connpass成功・適格候補0 canaryは `docs/evidence/outbound/2026-08-27-connector-owned-release-canary.json` と `docs/evidence/outbound/2026-08-27-connector-ranking-recovery-canary.json` に保存し、外部作用acceptanceには数えない。
 - [ ] **CG-45** bundle完成後の自然hourly wake 2回で、同eventのSubmit 0、Calendar exact 1、bundle reuse/no duplicate、別candidateへのcontinuation、single owner、lock/page cleanupを確認する。
 - [x] **CG-46** connpass API live inventoryとaction boundaryをnatural owner wakeで確認する。wake `wake-a27f9e8bba85c87d84dda625`はranking 589,180ms後にboundaryを22,561msで成功し、candidate snapshot `433b9497...`、Telegram provider ID `36655`をmode-0600 immutable receiptへexact 1件保存した。Connpass Submitはpermission未確認のため0。wake reportはdeadlineを正しく`circuit_open / wake_deadline`、positive Telegram ID `36656`として報告した。provider permissionが得られた場合だけ許可methodの実申込bundleを別TODOとして追加する。
 - [ ] **CG-47** open LT候補でtalk application receiptを一件完成し、attendance/talkの各state、Calendar、Telegramを独立readbackする。
@@ -10110,3 +10110,9 @@ API writeは問い合わせ範囲外であり、引き続き実装0とする。�
 CG-44の自然候補待ちを監査し、Luma公開inventory 37件に対して一wakeのdetail上限は6件なのに、30分ごとの開始cursorが1件しか進まず、全候補一巡に最大18.5時間かかることを確定した。これは一wakeの負荷を抑えながら30分ごとに新しいeventを探すcontractに対して不要な重複walkである。
 
 一wakeのdetail上限6件は維持し、開始cursorだけを30分ごとに`1`ではなく`LUMA_DETAIL_WALK_LIMIT`の6件進めるよう最小修正した。37件なら最大7 wake、約3.5時間で一巡する。focused Luma/production 73/73、全Connector glob suite 737/737がPASSした。実Luma登録、Calendar write、Telegram送信、bundle作成はこのcode検証では0であり、CG-44のlive acceptanceは次のmain由来release自然wakeまで未完のまま維持する。
+
+### O1B-25進捗527（Luma batch cursor natural wake readback）
+
+PR #4766をmain merge `d1e4e6178e3e4cffd96efe6a82a50a2642f449d3`とし、release reconcilerが作成したimmutable release `/Users/anicca/loops/releases/20260909T181853-d1e4e617`を`life-manager-connector-native`のloaded-idle label一件だけへ反映した。loaded argvと`StartInterval=1800`をreadbackし、manual kickstartは行っていない。
+
+19:00 JST開始の自然wake `wake-371e1066b284e4d2af974ba3`は新release上でexit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`として19:04 JSTに完了し、Telegram every-wake provider ID `71397`を保存した。Luma auditは公開inventory 36件のうち6件をdetail正規化し、28日window 6件、free/open 3件まで到達したが、全3件がCalendar busyでcalendar-free 0、bundleは56→56だった。旧wakeの`37/6/6/0/0`から別batchの`36/6/6/3/0`へ進んだためbatch-stride修正の実経路作動をacceptする。ただし新規Luma登録は0なのでCG-44は未完のまま、次の自然30分wakeで次の6件batchを継続する。
