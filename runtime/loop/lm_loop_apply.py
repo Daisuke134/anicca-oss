@@ -130,7 +130,11 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         node = shutil.which("node")
         if not node or not Path(node).is_absolute():
             raise ValueError("compute-proxy: managed node executable is unavailable")
-        value["EnvironmentVariables"]["LIFE_MANAGER_NODE"] = node
+        value["EnvironmentVariables"].update({
+            "ANICCA_HOME": os.path.expanduser(entry["state_root"]),
+            "COMPUTE_PROXY_PORT": "18402",
+            "LIFE_MANAGER_NODE": node,
+        })
     if loop_id in {"pm-decision-loop", "pm-live-trade"}:
         node = shutil.which("node")
         if not node or not Path(node).is_absolute():
