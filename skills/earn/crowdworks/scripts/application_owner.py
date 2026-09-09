@@ -194,7 +194,7 @@ def _candidate(page, listings, groups):
     # nothing said about them -- the same anonymous refusal that cost a day on Lancers, one level
     # up. `unreadable` is a posting whose page would not load; `out_of_time` is the search budget
     # running out mid-listing, which silently truncates the board and looks like a quiet day.
-    rejected = {"closed_or_unverified": 0, "off_topic": 0, "wrong_category": 0, "budget": 0, "not_workable": 0, "judge_unavailable": 0, "unreadable": 0, "out_of_time": 0}
+    rejected = {"closed_or_unverified": 0, "off_topic": 0, "wrong_category": 0, "unsupported_workflow": 0, "budget": 0, "not_workable": 0, "judge_unavailable": 0, "unreadable": 0, "out_of_time": 0}
     # Postings we looked at seriously and still declined. Reporting every search hit would be noise;
     # a job that matched the listing and was then declined is a decision worth telling Dais about.
     declined = []
@@ -229,6 +229,13 @@ def _candidate(page, listings, groups):
             # Match the posting itself, not the sidebar and footer: whole-page matching pulled in a
             # 医療事務 job because unrelated navigation text mentioned our nouns.
             detail=text[text.find("仕事の詳細"):text.find("クライアント情報")] if "仕事の詳細" in text and "クライアント情報" in text else ""
+            # A competition is not the fixed-price proposal workflow this adapter can submit. Its
+            # official form requires a finished contest artifact upload before any contract; do not
+            # misname that as a broken normal proposal form and stop the whole wake on it.
+            if "仕事の概要 コンペ" in text:
+                rejected["unsupported_workflow"]+=1
+                _decline(declined,job_id,title,"コンペは完成成果物の事前添付が必要な未実装workflowです")
+                continue
             matched = _listing_for(listings, title, detail)
             if matched is None:rejected["off_topic"]+=1;continue
             # The 医療事務 staffing post that matched on the word AI機能 alone, and would have

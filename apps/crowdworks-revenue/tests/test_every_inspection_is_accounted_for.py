@@ -76,3 +76,10 @@ def test_an_unreadable_posting_is_reported_not_just_counted():
 def test_an_unavailable_judge_is_not_mislabeled_as_unworkable():
     source = _candidate_source()
     assert '"judge_unavailable" if reason == "judge_unavailable" else "not_workable"' in source
+
+
+def test_competitions_do_not_masquerade_as_a_broken_fixed_price_form():
+    source = _candidate_source()
+    assert '"仕事の概要 コンペ" in text' in source
+    assert 'rejected["unsupported_workflow"]' in source
+    assert "完成成果物の事前添付" in source
