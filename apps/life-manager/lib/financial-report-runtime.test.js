@@ -290,7 +290,9 @@ test("cost ledger reads only one tenant and receipt claim uses database conflict
     return { ok: true, json: async () => [] };
   };
   const options = { supaUrl: "https://db.example", supaKey: "service", fetchImpl };
-  const costs = await readCostLedger("u1", options);
+  const costs = await readCostLedger("u1", {
+    ...options, since: "2026-08-01T15:00:00.000Z",
+  });
   const claim = await claimFinancialReceipt({
     uid: "u1",
     report_kind: "daily",
@@ -299,6 +301,7 @@ test("cost ledger reads only one tenant and receipt claim uses database conflict
 
   assert.equal(costs.length, 1);
   assert.match(calls[0].url, /lm_api_cost\?uid=eq\.u1/);
+  assert.match(calls[0].url, /ts=gte\.2026-08-01T15%3A00%3A00\.000Z/);
   assert.match(calls[0].url, /select=id,ts,kind,quantity,unit,est_usd,meta/);
   assert.doesNotMatch(calls[0].url, /uid=not|select=\*/);
   assert.equal(calls[0].init.headers.Range, "0-999");

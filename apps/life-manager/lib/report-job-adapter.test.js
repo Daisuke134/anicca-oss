@@ -63,12 +63,15 @@ function reportDeps(calls) {
       occurred_at: "2026-08-02T10:00:00.000Z",
       source: "x402_sale",
     }],
-    readCosts: async () => [{
-      id: 1,
-      ts: "2026-08-02T10:30:00.000Z",
-      kind: "model",
-      est_usd: "0.25",
-    }],
+    readCosts: async (_uid, range) => {
+      calls.push({ kind: "cost-range", range });
+      return [{
+        id: 1,
+        ts: "2026-08-02T10:30:00.000Z",
+        kind: "model",
+        est_usd: "0.25",
+      }];
+    },
     readBalance: async () => "42000000",
     financialStore: memoryFinancialStore(),
     claimReceipt: async () => ({ claimed: true }),
@@ -166,6 +169,9 @@ test("adapter routes cloud input through the shared Financial Manager body and e
   });
   const receipt = await executeFinancialReportJob(job, reportDeps(calls));
   const send = calls.find((call) => call.kind === "send");
+  assert.deepEqual(calls.find((call) => call.kind === "cost-range").range, {
+    since: "2026-08-01T15:00:00.000Z",
+  });
 
   assert.deepEqual(calls[0], {
     kind: "secret",
