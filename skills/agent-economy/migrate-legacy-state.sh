@@ -87,6 +87,12 @@ for name in earn-ledger.jsonl receipt-reconciliations.jsonl revenue-receipts.inb
 done
 copy_once "$INSTANCE_HOME/.blockrun/compute-receipts.jsonl" "$TARGET/compute-receipts.jsonl"
 copy_once "$OWNER_HOME/.hermes/state/shelter-cost.jsonl" "$TARGET/shelter-cost.jsonl"
+copy_once "$OWNER_HOME/.hermes/state/citizens.json" "$INSTANCE_TARGET/state/citizens.json"
+copy_once "$OWNER_HOME/.hermes/state/children.jsonl" "$INSTANCE_TARGET/state/children.jsonl"
+copy_once "$OWNER_HOME/.hermes/state/pending-registry-appends.jsonl" \
+  "$INSTANCE_TARGET/state/pending-registry-appends.jsonl"
+copy_once "$OWNER_HOME/.hermes/state/shelter-cost.jsonl" \
+  "$INSTANCE_TARGET/state/shelter-cost.jsonl"
 
 copy_once "$INSTANCE_HOME/.automaton/wallet.json" "$INSTANCE_TARGET/.automaton/wallet.json"
 copy_once "$INSTANCE_HOME/.env" "$INSTANCE_TARGET/.env"

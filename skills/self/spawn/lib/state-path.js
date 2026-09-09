@@ -4,12 +4,13 @@
 // verifier could not reproduce it. A child must persist where it survives reboots and tmp sweeps.
 
 function resolveStateDir({ env = process.env, home = process.env.HOME } = {}) {
-  const requested = env.ANICCA_STATE_DIR || `${home}/.hermes/state`;
+  const requested = env.ANICCA_STATE_DIR ||
+    `${home}/.local/state/life-manager/agent-economy/instance/state`;
   const norm = String(requested);
   // Reject /tmp and /private/tmp (macOS) and anything under them.
   if (/^\/(private\/)?tmp(\/|$)/.test(norm)) {
     throw new Error(
-      `self/spawn: refusing non-durable state dir "${norm}" — /tmp is tmp-cleaned and loses the colony ledger. Use ~/.hermes/state or /var/lib/anicca.`
+      `self/spawn: refusing non-durable state dir "${norm}" — /tmp is tmp-cleaned and loses the colony ledger. Use the Life Manager state root or /var/lib/anicca.`
     );
   }
   return norm;

@@ -18,7 +18,7 @@
 // never buggy; run.sh handed them the wrong ANICCA_HOME).
 //
 // This test drives the REAL, unmodified skills/self/spawn/run.sh (not a copy) through its actual
-// env-loading preamble, using a throwaway HOME with its own fixture `.openclaw/.env` that sets a
+// env-loading preamble, using a throwaway HOME with its own fixture `.local/state/life-manager/.env` that sets a
 // DIFFERENT ANICCA_HOME (mirroring the real production conflict) plus one shared-secret var
 // (mirroring the real reason run.sh sources that file at all: Akash signing key etc.). A stand-in
 // `node` shim on PATH intercepts run.sh's final `exec "$NODE" ...` call and reports which env
@@ -61,11 +61,11 @@ test("run.sh preserves the CALLER's ANICCA_HOME across $HOME/.local/state/life-m
 
   // Fixture mirrors the REAL ~/.local/state/life-manager/.env: it is a SHARED secrets file that always defines its
   // OWN ANICCA_HOME (the automaton's home) plus unrelated shared secrets (e.g. Akash signing key).
-  const openclawDir = path.join(home, ".openclaw");
-  fs.mkdirSync(openclawDir, { recursive: true });
+  const lifeManagerDir = path.join(home, ".local", "state", "life-manager");
+  fs.mkdirSync(lifeManagerDir, { recursive: true });
   fs.writeFileSync(
-    path.join(openclawDir, ".env"),
-    `ANICCA_HOME=${path.join(home, ".openclaw")}\nAKASH_KEY_NAME=test-akash-key\n`
+    path.join(lifeManagerDir, ".env"),
+    `ANICCA_HOME=${lifeManagerDir}\nAKASH_KEY_NAME=test-akash-key\n`
   );
 
   const fakeNodeBin = makeFakeNodeBin(home);

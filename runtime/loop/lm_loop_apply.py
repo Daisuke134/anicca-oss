@@ -124,6 +124,10 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "EARN_STATE_ROOT": earn_state,
             "EARN_LEDGER": str(Path(earn_state) / "earn-ledger.jsonl"),
         })
+    if loop_id == "citizens-diff-monitor":
+        value["EnvironmentVariables"]["CITIZENS_REGISTRY_PATH"] = str(
+            Path.home() / ".local/state/life-manager/agent-economy/instance/state/citizens.json"
+        )
     if loop_id in {"franklin-loop", "franklin2-loop"}:
         value["EnvironmentVariables"].update({
             "ANICCA_REPO": str(release_root),

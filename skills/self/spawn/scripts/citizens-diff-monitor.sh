@@ -5,7 +5,7 @@
 set -u
 
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/citizens-diff-monitor}"
-SPAWN_STATE_ROOT="${ANICCA_STATE_DIR:-$HOME/.hermes/state}"
+SPAWN_STATE_ROOT="${ANICCA_STATE_DIR:-$HOME/.local/state/life-manager/agent-economy/instance/state}"
 CITIZENS="${CITIZENS_REGISTRY_PATH:-$SPAWN_STATE_ROOT/citizens.json}"
 BASELINE="$STATE_ROOT/citizens-baseline.json"
 PIDFILE="$STATE_ROOT/citizens-diff-monitor.pid"
