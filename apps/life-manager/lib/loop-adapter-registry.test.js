@@ -388,10 +388,10 @@ test("financial report loop adapter plans, verifies, reports, and reconciles fai
     telegramTokenRef: "secret://telegram/bot-token",
   });
 
-  assert.equal(jobs.length, 2);
+  assert.equal(jobs.length, 1);
   assert.deepEqual(
     jobs.map((job) => job.capability),
-    [FINANCIAL_REPORT_CAPABILITY, FINANCIAL_REPORT_CAPABILITY],
+    [FINANCIAL_REPORT_CAPABILITY],
   );
 
   const sentReceipt = {

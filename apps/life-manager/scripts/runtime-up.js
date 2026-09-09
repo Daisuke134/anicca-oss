@@ -259,17 +259,21 @@ function createWorkerHandlers(env, capabilities, dependencies = {}) {
     servicesByAdapter["connector-coverage-refresh"] = services;
   }
   if (capabilities.includes("report.financial.telegram")) {
-    const { readUsdcBalance } = require("../lib/base-usdc-balance.js");
     const secretProvider = createScopedEnvironmentSecretProvider(env);
+    const readBalance = dependencies.readBalance || ((walletAddress) => {
+      const { readUsdcBalance } = require("../lib/base-usdc-balance.js");
+      return readUsdcBalance(walletAddress, {
+        rpcUrl: String(env.BASE_RPC_URL || "https://mainnet.base.org"),
+        fetchImpl: globalThis.fetch,
+      });
+    });
     servicesByAdapter["financial-report-telegram"] = {
       secretProvider,
       supaUrl: requiredEnv(env, "SUPABASE_URL"),
       supaKey: requiredEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
       fetchImpl: globalThis.fetch,
-      readBalance: (walletAddress) => readUsdcBalance(walletAddress, {
-        rpcUrl: String(env.BASE_RPC_URL || "https://mainnet.base.org"),
-        fetchImpl: globalThis.fetch,
-      }),
+      query: dependencies.query,
+      readBalance,
     };
   }
   if (capabilities.includes("marketing.life-manager.daily.publish")) {

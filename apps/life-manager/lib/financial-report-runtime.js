@@ -71,7 +71,7 @@ async function readCostLedger(uid, opts = {}) {
   if (!tenantUid) throw new Error("financial report tenant uid is required");
   const { supaUrl, supaKey, fetchImpl } = credentials(opts);
   const query = `uid=eq.${encodeURIComponent(tenantUid)}` +
-    "&select=ts,kind,quantity,unit,est_usd,meta&order=ts.asc,id.asc";
+    "&select=id,ts,kind,quantity,unit,est_usd,meta&order=ts.asc,id.asc";
   const rows = [];
   for (let start = 0; start <= MAX_COST_ROWS; start += PAGE_SIZE) {
     const end = start === MAX_COST_ROWS ? start : start + PAGE_SIZE - 1;

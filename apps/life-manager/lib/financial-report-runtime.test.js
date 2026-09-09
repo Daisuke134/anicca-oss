@@ -285,7 +285,7 @@ test("cost ledger reads only one tenant and receipt claim uses database conflict
   const fetchImpl = async (url, init = {}) => {
     calls.push({ url: String(url), init });
     if (String(url).includes("/lm_api_cost?")) {
-      return { ok: true, json: async () => [{ ts: "2026-08-02T10:00:00Z", est_usd: 0.1 }] };
+      return { ok: true, json: async () => [{ id: 7, ts: "2026-08-02T10:00:00Z", est_usd: 0.1 }] };
     }
     return { ok: true, json: async () => [] };
   };
@@ -299,6 +299,7 @@ test("cost ledger reads only one tenant and receipt claim uses database conflict
 
   assert.equal(costs.length, 1);
   assert.match(calls[0].url, /lm_api_cost\?uid=eq\.u1/);
+  assert.match(calls[0].url, /select=id,ts,kind,quantity,unit,est_usd,meta/);
   assert.doesNotMatch(calls[0].url, /uid=not|select=\*/);
   assert.equal(calls[0].init.headers.Range, "0-999");
   assert.equal(calls[1].init.method, "POST");
