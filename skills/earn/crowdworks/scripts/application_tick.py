@@ -44,9 +44,12 @@ load_marketplace_contracts = shared.load_marketplace_contracts
 _ASCII_DIGITS = re.compile(r"^[0-9]+$")
 _AMOUNT = re.compile(r"^固定報酬: (?P<amount>[1-9][0-9]{0,2}(?:,[0-9]{3})*)円$")
 _DUE = re.compile(r"^完了予定日: (?P<year>[0-9]{4})年(?P<month>0[1-9]|1[0-2])月(?P<day>0[1-9]|[12][0-9]|3[01])日\((?P<weekday>[月火水木金土日])\)$")
+_HOURLY_RATE = re.compile(r"時間単価:\s*(?P<amount>[1-9][0-9]{0,2}(?:,[0-9]{3})*)円")
+_WEEKLY_LIMIT = re.compile(r"週(?:上限)?\s*(?P<hours>[1-9][0-9]*)\s*時間")
 _PROJECT_SELECTOR = 'a[href="/public/jobs/{project_id}"]'
 _AMOUNT_SELECTOR = ".intro-employer_proposed_project > table.conditions span.quotation_price"
 _DUE_SELECTOR = ".intro-employer_proposed_project > table.conditions div.deadline"
+_LATEST_CONDITION_SELECTOR = ".intro-employer_proposed_project > table.conditions tr:last-child td.condition"
 _PROGRESS_SELECTOR = ".cw-global_row > .progress ul.progress > li.current:nth-of-type(2)"
 _BODY_SELECTOR = "._messageSent_iq3vm_6._message_iq3vm_2 > ._messageBody_iq3vm_28:nth-of-type(2) > ._messageContent_iq3vm_35 > ._mediaBody_iq3vm_10:nth-of-type(2) > div:nth-of-type(2) > p"
 _READBACK_FAILED = TickResult(ok=False, error="provider_application_readback_failed")
@@ -81,12 +84,18 @@ def _read_proposal_detail(page: object, proposal_id: str, project_id: str, *, in
     page.goto(f"https://crowdworks.jp/proposals/{proposal_id}")  # type: ignore[attr-defined]
     if not _exact_url(getattr(page, "url", None), f"/proposals/{proposal_id}"): raise ValueError("route_unobserved")
     _one(page, _PROJECT_SELECTOR.format(project_id=project_id))
-    amount = _AMOUNT.fullmatch(_one_text(page, _AMOUNT_SELECTOR))
-    due = _DUE.fullmatch(_one_text(page, _DUE_SELECTOR))
-    if amount is None or due is None: raise ValueError("terms_unobserved")
-    parsed_due = date(int(due.group("year")), int(due.group("month")), int(due.group("day")))
-    if due.group("weekday") != "月火水木金土日"[parsed_due.weekday()] or re.sub(r"\s+", " ", _one_text(page, _PROGRESS_SELECTOR)).strip() != "応募・スカウト": raise ValueError("state_unobserved")
-    observed: dict[str, object] = {"proposal_id": proposal_id, "project_id": project_id, "amount_minor": _exclusive(int(amount.group("amount").replace(",", ""))), "delivery_due_on": parsed_due.isoformat()}
+    condition = re.sub(r"\s+", " ", _one_text(page, _LATEST_CONDITION_SELECTOR)).strip()
+    hourly, weekly = _HOURLY_RATE.search(condition), _WEEKLY_LIMIT.search(condition)
+    if hourly is not None and weekly is not None:
+        observed: dict[str, object] = {"proposal_id": proposal_id, "project_id": project_id, "pricing_mode": "hourly", "hourly_rate_minor": _exclusive(int(hourly.group("amount").replace(",", ""))), "weekly_limit_hours": int(weekly.group("hours"))}
+    else:
+        amount = _AMOUNT.fullmatch(_one_text(page, _AMOUNT_SELECTOR))
+        due = _DUE.fullmatch(_one_text(page, _DUE_SELECTOR))
+        if amount is None or due is None: raise ValueError("terms_unobserved")
+        parsed_due = date(int(due.group("year")), int(due.group("month")), int(due.group("day")))
+        if due.group("weekday") != "月火水木金土日"[parsed_due.weekday()]: raise ValueError("terms_unobserved")
+        observed = {"proposal_id": proposal_id, "project_id": project_id, "amount_minor": _exclusive(int(amount.group("amount").replace(",", ""))), "delivery_due_on": parsed_due.isoformat()}
+    if re.sub(r"\s+", " ", _one_text(page, _PROGRESS_SELECTOR)).strip() != "応募・スカウト": raise ValueError("state_unobserved")
     if include_body:
         # Collapsing whitespace here turned the submitted line breaks into spaces, so the content
         # fingerprint could never match what was sent and every application verified as uncertain
@@ -163,12 +172,15 @@ def reconcile_existing_application(*, page: object, proposal_id: str, opportunit
         return _READBACK_FAILED
     proposal_text = detail.pop("_proposal_text")
     observed = dict(detail)
+    hourly = detail.get("pricing_mode") == "hourly"
     result = shared.run_transaction(
         platform="crowdworks",
         opportunity=opportunity,
         proposal_text=proposal_text,
-        proposed_amount_minor=observed["amount_minor"],
-        delivery_due_on=observed["delivery_due_on"],
+        proposed_amount_minor=observed["hourly_rate_minor" if hourly else "amount_minor"],
+        delivery_due_on=None if hourly else observed["delivery_due_on"],
+        pricing_mode="hourly" if hourly else "fixed",
+        weekly_limit_hours=observed.get("weekly_limit_hours") if hourly else None,
         state_path=state_path,
         account_ready=account_ready,
         submitter=lambda *_args: {"proposal_id": proposal_id},
@@ -197,7 +209,7 @@ def _confirm_after_uncertain_navigation(page: object, project_id: object) -> Map
         if identity is not None:
             return {"proposal_id": identity, "confirmed_via": "list"}
     raise RuntimeError("submission_uncertain") from None
-def _submit_application(page: object, opportunity: Mapping[str, object], proposal_text: str, amount_minor: int, delivery_due_on: str, expire_period_days: int | None) -> Mapping[str, object]:
+def _submit_application(page: object, opportunity: Mapping[str, object], proposal_text: str, amount_minor: int, delivery_due_on: str | None, expire_period_days: int | None, *, pricing_mode: str = "fixed", weekly_limit_hours: int | None = None) -> Mapping[str, object]:
     project_id = opportunity.get("external_id")
     try:
         form_url = f"https://crowdworks.jp/proposals/new?job_offer_id={project_id}"
@@ -209,20 +221,28 @@ def _submit_application(page: object, opportunity: Mapping[str, object], proposa
         if str(form.get_attribute("method") or "").lower() != "post" or form.get_attribute("action") != "/proposals": raise ValueError("form")
         job = _one(form, 'input#proposal_job_offer_id[type="hidden"]')
         if job.get_attribute("type") != "hidden" or _value(job) != project_id: raise ValueError("job")
-        for selector, expected in (("#without_condition_false", "false"), ("#proposal_conditions_attributes_0_payment_type_fixed_price", "fixed_price"), ("#how_to_present_fixed_price_contract_amount", "contract_amount")):
+        mode_controls = (("#proposal_conditions_attributes_0_payment_type_hourly", "hourly"), ("#how_to_present_hourly_contract_amount", "contract_amount")) if pricing_mode == "hourly" else (("#proposal_conditions_attributes_0_payment_type_fixed_price", "fixed_price"), ("#how_to_present_fixed_price_contract_amount", "contract_amount"))
+        for selector, expected in (("#without_condition_false", "false"), *mode_controls):
             item = _one(form, f'input{selector}[type="radio"][value="{expected}"]')
             if item.get_attribute("type") != "radio" or item.get_attribute("value") != expected or not callable(getattr(item, "check", None)): raise ValueError("payment")
             item.check()
-        amount = _one(form, 'input#amount_dummy_[type="text"]')
-        amount.fill(str(amount_minor))
-        amount.blur()
-        if _value(_one(form, 'input#proposal_conditions_attributes_0_milestones_attributes_0_amount_without_sales_tax[type="hidden"]')) != str(amount_minor): raise ValueError("amount")
-        year, month, day = delivery_due_on.split("-")
-        for suffix, expected in (("1i", year), ("2i", month), ("3i", day)):
-            item = _one(form, f'select[id$="deadline_{suffix}"]')
-            selected_value = expected if suffix == "1i" else str(int(expected))
-            item.select_option(selected_value)
-            if _value(item) != selected_value: raise ValueError("due")
+        if pricing_mode == "hourly":
+            amount = _one(form, 'input#hourly_wage_dummy_[type="text"]')
+            amount.fill(str(amount_minor)); amount.blur()
+            if _value(_one(form, 'input#proposal_conditions_attributes_0_hourly_wage_without_sales_tax[type="hidden"]')) != str(amount_minor): raise ValueError("amount")
+            hours = _one(form, 'input#proposal_conditions_attributes_0_hours_limit[type="text"]')
+            hours.fill(str(weekly_limit_hours)); hours.blur()
+            if _value(hours) != str(weekly_limit_hours): raise ValueError("hours")
+        else:
+            amount = _one(form, 'input#amount_dummy_[type="text"]')
+            amount.fill(str(amount_minor)); amount.blur()
+            if _value(_one(form, 'input#proposal_conditions_attributes_0_milestones_attributes_0_amount_without_sales_tax[type="hidden"]')) != str(amount_minor): raise ValueError("amount")
+            year, month, day = delivery_due_on.split("-")
+            for suffix, expected in (("1i", year), ("2i", month), ("3i", day)):
+                item = _one(form, f'select[id$="deadline_{suffix}"]')
+                selected_value = expected if suffix == "1i" else str(int(expected))
+                item.select_option(selected_value)
+                if _value(item) != selected_value: raise ValueError("due")
         body = _one(form, "textarea#proposal_conditions_attributes_0_message_attributes_body")
         body.fill(proposal_text)
         if _value(body) != proposal_text: raise ValueError("body")
@@ -292,6 +312,11 @@ def execute_application(*, page: object, opportunity: Mapping[str, object], prop
         ledger_writer=ledger_writer,
         now=now,
     )
+def execute_hourly_application(*, page: object, opportunity: Mapping[str, object], proposal_text: str, hourly_rate_minor: int, weekly_limit_hours: int, expire_period_days: int | None, state_path: Path, ledger_writer: Callable[[Mapping[str, object]], object], now: Callable[[], object], account_ready: Callable[[], bool]) -> TickResult:
+    project_id = opportunity.get("external_id") if isinstance(opportunity, Mapping) else None
+    valid = isinstance(project_id, str) and _ASCII_DIGITS.fullmatch(project_id) is not None and isinstance(hourly_rate_minor, int) and not isinstance(hourly_rate_minor, bool) and hourly_rate_minor > 0 and isinstance(weekly_limit_hours, int) and not isinstance(weekly_limit_hours, bool) and weekly_limit_hours > 0
+    if not valid: return TickResult(ok=False, error="proposal_form_changed", project_id=project_id if isinstance(project_id, str) else None)
+    return run_tick(opportunity=opportunity, proposal_text=proposal_text, proposed_amount_minor=hourly_rate_minor, delivery_due_on=None, pricing_mode="hourly", weekly_limit_hours=weekly_limit_hours, state_path=state_path, account_ready=account_ready, submitter=lambda source, text, rate, _due: _submit_application(page, source, text, rate, None, expire_period_days, pricing_mode="hourly", weekly_limit_hours=weekly_limit_hours), readback=lambda proposal, project: _readback_application(page, proposal, project), ledger_writer=ledger_writer, now=now)
 def run_tick(**kwargs):
     return shared.run_transaction(platform="crowdworks", **kwargs)
 
@@ -303,5 +328,6 @@ __all__ = [
     "load_marketplace_contracts",
     "reconcile_existing_application",
     "execute_application",
+    "execute_hourly_application",
     "run_tick",
 ]
