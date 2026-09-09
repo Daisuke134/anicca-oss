@@ -1948,15 +1948,18 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
       share one file-locked `submit-attempt-budget.json`. A 40-worker regression admits exactly 20
       reservations and rejects the remaining 20. This is a real per-wake ceiling, not cadence.
 
-13. [ ] `APPLY-COCONALA-3` Ask Coconala, because
+13. [x] `APPLY-COCONALA-3` Ask Coconala, because
     the restriction is not visible anywhere in the UI this lane can read: no banner on the
     dashboard, no notice in 通知, nothing in the services list. The only place it appears is the
     red 「現在募集に提案することができません」 on a request page. The official help form first
     required email verification, but its fresh verification link immediately returned expired and
     the next form load returned HTTP 403; neither is a submitted ticket. The same registered account
     then sent the inquiry once to the official `support@coconala.com` sender address. Gmail receipt
-    `1a085f3134398e98` proves the outbound question. Keep this atom open until Coconala's answer names
-    the reason, lifting condition or required action; record that answer here before reopening Apply.
+    `1a085f3134398e98` proves the outbound question. Dais explicitly removed the external reply from
+    the executable critical path: the answer remains a durable pending readback and must be recorded
+    here when it arrives, without another inquiry or a pause in later marketplace work. Coconala Apply
+    itself remains closed until `APPLY-COCONALA-2` receives that answer; this checkbox proves only that
+    the one authorized inquiry was sent and its pending ownership is durable.
 
 14. [ ] `APPLY-CROWDWORKS-1` CrowdWorks has no fitness judgement either, and it is now applying.
     Measured 2026-09-07, the first five applications after the category allow-list was removed:
