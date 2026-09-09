@@ -14,10 +14,10 @@ from ceo_budget import check_loop, CANONICAL_LOOPS  # noqa: E402
 
 
 def _registry_loop_keys(base):
-    registry_path = os.path.join(base, "config", "loop-registry.json")
+    config_root = os.environ.get("CEO_CONFIG_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     try:
-        with open(registry_path) as f:
-            registry = json.load(f)
+        from ceo_allocation import effective_registry
+        registry = effective_registry(config_root, base)
         loops = registry.get("loops")
         if isinstance(loops, dict) and loops:
             return list(loops.keys())

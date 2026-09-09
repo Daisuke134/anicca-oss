@@ -17,14 +17,26 @@
 #     Pure function (no side effects): prints the derived cron expression for the given effective
 #     interval, banding per REQ-CEO-014 (see inline comments below for the 3 bands + clamps).
 #
-# CEO_STATE_DIR overrides where config/loop-registry.json, ledgers/, and state/effective-cron/ are
-# resolved (defaults to this repo's own root) -- the same override every test in tests/ceo/ uses.
+# The repository registry is immutable configuration. CEO_STATE_DIR overrides only mutable CEO
+# ledgers/allocation/cadence state; production defaults to one central Life Manager state root.
 REGISTRY_ENFORCE_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REGISTRY_ENFORCE_PY=/opt/homebrew/bin/python3
 [ -x "$REGISTRY_ENFORCE_PY" ] || REGISTRY_ENFORCE_PY=python3
 
 _registry_enforce_base() {
-  echo "${CEO_STATE_DIR:-$REGISTRY_ENFORCE_REPO_ROOT}"
+  if [ -n "${LIFE_MANAGER_RELEASE_SHA:-}" ]; then
+    echo "${LIFE_MANAGER_CEO_STATE_ROOT:-$HOME/.local/state/life-manager/ceo-runner}"
+  else
+    echo "${CEO_STATE_DIR:-${LIFE_MANAGER_CEO_STATE_ROOT:-$HOME/.local/state/life-manager/ceo-runner}}"
+  fi
+}
+
+_registry_enforce_config_root() {
+  if [ -n "${LIFE_MANAGER_RELEASE_SHA:-}" ]; then
+    echo "$REGISTRY_ENFORCE_REPO_ROOT"
+  else
+    echo "${CEO_CONFIG_ROOT:-$REGISTRY_ENFORCE_REPO_ROOT}"
+  fi
 }
 
 # compute_effective_cron_from_interval_seconds — REQ-CEO-014's 3 non-overlapping bands:
@@ -70,15 +82,17 @@ PYEOF
 
 registry_enforce_or_exit() {
   local loop="${1:-}"
-  local base registry budget_script
+  local base config_root registry overrides budget_script
   base="$(_registry_enforce_base)"
-  registry="$base/config/loop-registry.json"
+  config_root="$(_registry_enforce_config_root)"
+  registry="$config_root/config/loop-registry.json"
+  overrides="$base/config/allocation-overrides.json"
   budget_script="$REGISTRY_ENFORCE_REPO_ROOT/bin/budget-check.sh"
 
   # step 0: dispatch-time hard-budget check, BEFORE any start decision (REQ-CEO-009 step 0).
   # Fails open on its own: a missing/failing budget-check.sh never blocks the start decision below.
   if [ -x "$budget_script" ]; then
-    if ! CEO_STATE_DIR="$base" bash "$budget_script" --loop "$loop" >/dev/null 2>&1; then
+    if ! CEO_STATE_DIR="$base" CEO_CONFIG_ROOT="$config_root" bash "$budget_script" --loop "$loop" >/dev/null 2>&1; then
       echo "registry-enforce: WARNING bin/budget-check.sh exited non-zero for loop '$loop' -- proceeding fail-open on the budget check itself" >&2
     fi
   else
@@ -91,7 +105,7 @@ registry_enforce_or_exit() {
   fi
 
   local py_out RESULT="" STATUS="" MULT="" DETAIL="" BASE_INTERVAL="" BASE_MINUTE="" BASE_HOUR=""
-  py_out="$("$REGISTRY_ENFORCE_PY" "$REGISTRY_ENFORCE_REPO_ROOT/lib/registry_enforce_read.py" "$registry" "$loop" 2>/dev/null)"
+  py_out="$("$REGISTRY_ENFORCE_PY" "$REGISTRY_ENFORCE_REPO_ROOT/lib/registry_enforce_read.py" "$registry" "$loop" "$overrides" 2>/dev/null)"
   eval "$py_out"
 
   case "$RESULT" in

@@ -5,7 +5,7 @@ RESULT=corrupt / RESULT=unknown_loop outcome), so registry_enforce_or_exit() can
 without any JSON parsing inside bash itself. Values are shell-quoted (shlex.quote) so eval is safe
 even when a value contains spaces/quotes (e.g. a JSON parse-error DETAIL message).
 
-    python3 registry_enforce_read.py <registry_path> <loop>
+    python3 registry_enforce_read.py <registry_path> <loop> [allocation_overrides_path]
 """
 import json
 import os
@@ -42,6 +42,16 @@ def main():
         return
 
     alloc = entry.get("allocation") or {}
+    if len(sys.argv) > 3 and os.path.isfile(sys.argv[3]):
+        try:
+            with open(sys.argv[3]) as handle:
+                overrides = json.load(handle)
+            candidate = overrides.get("allocations", {}).get(loop)
+            if isinstance(candidate, dict):
+                alloc = candidate
+        except Exception as error:
+            _emit(RESULT="corrupt", DETAIL=f"allocation overrides: {error}")
+            return
     status = alloc.get("status", "normal")
     mult = alloc.get("pass_frequency_multiplier", 1.0)
     cadence = entry.get("cadence") or {}

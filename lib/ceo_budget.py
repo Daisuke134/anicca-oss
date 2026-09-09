@@ -9,7 +9,12 @@ import json
 import os
 import time
 
-from registry_write_gate import atomic_write_registry, append_jsonl
+try:
+    from .registry_write_gate import append_jsonl
+    from .ceo_allocation import effective_registry, write_allocation
+except ImportError:  # Executed with lib/ directly on sys.path by repository CLIs.
+    from registry_write_gate import append_jsonl
+    from ceo_allocation import effective_registry, write_allocation
 
 # REQ-CEO-001's 9 canonical loop keys -- used ONLY as a last-resort fallback when
 # config/loop-registry.json itself is absent/corrupt (never as a judgment call, just the
@@ -72,13 +77,13 @@ def _sum_costs(cost_events_path, loop, now_ts):
 
 def check_loop(base, loop, now_ts=None):
     """Computes period spend for `loop` against config/ceo-budget-config.json and, on a hard
-    breach, atomically pauses the loop in config/loop-registry.json + appends ONE
+    breach, atomically pauses the loop in the runtime allocation overlay + appends ONE
     ceo-decisions.jsonl row (idempotent -- a loop already paused is left untouched). On a soft
     breach, appends ONE lessons.jsonl warning row, no registry mutation. Returns a result dict;
     never raises for missing/malformed input (NFR-002)."""
     now_ts = now_ts if now_ts is not None else time.time()
-    registry_path = os.path.join(base, "config", "loop-registry.json")
-    budget_path = os.path.join(base, "config", "ceo-budget-config.json")
+    config_root = os.environ.get("CEO_CONFIG_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    budget_path = os.path.join(config_root, "config", "ceo-budget-config.json")
     ledgers_dir = os.path.join(base, "ledgers")
     cost_events_path = os.path.join(ledgers_dir, "cost-events.jsonl")
     lessons_path = os.path.join(ledgers_dir, "lessons.jsonl")
@@ -110,20 +115,24 @@ def check_loop(base, loop, now_ts=None):
     if hard_breach:
         period, sum_usd, hard_limit = hard_breach
         result["breach"] = "hard"
-        unit_cfg = _safe_read_json(os.path.join(base, "config", "ceo-unit-economics.json"))
+        unit_cfg = _safe_read_json(os.path.join(config_root, "config", "ceo-unit-economics.json"))
         if isinstance(unit_cfg, dict) and unit_cfg.get("mode") != "active":
             result["paused_now"] = False
             result["enforcement"] = "observe_only"
             return result
-        registry = _safe_read_json(registry_path)
+        try:
+            registry = effective_registry(config_root, base)
+        except Exception:
+            registry = None
         already_paused = False
         if isinstance(registry, dict):
             loop_entry = registry.get("loops", {}).get(loop)
             if isinstance(loop_entry, dict):
                 already_paused = loop_entry.get("allocation", {}).get("status") == "paused"
         if isinstance(registry, dict) and loop in registry.get("loops", {}) and not already_paused:
-            registry["loops"][loop].setdefault("allocation", {})["status"] = "paused"
-            atomic_write_registry(registry_path, registry)
+            allocation = dict(registry["loops"][loop].get("allocation") or {})
+            allocation["status"] = "paused"
+            write_allocation(base, loop, allocation)
             append_jsonl(decisions_path, {
                 "ts": int(now_ts), "type": "hard-budget-breach", "loop": loop,
                 "reason": "hard_budget_breach", "period": period, "sum_usd": sum_usd,

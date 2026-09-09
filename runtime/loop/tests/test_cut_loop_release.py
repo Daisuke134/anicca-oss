@@ -60,6 +60,10 @@ class CutLoopReleaseTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             release = (loops / "current").resolve()
+            self.assertTrue(all(
+                path.is_symlink() or path.stat().st_mode & 0o222 == 0
+                for path in [release, *release.rglob("*")]
+            ))
             for relative in DEPENDENCY_ROOTS:
                 self.assertEqual(
                     (release / relative / "node_modules/donor-marker").read_text(), "sealed"

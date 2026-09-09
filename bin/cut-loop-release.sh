@@ -203,15 +203,7 @@ cat >"$DEST/RELEASE.json" <<EOF
 }
 EOF
 
-# One writable carve-out, created before the export is sealed. The CEO registry gate writes the
-# cadence it just computed to state/effective-cron/<loop>.txt, resolved relative to the repo root --
-# which is this release. A fully read-only export made every pass log a permission error before
-# failing open. That file is derived from the registry on each pass, so it is scratch rather than
-# state worth preserving, and one writable directory costs nothing while the code stays immutable.
-mkdir -p "$DEST/state/effective-cron"
-
 chmod -R a-w "$DEST" 2>/dev/null || true
-chmod -R u+w "$DEST/state" 2>/dev/null || true
 
 # Use the same host-wide owner lock as `lm-loop apply` while replacing `current` atomically.
 PYTHONPATH="$SCRIPT_ROOT${PYTHONPATH:+:$PYTHONPATH}" \

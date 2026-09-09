@@ -654,9 +654,9 @@
       "effect_class": "none",
       "entrypoint": "bin/ceo-run.sh",
       "label": "ai.anicca.ceo-runner",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/ceo-runner/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/ceo-runner"
     },
     "citizen-refill": {
       "cadence": {

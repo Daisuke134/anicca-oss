@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "required": ["status", "decisions", "reason", "evidence"],
+  "properties": {
+    "status": {"type": "string", "const": "ok"},
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["loop", "allocation"],
+        "properties": {
+          "loop": {"type": "string"},
+          "allocation": {
+            "type": "object",
+            "required": ["status", "pass_frequency_multiplier", "capital_cap_usd"],
+            "properties": {
+              "status": {"type": "string"},
+              "pass_frequency_multiplier": {"type": "number"}
+            }
+          }
+        }
+      }
+    },
+    "reason": {"type": "string"},
+    "evidence": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

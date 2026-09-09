@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "mode": "observe_only",
+  "window_days": 7,
+  "min_usage_coverage": 0.9,
+  "min_complete_days": 7,
+  "usage_ledger": "~/.local/state/anicca/telemetry/agent-usage.jsonl",
+  "economics_ledger": "~/.local/state/anicca/telemetry/unit-economics-events.jsonl",
+  "revenue_ledger": "ledgers/revenue-events.jsonl",
+  "allocation_protected_loops": [
+    "hf-gig-apply-direct",
+    "hf-gig-paid-direct",
+    "hf-gig-reply-detector",
+    "hf-gig-storefront-direct"
+  ],
+  "paid_obligation_sources": {}
+}

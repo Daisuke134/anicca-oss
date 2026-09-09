@@ -62,7 +62,7 @@ GITHUB_IDENTITY="${GITHUB_IDENTITY:-Daisuke134}"
 
 # Preserve the registry allocation gate and its effective-cadence ledger before spending tokens.
 source "$REPO_ROOT/lib/registry-enforce.sh"
-registry_enforce_or_exit bounty
+registry_enforce_or_exit hf-bounty-daily
 
 read -r -d '' PROMPT <<'PROMPT' || true
 Run ONE bounded daily Algora bounty pass, no human in the loop. Do not create an in-session
