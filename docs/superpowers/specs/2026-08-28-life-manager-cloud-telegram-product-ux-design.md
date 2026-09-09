@@ -1,6 +1,6 @@
 # Life Manager Cloud Telegram-First Product UX Design
 
-状態: APPROVED — 2026-09-05 owner scope revision。既存Life Manager Cloudの日常機能を出荷する。新しいagent frameworkへの移行は行わない。
+状態: APPROVED — 2026-09-06 owner sequencing revision（2026-09-05 scopeを維持）。既存Life Manager Cloudの日常機能を出荷する。新しいagent frameworkへの移行は行わない。
 
 正本範囲: public QR/deep linkからの初回体験、日常のTelegram通知、任意の電話、既存Stripe課金、正式製品の公開と継続改善。
 
@@ -49,6 +49,7 @@ clientが`Start`ボタンを表示し、本人が一度押した後にBotが`/st
 - 既存Life Manager runtime、Railway、Supabase、Calendar接続、Transit/Google、Telegram、Telnyxを再利用する。別runtime、別queue、別ledgerへ全面rewriteしない。
 - 課金は既存Stripeを維持する。Telegram Stars比較・導入・決済基盤移行は今回の開発TODOに含めない。これは実装スコープの決定であり、外部サービスの規約についての適合性証明ではない。
 - 1件ずつ実装・検証する。local作業を取り合わず、他ループの障害や将来の無料化をCloudの日常版出荷条件にしない。
+- 2026-09-06 owner決定: 友達の実機テストは最後にDaisへまとめて引き継ぐ。先に開発・自動検証・可能なCloud検証・既存Stripe・公開ページを仕上げる。人の操作や権限待ちを理由に、実行可能な独立作業を止めない。実行順と完了状態は§8、権限付き操作の引き継ぎは§9を正本とする。
 
 正本の役割:
 
@@ -180,30 +181,68 @@ Calendar consent、home、notificationsが揃った時にserverが3日trialを1�
 
 raw initData、OAuth token、電話、住所、座標、provider payloadを公開repoや通常logへ残さない。合成actorのテストは本物の新規ユーザーの操作テストの代用にしない。
 
-## 8. 出荷までの残TODO — この順で1件ずつ
+## 8. 出荷までの残TODO — 開発を先に、友達テストを最後に
 
-この表は残作業の順序であり、未確認の機能を未実装と断定する表ではない。既存証拠はprogressから再利用し、変更が影響する境界と未証明の境界を検証する。今回の最初の実装対象はCLOUD-01。
+2026-09-06 owner sequencing revision。既存IDは履歴参照のため変更せず、実行順を **CLOUD-01 → 02 → 03 → 04 → 05 → 07 → 08 → 技術引き継ぎの解消 → 06** とする。友達の予定・参加・端末操作は、Stripeや公開ページを進める前提にしない。
 
-| ID | 作業 | 完了条件 |
+この表は残作業の順序であり、未確認を未実装と断定するものではない。既存証拠を再利用し、差分と未証明の境界を検証する。文書の順序変更だけで完了件数を増やさない。
+
+### 8.1 開発側で先に終える7項目
+
+| 順番 / ID | 作業 | 友達へ渡す前の技術完了条件 |
 |---|---|---|
-| CLOUD-01 | 詳細なTelegram経路表示とonline表示 | 徒歩→乗車→乗換→最後の徒歩を省略せず表示。onlineは移動表示/route call 0。直通・乗換・徒歩のみ・online・経路失敗の回帰テストが通る。架空の入口/号車/時刻なし。 |
-| CLOUD-02 | 出発・到着・通知時刻の整合性 | 同じ採用経路でCalendar/Telegram/電話を計算。1日3移動、出発順の逆転、予定変更/取消、同時刻の別event、replayを検証。出発T-5の予定と実送信時刻を照合。 |
-| CLOUD-03 | QR/リンクからの初回設定 | `/life-manager`と`/lm`を同じ開始導線へ。iPhone/Android・Instagram/LINE内からTelegram/Google consentを経てReadyへ戻れる。中断再開、電話skip、重複actorなし。 |
-| CLOUD-04 | Cloud単独稼働とtenant分離 | local credential/localhost/Macを使わない新規tenantで予定取得・通知。別tenantの設定/予定/送信先/課金にアクセス不可。restart後も設定とreceipt保持。 |
-| CLOUD-05 | 日常の設定・停止・復旧 | 通知ON/OFF、住所変更、明示位置共有、Calendar再接続、電話opt-in/skip、問い合わせ・接続解除/削除案内。認証切れ/route障害/送信失敗をsilent failureや連投にしない。 |
-| CLOUD-06 | 友達の実機E2Eと少人数beta | Dais以外が自分のCalendarで設定完了。実経路・移動block・Telegram ID、任意のcallを照合。複数移動とreplay追加effect 0。iPhone/Android、3日利用を記録。 |
-| CLOUD-07 | 既存Stripe/trialの最終確認 | trial一度だけ、期限境界、正式なpayment eventと利用権、失敗・重複・更新・解約を確認。追加の決済方式は作らない。実請求は別途許可。 |
-| CLOUD-08 | 公開ページ・README・説明を実物へ統一 | QRとタップリンク、実通知例、対応範囲、既存料金、privacy/support導線が一致。Cloud利用可能とself-host/将来機能を区別して一般公開。 |
+| 1 / CLOUD-01 | 詳細なTelegram経路表示とonline表示 | 徒歩→乗車→乗換→最後の徒歩を表示。onlineは移動表示/route call 0。直通・乗換・徒歩のみ・経路失敗のテストを通し、架空の入口/号車/時刻を出さない。関連CI・レビューを閉じる。本番の実通知receipt/replayは権限があればここで照合し、なければ§9へ記録。 |
+| 2 / CLOUD-02 | 出発・到着・通知時刻の整合性 | 同じ採用経路でCalendar/Telegram/電話を計算。移動開始T-5、1日3移動、出発順の逆転、変更/取消、同時刻の別event、再実行を検証。送信時刻の計算と実provider受付時刻は別々に記録。 |
+| 3 / CLOUD-03 | QR/リンクからの初回設定 | `/life-manager`と`/lm`から同じTelegramへ。Calendar consent→基準地点→通知→電話skip/opt-in→Readyを実装。署名actor、OAuth復帰、中断再開、重複登録防止、分かりやすい日本語とスマホ表示を開発側で検証。実機・Instagram/LINE内ブラウザで本人が行う最終操作はCLOUD-06へ集約する。 |
+| 4 / CLOUD-04 | Cloud単独稼働とtenant分離 | Cloud用設定でlocal credential/localhost/Mac依存0。別tenantの設定/予定/送信先/課金のread/write 0、再起動後の設定/claim/receipt保持を検証。認可済みの開発用tenantで可能なCloud E2Eを行い、DB/Railway権限が不足する検証だけ§9へ切り出す。 |
+| 5 / CLOUD-05 | 日常の設定・停止・復旧 | 通知ON/OFF、住所変更、明示位置共有、Calendar再接続、電話opt-in/skip、問い合わせ・接続解除/削除案内を完成。認証切れ/route障害/送信失敗の説明、二重送信防止、費用上限・安全な停止/復旧を確認する。 |
+| 6 / CLOUD-07 | 既存Stripeと3日trial | 友達を待たずtest modeを優先してtrial一度だけ・期限・成功/失敗/重複/更新/解約とserver利用権を検証。既存Stripeを再利用する。権限が必要なprovider照合は§9へ。実請求や価格変更は別途許可。 |
+| 7 / CLOUD-08 | 公開ページ・README・配布素材の準備 | QRと同じスマホ用tap link、実物に合う通知例、既存料金、Cloud対応範囲、privacy/supportを完成。QRの実際の遷移先とbot名を検証。DM・X投稿文を下書きし、対象Webのbuild/deploy/公開URLも確認する。ここでは一般公開の宣言・投稿・友達への送信を実行しない。 |
 
-CLOUD-01〜06で友達向けbeta、CLOUD-07〜08で有料の一般公開を判定する。各sliceで該当spec AC更新→RED→最小修正→GREEN→review→対象service deploy/readbackを行い、effectが変わる場合はprovider receiptとreplayを確認する。
+各項目をspec/AC→RED→最小修正→GREEN→reviewの順で進め、可能な対象Cloud deploy/readbackを行う。権限不足や実機待ちがある場合は、`code_verified / deploy_verified / provider_verified / access_blocked / user_pending`を別々に記録する。必要な条件が満たされるまで項目全体をDONEにしない。
 
-入口/出口/推奨号車の追加取得、全12 loopの移植、自由会話、agent economyによる費用補填は、この8項目の後の別計画。今回の完了条件を増やさない。
+権限待ちは検証の免除ではない。ただし、独立した次項目のコード・テスト・文書作業は進めてよい。依存する変更は隔離branchや明示したPR依存で管理し、未検証変更を本番へまとめて押し込まない。重大なsecurity/tenant分離問題やrequired check失敗を隠したり、branch protectionを回避したりしない。
 
-## 9. 作業の分担と記録
+### 8.2 友達へ渡す前の技術引き継ぎと準備完了判定
 
-Cloud担当は上記8項目だけを順番に閉じる。local Codexはlocal運用と後続移植を別に担当する。primaryだけがspec/plan/progressの完了判定を更新し、workerは割当code/test、reviewerはexact commitのread-onlyを担当する。
+§9の権限付きCloud操作を、必要な権限を持つlocal Codexまたは接続済みtoolで解消する。友達への依頼前に、次を確認する。
 
-利用可能なworkerがないセッションでは、存在しないsubagent実行を装わず直接検証する。コードのmerge、deploy、provider成功、友達betaを別々に記録する。古いledgerのEliza採用方針は歴史記録であり、実行指示として復活させない。
+- [ ] 上記7項目のcode/test/reviewと適用対象serviceへのdeploy/healthを確認済み。必要なmigration・環境設定・webhook登録を未実施のまま残さない。
+- [ ] 認可済み開発用tenantでCalendar→移動block→実経路→Telegram message ID→durable receiptを照合し、replay追加effect 0を確認。電話を提供する場合はopt-inとcall receiptも確認。
+- [ ] 新規tenantの分離・Cloud単独稼働・既存Stripeの利用権・設定/停止/復旧に、未解消の技術blockerがない。
+- [ ] `/lm`と`/life-manager`のリンク/QR、対応機能、料金、privacy/supportを確認し、短い利用手順とテスト手順、DM/X下書きを揃えた。
+- [ ] 残る未確認事項は、本人によるGoogle同意・実Telegram/端末操作・使いやすさ・3日間の実使用など、最後のユーザー受け入れ確認として列挙されている。
+
+この状態を **READY_FOR_USER_ACCEPTANCE（開発・技術準備完了／友達の最終テスト待ち）** と呼ぶ。自動テスト、モック、既存ownerの成功を、新しい友達の実機成功に置き換えない。「誰でも問題なく利用できる」「一般公開完了」とはまだ言わない。
+
+### 8.3 最後にDaisへ渡す項目 — CLOUD-06
+
+**担当: Daisと同意したテスト協力者。** Daisが母親や友達へQR/リンクと短い手順を渡し、本人のTelegramとGoogle Calendarで開始→設定→実通知を確認する。iPhone/Android、Instagram/LINEからの開始、中断再開、電話skip、複数移動、3日間の使用感を確認する。
+
+引き継ぐものは、検証済みの開始URL/QR、対応機能と既知の制約、初回設定手順、3日テストの確認項目、停止/問い合わせ方法、共有前提を明記したDM/Xの下書き。ユーザーに開発用コマンド・APIキー・DB手修正を要求しない。
+
+CLOUD-06で見つかった不具合は開発側に戻して修正・再検証する。受け入れ合格と全技術条件を確認してから、Daisが一般公開・投稿を判断する。未完の機能開発を友達に丸投げしない。
+
+入口/出口/推奨号車の追加取得、全12 loopの移植、自由会話、agent economyによる費用補填は別計画。友達の参加待ちをこれらの追加開発で埋めたり、今回の完了条件を増やしたりしない。
+
+## 9. 作業の分担・権限付き操作・記録
+
+| 担当 | 今進めること | 引き継ぐ境界 |
+|---|---|---|
+| このチャット / Cloud開発担当 | 既存spec/codeの確認、修正、利用可能な環境でのtest、PR、review対応、関連CI判定、公開ページ/README、DM/X下書き。接続と権限があるCloud操作は直接実行・確認する。 | 実際にtool/接続を確認したうえで権限不足の操作だけ切り出す。全Cloud操作ができるとも、Cloudはすべてlocal専用とも決めつけない。 |
+| 権限を持つlocal Codex / Cloud運用担当 | 対象Railway serviceのrelease・環境設定・health、Supabaseの必要最小限の照合、OAuth/Bot設定、Stripe test mode、認可済みテストtenantでのprovider E2E。 | 接続/権限の有無を最初に確認する。Macを操作端末として使っても、製品の常時稼働をMacに依存させない。local 12 loopの修理や移植は混ぜない。 |
+| Dais / テスト協力者 | READY_FOR_USER_ACCEPTANCE後の本人同意・スマホ操作・受信/使いやすさ・3日使用の確認と、最後の配布/公開判断。 | アカウント同意、OTP、実請求の許可など本人限定の操作は代行済みと装わない。 |
+
+権限付きCloud操作の引き継ぎは、各項目につき以下を既存progressへまとめる。
+
+1. task ID、確認対象repo/branch/commitとservice/environment、不足している接続/権限、既に実施した確認。
+2. 読んで確認したentrypointまたは正確な手順、前提設定の名前、期待する結果、失敗時の停止/rollback/cleanup。値としてのsecretや個人情報は記録しない。
+3. 対象tenantを必要最小限に絞った照合方法、返してもらうredacted receipt（deploy SHA/health、Calendar ID、Telegram ID、Stripe test eventと利用権など）。
+4. その証拠で閉じる条件と、依然としてDaisの実機操作が必要な条件を分ける。
+
+primaryだけがspec/plan/progressの完了判定を更新する。利用可能なworkerがない場合は存在しないsubagent実行を装わず、背景で自動的に続けていると約束しない。code/CI、merge、deploy、provider readback、実機受け入れを別々に記録する。
+
+過去のprogressやCLOUD-01の古い「実通知確認が終わるまで次の開発をしない」という順序は、本§8で置き換える。過去の成功証拠と未解消blockerは消さない。旧Eliza採用方針も歴史記録であり、実行指示として復活させない。
 
 ## 10. 今回変更しないもの
 
@@ -216,6 +255,7 @@ Cloud担当は上記8項目だけを順番に閉じる。local Codexはlocal運�
 
 ## 11. 根拠と実装参照
 
+- Owner sequencing decision: 2026-09-06、この会話で開発・可能なCloud検証・Stripe・公開ページを先に完了し、友達の実機テストを最後にDaisへまとめて引き継ぐと明示。
 - Owner decision: 2026-09-05、この会話でCloudの日常版のみ、Stripe維持、Eliza不採用、local移植はlocal Codex側と明示。
 - 技術契約: `2026-08-26-life-manager-cloud-on-time-core-design.md`。
 - 実測履歴: `../../../.superpowers/sdd/2026-08-26-life-manager-cloud-on-time-core/progress.md`。
