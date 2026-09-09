@@ -45,7 +45,7 @@ test("LM-30: webhook subscribes to edited live-location updates; callbacks are a
 test("LM-30: parseUpdate preserves message fields and parses callback_query/live location", () => {
   assert.deepEqual(parseUpdate({ message: { chat: { id: 7 }, from: { id: 8, first_name: "Dais", last_name: "Tanaka" }, text: " /start x " } }), {
     kind: "message", chatId: "7", userId: "8", text: "/start x", isStart: true,
-    firstName: "Dais", lastName: "Tanaka",
+    firstName: "Dais", lastName: "Tanaka", languageCode: "",
   });
   assert.deepEqual(parseUpdate({ callback_query: { id: "cb", from: { id: 8 }, data: "ask:yes:e1:r1", message: { chat: { id: 7 } } } }), {
     kind: "callback", chatId: "7", userId: "8", data: "ask:yes:e1:r1", callbackQueryId: "cb",

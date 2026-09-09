@@ -13,11 +13,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 MODULE_PATHS = (
-    ROOT / "skills/earn/marketing-engine/report/notify_posts.py",
     ROOT / "skills/earn/marketing-engine/report/daily_report.py",
-    ROOT / "skills/earn/marketing-engine/report/weekly_review.py",
     ROOT / "skills/earn/marketing-engine/report/owner_report_cli.py",
-    ROOT / "skills/earn/marketing-engine/measure/audit_accounts.py",
 )
 
 

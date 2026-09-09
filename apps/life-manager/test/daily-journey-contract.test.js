@@ -13,6 +13,18 @@ const EVENT_START_ISO = "2026-07-23T14:00:00+09:00";
 const EVENT_START_MS = Date.parse(EVENT_START_ISO);
 const TRAVEL_NOW_MS = Date.parse("2026-07-22T12:00:00+09:00");
 const DEPARTURE_MS = Date.parse("2026-07-23T13:20:00+09:00");
+const ALLOWANCE_DEPS = Object.freeze({
+  reserveManagedAction: async () => ({
+    allowed: true,
+    used: 0,
+    limit: 30,
+    periodStart: "2026-07-01",
+    resetAt: "2026-08-01T00:00:00.000Z",
+    reservationToken: "controlled-reservation",
+  }),
+  completeManagedAction: async () => ({ allowed: true }),
+  releaseManagedAction: async () => ({ allowed: true }),
+});
 
 function calendarEvent({ id, summary, location, startIso, endIso, attendees = [] }) {
   return {
@@ -106,6 +118,7 @@ test("CORE 8e drives the production DAILY journey with provider-ordered reportin
     daily_automation_enabled: true,
     notifications_enabled: true,
     call_enabled: true,
+    paid: true,
   };
   const sendMessage = async (_token, _chatId, text, extra) => {
     telegramMessages.push(text);
@@ -113,6 +126,7 @@ test("CORE 8e drives the production DAILY journey with provider-ordered reportin
     return { ok: true, result: { message_id: telegramMessages.length } };
   };
   const travelDeps = {
+    ...ALLOWANCE_DEPS,
     nowMs: TRAVEL_NOW_MS,
     apiKey: "controlled-composio-key",
     mapsKey: "controlled-maps-key",
@@ -254,6 +268,7 @@ test("CORE 8e preserves accepted travel results and continues reports when one T
     notifications_enabled: true,
     daily_automation_enabled: true,
   }, {
+    ...ALLOWANCE_DEPS,
     nowMs: TRAVEL_NOW_MS,
     apiKey: "controlled-composio-key",
     mapsKey: "controlled-maps-key",
@@ -293,6 +308,7 @@ test("CORE fix R1: verified user timezone wins when event timeZone is absent, in
     daily_automation_enabled: true,
     notifications_enabled: false,
   }, {
+    ...ALLOWANCE_DEPS,
     nowMs: Date.parse("2026-07-23T12:00:00-04:00"),
     apiKey: "controlled-composio-key",
     mapsKey: "controlled-maps-key",
@@ -320,6 +336,7 @@ test("CORE fix R1: verified user timezone wins when event timeZone is absent, in
     daily_automation_enabled: true,
     notifications_enabled: false,
   }, {
+    ...ALLOWANCE_DEPS,
     nowMs: Date.parse("2026-07-23T12:00:00-04:00"),
     apiKey: "controlled-composio-key",
     mapsKey: "controlled-maps-key",
@@ -345,6 +362,7 @@ test("CORE fix R1: verified user timezone wins when event timeZone is absent, in
     daily_automation_enabled: true,
     notifications_enabled: false,
   }, {
+    ...ALLOWANCE_DEPS,
     nowMs: Date.parse("2026-07-23T12:00:00+09:00"),
     apiKey: "controlled-composio-key",
     mapsKey: "controlled-maps-key",

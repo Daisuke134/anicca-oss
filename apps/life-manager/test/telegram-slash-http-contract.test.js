@@ -28,6 +28,7 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
   process.env.COMPOSIO_API_KEY = "fixture-composio-key";
   process.env.COMPOSIO_GCAL_AUTH_CONFIG = "fixture-calendar-auth";
   process.env.LM_TELEGRAM_BOT_USERNAME = "LifeManagerBotbot";
+  process.env.LM_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/test_life_manager";
   // Browser tasks ON: if slash routing ever fell through to this branch for the paid+done fixture
   // user, the classifier would call Gemini and the fake fetch below would throw.
   process.env.LM_BROWSER_TASKS_ENABLED = "1";
@@ -381,7 +382,7 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     assert.match(lastSent().text, /already active/i);
     userRow.paid = false;
     assert.equal(await message("100", "/subscribe"), 200);
-    assert.equal(lastSent().reply_markup.inline_keyboard[0][0].url, "https://lm.test/lm?tg=100");
+    assert.equal(lastSent().reply_markup.inline_keyboard[0][0].url, "https://buy.stripe.com/test_life_manager?client_reference_id=u1");
     userRow.paid = true;
 
     // 10. /reset reuses setStage, confirms, and DISCLOSES that rewinding tg_onboard_stage also closes

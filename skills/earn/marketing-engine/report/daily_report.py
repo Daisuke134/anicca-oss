@@ -32,7 +32,7 @@ if str(REPO_ROOT) not in sys.path:
 from skills._shared.telegram import TelegramClient, TelegramError
 
 LIB = pathlib.Path(os.path.expanduser(os.environ.get(
-    "MKT_LIBRARY_DIR", "~/.openclaw/state/content-library")))
+    "MKT_LIBRARY_DIR", "~/.local/state/life-manager/marketing-engine/content-library")))
 TELEGRAM_TARGET = os.environ.get("MKT_TELEGRAM_TARGET")
 
 

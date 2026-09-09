@@ -43,7 +43,7 @@ function terminalFor({ id, markerHash, mode, tenant }) {
       auth_marker_hash: markerHash,
       session_id: `steel-${tenant}`,
       evidence_message_id: `telegram-${tenant}-${id}`,
-      steel_released: true,
+      steel_released: mode !== 'verify-expired-handoff',
       provider_receipt: {
         status: mode === 'verify-expired-handoff' ? 'login_required' : 'authenticated',
         confirmed: mode !== 'verify-expired-handoff',
@@ -51,9 +51,7 @@ function terminalFor({ id, markerHash, mode, tenant }) {
         handoff_reason: mode === 'verify-expired-handoff' ? 'login' : null,
       },
     },
-    trace: mode === 'verify-expired-handoff'
-      ? [{ stage: 'auth_context_invalidated', meta: { invalidated: true } }]
-      : [{ stage: 'auth_context_loaded', meta: { loaded: true } }],
+    trace: [{ stage: 'auth_context_loaded', meta: { loaded: true } }],
   };
 }
 
@@ -189,7 +187,7 @@ function assertBoundedResult(result, mode) {
   assert.equal(result.job_ids.length, 2);
   assert.equal(result.steel_session_ids.length, 2);
   assert.equal(result.telegram_evidence_ids.length, 2);
-  assert.equal(result.released, true);
+  assert.equal(result.released, mode !== 'verify-expired-handoff');
 }
 
 function assertNoSecrets(output) {
@@ -258,9 +256,9 @@ test('production adapter uses real durable store and browser-job runtime from cl
   assert.equal(terminal.auth_marker_hash, markerHash);
   assert.equal(terminal.receipt.auth_marker_hash, markerHash);
   assert.equal(terminal.receipt.provider_receipt.handoff_required, true);
-  assert.equal(terminal.receipt.steel_released, true);
+  assert.equal(terminal.receipt.steel_released, false);
   assert.equal(terminal.receipt.evidence_message_id, '12');
-  assert.ok(terminal.trace.some((entry) => entry.stage === 'auth_context_invalidated' && entry.meta.invalidated === true));
+  assert.equal(terminal.trace.some((entry) => entry.stage === 'auth_context_invalidated'), false);
   const steps = boundaries.sqlCalls.map(({ sql }) => {
     if (/INSERT INTO public\.lm_browser_jobs/i.test(sql)) return 'enqueue';
     if (/claim_lm_browser_job_by_id/i.test(sql)) return 'claim';
@@ -362,7 +360,7 @@ test('rejects nonterminal jobs, missing provider receipts, and unreleased Steel 
   }
 });
 
-test('rejects body-only login text and requires a structured expired handoff plus invalidation', async () => {
+test('rejects body-only login text and requires a structured expired handoff with a held session', async () => {
   await assert.rejects(
     runBrowserAuthProductionE2E({
       mode: 'verify-expired-handoff',
@@ -384,10 +382,13 @@ test('rejects body-only login text and requires a structured expired handoff plu
       mode: 'verify-expired-handoff',
       env: REQUIRED_ENV,
       deps: makeDeps({
-        mutateTerminal: (terminal) => ({ ...terminal, trace: [{ stage: 'auth_context_invalidated', meta: { invalidated: false } }] }),
+        mutateTerminal: (terminal) => ({
+          ...terminal,
+          receipt: { ...terminal.receipt, steel_released: true },
+        }),
       }),
     }),
-    /invalidation/,
+    /session was not held/,
   );
 });
 
@@ -407,7 +408,7 @@ test('rejects missing, same, or unbound durable terminal marker hashes', async (
   }
 });
 
-test('handles an expired login only after terminal provider readback, invalidation, evidence, and Steel release', async () => {
+test('handles an expired login only after terminal provider readback and evidence while holding Steel for handoff', async () => {
   const deps = makeDeps();
   const result = await runBrowserAuthProductionE2E({
     mode: 'verify-expired-handoff', env: REQUIRED_ENV, deps,
