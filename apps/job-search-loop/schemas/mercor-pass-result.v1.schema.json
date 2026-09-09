@@ -14,14 +14,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["listing_id", "url", "title", "application_state", "submit_visible", "decision"],
+        "required": ["listing_id", "url", "title", "application_state", "submit_visible", "decision", "ranking_band", "ranking_evidence"],
         "properties": {
           "listing_id": {"type": "string"},
           "url": {"type": "string"},
           "title": {"type": "string"},
           "application_state": {"type": "string"},
           "submit_visible": {"type": "boolean"},
-          "decision": {"type": "string"}
+          "decision": {"type": "string"},
+          "ranking_band": {"type": "string", "enum": ["high", "medium", "low"]},
+          "ranking_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          }
         }
       }
     },

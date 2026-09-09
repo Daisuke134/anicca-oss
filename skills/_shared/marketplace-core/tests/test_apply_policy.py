@@ -34,6 +34,19 @@ def test_shared_apply_context_preserves_verified_facts_and_maximize_policy(tmp_p
     assert value["policy"]["posting_qualifications"] == (
         "ranking_signals_not_pre_submission_rejections"
     )
+    assert value["policy"]["ranking"]["objective"] == (
+        "maximize_acceptance_probability_times_expected_revenue"
+    )
+    assert value["policy"]["ranking"]["ordered_features"] == [
+        "verified_resume_overlap",
+        "japan_and_japanese_eligibility",
+        "software_ai_automation_overlap",
+        "compensation",
+        "absence_of_contradictory_requirements",
+    ]
+    assert value["policy"]["ranking"]["weak_fit_disposition"] == (
+        "rank_later_not_reject"
+    )
     assert value["policy"]["person_bound_step"]["scope"] == "candidate_local_pending"
     assert value["policy"]["person_bound_step"]["pass_behavior"] == (
         "continue_other_candidates_without_waiting"

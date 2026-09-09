@@ -31,6 +31,12 @@ Pass order:
    cards with `recently_inspected_listing_ids` and use model judgment to inspect the strongest
    truthful-fit unseen candidates first. Revisit a recent candidate only after unseen candidates
    in the bounded pages are exhausted or the live card shows a changed state.
+   Use `shared_apply_context.policy.ranking` as the only ranking contract. Rank the whole visible
+   priority window before spending the detail budget: verified resume overlap first, then
+   Japan/Japanese eligibility, software/AI/automation overlap, compensation, and absence of
+   contradictory requirements. Assign every inspected listing `ranking_band` (`high`, `medium`,
+   or `low`) and `ranking_evidence` citing the posting text and matching verified facts. Inspect
+   high before medium before low. A weak fit stays later in the queue; it is not a rejection.
    Treat posting qualifications, years, degrees and preferred experience as ranking
    signals, not pre-application rejection gates. Apply maximally and let the provider
    or hiring party decide. Never fabricate a required form answer: answer truthfully

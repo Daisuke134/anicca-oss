@@ -80,7 +80,8 @@ def terminal_result(*, result_path: Path, reason: str) -> dict[str, Any]:
             else source["status"].strip() or "failed"
         ),
         "inspected_listings": _safe_rows(
-            source.get("inspected_listings"), ("listing_id", "title", "url", "decision")
+            source.get("inspected_listings"),
+            ("listing_id", "title", "url", "decision", "ranking_band")
         ),
         "submitted": _safe_rows(
             source.get("submitted"), ("listing_id", "title", "url", "status")

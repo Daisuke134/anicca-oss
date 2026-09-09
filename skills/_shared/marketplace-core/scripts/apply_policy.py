@@ -11,6 +11,19 @@ from typing import Any, Mapping
 POLICY = {
     "selection": "maximize_truthful_submissions",
     "posting_qualifications": "ranking_signals_not_pre_submission_rejections",
+    "ranking": {
+        "objective": "maximize_acceptance_probability_times_expected_revenue",
+        "ordered_features": [
+            "verified_resume_overlap",
+            "japan_and_japanese_eligibility",
+            "software_ai_automation_overlap",
+            "compensation",
+            "absence_of_contradictory_requirements",
+        ],
+        "bands": ["high", "medium", "low"],
+        "weak_fit_disposition": "rank_later_not_reject",
+        "evidence": "cite_posting_text_and_verified_facts",
+    },
     "form_answers": "answer_only_from_verified_facts_never_fabricate",
     "person_bound_step": {
         "disposition": "notify_human_with_exact_job_url_action_then_resume",

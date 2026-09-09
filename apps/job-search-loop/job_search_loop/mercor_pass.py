@@ -228,6 +228,9 @@ def record_inspections(state_root: Path, result: dict[str, Any], *, run_id: str)
             output.write(json.dumps({
                 "listing_id": listing_id.strip(),
                 "decision": str(item.get("decision") or ""),
+                "ranking_band": str(item.get("ranking_band") or ""),
+                "ranking_evidence": item.get("ranking_evidence")
+                if isinstance(item.get("ranking_evidence"), list) else [],
                 "run_id": run_id,
                 "observed_at": datetime.now(timezone.utc).isoformat(),
             }, ensure_ascii=False, sort_keys=True) + "\n")
