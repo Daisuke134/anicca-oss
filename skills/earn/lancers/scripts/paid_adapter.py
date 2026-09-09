@@ -114,7 +114,9 @@ def build(argv: list[str]):
     parser.add_argument("--state-path", type=Path, default=DEFAULT_STATE)
     args = parser.parse_args(argv)
     work_sync = _load_work_sync()
-    reader = lambda: work_sync.read_only_inventory(state_path=args.state_path.expanduser().resolve())
+    reader = lambda: work_sync.read_paid_inventory(
+        state_path=args.state_path.expanduser().resolve()
+    )
     return LancersPaidAdapter(account_id=args.account_id, inventory_reader=reader), decide
 
 

@@ -120,6 +120,54 @@ class WorkSyncTests(unittest.TestCase):
             self.assertIn(reader, reached)
         self.assertNotIn("_post_reply", self._reachable_from(calls, "run_tick"))
 
+    def test_paid_inventory_does_not_depend_on_apply_proposal_pipeline(self):
+        import ast
+        tree = ast.parse(WORK_SYNC_PATH.read_text(encoding="utf-8"))
+        calls = {
+            node.name: {
+                child.func.id if isinstance(child.func, ast.Name) else child.func.attr
+                for child in ast.walk(node)
+                if isinstance(child, ast.Call)
+                and isinstance(child.func, (ast.Name, ast.Attribute))
+            }
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+
+        reached = self._reachable_from(calls, "read_paid_inventory")
+        for reader in ("_snapshot", "_contract_sources", "_finance_source"):
+            self.assertIn(reader, reached)
+        self.assertNotIn("_proposal_pipeline", reached)
+        self.assertNotIn("_verified_proposals", reached)
+        self.assertNotIn("_post_reply", reached)
+        self.assertNotIn("_sales_action", reached)
+
+    def test_paid_inventory_fails_closed_when_finance_readback_is_incomplete(self):
+        sync = _load()
+        snapshot = {
+            "ok": True,
+            "source_complete": True,
+            "contract_candidates": [],
+            "storefront_contract_candidates": [],
+        }
+        contracts = {
+            "contract_candidates": [],
+            "incoming_monthly_offers": [],
+            "incoming_monthly_offer_count": 0,
+            "project_working_count": 0,
+            "monthly_contract_count": 0,
+        }
+        with (
+            patch.object(sync, "_snapshot", return_value=snapshot),
+            patch.object(sync, "_contract_sources", return_value=contracts),
+            patch.object(sync, "_finance_source", return_value={
+                "source_complete": False,
+                "error": "finance_detail_readback_required",
+            }),
+        ):
+            with self.assertRaisesRegex(sync.SourceFailure, "finance_detail_readback_required"):
+                sync._read_paid_surfaces(object())
+
     @staticmethod
     def _reachable_from(calls, entry):
         reached, pending = set(), [entry]
