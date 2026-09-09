@@ -143,8 +143,11 @@ listing_catalog = _module("marketplace_listing_catalog",
                           Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts" / "listing_catalog.py")
 
 def _applied():
-    """Projects this account already applied to. Without it the search keeps returning its own
-    best match and every tick ends duplicate_project instead of reaching the next open job."""
+    """Projects already applied to or durably awaiting official reconciliation.
+
+    Pending effects remain owned by `_reconcile`; selecting one again cannot clarify the old
+    effect and makes it the head of the queue forever, so discovery must continue past it.
+    """
     done = set()
     try: lines = LEDGER.read_text(encoding="utf-8").splitlines()
     except OSError: return done
@@ -153,6 +156,14 @@ def _applied():
         except ValueError: continue
         identity = record.get("opportunity_external_id")
         if isinstance(identity, str): done.add(identity)
+    try:
+        pending = json.loads(TRANSACTION.read_text(encoding="utf-8")).get("pending") or {}
+    except (OSError, ValueError, AttributeError):
+        pending = {}
+    if isinstance(pending, dict):
+        for entry in pending.values():
+            identity = entry.get("project_id") if isinstance(entry, dict) else None
+            if isinstance(identity, str): done.add(identity)
     return done
 
 DECLINED_PER_WAKE = 3
