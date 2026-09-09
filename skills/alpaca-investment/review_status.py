@@ -19,7 +19,8 @@ BROWSER = REPO / "skills/browser"
 DASHBOARD = "https://app.alpaca.markets/dashboard/overview"
 ACCOUNT_SWITCHER = '''document.querySelector("nav > div.h-14 > button") ||
     [...document.querySelectorAll("button")].find(x => x.offsetParent !== null &&
-      /(?:^|\\n)(?:Life Manager\\s*\\n)?(?:Paper|Live)\\s*-\\s*[a-z0-9]{6,}\\s*$/i.test(x.innerText.trim()))'''
+      (/(?:^|\\n)(?:Life Manager\\s*\\n)?(?:Paper|Live)\\s*-\\s*[a-z0-9]{6,}\\s*$/i.test(x.innerText.trim()) ||
+       /^Individual Trading(?:\\s|$)/i.test(x.innerText.trim())))'''
 
 
 def classify_dashboard(text: str, selected_account: str = "") -> str | None:
@@ -36,6 +37,8 @@ def classify_dashboard(text: str, selected_account: str = "") -> str | None:
 
 
 def selected_account_kind(value: str) -> str | None:
+    if re.match(r"^individual trading(?:\s|$)", value.strip(), re.IGNORECASE):
+        return "live"
     match = re.search(r"(?:^|\n)\s*(?:life manager\s*\n)?(paper|live)\s*-\s*[a-z0-9]{6,}\s*$",
                       value.lower())
     return match.group(1) if match else None
@@ -122,7 +125,7 @@ def refresh(state: Path, *, force: bool = False) -> dict:
         status = classify_dashboard(text, selected)
         if status is None and selected_account_kind(selected) == "paper":
             _command([*cdp, "eval", target, "-"], stdin=f'({ACCOUNT_SWITCHER})?.click(); true', env=env)
-            switched = json.loads(_command([*cdp, "eval", target, "-"], stdin=f'(()=>{{const trigger={ACCOUNT_SWITCHER};const option=[...document.querySelectorAll("button")].find(x=>x!==trigger&&x.offsetParent!==null&&/(?:^|\\n)Live\\s*-/.test(x.innerText.trim()));option?.click();return Boolean(option)}})()', env=env))
+            switched = json.loads(_command([*cdp, "eval", target, "-"], stdin=f'(()=>{{const trigger={ACCOUNT_SWITCHER};const option=[...document.querySelectorAll("button")].find(x=>x!==trigger&&x.offsetParent!==null&&(/(?:^|\\n)Live\\s*-/.test(x.innerText.trim())||(/Brokerage Account/i.test(x.innerText)&&!/Paper Account/i.test(x.innerText))));option?.click();return Boolean(option)}})()', env=env))
             if switched:
                 for _ in range(20):
                     time.sleep(0.5)

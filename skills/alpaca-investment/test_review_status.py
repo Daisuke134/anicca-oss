@@ -15,6 +15,7 @@ class ReviewStatusTest(unittest.TestCase):
         self.assertEqual(review_status.classify_dashboard("Action required to finish your application"), "action_required")
         self.assertEqual(review_status.classify_dashboard("Application rejected"), "rejected")
         self.assertEqual(review_status.classify_dashboard("", "Life Manager\nLive - ABC12345"), "active")
+        self.assertEqual(review_status.classify_dashboard("", "Individual Trading"), "active")
         self.assertIsNone(review_status.classify_dashboard("Welcome to Alpaca"))
 
     def test_live_candidate_in_mixed_paper_dom_is_not_active(self):
@@ -32,6 +33,7 @@ class ReviewStatusTest(unittest.TestCase):
     def test_account_switcher_expression_supports_current_visible_button(self):
         self.assertIn('document.querySelectorAll("button")', review_status.ACCOUNT_SWITCHER)
         self.assertIn("Paper|Live", review_status.ACCOUNT_SWITCHER)
+        self.assertIn("Individual Trading", review_status.ACCOUNT_SWITCHER)
 
     def test_due_uses_last_provider_observation(self):
         now = datetime(2026, 9, 5, 12, 0, tzinfo=timezone.utc)
