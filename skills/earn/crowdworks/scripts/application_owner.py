@@ -43,14 +43,16 @@ JOB_GROUPS = (
 GROUPS_READ_PER_WAKE = 5
 
 
-def _groups(now):
-    """A rotating slice of the board, advancing every wake so all nineteen are read in four."""
+def _group_cursor():
+    try: value = json.loads((STATE / "application-owner.json").read_text(encoding="utf-8")).get("next_group_index", 0)
+    except (OSError, ValueError, AttributeError): return 0
+    return value if isinstance(value, int) and not isinstance(value, bool) and 0 <= value < len(JOB_GROUPS) else 0
+
+def _groups(now, start=None):
+    """A durable slice of the board; wall-clock drift cannot skip a group."""
     total = max(1, len(JOB_GROUPS))
-    try:
-        wake = int(now.timestamp() // WAKE_INTERVAL_SECONDS)
-    except (AttributeError, OSError, OverflowError, TypeError, ValueError):
-        wake = 0
-    start = (wake * GROUPS_READ_PER_WAKE) % total
+    start = _group_cursor() if start is None else start
+    if not isinstance(start, int) or isinstance(start, bool) or not 0 <= start < total: start = 0
     return tuple(JOB_GROUPS[(start + offset) % total] for offset in range(min(GROUPS_READ_PER_WAKE, total)))
 
 
@@ -328,6 +330,7 @@ def _write_status(payload):
 
 def main():
     now=datetime.now(timezone.utc)
+    group_cursor = _group_cursor()
     if not account._owner():result={"ok":False,"status":"browser_unavailable","effect_delta":0}
     else:
         ensured=account.run_ensure(state_path=account.DEFAULT_STATE_PATH,allow_signup=False,ownership_checker=account._owner,browser_factory=account._browser,vault_restorer=account._restore,vault_dumper=account._dump,credential_loader=account._credentials,notifier=account._notify,now=lambda:datetime.now(timezone.utc).isoformat())
@@ -339,7 +342,7 @@ def main():
                 imported=_reconcile(page) if configured.get("ok") else 0
                 if not configured.get("ok"):
                     result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
-                elif (candidate_result:=_candidate(page,_listings(),_groups(now)))[0] is None:
+                elif (candidate_result:=_candidate(page,_listings(),_groups(now, group_cursor)))[0] is None:
                     result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
                 else:
                     candidate,listing,tier,_inspected=candidate_result
@@ -353,6 +356,7 @@ def main():
                 page.close()
     # Reporting is a separate owner (crowdworks-revenue-report). Apply owns submissions only, so a
     # failed or slow report can never hold up an application, and vice versa.
+    result["next_group_index"] = (group_cursor + GROUPS_READ_PER_WAKE) % len(JOB_GROUPS) if result.get("ok") else group_cursor
     result["observed_at"]=now.isoformat();_write_status(result);print(json.dumps(result,ensure_ascii=False,separators=(",",":")));return 0 if result.get("ok") else 1
 
 if __name__=="__main__":raise SystemExit(main())
