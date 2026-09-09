@@ -10161,3 +10161,7 @@ manual wakeの終端後にownerを触らず監視し、14:48:45 UTC開始の自�
 続くmain更新が`docs/**`に加えて`skills/earn/gig/TODO.md`だけを変更し、同ledgerは実行時read 0であることを確認したため、progress-only判定をこのexact pathへ限定して追加した。他のskills Markdownはruntime扱いを維持する。focused integration/registry test 65/65と全CIがPASSし、PR #4823、main merge `14230525c928f6eca6fb713baacd7249c06afdd0`。並行main descendantのcomplete release `e16384027e7877af12f550bb0e1c01e6b67c33a5`へrelease reconcilerとdisk cleanupの対象2labelだけを更新し、両ownerの自然wake exit 0を確認した。current/release countは`e16384027… / 26`で不変、次main `6148edf666804acc77cc9e5dc980faa7176b6af1`との差分はGig TODOだけで新判定`runtime_diff=none`である。
 
 これでspec/TODOの進捗更新がfull immutable releaseを毎回増やしてConnectorをENOSPC停止させる再発経路は閉じた。host空きは約1.0GiBで依然低いため、runtime変更の正当なrelease build余力というhost-wide容量課題は残るが、CG-44の次の30分wakeは512MiB producer floorを上回る。Connector statusは引き続き**実用動作中 / CG-44 NOT DONE**、次は新規Luma live bundleの自然候補を継続する。
+
+### O1B-25進捗534（共有release作業中の自然Connector継続）
+
+release control-planeの修復・GC中もConnector ownerを触らず監視し、15:30 UTC台の自然wake `wake-2bcbe11c3f053406372f4895`でlaunchd runs 8を確認した。wakeはexit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`、Telegram every-wake provider ID `72120`として15:35:49 UTCに終了した。Luma auditは`observed 36 / normalized 6 / window 6 / free-open 3 / calendar-free 0`で、既存Calendarが埋まっているため新規申込0だった。容量圧迫と共有release更新の間にも30分scheduler、Calendar readback、provider continuation、Telegram deliveryが止まらなかった継続稼働証拠としてacceptするが、新規Luma bundle 0なのでCG-44は次の自然batchへ継続する。
