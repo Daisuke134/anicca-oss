@@ -15,6 +15,8 @@ class ReviewStatusTest(unittest.TestCase):
         self.assertEqual(review_status.classify_dashboard("Action required to finish your application"), "action_required")
         self.assertEqual(review_status.classify_dashboard("Application rejected"), "rejected")
         self.assertEqual(review_status.classify_dashboard("", "Life Manager\nLive - ABC12345"), "active")
+        self.assertIsNone(review_status.classify_dashboard("", "Individual Trading"))
+        self.assertEqual(review_status.classify_dashboard("Buying Power", "Individual Trading"), "active")
         self.assertIsNone(review_status.classify_dashboard("Welcome to Alpaca"))
 
     def test_live_candidate_in_mixed_paper_dom_is_not_active(self):
@@ -28,6 +30,14 @@ class ReviewStatusTest(unittest.TestCase):
         self.assertTrue(review_status.dashboard_ready(url, "", "Life Manager\nPaper - PA123456"))
         self.assertTrue(review_status.dashboard_ready(url, "Application submitted: In review"))
         self.assertTrue(review_status.dashboard_ready("https://app.alpaca.markets/login", ""))
+
+    def test_account_switcher_expression_supports_current_visible_button(self):
+        self.assertIn('data-testid="account-switcher-button"', review_status.ACCOUNT_SWITCHER)
+
+    def test_individual_trading_cta_without_account_evidence_is_not_ready(self):
+        url = "https://app.alpaca.markets/dashboard/overview"
+        self.assertFalse(review_status.dashboard_ready(url, "Apply now", "Individual Trading Account"))
+        self.assertTrue(review_status.dashboard_ready(url, "Buying Power", "Individual Trading"))
 
     def test_due_uses_last_provider_observation(self):
         now = datetime(2026, 9, 5, 12, 0, tzinfo=timezone.utc)
