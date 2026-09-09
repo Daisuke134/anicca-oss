@@ -2038,10 +2038,16 @@ from the chat, and two of them contradict what this cursor had previously report
     All 38 now record function and line. The test greps the file, because that is the check that
     would have caught it.
 
-19. [ ] `APPLY-REPORT-15` ★ Read `proposal-form-changes.jsonl` once it has rows and repair the
-    named step. This is now the largest measured loss of real work on any platform: about one in
-    three eligible Lancers projects. Blocked only on a natural failure occurring under the release
-    that records.
+19. [x] `APPLY-REPORT-15` Read `proposal-form-changes.jsonl` and classify the named step before
+    changing a selector. The file now has rows. Its newest repeated row is strict readback absence
+    for uncertain project `5599538`: `/mypage/proposals` contains zero links to that project. It is
+    not evidence that the proposal form changed. The same installed release subsequently submitted
+    and officially read back projects `5599173`, `5599553`, and `5599390` as proposals `27908035`,
+    `27908107`, and `27908120`, proving the current form and proposal reader still match. Project
+    `5599538` remains a durable no-resubmit fence because its external effect is uncertain, while
+    later projects continue; weakening the selector or replaying it would manufacture risk rather
+    than recover work. Earlier named form-step failures are superseded by these current successful
+    receipts. No selector change is warranted by the recorded evidence.
 
 20. [x] `APPLY-CROWDWORKS-2` Account for every posting a wake looked at. Measured 2026-09-07:
     `{"inspected":63, ...}` against counters summing to 26, so 37 postings were dropped with
