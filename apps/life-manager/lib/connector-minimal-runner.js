@@ -508,9 +508,14 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           if (provider === "connpass" && operation && operation.status === "completed") {
             try {
               await action("navigate", "browser_rail", () => deps.browserRail.navigate(owned, selected.canonical_url));
-              const canonicalState = await action("readback", "provider_state", () => deps.readProviderState({
+              let canonicalState = await action("readback", "provider_state", () => deps.readProviderState({
                 provider, candidate: selected, page: owned.page, phase: "canonical_recovery",
               }));
+              if (!registered(canonicalState)) {
+                canonicalState = await action("readback", "provider_state", () => deps.readProviderState({
+                  provider, candidate: selected, page: owned.page, phase: "canonical_recovery_retry",
+                }));
+              }
               if (!registered(canonicalState)) throw new Error("Connpass canonical recovery unverified");
               providerState = canonicalState;
             } catch {
