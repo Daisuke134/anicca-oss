@@ -674,22 +674,6 @@
       "provider_route": "deterministic",
       "state_root": "~/.anicca"
     },
-    "citizens-diff-monitor": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "system",
-      "effect_class": "none",
-      "entrypoint": "skills/self/spawn/scripts/citizens-diff-monitor.sh",
-      "label": "ai.anicca.citizens-diff-monitor",
-      "log_root": "~/.local/state/life-manager/citizens-diff-monitor/logs",
-      "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/citizens-diff-monitor"
-    },
     "claude-projects-backup": {
       "cadence": {
         "start_interval_seconds": 86400
@@ -3276,6 +3260,7 @@
     "ai.anicca.autohedge",
     "ai.anicca.bounty-proactive",
     "ai.anicca.cfo-daily",
+    "ai.anicca.citizens-diff-monitor",
     "ai.anicca.dd-keepalive-healthcheck",
     "ai.anicca.hf-gig-release-watch",
     "ai.anicca.job-search-browser",

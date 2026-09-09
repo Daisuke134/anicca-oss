@@ -17,7 +17,7 @@ import { isSelfFunded, selfFundedReasons } from "../../../_shared/lib/is-self-fu
 import { resolveEvmPrivateKey } from "../../../earn/lib/resolve-identity.mjs";
 import { CITIZENS_REGISTRY_PATH } from "./registry-path.mjs";
 import { resolveStateDir } from "./state-path.js";
-import { readChildren, appendChild } from "./ledger.js";
+import { readChildren, appendCitizenLifecycleReceipt } from "./ledger.js";
 import { appendShelterCostEntry } from "./shelter-cost-ledger.js";
 import {
   readPendingRegistryAppends,
@@ -82,11 +82,11 @@ function errorMessage(e) {
 // and `lease_id` onto a failure row, when-and-only-when the caller actually attempted a reclaim for
 // THIS failure -- omitted entirely (never `undefined`-valued keys) when no reclaim ever applied.
 function appendMinimalFailure(ledgerFile, { childId, attemptedMs, error, extra = {} }) {
-  appendChild(ledgerFile, { child_id: childId, status: "failed", attempted_ms: attemptedMs, error: errorMessage(error), ...extra });
+  appendCitizenLifecycleReceipt(ledgerFile, { child_id: childId, status: "failed", attempted_ms: attemptedMs, error: errorMessage(error), ...extra });
 }
 
 function appendSpecFailure(ledgerFile, spec, { attemptedMs, error, extra = {} }) {
-  appendChild(ledgerFile, { ...spec, status: "failed", attempted_ms: attemptedMs, error: errorMessage(error), ...extra });
+  appendCitizenLifecycleReceipt(ledgerFile, { ...spec, status: "failed", attempted_ms: attemptedMs, error: errorMessage(error), ...extra });
 }
 
 // Every REQ-201/202/203/204/205/306/302/303 call site below shares the exact same shape: run a
@@ -671,7 +671,7 @@ export async function executeSpawnAttempt({ initialSkills = [], drivingCitizenWa
       // this is recorded via a buildChildSpec-shaped row even though buildChildSpec itself never
       // returned one. The gas seed already landed by this point -- FIND-001's reclaim-trigger case.
       const reclaim = await attemptSeedReclaim({ deps, childEvmWallet: evmWallet, parentWalletAddress: drivingCitizenWallet, amountUsdc: seedUsdc });
-      appendChild(ledgerFile, {
+      appendCitizenLifecycleReceipt(ledgerFile, {
         child_id: childId,
         wallet: evmWallet.address,
         parent_wallet: drivingCitizenWallet,
@@ -708,7 +708,7 @@ export async function executeSpawnAttempt({ initialSkills = [], drivingCitizenWa
     // Step 9 (REQ-305): ledger append (the "active" row) + citizen-registry append, gated on
     // isSelfFunded(). A failure here (e.g. the ledger file itself cannot be written) is allowed to
     // propagate -- there is no lower-tier ledger left to record it in.
-    appendChild(ledgerFile, { ...spec, status: "active", attempted_ms: nowMs, active_since: nowMs });
+    appendCitizenLifecycleReceipt(ledgerFile, { ...spec, status: "active", attempted_ms: nowMs, active_since: nowMs });
 
     const citizenRecord = {
       id: childId,

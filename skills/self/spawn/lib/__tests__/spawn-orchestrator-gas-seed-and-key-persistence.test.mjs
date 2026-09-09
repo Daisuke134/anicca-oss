@@ -218,7 +218,8 @@ test("defaultSeedChild: seed-child.py prints no tx hash at all -> ok:false, neve
 // ---------------------------------------------------------------------------
 // Integration: executeSpawnAttempt's real wiring of the two new steps (mirrors PROP-307c's own
 // step-failure-shape discipline -- both new steps run BEFORE REQ-204/step 6 completes the identity
-// anchor, so a failure in either must use the MINIMAL direct-append row, never buildChildSpec's).
+// anchor, so a failure in either must use the minimal business fields plus the lifecycle-receipt
+// envelope, never buildChildSpec's fields).
 // ---------------------------------------------------------------------------
 
 function assertMinimalFailedRow(row) {
@@ -227,7 +228,10 @@ function assertMinimalFailedRow(row) {
   assert.equal(typeof row.attempted_ms, "number");
   assert.equal(typeof row.error, "string");
   assert.ok(row.error.length > 0);
-  assert.deepEqual(Object.keys(row).sort(), ["attempted_ms", "child_id", "error", "status"]);
+  assert.deepEqual(Object.keys(row).sort(), [
+    "attempted_ms", "child_id", "citizen_id", "error", "event_type",
+    "lifecycle_status", "occurred_at_ms", "receipt_id", "schema", "status",
+  ]);
 }
 
 test("executeSpawnAttempt: persistChildWallet failure (PROP-201c/FIND-007b) -> minimal direct-append row, identity anchor never reached", async () => {
