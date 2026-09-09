@@ -29,6 +29,10 @@ class ReviewStatusTest(unittest.TestCase):
         self.assertTrue(review_status.dashboard_ready(url, "Application submitted: In review"))
         self.assertTrue(review_status.dashboard_ready("https://app.alpaca.markets/login", ""))
 
+    def test_account_switcher_expression_supports_current_visible_button(self):
+        self.assertIn('document.querySelectorAll("button")', review_status.ACCOUNT_SWITCHER)
+        self.assertIn("Paper|Live", review_status.ACCOUNT_SWITCHER)
+
     def test_due_uses_last_provider_observation(self):
         now = datetime(2026, 9, 5, 12, 0, tzinfo=timezone.utc)
         self.assertTrue(review_status.due({}, now=now))

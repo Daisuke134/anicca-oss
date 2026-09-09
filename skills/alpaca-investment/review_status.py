@@ -17,6 +17,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 BROWSER = REPO / "skills/browser"
 DASHBOARD = "https://app.alpaca.markets/dashboard/overview"
+ACCOUNT_SWITCHER = '''document.querySelector("nav > div.h-14 > button") ||
+    [...document.querySelectorAll("button")].find(x => x.offsetParent !== null &&
+      /(?:^|\\n)(?:Life Manager\\s*\\n)?(?:Paper|Live)\\s*-\\s*[a-z0-9]{6,}\\s*$/i.test(x.innerText.trim()))'''
 
 
 def classify_dashboard(text: str, selected_account: str = "") -> str | None:
@@ -106,7 +109,7 @@ def refresh(state: Path, *, force: bool = False) -> dict:
         cdp = [sys.executable, str(BROWSER / "scripts/cdp.py")]
         _command([*cdp, "nav", target, DASHBOARD], env=env)
         snapshot = None
-        expression = '''(()=>{const selected=document.querySelector("nav > div.h-14 > button");return {url:location.href,text:(document.body?.innerText||""),selected:(selected?.innerText||"")}})()'''
+        expression = f'''(()=>{{const selected={ACCOUNT_SWITCHER};return {{url:location.href,text:(document.body?.innerText||""),selected:(selected?.innerText||"")}}}})()'''
         for _ in range(20):
             snapshot = json.loads(_command([*cdp, "eval", target, "-"], stdin=expression, env=env))
             if dashboard_ready(snapshot.get("url", ""), snapshot.get("text", ""), snapshot.get("selected", "")):
@@ -118,8 +121,8 @@ def refresh(state: Path, *, force: bool = False) -> dict:
         selected = snapshot.get("selected", "")
         status = classify_dashboard(text, selected)
         if status is None and selected_account_kind(selected) == "paper":
-            _command([*cdp, "eval", target, "-"], stdin='document.querySelector("nav > div.h-14 > button")?.click(); true', env=env)
-            switched = json.loads(_command([*cdp, "eval", target, "-"], stdin='(()=>{const trigger=document.querySelector("nav > div.h-14 > button");const option=[...document.querySelectorAll("button")].find(x=>x!==trigger&&x.offsetParent!==null&&/(?:^|\\n)Live\\s*-/.test(x.innerText.trim()));option?.click();return Boolean(option)})()', env=env))
+            _command([*cdp, "eval", target, "-"], stdin=f'({ACCOUNT_SWITCHER})?.click(); true', env=env)
+            switched = json.loads(_command([*cdp, "eval", target, "-"], stdin=f'(()=>{{const trigger={ACCOUNT_SWITCHER};const option=[...document.querySelectorAll("button")].find(x=>x!==trigger&&x.offsetParent!==null&&/(?:^|\\n)Live\\s*-/.test(x.innerText.trim()));option?.click();return Boolean(option)}})()', env=env))
             if switched:
                 for _ in range(20):
                     time.sleep(0.5)
