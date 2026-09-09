@@ -44,7 +44,7 @@ function fixture(states) {
   };
 }
 
-function domFixture({ pathname, bodyText, controls = [] }) {
+function domFixture({ pathname, bodyText, controls = [], statusMessages = [] }) {
   return {
     async evaluate(callback) {
       const previousLocation = globalThis.location;
@@ -52,7 +52,9 @@ function domFixture({ pathname, bodyText, controls = [] }) {
       globalThis.location = { pathname };
       globalThis.document = {
         body: { innerText: bodyText },
-        querySelectorAll() { return controls; },
+        querySelectorAll(selector) {
+          return selector === ".status_message" ? statusMessages : controls;
+        },
       };
       try {
         return await callback();
@@ -90,6 +92,17 @@ test("exact Connpass join completion path is registered without relying on page 
 
 test("pending requires an exact visible line on the canonical event page", async () => {
   const page = domFixture({ pathname: "/event/400028/", bodyText: "参加状況\n補欠\n" });
+  assert.deepEqual(await readConnpassRegistrationStateOnPage(page), { state: "pending" });
+});
+
+test("current Connpass lottery controls identify an authenticated pending registration", async () => {
+  const control = (innerText) => ({ innerText, value: "", getAttribute() { return null; } });
+  const page = domFixture({
+    pathname: "/event/404826/",
+    bodyText: "募集内容\n参加は 2026/09/10 に確定されます\n申し込みキャンセル",
+    controls: [control("申し込みキャンセル")],
+    statusMessages: [control("参加は 2026/09/10 に確定されます")],
+  });
   assert.deepEqual(await readConnpassRegistrationStateOnPage(page), { state: "pending" });
 });
 
