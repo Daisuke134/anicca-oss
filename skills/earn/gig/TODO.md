@@ -1658,6 +1658,22 @@ does not start them and does not reorder anyone's cursor to fit them:
    refreshes what the lane actually restores from, which is why the first fix was only half of it.
    Release `20260907T010438-7f5efc15`; `session-vault` and `hf-gig-apply-direct` repointed.
    Still owed for PASS: a natural wake submits an application with an official readback.
+   A later current-state audit found a second independent local blocker before Coconala could even
+   return the account restriction: the gig context ledger held 16/16 entries as `parked=true`, with
+   the oldest idle for about 17 hours, so every new Apply parent failed at acquire with
+   `browser_context_limit`. Raising the cap or logging in again would only postpone the same leak.
+   PR `#4825` changes the shared context lease to reclaim exactly the oldest parked context only when
+   the configured cap is full. An owned context is never eligible; selection, disposal, ledger
+   removal and replacement remain under the global ledger lock, and an unverifiable disposal keeps
+   a `cleanup_pending` tombstone and fails closed. Browser-lease and Apply-heartbeat regressions pass
+   41/41 and fresh read-only review returned `ship`. Target-only apply receipt
+   `153743a577e7396a4b34628e` binds only `hf-gig-apply-direct` to main-derived immutable release
+   `e16384027e7877af12f550bb0e1c01e6b67c33a5`; no Mac, GUI session or browser restart occurred.
+   The next 30-minute natural wake must prove that the full parked ledger self-recovers past acquire,
+   then the unchanged atom still requires an official application readback. The official inquiry has
+   not been repeated: Gmail currently contains the one sent inquiry receipt `1a085f3134398e98` and
+   no Coconala answer beyond its address-verification message, so account restriction remains durable
+   external pending rather than a reason to stop other implementable work.
 
 10. [x] `APPLY-REPORT-10` Name the marketplace in the submitted-application report. `report_envelope.py`
    excluded `coconala` from the `[Platform][応募完了]` format, so Coconala fell through to a generic
