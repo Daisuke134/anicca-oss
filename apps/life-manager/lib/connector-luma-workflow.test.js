@@ -94,7 +94,7 @@ test("Luma default detail walk is bounded to six candidates while observed_count
   assert.equal(new Set(gotoCalls.slice(1)).size, 6);
 });
 
-test("Luma default detail walk advances by one full bounded slice every half hour", async () => {
+test("Luma default detail walk advances by one full bounded slice every minute", async () => {
   const slugs = Array.from({ length: 8 }, (_, index) => `rotated-${index + 1}`);
   const { page, gotoCalls } = defaultDiscoveryPage(slugs);
   let now = new Date(0);
@@ -103,7 +103,7 @@ test("Luma default detail walk advances by one full bounded slice every half hou
   await workflow.discoverCandidates({ page, calendar: [] });
   const first = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
   gotoCalls.length = 0;
-  now = new Date(1_800_000);
+  now = new Date(60_000);
   await workflow.discoverCandidates({ page, calendar: [] });
   const second = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
 
