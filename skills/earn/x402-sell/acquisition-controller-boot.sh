@@ -1,5 +1,5 @@
 #!/bin/bash
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
-mkdir -p "$HOME/.anicca/logs" "$HOME/.anicca/state"
+. "$DIR/runtime-env.sh"
 exec /usr/bin/env node "$DIR/acquisition-controller.mjs"

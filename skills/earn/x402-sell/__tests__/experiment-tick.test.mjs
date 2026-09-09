@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { runExperimentTick } from '../experiment-tick.mjs';
-
-const here = dirname(fileURLToPath(import.meta.url));
 
 test('independent tick activates only a newly applied experiment', async () => {
   const calls = [];
@@ -28,10 +24,12 @@ test('waiting tick is read-only and does not restart the seller', async () => {
   assert.equal(result.experiment.action, 'waiting');
 });
 
-test('franklin1 launchd runs the controller independently every five minutes', () => {
-  const plist = readFileSync(join(here, '..', 'launchd', 'ai.anicca.x402-experiment-franklin1.plist'), 'utf8');
-  assert.match(plist, /<key>StartInterval<\/key>\s*<integer>300<\/integer>/);
-  assert.match(plist, /<key>RunAtLoad<\/key>\s*<true\/>/);
-  assert.match(plist, /<string>\/Users\/anicca\/anicca\/skills\/earn\/x402-sell\/experiment-tick\.mjs<\/string>/);
-  assert.match(plist, /<key>ANICCA_HOME<\/key>\s*<string>\/Users\/anicca\/\.blockrun<\/string>/);
+test('registry runs the franklin1 controller independently every five minutes', () => {
+  const registry = JSON.parse(readFileSync(new URL('../../../../config/loop-registry.json', import.meta.url), 'utf8'));
+  const job = registry.loops['x402-experiment-franklin1'];
+
+  assert.equal(job.label, 'ai.anicca.x402-experiment-franklin1');
+  assert.equal(job.entrypoint, 'skills/earn/x402-sell/experiment-tick.mjs');
+  assert.deepEqual(job.cadence, { start_interval_seconds: 300 });
+  assert.equal(job.provider_route, 'deterministic');
 });

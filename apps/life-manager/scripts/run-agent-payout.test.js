@@ -13,12 +13,18 @@ const test = require("node:test");
 
 const {
   DEFAULT_AGENT_WALLET,
+  DEFAULT_FACILITATOR_START,
   ensureMainnetFacilitator,
   main,
   parseArgs,
   readProtectedWallet,
   readUsdcBalance,
 } = require("./run-agent-payout.js");
+
+test("the default facilitator source is owned by this repository", () => {
+  assert.match(DEFAULT_FACILITATOR_START, /\/services\/facilitator\/start\.sh$/);
+  assert.doesNotMatch(DEFAULT_FACILITATOR_START, /anicca-oss/);
+});
 
 const PRIVATE_KEY = `${"0".repeat(63)}1`;
 const WALLET = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";

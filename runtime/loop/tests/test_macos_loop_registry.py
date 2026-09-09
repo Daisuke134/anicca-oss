@@ -76,6 +76,19 @@ class MacosLoopRegistryTest(unittest.TestCase):
                 self.assertTrue(row["log_root"].startswith("~/.local/state/life-manager/"))
                 self.assertNotIn("openclaw", row["state_root"] + row["log_root"])
 
+    def test_all_x402_skill_jobs_share_the_canonical_runtime_state(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        state_root = "~/.local/state/life-manager/x402-sell"
+        matched = 0
+        for loop_id, row in registry["loops"].items():
+            if not row["entrypoint"].startswith("skills/earn/x402-sell/"):
+                continue
+            matched += 1
+            with self.subTest(loop_id=loop_id):
+                self.assertEqual(row["state_root"], state_root)
+                self.assertEqual(row["log_root"], f"{state_root}/logs")
+        self.assertGreater(matched, 10)
+
     def test_life_manager_video_and_dev_jobs_share_the_receipt_backed_exec_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         for loop_id in {

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { inferCategory } from './scout-market.mjs';
+import { resolveX402StateDir } from './state-paths.mjs';
 
 export const CORE_PATHS = ['/web-search', '/funding-rates', '/funding-rate-arb', '/research', '/llm', '/image'];
 const EXCLUDED_CATEGORIES = new Set(['other', 'calc']);
@@ -61,7 +62,7 @@ export function computeGaps(scout, ourCategories, now, opts = {}) {
 }
 
 async function main() {
-  const stateDir = join(dirname(fileURLToPath(import.meta.url)), 'state');
+  const stateDir = resolveX402StateDir();
   let scout;
   try {
     scout = JSON.parse(await readFile(join(stateDir, 'market-scout.json'), 'utf8'));

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -11,6 +10,7 @@ import {
   collectVerifiedSaleCandidates,
   walletLedgerPath,
 } from './lib/external-inflow-recorder.mjs';
+import { resolveX402StateDir } from './state-paths.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OWN_PAY_TOS = [
@@ -42,7 +42,7 @@ async function rpcCall(method, params) {
 export async function recordSaleCandidates({
   candidates,
   rpc = rpcCall,
-  stateDir = join(HERE, 'state'),
+  stateDir = resolveX402StateDir(),
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     return { chain_id: null, finalized_block: null, candidates_seen: 0, verified: 0, recorded: 0, duplicates: 0 };
@@ -73,8 +73,9 @@ export async function recordSaleCandidates({
 }
 
 async function main() {
-  const candidatePath = join(homedir(), '.anicca', 'state', 'x402-sale-candidates.jsonl');
-  const result = await recordSaleCandidates({ candidates: readCandidates(candidatePath) });
+  const stateDir = resolveX402StateDir();
+  const candidatePath = join(stateDir, 'x402-sale-candidates.jsonl');
+  const result = await recordSaleCandidates({ candidates: readCandidates(candidatePath), stateDir });
   const isRevenue = result.recorded > 0;
   process.stdout.write(`${JSON.stringify({
     observed_at: new Date().toISOString(),

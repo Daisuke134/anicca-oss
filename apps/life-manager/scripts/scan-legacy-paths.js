@@ -46,6 +46,7 @@ const SCAN_ROOTS = [
   "skills/tools/telegram-user",
   "skills/life-manager",
   "skills/earn/marketing-engine",
+  "skills/earn/x402-sell",
   "runtime",
 ];
 
@@ -97,45 +98,6 @@ const PATTERNS = [
 // tracked pre-migration holes so a moved or edited line is no longer allowed.
 // order (optional): the Order that owns eliminating the tracked hole.
 const ALLOWLIST = [
-  // ---- EXPLICITLY TRACKED pre-Order-12 holes (visible, not silent passes) --
-  // The x402-sell / taskmarket / payout earn loops are NOT yet migrated; their
-  // boot defaults still point at the legacy anicca code roots. Order 12
-  // (resume of loop migration per spec section 12.1) owns removing these.
-  {
-    file: "apps/life-manager/scripts/x402-sale-ledger-boot.sh",
-    line: 11,
-    lineIncludes: "X402_SELL_STATE_DIR=",
-    reason: "x402-sell loop still reads its state from the legacy anicca checkout",
-    order: "Order 12",
-  },
-  {
-    file: "apps/life-manager/scripts/x402-sale-ledger-boot.sh",
-    line: 12,
-    lineIncludes: "X402_SELF_WALLETS_MODULE=",
-    reason: "x402-sell loop still loads self-wallets from the legacy anicca checkout",
-    order: "Order 12",
-  },
-  {
-    file: "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh",
-    line: 12,
-    lineIncludes: "TASKMARKET_SELF_WALLETS_MODULE=",
-    reason: "taskmarket loop still loads self-wallets from the legacy anicca checkout",
-    order: "Order 12",
-  },
-  {
-    file: "apps/life-manager/scripts/payout-boot.sh",
-    line: 15,
-    lineIncludes: "LM_PAYOUT_FACILITATOR_START=",
-    reason: "payout loop still starts the facilitator from the legacy oss checkout",
-    order: "Order 12",
-  },
-  {
-    file: "apps/life-manager/scripts/run-agent-payout.js",
-    line: 25,
-    lineIncludes: '"services", "facilitator", "start.sh"',
-    reason: "payout runner default facilitator path lives in the legacy oss checkout",
-    order: "Order 12",
-  },
   // ---- denial/boundary logic and copy-only migration tooling ----
   {
     file: "apps/life-manager/lib/runtime-paths.js",
@@ -337,8 +299,7 @@ function main() {
   if (result.violations.length === 0 && staleEntries.length === 0) {
     process.stdout.write(
       `legacy-path scan: PASS (${result.scannedFiles} files scanned, 0 violations, `
-      + `${tracked.length} tracked pre-migration holes: `
-      + `${[...new Set(tracked.map((entry) => entry.order))].join(", ")})\n`,
+      + `${tracked.length} tracked pre-migration holes)\n`,
     );
     process.exitCode = 0;
     return;

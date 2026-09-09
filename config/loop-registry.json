@@ -1083,9 +1083,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/image-claude-p-boot.sh",
       "label": "ai.anicca.image-claude-p",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "image-franklin1": {
       "cadence": {
@@ -1099,9 +1099,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/image-franklin1-boot.sh",
       "label": "ai.anicca.image-franklin1",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "image-franklin2": {
       "cadence": {
@@ -1115,9 +1115,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/image-franklin2-boot.sh",
       "label": "ai.anicca.image-franklin2",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "job-search-daily": {
       "cadence": {
@@ -1997,9 +1997,9 @@
       "effect_class": "money",
       "entrypoint": "apps/life-manager/scripts/payout-boot.sh",
       "label": "ai.anicca.life-manager-payout",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/life-manager-payout/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/life-manager-payout"
     },
     "life-manager-release-reconciler": {
       "cadence": {
@@ -2102,9 +2102,9 @@
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/x402-sale-ledger-boot.sh",
       "label": "ai.anicca.life-manager-x402-ledger",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "lm-recording-store": {
       "adapter": "exec",
@@ -2337,9 +2337,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/mcp-claude-p-boot.sh",
       "label": "ai.anicca.mcp-claude-p",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "mcp-franklin1": {
       "cadence": {
@@ -2353,9 +2353,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/mcp-franklin1-boot.sh",
       "label": "ai.anicca.mcp-franklin1",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "mcp-franklin2": {
       "cadence": {
@@ -2369,9 +2369,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/mcp-franklin2-boot.sh",
       "label": "ai.anicca.mcp-franklin2",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "phone-conversation": {
       "cadence": {
@@ -2615,9 +2615,9 @@
       "effect_class": "money",
       "entrypoint": "skills/earn/x402-sell/the402-boot.sh",
       "label": "ai.anicca.the402-provider",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "the402-worker": {
       "cadence": {
@@ -2631,9 +2631,9 @@
       "effect_class": "money",
       "entrypoint": "skills/earn/x402-sell/the402-worker-boot.sh",
       "label": "ai.anicca.the402-worker",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "tier2-agent-diagnose": {
       "cadence": {
@@ -2992,9 +2992,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/acquisition-controller-boot.sh",
       "label": "ai.anicca.x402-acquisition-controller",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-claude-p": {
       "cadence": {
@@ -3008,9 +3008,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/serve-claude-p-boot.sh",
       "label": "ai.anicca.x402-claude-p",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-experiment-franklin1": {
       "cadence": {
@@ -3024,9 +3024,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/experiment-tick.mjs",
       "label": "ai.anicca.x402-experiment-franklin1",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-franklin1": {
       "cadence": {
@@ -3040,9 +3040,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/serve-franklin1-boot.sh",
       "label": "ai.anicca.x402-franklin1",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-franklin2": {
       "cadence": {
@@ -3056,9 +3056,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/serve-franklin2-boot.sh",
       "label": "ai.anicca.x402-franklin2",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-inflow-watch": {
       "cadence": {
@@ -3079,9 +3079,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/watch-inflow.sh",
       "label": "ai.anicca.x402-inflow-watch",
-      "log_root": "~/.local/state/life-manager/x402-inflow-watch/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/x402-inflow-watch"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-inflow-watch-claude-p": {
       "cadence": {
@@ -3102,9 +3102,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/watch-inflow.sh",
       "label": "ai.anicca.x402-inflow-watch-claude-p",
-      "log_root": "~/.local/state/life-manager/x402-inflow-watch-claude-p/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/x402-inflow-watch-claude-p"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-inflow-watch-franklin1": {
       "cadence": {
@@ -3125,9 +3125,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/watch-inflow.sh",
       "label": "ai.anicca.x402-inflow-watch-franklin1",
-      "log_root": "~/.local/state/life-manager/x402-inflow-watch-franklin1/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/x402-inflow-watch-franklin1"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-inflow-watch-franklin2": {
       "cadence": {
@@ -3148,9 +3148,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/watch-inflow.sh",
       "label": "ai.anicca.x402-inflow-watch-franklin2",
-      "log_root": "~/.local/state/life-manager/x402-inflow-watch-franklin2/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/x402-inflow-watch-franklin2"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-monitor": {
       "cadence": {
@@ -3180,9 +3180,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/serve-mainnet-boot.sh",
       "label": "ai.anicca.x402-research-serve",
-      "log_root": "~/anicca/skills/earn/x402-sell/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/anicca/skills/earn/x402-sell"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-sale-observer": {
       "cadence": {
@@ -3196,9 +3196,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/x402-sell/sale-observer-boot.sh",
       "label": "ai.anicca.x402-sale-observer",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-seller-8404": {
       "cadence": {
@@ -3212,9 +3212,9 @@
       "effect_class": "money",
       "entrypoint": "skills/earn/x402-sell/seller-boot-v2.sh",
       "label": "ai.anicca.x402-seller-8404",
-      "log_root": "~/.local/state/life-manager/x402-seller-8404/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/x402-seller-8404"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-settlement-recorder": {
       "cadence": {
@@ -3228,9 +3228,9 @@
       "effect_class": "money",
       "entrypoint": "skills/earn/x402-sell/settlement-recorder-boot.sh",
       "label": "ai.anicca.x402-settlement-recorder",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/x402-sell"
     },
     "x402-tunnel": {
       "cadence": {

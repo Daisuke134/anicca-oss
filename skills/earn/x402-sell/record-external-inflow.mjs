@@ -9,12 +9,13 @@ import {
   collectVerifiedExternalInflows,
   walletLedgerPath,
 } from './lib/external-inflow-recorder.mjs';
+import { resolveX402StateDir } from './state-paths.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // Match verify-inflow.mjs: the untagged legacy watcher is the pinned founder wallet.
 const payTo = String(process.env.X402_PAYTO || '0x810f6d61f7606deee2657d3083e150a222bc29c5').toLowerCase();
 const hoursBack = Number(process.argv[2] || 2);
-const stateDir = process.env.X402_STATE_DIR || join(HERE, 'state');
+const stateDir = resolveX402StateDir();
 const rpcUrl = process.env.X402_RPC_URL || 'https://mainnet.base.org';
 
 if (!/^0x[0-9a-f]{40}$/.test(payTo)) throw new Error('set X402_PAYTO to the seller wallet');

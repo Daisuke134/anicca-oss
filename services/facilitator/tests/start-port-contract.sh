@@ -36,6 +36,7 @@ BEFORE_HASH="$(shasum -a 256 "$SANDBOX/config.mainnet.json" | awk '{print $1}')"
 
 FAKE_FACILITATOR_PID_FILE="$PID_FILE" \
   HOME="$TEST_ROOT/home" \
+  FACILITATOR_STATE_DIR="$TEST_ROOT/runtime-state" \
   X402_RS_ROOT="$SANDBOX/x402-rs" \
   GIG_CHAIN=base \
   PORT="$REQUESTED_PORT" \
@@ -45,5 +46,9 @@ curl -fsS "http://127.0.0.1:$REQUESTED_PORT/health" \
   | jq -e '.ok == true' >/dev/null
 AFTER_HASH="$(shasum -a 256 "$SANDBOX/config.mainnet.json" | awk '{print $1}')"
 [ "$BEFORE_HASH" = "$AFTER_HASH" ]
+[ -f "$TEST_ROOT/runtime-state/config.base.${REQUESTED_PORT}.json" ]
+[ ! -e "$SANDBOX/state" ]
+STATE_MODE="$(stat -c '%a' "$TEST_ROOT/runtime-state" 2>/dev/null || stat -f '%Lp' "$TEST_ROOT/runtime-state")"
+[ "$STATE_MODE" = "700" ]
 
-printf 'PASS start.sh binds the requested port without mutating canonical config\n'
+printf 'PASS start.sh binds the requested port with external runtime state and without mutating canonical config\n'

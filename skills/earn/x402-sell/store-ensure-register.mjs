@@ -18,9 +18,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadEvmKey } from "../lib/resolve-identity.mjs";
+import { X402_STATE_DIR } from "./state-paths.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const STATE_DIR = join(HERE, "state");
+export const STATE_DIR = X402_STATE_DIR;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Mirrors serve-v2.mjs's payTo() (#28: this instance's OWN gated key, never a borrowed one).

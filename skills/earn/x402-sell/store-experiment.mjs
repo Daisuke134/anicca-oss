@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { X402_STATE_DIR } from './state-paths.mjs';
 
 export const EXPERIMENT_INTERVAL_MS = 5 * 60 * 1000;
-export const STATE_DIR = join(dirname(fileURLToPath(import.meta.url)), 'state');
+export const STATE_DIR = X402_STATE_DIR;
 
 function validVariantIndex(state, variants) {
   const index = Number(state?.variantIndex);

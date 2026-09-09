@@ -1,18 +1,22 @@
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 
 import { openThe402Inbox } from './lib/the402-inbox.mjs';
 import { handleThe402WebhookRequest } from './lib/the402-webhook-handler.mjs';
+import { resolveThe402ConfigRoot, resolveThe402PublicOrigin, resolveX402StateDir } from './state-paths.mjs';
 
 const HOST = '127.0.0.1';
 const PORT = 8096;
 const ROUTE = '/webhooks/the402';
-const PUBLIC_URL = `https://aniccanomac-mini-1.tail7a0ba4.ts.net${ROUTE}`;
-const CREDENTIALS_PATH = '/Users/anicca/.anicca/the402-credentials.json';
-const SERVICE_PATH = '/Users/anicca/.anicca/the402-service.json';
-const EXPLAINER_SERVICE_PATH = '/Users/anicca/.anicca/the402-service-http402.json';
-const INBOX_PATH = '/Users/anicca/.anicca/the402-inbox.sqlite';
+const PUBLIC_ORIGIN = resolveThe402PublicOrigin();
+const PUBLIC_URL = `${PUBLIC_ORIGIN}${ROUTE}`;
+const CONFIG_ROOT = resolveThe402ConfigRoot();
+const CREDENTIALS_PATH = join(CONFIG_ROOT, 'the402-credentials.json');
+const SERVICE_PATH = join(CONFIG_ROOT, 'the402-service.json');
+const EXPLAINER_SERVICE_PATH = join(CONFIG_ROOT, 'the402-service-http402.json');
+const INBOX_PATH = join(resolveX402StateDir(), 'the402-inbox.sqlite');
 
 const credentials = JSON.parse(readFileSync(CREDENTIALS_PATH, 'utf8'));
 const service = JSON.parse(readFileSync(SERVICE_PATH, 'utf8'));

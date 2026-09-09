@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { openThe402Inbox } from './lib/the402-inbox.mjs';
 import { runThe402BidderOnce } from './lib/the402-bidder.mjs';
 import { runThe402WorkerOnce } from './lib/the402-worker.mjs';
 import { the402ServiceProfile } from './lib/the402-service-profiles.mjs';
+import { resolveThe402ConfigRoot, resolveX402StateDir } from './state-paths.mjs';
 
-const ANICCA_HOME = process.env.ANICCA_HOME || join(homedir(), '.anicca');
-const CREDENTIALS_PATH = join(ANICCA_HOME, 'the402-credentials.json');
-const SERVICE_PATH = join(ANICCA_HOME, 'the402-service.json');
-const EXPLAINER_SERVICE_PATH = join(ANICCA_HOME, 'the402-service-http402.json');
-const INBOX_PATH = join(ANICCA_HOME, 'the402-inbox.sqlite');
+const CONFIG_ROOT = resolveThe402ConfigRoot();
+const CREDENTIALS_PATH = join(CONFIG_ROOT, 'the402-credentials.json');
+const SERVICE_PATH = join(CONFIG_ROOT, 'the402-service.json');
+const EXPLAINER_SERVICE_PATH = join(CONFIG_ROOT, 'the402-service-http402.json');
+const INBOX_PATH = join(resolveX402StateDir(), 'the402-inbox.sqlite');
 const LOCAL_LLM_URL = `${(process.env.OPENAI_BASE_URL || 'http://127.0.0.1:18402/v1').replace(/\/+$/, '')}/chat/completions`;
 const LOCAL_MODELS = ['free/mistral-large-3-675b', 'free/qwen3-next-80b-a3b-instruct'];
 const POLL_MS = 5_000;

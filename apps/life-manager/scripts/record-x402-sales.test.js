@@ -332,6 +332,9 @@ test("launchd wiring uses absolute executables, a bounded timeout, and five-minu
   assert.doesNotMatch(boot, /(?:^|[;&|]\s*)timeout\s/);
   assert.match(boot, /LIFE_MANAGER_ENV_FILE:-\$\{HOME\}\/\.local\/state\/life-manager\/\.env/);
   assert.doesNotMatch(boot, /\.openclaw/);
+  assert.match(boot, /X402_STATE_DIR.*\.local\/state\/life-manager\/x402-sell/);
+  assert.match(boot, /REPO_ROOT.*skills\/earn\/x402-sell\/lib\/self-wallets\.mjs/);
+  assert.doesNotMatch(boot, /\$\{HOME\}\/anicca/);
   assert.match(plist, /<string>\/bin\/bash<\/string>/);
   assert.match(plist, /<key>StartInterval<\/key>\s*<integer>300<\/integer>/);
   assert.match(plist, /life-manager-x402-ledger\.out\.log/);
@@ -340,4 +343,22 @@ test("launchd wiring uses absolute executables, a bounded timeout, and five-minu
   assert.match(installer, /launchctl enable/);
   assert.match(installer, /launchctl print[^|]+\|\s*\/usr\/bin\/grep/);
   assert.doesNotMatch(installer, /launchctl print "\$DOMAIN\/\$LABEL"\s*$/m);
+});
+
+test("x402 producers and observers share external Life Manager state", () => {
+  const skill = join(__dirname, "..", "..", "..", "skills", "earn", "x402-sell");
+  const runtimeEnv = readFileSync(join(skill, "runtime-env.sh"), "utf8");
+  const watcher = readFileSync(join(skill, "watch-inflow.sh"), "utf8");
+  const serve = readFileSync(join(skill, "serve.mjs"), "utf8");
+  const serveV2 = readFileSync(join(skill, "serve-v2.mjs"), "utf8");
+  const statePaths = readFileSync(join(skill, "state-paths.mjs"), "utf8");
+  assert.match(runtimeEnv, /X402_STATE_DIR.*\.local\/state\/life-manager\/x402-sell/);
+  assert.match(watcher, /source "\$DIR\/runtime-env\.sh"/);
+  assert.match(watcher, /\$X402_STATE_DIR\/logs/);
+  assert.doesNotMatch(watcher, /\.openclaw/);
+  assert.match(serve, /resolveX402StateDir/);
+  assert.match(serveV2, /resolveX402StateDir/);
+  assert.match(statePaths, /env\.X402_STATE_DIR/);
+  assert.match(statePaths, /env\.LIFE_MANAGER_STATE_ROOT/);
+  assert.match(statePaths, /\.local.*state.*life-manager.*x402-sell/s);
 });

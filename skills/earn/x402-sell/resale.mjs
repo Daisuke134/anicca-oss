@@ -39,9 +39,10 @@ import {
   floatGuardTripped, rolloverSpendState, dailyCapTripped, recordSpend,
   decodeChallengeHeader, extractChallengeMaxUsd, challengeGuardTripped,
 } from "./lib/resale-guards.mjs";
+import { X402_STATE_DIR } from "./state-paths.mjs";
 
 const UPSTREAM_URL = "https://api.exa.ai/search";
-const STATE_DIR = join(pdirname(fileURLToPath(import.meta.url)), "state");
+const STATE_DIR = X402_STATE_DIR;
 const DEFAULT_STATE_PATH = join(STATE_DIR, "resale-spend.json");
 const NETWORK = process.env.BUY_NETWORK || "eip155:8453"; // Base mainnet CAIP-2
 
