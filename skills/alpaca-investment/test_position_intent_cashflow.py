@@ -117,11 +117,11 @@ class CashFlowAdjustedPnlTest(unittest.TestCase):
         complete = [{"id": "funding", "asset": "USDC", "usd_value": "9.99707",
                      "direction": "INCOMING", "status": "COMPLETE"}]
         responses = ([{"cash": "100000", "equity": "100000", "last_equity": "99900"}]
-                     + common[:2] + [baseline] + common[2:]
+                     + common[:2] + [baseline, []] + common[2:]
                      + [{"cash": "100009.99707", "equity": "100009.99707", "last_equity": "99900"}]
-                     + common[:2] + [complete] + common[2:] * 1
+                     + common[:2] + [complete, []] + common[2:] * 1
                      + [{"cash": "100009.99707", "equity": "100009.99707", "last_equity": "99900"}]
-                     + common[:2] + [complete] + common[2:] * 1)
+                     + common[:2] + [complete, []] + common[2:] * 1)
         with tempfile.TemporaryDirectory() as directory, patch.object(
             alpaca_cli, "_context", return_value={}), patch.object(
                 alpaca_cli, "_run", side_effect=responses) as read:
@@ -144,6 +144,7 @@ class CashFlowAdjustedPnlTest(unittest.TestCase):
             "api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
             "[.[]|{id,asset,usd_value,direction,status}]",
         ])
+        self.assertIn("FILL", read.call_args_list[4].args[1])
 
 
 if __name__ == "__main__":

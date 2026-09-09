@@ -74,7 +74,7 @@ def _transfers(rows: Any) -> dict[str, dict[str, Any]]:
 
 
 def reconcile(path: Path, *, observed_at: datetime, equity: Any, bank_cash_flow: Any,
-              transfers: Any, official_pnl: Any = None) -> dict[str, Any]:
+              transfers: Any, trade_activity_ids: Any, official_unrealized: Any) -> dict[str, Any]:
     """Persist a daily baseline and return conservative loss inputs.
 
     A first observation establishes the baseline and is deliberately not entry-ready.
@@ -85,6 +85,12 @@ def reconcile(path: Path, *, observed_at: datetime, equity: Any, bank_cash_flow:
     ny_day = observed_at.astimezone(ZoneInfo("America/New_York")).date().isoformat()
     current_equity = _decimal(equity)
     bank_flow = _decimal(bank_cash_flow)
+    unrealized = _decimal(official_unrealized)
+    if (not isinstance(trade_activity_ids, list)
+            or any(not isinstance(value, str) or not value for value in trade_activity_ids)
+            or len(set(trade_activity_ids)) != len(trade_activity_ids)):
+        raise ValueError("risk_day_invalid")
+    current_trade_ids = sorted(trade_activity_ids)
     current = _transfers(transfers)
     state = None
     if path.is_file():
@@ -96,6 +102,8 @@ def reconcile(path: Path, *, observed_at: datetime, equity: Any, bank_cash_flow:
         state = {"ny_day": ny_day, "baseline_equity": str(current_equity),
                  "baseline_observed_at": observed_at.isoformat(), "crypto_cash_flow": "0",
                  "baseline_bank_cash_flow": str(bank_flow),
+                 "baseline_trade_activity_ids": current_trade_ids,
+                 "baseline_trades_clean": not current_trade_ids,
                  "transfers": current}
         _atomic(path, state)
         return {"cash_flow_ny_day_usd": "0",
@@ -121,7 +129,13 @@ def reconcile(path: Path, *, observed_at: datetime, equity: Any, bank_cash_flow:
                 value = _decimal(now["usd_value"])
                 crypto_flow += value if now["direction"] == "INCOMING" else -value
             now["accounted"] = already or now["status"] == "COMPLETE"
-        official = None if official_pnl is None else _decimal(official_pnl)
+        baseline_trade_ids = state["baseline_trade_activity_ids"]
+        if (not isinstance(baseline_trade_ids, list)
+                or any(not isinstance(value, str) for value in baseline_trade_ids)):
+            raise ValueError
+        no_new_trades = (state.get("baseline_trades_clean") is True
+                         and current_trade_ids == sorted(baseline_trade_ids))
+        official = unrealized if no_new_trades else None
         total_flow = bank_flow - baseline_bank_flow + crypto_flow
         equity_pnl = current_equity - baseline - total_flow
         state.update({"crypto_cash_flow": str(crypto_flow), "transfers": current})

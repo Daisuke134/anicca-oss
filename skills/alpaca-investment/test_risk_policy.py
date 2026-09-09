@@ -34,7 +34,7 @@ class FixedRiskPolicyTest(unittest.TestCase):
         with patch.object(alpaca_cli, "_context", return_value={}), patch.object(
             alpaca_cli, "_run", side_effect=[
                 {"cash": "99980.01", "equity": "99980.01", "last_equity": "100000.00"},
-                clock, [], [], [{"symbol": "SPY", "market_value": "89.99", "unrealized_pl": "-10.99"}],
+                clock, [], [], [], [{"symbol": "SPY", "market_value": "89.99", "unrealized_pl": "-10.99"}],
                 open_orders, {"price": "500", "timestamp": clock["timestamp"]},
                 [{"symbol": "BTC/USD", "bid": "49999", "ask": "50000", "quote_at": clock["timestamp"]}],
                 {"tradable": True, "status": "active", "overnight_tradable": True,

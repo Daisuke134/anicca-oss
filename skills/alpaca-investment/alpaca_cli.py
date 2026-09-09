@@ -272,6 +272,12 @@ def read_allocator_snapshot(
         "api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
         "[.[]|{id,asset,usd_value,direction,status}]",
     ], env)
+    trade_activities = _run(cli_path, [
+        "account", "activity", "list", "--activity-types", "FILL",
+        "--after", day_start.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "--until", day_end.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "--direction", "asc", "--quiet", "--jq", "[.[]|.id]",
+    ], env)
     positions = _run(cli_path, ["position", "list", "--quiet", "--jq",
         "[.[]|{symbol,market_value,unrealized_pl}]"], env)
     orders = _run(cli_path, [
@@ -310,6 +316,7 @@ def read_allocator_snapshot(
             or not isinstance(orders, int) or orders < 0):
         raise ValueError("alpaca_allocator_shape_invalid")
     if (not isinstance(cash_activities, list) or not isinstance(crypto_transfers, list)
+            or not isinstance(trade_activities, list)
             or not isinstance(crypto, list) or not isinstance(options, list)):
         raise ValueError("alpaca_allocator_shape_invalid")
     try:
@@ -324,7 +331,9 @@ def read_allocator_snapshot(
         if any(not value.is_finite() for value in values):
             raise ValueError
         daily = reconcile_risk_day(risk_day_path, observed_at=observed, equity=equity,
-                                   bank_cash_flow=cash_flow, transfers=crypto_transfers)
+                                   bank_cash_flow=cash_flow, transfers=crypto_transfers,
+                                   trade_activity_ids=trade_activities,
+                                   official_unrealized=unrealized)
         risk = {"allocated_capital_usd": str(allocated), **daily,
                 "unrealized_pnl_usd": str(unrealized),
                 "observed_at": clock["timestamp"],
