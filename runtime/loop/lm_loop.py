@@ -431,6 +431,7 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 )
                 retired_environment_keys = {
                     "life-manager-cfo-hourly": ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR"),
+                    "life-manager-selfbuild": ("LM_SELFBUILD_REPO",),
                     "agentmail-webhook": (
                         "AGENTMAIL_QUEUE_PATH", "AGENTMAIL_DB_PATH",
                         "AGENTMAIL_ADAPTER_STATE_DIR", "AGENTMAIL_SEMANTIC_STATE_DIR",
