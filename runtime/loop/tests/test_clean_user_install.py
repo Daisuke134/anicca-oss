@@ -20,6 +20,11 @@ class CleanUserInstallTest(unittest.TestCase):
         self.assertIn(dependency, source)
         self.assertLess(source.index(dependency), source.index("[5/6] daemon registration"))
         self.assertNotIn('runtime/compute-proxy" && npm install', source)
+        self.assertIn('"$REPO_ROOT/bin/cut-loop-release.sh" HEAD', source)
+        self.assertIn('reconcile deterministic --loop-id compute-proxy --include-running', source)
+        self.assertNotIn("com.anicca.daemon.plist", source)
+        self.assertNotIn("launchctl load", source)
+        self.assertFalse((ROOT / "runtime/com.anicca.daemon.plist.template").exists())
 
     def test_agent_economy_accepts_the_common_immutable_release_contract(self):
         with tempfile.TemporaryDirectory() as directory:

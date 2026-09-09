@@ -215,6 +215,22 @@ class LmLoopApplyTest(unittest.TestCase):
                 self.assertEqual(environment["ANICCA_INSTANCE"], instance)
                 self.assertEqual(environment["ANICCA_HOME"], os.path.expanduser(state_root))
 
+    def test_compute_proxy_plist_pins_the_managed_node_executable(self):
+        entrypoint = self.root / "runtime/compute-proxy/start-local.sh"
+        entrypoint.parent.mkdir(parents=True, exist_ok=True)
+        entrypoint.write_text("#!/bin/sh\nexit 0\n")
+        entrypoint.chmod(0o755)
+        value = registry("runtime/compute-proxy/start-local.sh")
+        entry = value["loops"].pop("example")
+        entry.update({
+            "adapter": "exec", "command": ["--proxy-only"],
+            "label": "ai.anicca.compute-proxy", "state_root": "~/.anicca",
+        })
+        value["loops"]["compute-proxy"] = entry
+        with patch("runtime.loop.lm_loop_apply.shutil.which", return_value="/managed/bin/node"):
+            rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
+        self.assertEqual(rendered["EnvironmentVariables"]["LIFE_MANAGER_NODE"], "/managed/bin/node")
+
     def test_writer_plist_projects_one_state_log_and_env_contract(self):
         writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
         writer_entrypoint.parent.mkdir(parents=True)

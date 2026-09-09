@@ -14,7 +14,7 @@ checkpoint_interval: 10  # top-level Config field (NOT database.checkpoint_inter
                          # execution-notes-self-improve.md's close-loop-2 section).
 
 llm:
-  # Endpoint = the colony's own local ClawRouter proxy (127.0.0.1:8402), backed by the
+  # Endpoint = the repository-owned local compute proxy (127.0.0.1:18402), backed by the
   # SELF-FUNDED anicca-a3cdd4 automaton's own wallet (0xa3CDd4Ec... on Base) — NOT a human's
   # personal API key/subscription (REQ-OE4 / no-human-loop invariant). Wallet balance is $0.00
   # (verified via `clawrouter wallet` 2026-07-08 again), so only a FREE-tier model can be used —
@@ -40,7 +40,7 @@ llm:
   # system_message steers toward), not a stake-multiplier-only change. Two ensemble entries at
   # different temperatures for the same request-diversity/cache-defeat reason documented in this
   # file's prior revisions (see execution-notes-self-improve.md for the caching-trap background).
-  api_base: "http://127.0.0.1:8402/v1"
+  api_base: "http://127.0.0.1:18402/v1"
   api_key: "unused-local-proxy-no-auth"  # the local ClawRouter proxy does not check this value
   # openevolve's OpenAI client ALWAYS includes `top_p` in the request body (even when None), and
   # the local ClawRouter proxy's schema validator 400s on `"top_p": null` ("expected number,

@@ -572,6 +572,34 @@ class MacosLoopRegistryTest(unittest.TestCase):
         self.assertEqual(registry["loops"]["x-tweeter"]["cadence"],
                          {"calendar_interval": {"Minute": 15}})
 
+    def test_shared_compute_proxy_owns_legacy_clawrouter_callers(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        self.assertEqual(registry["loops"]["compute-proxy"], {
+            "adapter": "exec",
+            "cadence": {"keep_alive": True},
+            "cleanup": {"max_age_days": 14, "max_runs": 100},
+            "command": ["--proxy-only"],
+            "domain": "system",
+            "effect_class": "none",
+            "entrypoint": "runtime/compute-proxy/start-local.sh",
+            "label": "ai.anicca.compute-proxy",
+            "log_root": "~/.anicca/logs",
+            "provider_route": "deterministic",
+            "state_root": "~/.anicca",
+        })
+        callers = (
+            "skills/earn/x402-sell/the402-worker-daemon.mjs",
+            "skills/earn/polymarket-trade/run.sh",
+            "skills/earn/polymarket-trade/decision_loop.py",
+            "skills/report/daily-nl-report.mjs",
+            "skills/earn/self-improve/config.yaml",
+        )
+        for relative in callers:
+            with self.subTest(relative=relative):
+                source = (ROOT / relative).read_text()
+                self.assertNotIn("127.0.0.1:8402", source)
+                self.assertIn("127.0.0.1:18402", source)
+
     def test_non_coconala_marketplace_loops_use_the_exec_adapter_shell(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         loop_ids = {

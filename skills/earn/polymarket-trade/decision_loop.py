@@ -70,10 +70,10 @@ def child_env() -> dict:
     if not _live_confirmed():
         env["PM_DRY_RUN"] = "1"
     # same BRAIN ENV run.sh exports for pick.py's consensus analyzer
-    env.setdefault("OPENAI_BASE_URL", "http://127.0.0.1:8402/v1")
+    env.setdefault("OPENAI_BASE_URL", "http://127.0.0.1:18402/v1")
     env.setdefault("OPENAI_API_KEY", "x402-local")
-    env.setdefault("BLOCKRUN_API_URL", "http://127.0.0.1:8402/v1")
-    env.setdefault("BLOCKRUN_BASE_URL", "http://127.0.0.1:8402/v1")
+    env.setdefault("BLOCKRUN_API_URL", "http://127.0.0.1:18402/v1")
+    env.setdefault("BLOCKRUN_BASE_URL", "http://127.0.0.1:18402/v1")
     return env
 
 

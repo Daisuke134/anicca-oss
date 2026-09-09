@@ -22,6 +22,12 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NODE="${LIFE_MANAGER_NODE:-$(command -v node || true)}"
+case "$NODE" in
+  /*) [ -x "$NODE" ] || { echo "[local] managed node is not executable: $NODE" >&2; exit 127; } ;;
+  *) echo "[local] LIFE_MANAGER_NODE must resolve to an absolute executable" >&2; exit 127 ;;
+esac
+export LIFE_MANAGER_NODE="$NODE"
 PORT="${COMPUTE_PROXY_PORT:-18402}"
 PROXY_ONLY=0
 if [ "${1:-}" = "--proxy-only" ]; then
@@ -39,7 +45,7 @@ WALLET="$(resolve_wallet_path)"
 # --- 1. self-owned wallet (no human key) -------------------------------
 if [ ! -f "$WALLET" ]; then
   mkdir -p "$(dirname "$WALLET")"
-  WALLET_PATH="$WALLET" node -e '
+  WALLET_PATH="$WALLET" "$NODE" -e '
     const {generatePrivateKey,privateKeyToAccount}=require("'"$HERE"'/node_modules/viem/accounts");
     const fs=require("fs"); const pk=generatePrivateKey(); const wp=process.env.WALLET_PATH;
     fs.writeFileSync(wp,
@@ -48,14 +54,14 @@ if [ ! -f "$WALLET" ]; then
     console.error("[local] created self-owned wallet "+privateKeyToAccount(pk).address);
   '
 else
-  echo "[local] wallet preserved: $(WALLET_PATH="$WALLET" node -e 'console.log(JSON.parse(require("fs").readFileSync(process.env.WALLET_PATH)).address)')"
+  echo "[local] wallet preserved: $(WALLET_PATH="$WALLET" "$NODE" -e 'console.log(JSON.parse(require("fs").readFileSync(process.env.WALLET_PATH)).address)')"
 fi
 
 # --- 1b. self-owned Solana wallet (fund via Binance SOL -> auto-swap to USDC) --
 # Lets anyone top anicca up from Binance (which in many regions only sells SOL):
 # send SOL here, the funding daemon swaps it to USDC on Base. No human key, no deps.
 if [ "$PROXY_ONLY" -eq 0 ]; then
-  node "$HERE/ensure-solana-wallet.mjs" || echo "[local] WARN: solana wallet gen skipped"
+  "$NODE" "$HERE/ensure-solana-wallet.mjs" || echo "[local] WARN: solana wallet gen skipped"
 fi
 
 # --- 1c. born-with-Polygon (#27 EQUALIZE): self-owned Polymarket deposit wallet --
@@ -82,14 +88,14 @@ if [ "$PROXY_ONLY" -eq 1 ]; then
   echo "[local] starting compute-proxy on :$PORT (x402 self-pay from own wallet)..."
   cd "$HERE"
   exec env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY \
-    COMPUTE_PROXY_PORT="$PORT" node proxy.mjs
+    COMPUTE_PROXY_PORT="$PORT" "$NODE" proxy.mjs
 fi
 
 PROXY_PID=""
 if ! curl -sS --max-time 2 "http://127.0.0.1:$PORT/v1/models" >/dev/null 2>&1; then
   echo "[local] starting compute-proxy on :$PORT (x402 self-pay from own wallet)..."
   ( cd "$HERE" && env -u ANICCA_EVM_PRIVATE_KEY -u BLOCKRUN_WALLET_KEY -u PKVAR -u BASE_CHAIN_WALLET_KEY \
-      COMPUTE_PROXY_PORT="$PORT" node proxy.mjs ) &
+      COMPUTE_PROXY_PORT="$PORT" "$NODE" proxy.mjs ) &
   PROXY_PID="$!"
   # wait for the HTTP server to bind (port up). Live inference still needs the
   # network + a free-tier/funded wallet — see step 4 / verify notes.
@@ -110,7 +116,7 @@ export ANICCA_MODEL="${ANICCA_MODEL:-auto}"
 export ANICCA_HOME="${ANICCA_HOME:-$HOME/.anicca}"
 # Expose the self-owned wallet address so the loop can read its balance (tier selection).
 # Derive from the private key when the wallet file has no `address` field (older format).
-export ANICCA_WALLET_ADDRESS="${ANICCA_WALLET_ADDRESS:-$(WALLET_PATH="$WALLET" node -e '
+export ANICCA_WALLET_ADDRESS="${ANICCA_WALLET_ADDRESS:-$(WALLET_PATH="$WALLET" "$NODE" -e '
   try {
     const w=JSON.parse(require("fs").readFileSync(process.env.WALLET_PATH));
     if (w.address) { console.log(w.address); }
