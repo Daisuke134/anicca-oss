@@ -167,6 +167,19 @@ class LiveCanaryVerifierTest(unittest.TestCase):
         self.assertTrue(result["verified"])
         self.assertEqual(len(result["fills"]), 2)
 
+    def test_btcusd_position_allows_broker_deducted_crypto_fee(self):
+        fill = {"order_id": "order-1", "symbol": "BTC/USDC", "side": "buy",
+                "qty": "0.00002", "price": "100000", "transaction_time": "fixture"}
+        result = self.verify([self.ORDER, [fill],
+                              [{"symbol": "BTCUSD", "qty": "0.00001995"}]])
+        self.assertTrue(result["verified"])
+
+    def test_position_fee_over_one_percent_fails_closed(self):
+        fill = {"order_id": "order-1", "symbol": "BTC/USDC", "side": "buy",
+                "qty": "0.00002", "price": "100000", "transaction_time": "fixture"}
+        with self.assertRaisesRegex(ValueError, "live_canary_fill_mismatch"):
+            self.verify([self.ORDER, [fill], [{"symbol": "BTCUSD", "qty": "0.000019"}]])
+
     def test_partial_cancel_is_not_closed_as_terminal_outcome(self):
         order = {**self.ORDER, "status": "canceled", "filled_qty": "0.00001"}
         result = self.verify([order])

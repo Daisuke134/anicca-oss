@@ -452,7 +452,7 @@ def read_live_canary(*, credentials_path: Path, cli_path: Path,
     ], env)
     positions = _run(cli_path, [
         "position", "list", "--quiet", "--jq",
-        "[.[]|select(.symbol==\"BTCUSDC\" or .symbol==\"BTC/USDC\")|"
+        "[.[]|select(.symbol==\"BTCUSD\" or .symbol==\"BTCUSDC\" or .symbol==\"BTC/USDC\")|"
         "{symbol,qty,market_value,unrealized_pl}]",
     ], env)
     try:
@@ -460,10 +460,11 @@ def read_live_canary(*, credentials_path: Path, cli_path: Path,
                 or len(positions) != 1:
             raise ValueError
         fill_total = sum((Decimal(str(fill["qty"])) for fill in fills), Decimal("0"))
+        position_qty = Decimal(str(positions[0]["qty"]))
         if (any(fill.get("order_id") != order["id"] or fill.get("side") != "buy"
                 or fill.get("symbol") not in {"BTC/USDC", "BTCUSDC"} for fill in fills)
                 or fill_total != filled_qty
-                or Decimal(str(positions[0]["qty"])) != filled_qty
+                or position_qty > filled_qty or position_qty < filled_qty * Decimal("0.99")
                 or filled_qty <= 0):
             raise ValueError
     except (InvalidOperation, KeyError, TypeError, ValueError) as error:
