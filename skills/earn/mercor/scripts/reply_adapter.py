@@ -77,6 +77,20 @@ class MercorReplyAdapter:
     def observe_threads(self) -> list[dict[str, str]]:
         source = self._source()
         observed_at = _required(source.get("observed_at"), "observed_at")
+        source_health = source.get("source_health") or {}
+        if not isinstance(source_health, Mapping):
+            raise RuntimeError("mercor_reply_snapshot_invalid")
+        gmail_health = source_health.get("gmail") or {"status": "fresh"}
+        if not isinstance(gmail_health, Mapping):
+            raise RuntimeError("mercor_reply_snapshot_invalid")
+        gmail_status = gmail_health.get("status")
+        if gmail_status not in {"fresh", "stale"}:
+            raise RuntimeError("mercor_reply_snapshot_invalid")
+        gmail_observed_at = observed_at
+        if gmail_status == "stale":
+            gmail_observed_at = _required(
+                gmail_health.get("observed_at"), "gmail_observed_at"
+            )
         candidates = source.get("applications", {}).get("applications", [])
         gmail = source.get("gmail", [])
         assessments = source.get("assessments", [])
@@ -139,10 +153,20 @@ class MercorReplyAdapter:
                 (dict(message) for message in messages),
                 key=lambda message: str(message.get("internalDate") or ""),
             )
-            self.rows[f"gmail:{thread_id}"] = {
+            gmail_row = {
                 "kind": "gmail",
                 "raw": {"threadId": thread_id, "messages": ordered},
+                "observed_at": gmail_observed_at,
+            }
+            if gmail_status == "stale":
+                gmail_row["pending_reason"] = "provider_source_stale"
+            self.rows[f"gmail:{thread_id}"] = gmail_row
+        if gmail_status == "stale":
+            self.rows["source:gmail"] = {
+                "kind": "source_health",
+                "raw": {"status": "stale", "observed_at": gmail_observed_at},
                 "observed_at": observed_at,
+                "pending_reason": "provider_source_stale",
             }
         return [self._observation(thread_id, row) for thread_id, row in self.rows.items()]
 
@@ -170,13 +194,20 @@ class MercorReplyAdapter:
             return _digest({key: raw.get(key) for key in (
                 "interviewId", "status", "createdAt", "resetCount",
             )})
+        if row["kind"] == "source_health":
+            return _digest({key: raw.get(key) for key in ("status", "observed_at")})
         messages = raw.get("messages") or []
         return _required(messages[-1].get("id"), "gmail_message_id")
 
     def _observation(self, thread_id: str, row: Mapping[str, Any]) -> dict[str, str]:
-        return {"provider": "mercor", "account_id": self.gmail_account,
-                "thread_id": thread_id, "latest_event_id": self._event(row),
-                "observed_at": _required(row.get("observed_at"), "observed_at")}
+        result = {"provider": "mercor", "account_id": self.gmail_account,
+                  "thread_id": thread_id, "latest_event_id": self._event(row),
+                  "observed_at": _required(row.get("observed_at"), "observed_at")}
+        if row.get("pending_reason") is not None:
+            result["pending_reason"] = _required(
+                row.get("pending_reason"), "pending_reason"
+            )
+        return result
 
     def observe_one(self, thread_id: str) -> dict[str, str]:
         if thread_id not in self.rows:
