@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-31T00:00:00+09:00",
+  "updated_at": "2026-09-09T00:00:00+09:00",
   "geographies": [
     "Tokyo, Japan",
     "United States, with San Francisco Bay Area first"
@@ -15,6 +15,22 @@
       "reason": "The previous natural pass discovered the current official HF0 application, completed the first page from authorized profile facts, and reached page two. Resume from durable cursor resume_hf0_application_second_page, infer every ordinary non-binding field from the full context, and continue to an official submission receipt or an explicit candidate failure without reopening completed pages or waiting for a human.",
       "organization": "HF0",
       "cohort_window": "current rolling residency"
+    },
+    {
+      "program": "Founder Submission",
+      "official_url": "https://www.playersfund.vc/submit",
+      "action": "apply_now_deck_fix",
+      "reason": "The latest receipt failed only because the generated pitch deck and matching context receipt were absent. The current build provides a deterministic preflight-verified deck.pdf. Reopen the current official founder submission form, attach only FUNDRAISER_VERIFIED_DECK, and continue to an official submission receipt or a newly observed explicit candidate failure.",
+      "organization": "The Players Fund",
+      "cohort_window": "rolling 2026"
+    },
+    {
+      "program": "Submit Your Company",
+      "official_url": "https://progressive.decilehub.com/submit_your_company",
+      "action": "apply_now_deck_fix",
+      "reason": "The current official Decile Hub intake still renders its Company, Founders, and Pitch deck stages. The latest receipt failed only because the generated pitch deck and matching context receipt were absent. The current build provides a deterministic preflight-verified deck.pdf. Attach only FUNDRAISER_VERIFIED_DECK and continue to an official submission receipt or a newly observed explicit candidate failure.",
+      "organization": "Progressive Ventures",
+      "cohort_window": "rolling 2026"
     },
     {
       "program": "GSAP2026 Enterprise B2B Course Phase 2",
