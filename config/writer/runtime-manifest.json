@@ -22,15 +22,12 @@
     "target": "~/.local/state/life-manager/writer",
     "credentials": "~/.config/life-manager/accounts",
     "owner_fence": "~/.local/state/life-manager/writer/owner-fence",
-    "parity": {
-      "status": "all-loaded-labels-share-target-state",
-      "source_file_count": 18326,
-      "target_file_count": 18326,
-      "source_bytes": 590863796,
-      "target_bytes": 590863796,
-      "tree_sha256": "2a58d15a8b30dfa4edabb4ed0d845833d30a7844212b2d9ddb492d6c525e6e02",
-      "pause_marker": "absent-in-source-and-target",
-      "target_directory_mode": "0700"
+    "validation": {
+      "status": "all-14-installed-labels-use-canonical-state",
+      "target_directory_mode": "0700",
+      "legacy_evidence_path": "~/.local/state/life-manager/writer/legacy-writer-engine-evidence",
+      "legacy_evidence_file_count": 1274,
+      "legacy_evidence_tree_sha256": "c57809707137af747eb8b4d158a465bf4f843882b2f31487d3a118b19696dd5b"
     }
   },
   "launchd_labels": [
@@ -50,20 +47,20 @@
     "ai.anicca.writer-sales-measure"
   ],
   "launchd_sources": {
-    "ai.anicca.article-daily": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-daily.plist",
-    "ai.anicca.article-healthcheck": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-healthcheck.plist",
-    "ai.anicca.article-resume": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-resume.plist",
-    "ai.anicca.article-zenn-retry": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-zenn-retry.plist",
-    "ai.anicca.article-self-improve": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-self-improve.plist",
-    "ai.anicca.article-audit-7day": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-audit-7day.plist",
-    "ai.anicca.article-learn-whitelist": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-learn-whitelist.plist",
-    "ai.anicca.writer-claim-loop": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-claim-loop.plist",
-    "ai.anicca.writer-craft-train": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-craft-train.plist",
-    "ai.anicca.writer-money-sync": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-money-sync.plist",
-    "ai.anicca.writer-opportunity-discovery": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-opportunity-discovery.plist",
-    "ai.anicca.writer-opportunity-response": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-opportunity-response.plist",
-    "ai.anicca.writer-report": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-report.plist",
-    "ai.anicca.writer-sales-measure": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-sales-measure.plist"
+    "ai.anicca.article-daily": "~/Library/LaunchAgents/ai.anicca.article-daily.plist",
+    "ai.anicca.article-healthcheck": "~/Library/LaunchAgents/ai.anicca.article-healthcheck.plist",
+    "ai.anicca.article-resume": "~/Library/LaunchAgents/ai.anicca.article-resume.plist",
+    "ai.anicca.article-zenn-retry": "~/Library/LaunchAgents/ai.anicca.article-zenn-retry.plist",
+    "ai.anicca.article-self-improve": "~/Library/LaunchAgents/ai.anicca.article-self-improve.plist",
+    "ai.anicca.article-audit-7day": "~/Library/LaunchAgents/ai.anicca.article-audit-7day.plist",
+    "ai.anicca.article-learn-whitelist": "~/Library/LaunchAgents/ai.anicca.article-learn-whitelist.plist",
+    "ai.anicca.writer-claim-loop": "~/Library/LaunchAgents/ai.anicca.writer-claim-loop.plist",
+    "ai.anicca.writer-craft-train": "~/Library/LaunchAgents/ai.anicca.writer-craft-train.plist",
+    "ai.anicca.writer-money-sync": "~/Library/LaunchAgents/ai.anicca.writer-money-sync.plist",
+    "ai.anicca.writer-opportunity-discovery": "~/Library/LaunchAgents/ai.anicca.writer-opportunity-discovery.plist",
+    "ai.anicca.writer-opportunity-response": "~/Library/LaunchAgents/ai.anicca.writer-opportunity-response.plist",
+    "ai.anicca.writer-report": "~/Library/LaunchAgents/ai.anicca.writer-report.plist",
+    "ai.anicca.writer-sales-measure": "~/Library/LaunchAgents/ai.anicca.writer-sales-measure.plist"
   },
   "retired_launchd_labels": {
     "status": "retired-from-installed-launchagents",
@@ -80,19 +77,16 @@
   },
   "path_audit": {
     "installed_writer_launchagents": 14,
-    "life_manager_templates": 10,
-    "installed_labels_with_life_manager_template": 8,
-    "installed_labels_without_life_manager_template": 6,
+    "life_manager_registry_entries": 14,
     "external_cli_labels": 0,
     "retired_external_cli_labels": 5,
-    "source_tree_script_labels": 6,
     "status": "repository-releases-only",
     "reason": "installed plist readback proves all 14 Writer labels execute Life Manager immutable releases and use the canonical Writer state"
   },
   "external_dependencies": {
-    "writer_engine_cli": "/Users/anicca/.local/bin/writer",
-    "writer_engine_root": "/Users/anicca/.local/lib/writer-engine",
-    "writer_engine_state": "/Users/anicca/.local/share/writer-engine",
+    "writer_engine_cli": "~/.local/bin/writer",
+    "writer_engine_root": "~/.local/lib/writer-engine",
+    "writer_engine_state": "~/.local/share/writer-engine",
     "evidence_archive": "~/.local/state/life-manager/writer/legacy-writer-engine-evidence",
     "evidence_file_count": 1274,
     "evidence_tree_sha256": "c57809707137af747eb8b4d158a465bf4f843882b2f31487d3a118b19696dd5b",
