@@ -13,6 +13,12 @@ reply = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = reply
 SPEC.loader.exec_module(reply)
 
+KERNEL_MODULE = Path(__file__).parents[3] / "_shared/marketplace-core/scripts/reply_kernel.py"
+KERNEL_SPEC = importlib.util.spec_from_file_location("mercor_reply_kernel_test", KERNEL_MODULE)
+kernel = importlib.util.module_from_spec(KERNEL_SPEC)
+assert KERNEL_SPEC and KERNEL_SPEC.loader
+KERNEL_SPEC.loader.exec_module(kernel)
+
 
 def _snapshot(path: Path):
     path.write_text(json.dumps({
@@ -93,6 +99,60 @@ def test_inventory_keeps_actionable_official_events_and_stable_ids(tmp_path):
         "notification:comm_1", "contract:job_1", "interview:interview_1",
     }
     assert len({row["latest_event_id"] for row in rows}) == len(rows)
+
+
+def test_stale_gmail_is_explicit_pending_source_and_keeps_old_observation_time(tmp_path):
+    snapshot_path = tmp_path / "snapshot.json"
+    _snapshot(snapshot_path)
+    value = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    value["source_health"] = {"gmail": {
+        "status": "stale", "observed_at": "2026-09-08T08:30:00Z",
+        "reason": "mercor_gmail_inventory_unavailable:timeout,timeout",
+    }}
+    snapshot_path.write_text(json.dumps(value), encoding="utf-8")
+    adapter = reply.MercorReplyAdapter(
+        snapshot=snapshot_path, grounding={}, gmail_account="owner@example.com",
+        gog="gog", state_root=tmp_path,
+    )
+
+    rows = {row["thread_id"]: row for row in adapter.observe_threads()}
+
+    assert rows["gmail:thread_1"]["observed_at"] == "2026-09-08T08:30:00Z"
+    assert rows["gmail:thread_1"]["pending_reason"] == "provider_source_stale"
+    assert rows["source:gmail"]["pending_reason"] == "provider_source_stale"
+
+
+def test_stale_gmail_inventory_cannot_reach_model_or_mutation(tmp_path):
+    snapshot_path = tmp_path / "snapshot.json"
+    _snapshot(snapshot_path)
+    value = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    value.update({
+        "applications": {"applications": []}, "assessments": [],
+        "notifications": {"notifications": []}, "contracts": [],
+        "interviews": {"data": []},
+        "source_health": {"gmail": {
+            "status": "stale", "observed_at": "2026-09-08T08:30:00Z",
+            "reason": "mercor_gmail_inventory_unavailable:timeout,timeout",
+        }},
+    })
+    snapshot_path.write_text(json.dumps(value), encoding="utf-8")
+    adapter = reply.MercorReplyAdapter(
+        snapshot=snapshot_path, grounding={}, gmail_account="owner@example.com",
+        gog="gog", state_root=tmp_path,
+    )
+    decisions = []
+
+    result = kernel.run_wake(
+        adapter=adapter, decide=lambda context: decisions.append(context),
+        state_root=tmp_path / "shared",
+    )
+
+    assert result["observed"] == 4
+    assert result["pending"] == 4
+    assert result["effect"] == 0
+    assert result["failed"] == 0
+    assert decisions == []
+    assert adapter.posted == {}
 
 
 def test_every_official_reply_source_has_context_without_fabricating_actionability(tmp_path):

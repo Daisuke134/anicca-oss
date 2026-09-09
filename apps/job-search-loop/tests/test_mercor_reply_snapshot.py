@@ -401,3 +401,87 @@ def test_snapshot_retries_one_transient_official_source_miss(monkeypatch):
 
     assert attempts == 2
     assert result["applications"] == {"ok": True}
+
+
+def test_snapshot_keeps_valid_gmail_inventory_on_transient_search_outage(monkeypatch):
+    async def capture(_ws_url):
+        return {name: {"ok": True} for name in snapshot.ENDPOINTS}
+
+    prior = [{"threadId": "thread_1", "messages": [{
+        "id": "in_1", "threadId": "thread_1", "internalDate": "1",
+        "labels": ["INBOX"], "from": "person@mercor.com",
+        "to": "owner@example.com", "subject": "Question", "body": "Question",
+    }]}]
+    monkeypatch.setattr(snapshot, "_capture", capture)
+    monkeypatch.setattr(
+        snapshot, "_gmail",
+        lambda *_args: (_ for _ in ()).throw(
+            RuntimeError("mercor_gmail_inventory_unavailable:timeout,timeout")
+        ),
+    )
+
+    result = snapshot.snapshot(
+        ws_url="ws://127.0.0.1/devtools/page/1",
+        gmail_account="owner@example.com", gog="gog", previous_gmail=prior,
+        previous_gmail_observed_at="2026-09-09T12:00:00Z",
+    )
+
+    assert result["gmail"] == prior
+    assert result["source_health"] == {"gmail": {
+        "status": "stale",
+        "reason": "mercor_gmail_inventory_unavailable:timeout,timeout",
+        "observed_at": "2026-09-09T12:00:00Z",
+    }}
+
+
+def test_snapshot_does_not_hide_gmail_outage_without_valid_inventory(monkeypatch):
+    async def capture(_ws_url):
+        return {name: {"ok": True} for name in snapshot.ENDPOINTS}
+
+    monkeypatch.setattr(snapshot, "_capture", capture)
+    monkeypatch.setattr(
+        snapshot, "_gmail",
+        lambda *_args: (_ for _ in ()).throw(
+            RuntimeError("mercor_gmail_inventory_unavailable:timeout,timeout")
+        ),
+    )
+
+    for prior in (None, [{"threadId": "thread_1", "messages": [{}]}]):
+        try:
+            snapshot.snapshot(
+                ws_url="ws://127.0.0.1/devtools/page/1",
+                gmail_account="owner@example.com", gog="gog", previous_gmail=prior,
+            )
+        except RuntimeError as exc:
+            assert str(exc) == "mercor_gmail_inventory_unavailable:timeout,timeout"
+        else:
+            raise AssertionError("unproven Gmail inventory must fail closed")
+
+
+def test_snapshot_does_not_hide_permanent_gmail_failure(monkeypatch):
+    async def capture(_ws_url):
+        return {name: {"ok": True} for name in snapshot.ENDPOINTS}
+
+    prior = [{"threadId": "thread_1", "messages": [{
+        "id": "in_1", "threadId": "thread_1", "internalDate": "1",
+        "labels": ["INBOX"], "from": "person@mercor.com",
+        "to": "owner@example.com", "subject": "Question", "body": "Question",
+    }]}]
+    monkeypatch.setattr(snapshot, "_capture", capture)
+    monkeypatch.setattr(
+        snapshot, "_gmail",
+        lambda *_args: (_ for _ in ()).throw(
+            RuntimeError("mercor_gmail_inventory_unavailable:timeout,exit_75")
+        ),
+    )
+
+    try:
+        snapshot.snapshot(
+            ws_url="ws://127.0.0.1/devtools/page/1",
+            gmail_account="owner@example.com", gog="gog", previous_gmail=prior,
+            previous_gmail_observed_at="2026-09-09T12:00:00Z",
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "mercor_gmail_inventory_unavailable:timeout,exit_75"
+    else:
+        raise AssertionError("permanent Gmail failure must fail closed")
