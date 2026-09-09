@@ -717,6 +717,49 @@ test("a Connpass questionnaire blocker invokes browser fallback and completes ve
   assert.equal(state.calls.some(([name, eventRef]) => name === "direct" && eventRef.endsWith("/next")), false);
 });
 
+test("Connpass candidate-specific form blockers do not exhaust the wake before a simple candidate", async () => {
+  let state = fixture({
+    async discoverCandidates() {
+      return [
+        candidate("connpass", "tier-one"),
+        candidate("connpass", "tier-two"),
+        candidate("connpass", "questionnaire"),
+        candidate("connpass", "next"),
+      ];
+    },
+    async runDirectAction({ candidate: selected }) {
+      state.calls.push(["direct", selected.event_ref]);
+      if (selected.event_ref.endsWith("/next")) {
+        return Object.freeze({ status: "completed", provider_state: { status: "registered" } });
+      }
+      return Object.freeze({
+        status: "failed",
+        safe_reason: selected.event_ref.endsWith("/questionnaire")
+          ? "connpass_questionnaire_required" : "connpass_tier_unavailable",
+      });
+    },
+    async runAgentFallback({ candidate: selected }) {
+      state.calls.push(["agent", selected.event_ref]);
+      return Object.freeze({ status: "failed", safe_reason: "unsafe_agent_action" });
+    },
+    async readProviderState({ phase }) {
+      return Object.freeze({ status: phase === "pre_submit" ? "absent" : "registered" });
+    },
+    async completeEvidence() {
+      return Object.freeze({ status: "applied_bundle", bundle_id: "bundle-simple-next", completion_disposition: "created" });
+    },
+  });
+
+  const result = await runMinimalConnectorWake({
+    ownerToken: "owner-token-connpass-skip-blocked",
+    providers: ["connpass"],
+  }, state.dependencies);
+
+  assert.equal(result.status, "applied_bundle");
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 3);
+  assert.equal(state.calls.some(([name, eventRef]) => name === "direct" && eventRef.endsWith("/next")), true);
+});
+
 test("a successful submit action row stays exactly the same shape as before (no provider/safe_reason/error_class)", async () => {
   const state = fixture();
 
