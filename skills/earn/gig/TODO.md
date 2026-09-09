@@ -2087,7 +2087,7 @@ from the chat, and two of them contradict what this cursor had previously report
     each. Both wakes ended naturally with the installed/event SHA equal to `dc429ee1`, last exit
     zero, terminal `pass`, and no browser, GUI session, or Mac restart.
 
-27. [ ] `APPLY-CROWDWORKS-7` Support time-based applications in the shared transaction contract.
+27. [x] `APPLY-CROWDWORKS-7` Support time-based applications in the shared transaction contract.
     Natural release `7d5d6aa3` selected job `13435160`, an unusually strong fit: long-term remote
     WordPress/PHP development, explicit Claude Code/Codex welcome, Japan-based applicant, official
     range JPY 1,500–2,000/hour. The fixed-price adapter attempted its hidden fixed-price radio and
@@ -2108,6 +2108,15 @@ from the chat, and two of them contradict what this cursor had previously report
     receipt. The cursor advanced from 0 to 5. Keep this checkbox open until a natural wake reaches
     an hourly job, records the exact hourly rate and weekly limit in the official receipt, delivers
     that receipt to Telegram, and the following wake proves replay-zero.
+    Production release `eee05950` closed the atom. The first natural wake read the two already
+    submitted hourly applications from CrowdWorks' official proposal pages without resubmitting:
+    `13426440` / proposal `305132604` at JPY 3,000/hour and `13439106` / proposal `305130945` at
+    JPY 1,500/hour, both with a 30-hour weekly limit. It then submitted `13440836` as proposal
+    `305134017` at JPY 2,000/hour with the same 30-hour limit. All three exact receipts reached
+    Telegram once as messages `71455`, `71454`, and `71463`. The following natural wake ended
+    `pass` on installed/event SHA `eee05950`, kept every receipt count at one, and continued to a
+    different application (`13395836` / proposal `305134745`) instead of replaying any prior
+    mutation. Pending is empty; no browser, GUI session, or Mac restart occurred.
 
 
 
