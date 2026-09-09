@@ -1508,6 +1508,44 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
         self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
 
+    def test_selfbuild_target_retires_only_legacy_source_override(self):
+        loop_id = "life-manager-selfbuild"
+        release = self._release("release-selfbuild").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.life-manager-selfbuild"
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-selfbuild"
+        current.symlink_to(release)
+        values = self._apply_kwargs(
+            current,
+            self.root / "apply-selfbuild.lock",
+            [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+            label="ai.anicca.life-manager-selfbuild",
+            agents_dir_name="LaunchAgents-selfbuild",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.life-manager-selfbuild.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "LM_SELFBUILD_REPO": "/obsolete/private-checkout",
+            "LM_SELFBUILD_TELEGRAM_TARGET": "kept",
+        })
+        target.write_bytes(plistlib.dumps(
+            installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target=loop_id, current=current, lock_path=values["lock_path"],
+            event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("LM_SELFBUILD_REPO", environment)
+        self.assertEqual(environment["LM_SELFBUILD_TELEGRAM_TARGET"], "kept")
+
     def test_agentmail_targets_retire_only_legacy_state_environment(self):
         retired = {
             "AGENTMAIL_QUEUE_PATH",
