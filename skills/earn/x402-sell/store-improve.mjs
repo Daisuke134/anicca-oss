@@ -17,9 +17,9 @@ import {
   readExperimentState,
   writeExperimentState,
 } from './store-experiment.mjs';
+import { resolveX402StateDir } from './state-paths.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const STATE_DIR = join(HERE, 'state');
 const SCOUT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const WAKE_MS = 120_000;
 
@@ -73,14 +73,14 @@ export function scoutIsFresh(scout, now) {
   return demandAware && Number.isFinite(scoutMs) && now - scoutMs <= SCOUT_MAX_AGE_MS;
 }
 
-function loadScout(now) {
-  const scoutPath = join(STATE_DIR, 'market-scout.json');
+function loadScout(now, stateDir, env) {
+  const scoutPath = join(stateDir, 'market-scout.json');
   let scout = readScout(scoutPath);
   if (!scoutIsFresh(scout, now)) {
     try {
       execFileSync(process.execPath, [join(HERE, 'scout-market.mjs')], {
         cwd: HERE,
-        env: process.env,
+        env: { ...process.env, ...env, X402_STATE_DIR: stateDir },
         stdio: 'ignore',
       });
     } catch { /* best-effort refresh; stale or empty data remains usable */ }
@@ -111,7 +111,7 @@ export function improve(env = process.env, now = Date.now()) {
   const attempts = readJsonl(join(logStateDir, `attempts-${lower}.jsonl`));
   const products = summarizeOwnProducts(sales, attempts, CORE_PATHS, new Set(SELF_WALLETS), now);
   const bandit = allocateBandit(products);
-  const scout = loadScout(now);
+  const scout = loadScout(now, resolveX402StateDir(env), env);
   const ourCategories = new Set(CORE_PATHS.map(inferCategory));
   const gaps = computeGaps(scout, ourCategories, Math.floor(now / 1000));
   const topGaps = gaps.opportunities
@@ -168,8 +168,9 @@ if (isMain) {
   let output;
   try {
     output = improveAndApply();
-    mkdirSync(STATE_DIR, { recursive: true });
-    writeFileSync(join(STATE_DIR, 'store-improve.json'), `${JSON.stringify(output)}\n`, 'utf8');
+    const stateDir = resolveX402StateDir();
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(join(stateDir, 'store-improve.json'), `${JSON.stringify(output)}\n`, 'utf8');
   } catch (error) {
     output = { error: error instanceof Error ? error.message : String(error) };
   }

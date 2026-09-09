@@ -44,6 +44,11 @@ receiptのない試行を「完了」と報告しません。
 `/money-printer`は共通のopportunity-to-receipt systemを表示するcontrol roomであり、15本目のloopではありません。実行IDの正本は
 [`config/loop-registry.json`](config/loop-registry.json)です。
 
+任意のThe402 providerはLocal/Cloudで同じ設定contractを使います。privateなLife Manager envへ
+`THE402_PUBLIC_URL=https://your-public-origin.example`を設定し、providerのcredential/service JSONは
+`THE402_CONFIG_ROOT`（未設定時は`ANICCA_HOME`、さらに未設定なら`~/.anicca`）に置きます。URLがpathなしの
+HTTPS originでなければproviderは起動しません。secretとmutable inboxをcheckoutやimmutable releaseへ置きません。
+
 ## 現在構築しているgeneral agent
 
 Life Managerはwebsite固有botの集合ではありません。1つのdurable general agentが機会を発見し、利益を残して

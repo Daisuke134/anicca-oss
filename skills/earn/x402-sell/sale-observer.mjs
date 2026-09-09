@@ -12,7 +12,7 @@ import {
   normalizeRailwaySettlements,
   normalizeThe402Sales,
 } from './lib/sale-observer.mjs';
-
+import { resolveX402StateDir } from './state-paths.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRANKLIN1 = '0x3EcCAD24794ca298D25378E9902A251322ea8749';
 const FRANKLIN2 = '0xe7747Fd899D8987821Bb4CB3D6aDf22565F87ce9';
@@ -170,10 +170,10 @@ function readJsonLines(path) {
   });
 }
 
-function imageSources() {
+function imageSources(stateDir = resolveX402StateDir()) {
   return [FRANKLIN1, FRANKLIN2, CLAUDE_P].map((payTo) => ({
     payTo,
-    rows: readJsonLines(join(HERE, 'state', `sales-${payTo.toLowerCase()}.jsonl`)),
+    rows: readJsonLines(join(stateDir, `sales-${payTo.toLowerCase()}.jsonl`)),
     offers: payTo === FRANKLIN1
       ? [
         { route: '/image', priceUsd: '0.03' },
@@ -185,12 +185,13 @@ function imageSources() {
 
 async function main() {
   const stateRoot = join(homedir(), '.anicca');
+  const stateDir = resolveX402StateDir();
   const credentials = JSON.parse(readFileSync(join(stateRoot, 'the402-credentials.json'), 'utf8'));
   if (typeof credentials.api_key !== 'string' || credentials.api_key.length < 16) {
     throw new Error('invalid credentials');
   }
   const result = await pollSaleSources({
-    imageSources: imageSources(),
+    imageSources: imageSources(stateDir),
     the402: {
       apiKey: credentials.api_key,
       payTo: FRANKLIN1,
@@ -218,7 +219,7 @@ async function main() {
       },
     },
   });
-  const store = join(stateRoot, 'state', 'x402-sale-candidates.jsonl');
+  const store = join(stateDir, 'x402-sale-candidates.jsonl');
   const write = appendUniqueSaleCandidates(store, result.candidates);
   const candidateNotice = write.recorded > 0;
   process.stdout.write(`${JSON.stringify({

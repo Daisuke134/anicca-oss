@@ -64,6 +64,13 @@ not prove the loop is healthy or that an external effect succeeded. Health comes
 from the latest terminal event, and business success comes only from the official
 provider receipt.
 
+The optional The402 provider uses the same host-neutral configuration contract on
+Local and Cloud. Put `THE402_PUBLIC_URL=https://your-public-origin.example` in the
+private Life Manager environment file and keep its provider credential/service JSON
+under `THE402_CONFIG_ROOT` (falling back to `ANICCA_HOME`, then `~/.anicca`). The
+provider refuses to start unless the URL is an HTTPS origin without a path; secrets
+and mutable inbox data never live in the checkout or immutable release.
+
 Loop architecture and reuse decisions start at [`skills/loop-engineering/SKILL.md`](skills/loop-engineering/SKILL.md).
 Release and launchd work then follows its required `loop-development` route.
 

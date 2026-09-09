@@ -35,7 +35,17 @@ else
 fi
 
 PORT="${PORT:-8405}"
-mkdir -p state
+FACILITATOR_STATE_DIR="${FACILITATOR_STATE_DIR:-${HOME}/.local/state/life-manager/x402-facilitator}"
+case "$FACILITATOR_STATE_DIR" in
+  /*) ;;
+  *) echo "FACILITATOR_STATE_DIR must be absolute" >&2; exit 1 ;;
+esac
+if [ -L "$FACILITATOR_STATE_DIR" ]; then
+  echo "FACILITATOR_STATE_DIR must not be a symlink" >&2
+  exit 1
+fi
+mkdir -p "$FACILITATOR_STATE_DIR"
+chmod 700 "$FACILITATOR_STATE_DIR"
 
 case "$PORT" in
   ''|*[!0-9]*) echo "PORT must be an integer between 1 and 65535" >&2; exit 1 ;;
@@ -79,7 +89,7 @@ fi
 # x402-rs reads the bind port from CONFIG when that field is present, so merely
 # exporting PORT does not override the checked-in 8405. Build a per-port runtime
 # copy and leave the canonical chain config unchanged.
-RUNTIME_CONFIG="$HERE/state/config.${GIG_CHAIN}.${PORT}.json"
+RUNTIME_CONFIG="$FACILITATOR_STATE_DIR/config.${GIG_CHAIN}.${PORT}.json"
 RUNTIME_CONFIG_TMP="${RUNTIME_CONFIG}.tmp.$$"
 jq --argjson port "$PORT" '.port = $port' "$CONFIG_FILE" > "$RUNTIME_CONFIG_TMP"
 chmod 600 "$RUNTIME_CONFIG_TMP"
@@ -87,10 +97,10 @@ mv "$RUNTIME_CONFIG_TMP" "$RUNTIME_CONFIG"
 
 if ! curl -s -m3 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
   CONFIG="$RUNTIME_CONFIG" PORT="$PORT" RUST_LOG="${RUST_LOG:-info}" \
-    nohup "$BIN" > state/facilitator.log 2>&1 &
+    nohup "$BIN" > "$FACILITATOR_STATE_DIR/facilitator.log" 2>&1 &
   for i in $(seq 1 15); do sleep 1; curl -s -m3 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break; done
 fi
-curl -s -m3 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 || { echo "facilitator failed to start — see state/facilitator.log" >&2; exit 1; }
+curl -s -m3 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 || { echo "facilitator failed to start — see $FACILITATOR_STATE_DIR/facilitator.log" >&2; exit 1; }
 
 echo "x402-rs facilitator live:"
 echo "  local : http://127.0.0.1:$PORT"

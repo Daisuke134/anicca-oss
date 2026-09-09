@@ -111,6 +111,8 @@ test("the registry alone owns the separate five-minute Taskmarket loop", () => {
   assert.match(boot, /timeout 55/);
   assert.doesNotMatch(boot, /anicca\/apps\/life-manager/);
   assert.match(boot, /TASKMARKET_SELF_WALLETS_MODULE/);
+  assert.match(boot, /REPO_ROOT.*skills\/earn\/x402-sell\/lib\/self-wallets\.mjs/);
+  assert.doesNotMatch(boot, /\$\{HOME\}\/anicca/);
   assert.equal(loop.adapter, "exec");
   assert.deepEqual(loop.command, []);
   assert.equal(loop.entrypoint, "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh");

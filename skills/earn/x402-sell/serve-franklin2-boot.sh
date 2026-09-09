@@ -17,7 +17,7 @@ set -u
 source "$(dirname "$0")/runtime-env.sh"
 DIR="$X402_SKILL_DIR"
 # load CDP facilitator creds (existing account, same as the other two boot scripts) — never echoed
-# force franklin2's identity (see serve-franklin1-boot.sh: .openclaw/.env injects the wrong home+key)
+# Force franklin2's identity even when a shared environment provides another instance's home or key.
 export ANICCA_HOME="$HOME/.franklin2-home/.blockrun"
 unset BLOCKRUN_WALLET_KEY
 export X402_PAYTO="0xe7747Fd899D8987821Bb4CB3D6aDf22565F87ce9"

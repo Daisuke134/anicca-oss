@@ -2,6 +2,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveX402StateDir } from './state-paths.mjs';
 
 const DISCOVERY_URL = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?limit=1000';
 const MAX_RESOURCES = 30_000;
@@ -241,7 +242,7 @@ export async function fetchResources({
 async function main() {
   const resources = await fetchResources();
   const report = aggregateMarket(resources, Math.floor(Date.now() / 1000));
-  const stateDir = join(dirname(fileURLToPath(import.meta.url)), 'state');
+  const stateDir = resolveX402StateDir();
   await mkdir(stateDir, { recursive: true });
   const output = JSON.stringify(report);
   await writeFile(join(stateDir, 'market-scout.json'), output + '\n', 'utf8');

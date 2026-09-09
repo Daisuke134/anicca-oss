@@ -11,6 +11,7 @@ import { loadEvmKey } from '../lib/resolve-identity.mjs';
 import { IMAGE_OFFER, imageResaleHandler } from './image-resale.mjs';
 import { decodePayer, decodeTransaction, isSettled } from './lib/settle-gate.mjs';
 import { ensureFacilitatorInitialized } from './lib/facilitator-init.mjs';
+import { resolveX402StateDir } from './state-paths.mjs';
 
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -371,7 +372,7 @@ async function main(env = process.env) {
     balanceProduct,
     paymentGate,
     recordAccess: createImageTelemetryRecorder({
-      stateDir: env.X402_STATE_DIR || join(HERE, 'state'),
+      stateDir: resolveX402StateDir(env),
       payTo: product.payTo,
     }),
     loadUpstreamOpenApi: async () => {

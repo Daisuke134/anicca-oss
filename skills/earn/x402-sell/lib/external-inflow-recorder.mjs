@@ -8,12 +8,12 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { X402_STATE_DIR } from '../state-paths.mjs';
 
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-const DEFAULT_STATE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'state');
+const DEFAULT_STATE_DIR = X402_STATE_DIR;
 
 function normalizeAddress(value) {
   const normalized = String(value || '').toLowerCase();

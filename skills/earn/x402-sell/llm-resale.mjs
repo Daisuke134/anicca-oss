@@ -18,11 +18,12 @@ import {
 } from './lib/resale-guards.mjs';
 import { LLM_OFFER_VARIANTS, assertProfitableOffer } from './llm-offers.mjs';
 import { activeVariant } from './store-experiment.mjs';
+import { X402_STATE_DIR } from './state-paths.mjs';
 
 export { LLM_OFFER_VARIANTS, assertProfitableOffer } from './llm-offers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_STATE_DIR = join(HERE, 'state');
+const DEFAULT_STATE_DIR = X402_STATE_DIR;
 const BLOCKRUN_CHAT_URL = 'https://blockrun.ai/api/v1/chat/completions';
 const BLOCKRUN_MODEL = 'zai/glm-5-turbo';
 const USER_AGENT = 'anicca-x402-llm-resale/1.0';

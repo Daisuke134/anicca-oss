@@ -133,28 +133,16 @@ test("the scan scope covers the runtime roots the Life Manager actually loads", 
     "skills/tools/telegram-user",
     "skills/life-manager",
     "skills/earn/marketing-engine",
+    "skills/earn/x402-sell",
     "runtime",
   ]) {
     assert.ok(SCAN_ROOTS.includes(scanRoot), `missing scan root: ${scanRoot}`);
   }
 });
 
-test("tracked pre-Order-12 allowlist entries name an owning Order and pin an exact line", () => {
+test("the runtime has no tracked pre-migration holes", () => {
   const tracked = ALLOWLIST.filter((entry) => entry.order);
-  assert.ok(tracked.length >= 5, `expected the x402/taskmarket/payout holes to be tracked, saw ${tracked.length}`);
-  for (const entry of tracked) {
-    assert.match(entry.order, /^Order \d+$/, JSON.stringify(entry));
-    assert.ok(Number.isInteger(entry.line) && entry.line > 0, JSON.stringify(entry));
-  }
-  const trackedFiles = tracked.map((entry) => entry.file);
-  for (const expected of [
-    "apps/life-manager/scripts/x402-sale-ledger-boot.sh",
-    "apps/life-manager/scripts/taskmarket-work-ledger-boot.sh",
-    "apps/life-manager/scripts/payout-boot.sh",
-    "apps/life-manager/scripts/run-agent-payout.js",
-  ]) {
-    assert.ok(trackedFiles.includes(expected), `missing tracked allowlist file: ${expected}`);
-  }
+  assert.deepEqual(tracked, []);
 });
 
 test("every allowlist entry is alive: it matches a current pattern-bearing line", () => {

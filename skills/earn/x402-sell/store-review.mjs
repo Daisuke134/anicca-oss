@@ -8,15 +8,14 @@
 //   X402_PAYTO   this instance's own receiving wallet (default: derived from the per-instance key)
 //
 // Loop child-script contract: prints exactly ONE JSON line on stdout, never throws.
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadEvmKey } from "../lib/resolve-identity.mjs";
 import { SELF_WALLETS } from "./lib/self-wallets.mjs";
 import { aggregateStore } from "./lib/store-metrics.mjs";
-
-const HERE = dirname(fileURLToPath(import.meta.url));
+import { resolveX402StateDir } from "./state-paths.mjs";
 
 // Mirrors serve-v2.mjs's payTo() (#28: this instance's OWN gated key, never a borrowed one).
 export function resolvePayTo(env = process.env) {
@@ -35,18 +34,7 @@ export function readJsonl(path) {
 }
 
 export function resolveStateDir(payTo, env = process.env) {
-  const lower = String(payTo || "").toLowerCase();
-  // The serve daemon writes state/ next to ITS OWN serve-v2.mjs. On colony instances the skill
-  // copy under ANICCA_HOME is synced from the repo checkout while the seller runs FROM the repo
-  // checkout — so this script's own state/ can be empty while the real logs sit in the checkout
-  // (measured 2026-07-18: franklin1 review returned zeros against 5 real settled rows). Resolve:
-  // explicit X402_STATE_DIR wins; else prefer whichever candidate actually has this payTo's file.
-  const candidates = [
-    env.X402_STATE_DIR,
-    join(HERE, "state"),
-    env.HOME ? join(env.HOME, "anicca", "skills", "earn", "x402-sell", "state") : null,
-  ].filter(Boolean);
-  return candidates.find((d) => existsSync(join(d, `sales-${lower}.jsonl`))) || candidates[0];
+  return resolveX402StateDir(env);
 }
 
 export function review(env = process.env, now = Date.now()) {

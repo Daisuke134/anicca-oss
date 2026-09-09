@@ -22,7 +22,7 @@ const DEFAULT_RPC_URL = "https://mainnet.base.org";
 const DEFAULT_WALLET_PATH = join(homedir(), ".cloak", "life-manager-agent-wallet.json");
 const DEFAULT_FACILITATOR_URL = "http://127.0.0.1:8406";
 const DEFAULT_FACILITATOR_START = join(
-  homedir(), "anicca-oss", "services", "facilitator", "start.sh",
+  __dirname, "..", "..", "..", "services", "facilitator", "start.sh",
 );
 const MAX_WALLET_BYTES = 4096;
 

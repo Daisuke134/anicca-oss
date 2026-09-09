@@ -16,9 +16,10 @@ import {
   recordSpend,
   rolloverSpendState,
 } from './lib/resale-guards.mjs';
+import { X402_STATE_DIR } from './state-paths.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_STATE_DIR = join(HERE, 'state');
+const DEFAULT_STATE_DIR = X402_STATE_DIR;
 const BLOCKRUN_IMAGE_URL = 'https://blockrun.ai/api/v1/images/generations';
 const USER_AGENT = 'anicca-x402-image-resale/1.0';
 const walletLocks = new Map();

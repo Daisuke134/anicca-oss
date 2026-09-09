@@ -38,6 +38,7 @@ import { buildFundingRateArbResponse } from "./funding-rate-arb.mjs";
 import { RESALE_PRODUCTS, resaleHandler } from "./resale.mjs";
 import { llmProduct, llmResaleHandler } from "./llm-resale.mjs";
 import { ensureFacilitatorInitialized } from "./lib/facilitator-init.mjs";
+import { resolveX402StateDir } from "./state-paths.mjs";
 
 function payTo() {
   if (process.env.X402_PAYTO) return process.env.X402_PAYTO;
@@ -456,7 +457,7 @@ app.use(paymentMiddleware(routes, resourceServer, undefined, undefined, false));
 // attempts-<wallet>.jsonl instead of being silently dropped.
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join, dirname as pdirname } from "node:path";
-const STATE_DIR = join(pdirname(new URL(import.meta.url).pathname), "state");
+const STATE_DIR = resolveX402StateDir();
 const SALES_LOG = process.env.X402_SALES_LOG || join(STATE_DIR, `sales-${payTo().toLowerCase()}.jsonl`);
 const ATTEMPTS_LOG = process.env.X402_ATTEMPTS_LOG || join(STATE_DIR, `attempts-${payTo().toLowerCase()}.jsonl`);
 try { mkdirSync(STATE_DIR, { recursive: true }); } catch { /* best-effort */ }
