@@ -15,6 +15,15 @@ const { buildFinancialManagerReport } = require("./financial-manager-report.js")
 const NOW_MS = Date.parse("2026-08-02T11:05:00.000Z");
 const WALLET = "0x477EeE969ccfdc0e959F38cE8B83e372FC0262ad";
 
+test("cloud Financial Manager runtime is closed inside the Railway app root", () => {
+  for (const file of [
+    "financial-manager-report.js", "financial-record-store.js", "report-job-adapter.js",
+  ]) {
+    const source = require("node:fs").readFileSync(require("node:path").join(__dirname, file), "utf8");
+    assert.doesNotMatch(source, /\.\.\/\.\.\/\.\.\/runtime\//, file);
+  }
+});
+
 function memoryFinancialStore() {
   const rows = [];
   return {

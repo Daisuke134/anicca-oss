@@ -4,7 +4,7 @@
 const { createHash } = require("node:crypto");
 
 const { buildRuntimeJob, enqueueJob } = require("./runtime-job-store.js");
-const { financialRecordId } = require("../../../runtime/contracts/common-record.cjs");
+const { financialRecordId } = require("./financial-record-contract.js");
 const { createPostgresFinancialRecordStore } = require("./financial-record-store.js");
 const { usdMicrosFromDecimal } = require("./financial-money.js");
 const { runFinancialManager } = require("./financial-manager-runtime.js");
