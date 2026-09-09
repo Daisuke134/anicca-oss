@@ -295,7 +295,26 @@ def snapshot(*, ws_url: str, gmail_account: str, gog: str,
         except RuntimeError as exc:
             if attempt or not str(exc).startswith("mercor_reply_sources_missing:"):
                 raise
-    value["gmail"] = _gmail(gmail_account, gog, previous_gmail)
+    try:
+        value["gmail"] = _gmail(gmail_account, gog, previous_gmail)
+        value["source_health"] = {"gmail": {"status": "fresh"}}
+    except RuntimeError as exc:
+        reason = str(exc)
+        reusable = (
+            reason.startswith("mercor_gmail_inventory_unavailable:")
+            and previous_gmail is not None
+            and all(
+                isinstance(row, dict)
+                and _valid_cached_thread(row, row.get("threadId"))
+                for row in previous_gmail
+            )
+        )
+        if not reusable:
+            raise
+        value["gmail"] = previous_gmail
+        value["source_health"] = {
+            "gmail": {"status": "stale", "reason": reason}
+        }
     value["observed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     value["version"] = 1
     return value

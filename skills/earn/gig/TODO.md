@@ -2287,6 +2287,17 @@ from the chat, and two of them contradict what this cursor had previously report
     at one delivery, and replays completed effects at zero. Empty or human-gated inventory is valid
     only with exact official observation and durable ownership.
 
+    Current acceptance found three consecutive natural failures at
+    `2026-09-09T13:43:53Z`, `13:48:54Z`, and `13:56:03Z`, followed by the same
+    `entrypoint_exit_1` at `14:03:08Z`. The authenticated Mercor page remains healthy and the last
+    complete aggregate remains observed/readback `93`, actionable/pending/failed/effect `0`, all
+    `replay_zero`; the terminal failure is the Gmail inventory command timing out twice. Preserve a
+    structurally valid previous Gmail inventory with explicit `source_health.gmail=stale` while
+    retrying it on every wake; never turn a missing or malformed first inventory into empty input.
+    Production acceptance and the second replay-zero terminal remain pending. Disk pressure also
+    produced earlier ENOSPC cleanup-write failures, so acceptance additionally requires terminals
+    without ENOSPC.
+
 
 
 
