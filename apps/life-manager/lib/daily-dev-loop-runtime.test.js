@@ -19,6 +19,15 @@ test("daily launchd contract points at the bounded daily runner, not D0 directly
   assert.doesNotMatch(plist, /life-manager-dev-d0\.sh/);
 });
 
+test("daily runner never reconciles sibling or protected gig loops", () => {
+  const source = fs.readFileSync(
+    path.join(root, "scripts/life-manager-dev-daily.js"),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /reconcile-agent-runner-release/);
+  assert.doesNotMatch(source, /hf-gig-(?:apply|paid|reply|storefront)/);
+});
+
 test("D0 emits only a closed machine result for every terminal path", () => {
   const source = fs.readFileSync(path.join(root, "scripts/life-manager-dev-d0.sh"), "utf8");
   assert.match(source, /LM_DEV_RESULT_PATH/);

@@ -2,19 +2,7 @@
 "use strict";
 
 const path = require("node:path");
-const os = require("node:os");
-const { spawnSync } = require("node:child_process");
 const { runDailyPass } = require("../lib/daily-dev-loop");
-
-const reconcile = spawnSync(
-  path.join(os.homedir(), "loops/current/bin/reconcile-agent-runner-release.sh"),
-  [],
-  { stdio: "inherit", env: process.env },
-);
-if (reconcile.error || reconcile.status !== 0) {
-  process.stderr.write("life-manager-dev-daily: agent-runner release reconcile failed\n");
-  process.exit(1);
-}
 
 runDailyPass({
   command: process.env.LM_DEV_D0_COMMAND
