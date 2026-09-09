@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Customer escalation decision deck icon</title>
+  <desc id="desc">A layered decision brief with an escalation marker and a checkmark.</desc>
+  <rect width="512" height="512" rx="96" fill="#102A43"/>
+  <rect x="112" y="116" width="248" height="280" rx="24" fill="#EAF4FF"/>
+  <rect x="144" y="156" width="150" height="18" rx="9" fill="#2D6A9F"/>
+  <rect x="144" y="202" width="184" height="14" rx="7" fill="#8AB6D6"/>
+  <rect x="144" y="234" width="148" height="14" rx="7" fill="#8AB6D6"/>
+  <rect x="144" y="266" width="168" height="14" rx="7" fill="#8AB6D6"/>
+  <path d="M144 336h88" stroke="#2D6A9F" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="365" cy="145" r="56" fill="#F6AD55"/>
+  <path d="M365 113v42M365 177h.5" stroke="#102A43" stroke-width="15" stroke-linecap="round"/>
+  <circle cx="356" cy="350" r="62" fill="#38A169"/>
+  <path d="m326 350 20 20 40-45" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
