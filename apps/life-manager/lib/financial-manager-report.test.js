@@ -67,3 +67,16 @@ test("balance-only report omits empty business and liability noise", () => {
   assert.doesNotMatch(text, /負債/);
   assert.doesNotMatch(text, /確認済みデータなし/);
 });
+
+test("Financial Manager uses the tenant timezone at a non-JST day boundary", () => {
+  const rows = [record("los-angeles-day", {
+    kind: "business_revenue", amount: 500,
+    // 23:30 on 2026-08-31 in Los Angeles, but already Sep 1 in Tokyo.
+    occurredAt: "2026-09-01T06:30:00.000Z",
+  })];
+  const { report } = buildFinancialManagerReport(rows, "2026-08-31", {
+    timezone: "America/Los_Angeles",
+  });
+  assert.deepEqual(report.business.today.revenue, [{ currency: "JPY", amountMinor: 500 }]);
+  assert.deepEqual(report.business.revenue, [{ currency: "JPY", amountMinor: 500 }]);
+});

@@ -4,7 +4,10 @@
 const { createHash } = require("node:crypto");
 
 const { buildRuntimeJob, enqueueJob } = require("./runtime-job-store.js");
-const { runFinancialReport } = require("./financial-report-runtime.js");
+const { financialRecordId } = require("../../../runtime/contracts/common-record.cjs");
+const { createPostgresFinancialRecordStore } = require("./financial-record-store.js");
+const { usdMicrosFromDecimal } = require("./financial-money.js");
+const { runFinancialManager } = require("./financial-manager-runtime.js");
 const { hashChatId, sendMessage } = require("./telegram.js");
 
 const CAPABILITY = "report.financial.telegram";
@@ -12,6 +15,358 @@ const LOOP_ID = "financial.report";
 const SECRET_REF = /^secret:\/\/[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/i;
 const REPORT_KINDS = new Set(["daily", "weekly"]);
 const HASH = /^[0-9a-f]{64}$/;
+
+function legacyFinancialRuntime() {
+  // Transitional persistence helpers stay lazy: the cloud worker has the
+  // production dependency set, while portable adapter-contract tests do not.
+  return require("./financial-report-runtime.js");
+}
+
+function walletLedgerRuntime() {
+  return require("./payout-runtime.js");
+}
+
+function iso(value, label) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error(`${label} is invalid`);
+  return date.toISOString();
+}
+
+function reportingDateForZone(nowMs, timezone = "Asia/Tokyo") {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en", {
+    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(nowMs)).filter((part) => part.type !== "literal")
+    .map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function reportBounds(kind, nowMs, timezone) {
+  const today = reportingDateForZone(nowMs, timezone);
+  const addDays = (key, days) => {
+    const [year, month, day] = key.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+  };
+  const midnight = (key) => {
+    const [year, month, day] = key.split("-").map(Number);
+    const wallUtc = Date.UTC(year, month - 1, day);
+    let instant = wallUtc;
+    for (let pass = 0; pass < 2; pass += 1) {
+      const rendered = reportingDateForZone(instant, timezone);
+      const clock = Object.fromEntries(new Intl.DateTimeFormat("en", {
+        timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+      }).formatToParts(new Date(instant)).filter((part) => part.type !== "literal")
+        .map((part) => [part.type, part.value]));
+      const represented = Date.UTC(
+        ...rendered.split("-").map(Number).map((value, index) => index === 1 ? value - 1 : value),
+        Number(clock.hour), Number(clock.minute), Number(clock.second),
+      );
+      instant = wallUtc - (represented - instant);
+    }
+    return new Date(instant).toISOString();
+  };
+  let start = today;
+  let periodKey = today;
+  if (kind === "weekly") {
+    const [year, month, day] = today.split("-").map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay() || 7;
+    start = addDays(today, -(weekday - 1));
+    const monday = new Date(`${start}T00:00:00.000Z`);
+    const thursday = new Date(monday.getTime() + 3 * 86_400_000);
+    const weekYear = thursday.getUTCFullYear();
+    const fourth = new Date(Date.UTC(weekYear, 0, 4));
+    const firstMonday = new Date(fourth.getTime() - (((fourth.getUTCDay() || 7) - 1) * 86_400_000));
+    periodKey = `${weekYear}-W${String(Math.floor((monday - firstMonday) / 604_800_000) + 1).padStart(2, "0")}`;
+  }
+  return { period_key: periodKey, period_start: midnight(start), period_end: new Date(nowMs).toISOString() };
+}
+
+function dueConsolidatedReport(kind, nowMs, timezone) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en", {
+    timeZone: timezone, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(nowMs)).filter((part) => part.type !== "literal")
+    .map((part) => [part.type, part.value]));
+  const minuteOfDay = Number(parts.hour) * 60 + Number(parts.minute);
+  if (kind === "daily") return minuteOfDay >= 20 * 60;
+  return parts.weekday === "Sun" && minuteOfDay >= (20 * 60) + 5;
+}
+
+function latest(rows, field, cutoff) {
+  const cutoffMs = Date.parse(cutoff);
+  return (Array.isArray(rows) ? rows : []).reduce((value, row) => {
+    const candidate = String(row && row[field] || "");
+    const at = Date.parse(candidate);
+    return Number.isFinite(at) && at <= cutoffMs && (!value || at > Date.parse(value))
+      ? new Date(at).toISOString() : value;
+  }, null);
+}
+
+function completeSentReceipt(receipt) {
+  return Boolean(
+    receipt && receipt.status === "sent"
+    && Number.isInteger(Number(receipt.telegram_message_id))
+    && Number(receipt.telegram_message_id) > 0
+    && HASH.test(String(receipt.snapshot_hash || ""))
+    && Number.isFinite(Date.parse(String(receipt.sent_at || ""))),
+  );
+}
+
+function record({ subjectId, key, scope, kind, direction, amountMinor, currency, occurredAt, recordedAt, provider, sourceType, externalRef, verification = "verified" }) {
+  const idempotencyKey = String(key);
+  return {
+    schema_version: 1, record_type: "financial_record",
+    record_id: financialRecordId(subjectId, idempotencyKey), subject_id: subjectId,
+    scope, kind, direction, amount_minor: amountMinor, currency,
+    occurred_at: iso(occurredAt, "Financial Manager source occurrence"),
+    recorded_at: iso(recordedAt, "Financial Manager source observation"),
+    idempotency_key: idempotencyKey,
+    source: { provider, source_type: sourceType, external_ref: externalRef },
+    verification: verification === "verified"
+      ? {
+        status: "verified", observed_at: iso(recordedAt, "Financial Manager source observation"),
+        evidence_refs: [`financial-source://${provider}/${createHash("sha256").update(String(externalRef)).digest("hex")}`],
+      }
+      : { status: "unverified", observed_at: iso(recordedAt, "Financial Manager source observation"), evidence_refs: [] },
+  };
+}
+
+function stableRecordedAt(row, occurrence, label) {
+  if (row && row.recorded_at != null) {
+    try { return iso(row.recorded_at, label); } catch { /* use immutable source occurrence */ }
+  }
+  return iso(occurrence, label);
+}
+
+function ledgerRecord(subjectId, row, observedAt) {
+  const key = String(row && row.entry_key || "").trim();
+  const mapping = {
+    financial_external_income: ["business_revenue", "credit"],
+    financial_realized_loss: ["business_cost", "debit"],
+    financial_fee: ["fee", "debit"],
+    financial_user_transfer: ["payout", "credit"],
+    financial_self_funding: ["transfer", "credit"],
+    financial_deposit: ["transfer", "credit"],
+    financial_internal_move: ["transfer", "credit"],
+    financial_unverified: ["business_revenue", "credit", "unverified"],
+  }[row && row.kind];
+  if (!key || !mapping) throw new Error("Financial Manager wallet ledger row is unsupported");
+  const hasMinor = row && row.amount_minor != null;
+  const hasAtomic = row && (row.amount_atomic != null || row.amount_decimals != null);
+  if (hasMinor === hasAtomic) throw new Error("Financial Manager wallet ledger amount is invalid");
+  const currency = String(row && row.currency || "");
+  if (!/^[A-Z]{3}$/.test(currency)) throw new Error("Financial Manager wallet ledger currency is invalid");
+  let amountMinor;
+  let projectedCurrency;
+  if (hasMinor) {
+    const raw = String(row.amount_minor);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) {
+      throw new Error("Financial Manager wallet ledger minor amount is invalid");
+    }
+    amountMinor = Number(raw);
+    projectedCurrency = currency;
+  } else {
+    if (currency !== "USD" || !/^\d+$/.test(String(row.amount_atomic))) {
+      throw new Error("Financial Manager wallet ledger atomic amount is invalid");
+    }
+    const decimals = Number(row.amount_decimals);
+    if (!Number.isInteger(decimals) || decimals < 0 || decimals > 6) {
+      throw new Error("Financial Manager wallet ledger atomic decimals are invalid");
+    }
+    const normalizedUsdcAtomic = BigInt(row.amount_atomic) * (10n ** BigInt(6 - decimals));
+    if (normalizedUsdcAtomic > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error("Financial Manager wallet ledger atomic amount exceeds FinancialRecord range");
+    }
+    amountMinor = Number(normalizedUsdcAtomic);
+    projectedCurrency = "USDC";
+  }
+  const provider = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(String(row.source || ""))
+    ? String(row.source) : "wallet-ledger";
+  const occurredAt = iso(row.occurred_at, "Financial Manager wallet ledger occurrence");
+  return record({
+    subjectId, key: `wallet-ledger:${key}`, scope: "business", kind: mapping[0], direction: mapping[1],
+    amountMinor, currency: projectedCurrency, occurredAt,
+    recordedAt: stableRecordedAt(row, occurredAt, "Financial Manager wallet ledger record time"),
+    provider, sourceType: "wallet", externalRef: key,
+    verification: mapping[2] || "verified",
+  });
+}
+
+// API usage is an estimate. It is kept unverified until a provider receipt is
+// available, so it cannot make a cloud Financial Manager report claim a cost.
+function apiCostRecord(subjectId, row, observedAt) {
+  const amount = String(row && row.est_usd != null ? row.est_usd : "").trim();
+  const key = String(row && row.id != null ? row.id : "").trim();
+  let micros;
+  try {
+    micros = usdMicrosFromDecimal(amount);
+  } catch {
+    throw new Error("Financial Manager API cost amount is invalid");
+  }
+  if (!key) throw new Error("Financial Manager API cost id is required");
+  const minorBig = (micros + 9_999n) / 10_000n;
+  if (minorBig > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Financial Manager API cost amount is invalid");
+  const minor = Number(minorBig);
+  const occurredAt = iso(row.ts, "Financial Manager API cost occurrence");
+  return record({
+    subjectId, key: `api-cost:${key}`, scope: "business", kind: "business_cost", direction: "debit",
+    amountMinor: minor, currency: "USD", occurredAt,
+    recordedAt: stableRecordedAt(row, occurredAt, "Financial Manager API cost record time"),
+    provider: "api-cost", sourceType: "manual", externalRef: key, verification: "unverified",
+  });
+}
+
+function baseBalanceRecord(subjectId, walletAddress, balanceAtomic, observedAt) {
+  const amount = Number(balanceAtomic);
+  if (!/^\d+$/.test(String(balanceAtomic)) || !Number.isSafeInteger(amount)) {
+    throw new Error("Financial Manager Base USDC balance is invalid");
+  }
+  return record({
+    subjectId, key: `base-usdc:${walletAddress}:${amount}:${observedAt}`, scope: "personal",
+    kind: "asset_balance", direction: "snapshot", amountMinor: amount, currency: "USDC",
+    occurredAt: observedAt, recordedAt: observedAt, provider: "base-usdc", sourceType: "wallet",
+    externalRef: String(walletAddress),
+  });
+}
+
+async function appendCloudFinancialRecords({ store, subjectId, walletAddress, ledgerRows, costRows, balanceAtomic, observedAt }) {
+  const expectedWallet = String(walletAddress || "").toLowerCase();
+  if ((Array.isArray(ledgerRows) ? ledgerRows : []).some((row) => (
+    String(row && row.wallet_address || "").toLowerCase() !== expectedWallet
+  ))) {
+    throw new Error("Financial Manager wallet ledger tenant scope mismatch");
+  }
+  const rows = [
+    ...(Array.isArray(ledgerRows) ? ledgerRows.map((row) => ledgerRecord(subjectId, row, observedAt)) : []),
+    ...(Array.isArray(costRows) ? costRows.map((row) => apiCostRecord(subjectId, row, observedAt)) : []),
+    baseBalanceRecord(subjectId, walletAddress, balanceAtomic, observedAt),
+  ].filter(Boolean);
+  let created = 0;
+  for (const item of rows) {
+    if ((await store.append(item)).created) created += 1;
+  }
+  return { observed: rows.length, created, sources: { wallet: "observed_verified", apiCosts: "observed_unverified" } };
+}
+
+async function runCloudFinancialManagerReport(request = {}, deps = {}) {
+  const uid = requiredText(request.uid, "financial report uid");
+  const kind = String(request.kind || "");
+  const nowMs = Number(request.nowMs);
+  if (!REPORT_KINDS.has(kind) || !Number.isFinite(nowMs)) throw new Error("financial report request is invalid");
+  const readTenant = deps.readTenant || ((tenantId) => (
+    legacyFinancialRuntime().readFinancialTenant(tenantId, deps)
+  ));
+  const tenant = await readTenant(uid);
+  if (!tenant || String(tenant.uid || "") !== uid) throw new Error("financial report tenant scope mismatch");
+  if (tenant.notifications_enabled === false) return { status: "skipped", reason: "notifications_disabled", report_kind: kind };
+  if (!String(tenant.telegram_chat_id || "")) return { status: "skipped", reason: "telegram_unbound", report_kind: kind };
+  if (!String(tenant.agent_wallet_address || "")) return { status: "skipped", reason: "agent_wallet_unbound", report_kind: kind };
+
+  const timezone = String(tenant.call_time_zone || "Asia/Tokyo");
+  if (!request.force && !dueConsolidatedReport(kind, nowMs, timezone)) {
+    return { status: "skipped", reason: "not_due", report_kind: kind };
+  }
+  const reportingDate = reportingDateForZone(nowMs, timezone);
+  const bounds = reportBounds(kind, nowMs, timezone);
+  const periodKey = bounds.period_key;
+  const identity = { uid, report_kind: kind, period_key: periodKey };
+  const readReceipt = deps.readReceipt || ((input) => (
+    legacyFinancialRuntime().readFinancialReceipt(input, deps)
+  ));
+  const existing = await readReceipt(identity);
+  if (existing && existing.status === "sent") {
+    if (!completeSentReceipt(existing)) {
+      return { status: "failed", reason: "financial_delivery_receipt_incomplete", report_kind: kind, unknownEffect: true };
+    }
+    return {
+      status: "duplicate", report_kind: kind, period_key: periodKey,
+      telegram_message_id: Number(existing.telegram_message_id), snapshot_hash: String(existing.snapshot_hash),
+      chat_id_hash: hashChatId(tenant.telegram_chat_id), sent_at: String(existing.sent_at),
+      source_freshness: existing.source_freshness || {
+        report_cutoff_at: String(existing.period_end), earnings_latest_at: null,
+        costs_latest_at: null, balance_observed_at: null,
+      },
+    };
+  }
+  const store = deps.financialStore || createPostgresFinancialRecordStore({ query: deps.query });
+  const readLedger = deps.readLedger || ((wallet) => walletLedgerRuntime().readWalletLedger(wallet, deps));
+  const readCosts = deps.readCosts || ((tenantId) => (
+    legacyFinancialRuntime().readCostLedger(tenantId, deps)
+  ));
+  if (typeof deps.readBalance !== "function") throw new Error("Financial Manager Base balance reader is required");
+  const observedAt = new Date(nowMs).toISOString();
+  const [ledgerRows, costRows, balanceAtomic] = await Promise.all([
+    readLedger(tenant.agent_wallet_address), readCosts(uid), deps.readBalance(tenant.agent_wallet_address),
+  ]);
+  let claimedDigest = null;
+  const result = await runFinancialManager({
+    subjectId: uid, reportingDate, timezone, now: observedAt, store,
+    ingest: () => appendCloudFinancialRecords({
+      store, subjectId: uid, walletAddress: tenant.agent_wallet_address,
+      ledgerRows, costRows, balanceAtomic, observedAt,
+    }),
+    deliveryStore: {
+      claim: async ({ digest, report }) => {
+        claimedDigest = digest;
+        const claimReceipt = deps.claimReceipt || ((value) => (
+          legacyFinancialRuntime().claimFinancialReceipt(value, deps)
+        ));
+        return claimReceipt({
+          ...identity, timezone, period_start: bounds.period_start,
+          period_end: bounds.period_end, snapshot: report, snapshot_hash: digest, status: "pending",
+        });
+      },
+      readAfterClaim: () => readReceipt(identity),
+      verifyDelivered: completeSentReceipt,
+      markDelivered: async ({ delivery }) => {
+        const mark = deps.markReceiptSent || ((value, messageId) => (
+          legacyFinancialRuntime().markFinancialReceiptSent(value, messageId, { ...deps, nowMs })
+        ));
+        return mark({ ...identity, snapshot_hash: claimedDigest }, Number(delivery.providerMessageId));
+      },
+      markFailed: async () => {
+        const mark = deps.markReceiptFailed || ((value, code) => (
+          legacyFinancialRuntime().markFinancialReceiptFailed(value, code, { ...deps, nowMs })
+        ));
+        return mark({ ...identity, snapshot_hash: claimedDigest }, "telegram_rejected");
+      },
+    },
+    notify: async ({ message }) => {
+      const send = deps.sendTelegram || sendMessage;
+      const delivered = await send(deps.telegramToken || process.env.LM_TELEGRAM_BOT_TOKEN, String(tenant.telegram_chat_id), message);
+      return {
+        delivered: Boolean(delivered && delivered.ok === true),
+        providerMessageId: delivered && delivered.result && delivered.result.message_id,
+      };
+    },
+  });
+  if (result.status === "quiet") {
+    if (result.reason === "unchanged" && completeSentReceipt(result.duplicate)) {
+      return {
+        status: "duplicate", report_kind: kind, period_key: periodKey,
+        telegram_message_id: Number(result.duplicate.telegram_message_id),
+        snapshot_hash: String(result.duplicate.snapshot_hash),
+        chat_id_hash: hashChatId(tenant.telegram_chat_id), sent_at: String(result.duplicate.sent_at),
+        source_freshness: result.duplicate.source_freshness || {
+          report_cutoff_at: String(result.duplicate.period_end), earnings_latest_at: null,
+          costs_latest_at: null, balance_observed_at: null,
+        },
+      };
+    }
+    return result.reason === "unchanged"
+      ? { status: "failed", reason: "financial_delivery_claim_unresolved", report_kind: kind, unknownEffect: true }
+      : { status: "skipped", reason: result.reason, report_kind: kind, period_key: periodKey };
+  }
+  if (result.status === "failed") return { ...result, report_kind: kind, period_key: periodKey };
+  return {
+    status: "sent", report_kind: kind, period_key: periodKey,
+    telegram_message_id: Number(result.providerMessageId), snapshot: result.report,
+    snapshot_hash: result.digest,
+    source_freshness: {
+      report_cutoff_at: observedAt, earnings_latest_at: latest(ledgerRows, "occurred_at", observedAt),
+      costs_latest_at: latest(costRows, "ts", observedAt), balance_observed_at: observedAt,
+    },
+  };
+}
 
 function requiredText(value, label) {
   const text = String(value == null ? "" : value).trim();
@@ -105,7 +460,7 @@ async function executeFinancialReportJob(job, deps = {}) {
     job.tenant_id,
     inputRefs.telegram_token_ref,
   );
-  const execute = deps.runReport || runFinancialReport;
+  const execute = deps.runReport || runCloudFinancialManagerReport;
   const providerSend = deps.sendTelegram || sendMessage;
   let providerResult;
   let telegramChatId;
@@ -140,6 +495,13 @@ async function executeFinancialReportJob(job, deps = {}) {
     if (telegramDispatchStarted && error && typeof error === "object") {
       error.unknownEffect = true;
     }
+    throw error;
+  }
+  if (result.status === "failed") {
+    const error = new Error(`Financial Manager report failed: ${result.reason || "unknown"}`);
+    // A Telegram call with no verifiable provider id is an uncertain effect:
+    // retrying it blindly can duplicate the user-facing report.
+    error.unknownEffect = telegramDispatchStarted || result.unknownEffect === true;
     throw error;
   }
   if (result.status !== "sent") {
@@ -248,7 +610,7 @@ function safeFinancialReportSummary(receipt) {
 function createFinancialReportLoopAdapter(deps = {}) {
   return Object.freeze({
     async plan(context = {}) {
-      const kinds = context.kind == null ? ["daily", "weekly"] : [context.kind];
+      const kinds = context.kind == null ? ["daily"] : [context.kind];
       return kinds.map((kind) => buildFinancialReportJob({
         ...context,
         kind,
@@ -305,31 +667,30 @@ async function enqueueFinancialReportJobs(argv, env = process.env, deps = {}) {
     env.LM_TELEGRAM_TOKEN_REF || "secret://telegram/bot-token",
   );
   const enqueue = deps.enqueueJob || enqueueJob;
-  const results = [];
-  for (const kind of ["daily", "weekly"]) {
-    const job = buildFinancialReportJob({
-      tenantId,
-      kind,
-      nowMs,
-      force: force === "all" || force === kind,
-      telegramTokenRef,
-    });
-    const queued = await enqueue({
-      jobId: job.job_id,
-      tenantId: job.tenant_id,
-      loopId: job.loop_id,
-      capability: job.capability,
-      effectClass: job.effect_class,
-      effectKey: job.effect_key,
-      inputRefs: job.input_refs,
-      maxAttempts: job.max_attempts,
-    });
-    results.push({
-      created: queued.created === true,
-      job_id: job.job_id,
-      report_kind: kind,
-    });
-  }
+  const kind = force === "weekly" ? "weekly" : "daily";
+  const job = buildFinancialReportJob({
+    tenantId,
+    kind,
+    nowMs,
+    // `all` now means one forced consolidated report, not two identical sends.
+    force: force !== null,
+    telegramTokenRef,
+  });
+  const queued = await enqueue({
+    jobId: job.job_id,
+    tenantId: job.tenant_id,
+    loopId: job.loop_id,
+    capability: job.capability,
+    effectClass: job.effect_class,
+    effectKey: job.effect_key,
+    inputRefs: job.input_refs,
+    maxAttempts: job.max_attempts,
+  });
+  const results = [{
+    created: queued.created === true,
+    job_id: job.job_id,
+    report_kind: kind,
+  }];
   (deps.stdout || process.stdout).write(`${JSON.stringify(results)}\n`);
   return results;
 }
@@ -348,6 +709,8 @@ module.exports = {
   parseFinancialReportRef,
   buildFinancialReportJob,
   executeFinancialReportJob,
+  runCloudFinancialManagerReport,
+  appendCloudFinancialRecords,
   verifyFinancialReportReceipt,
   safeFinancialReportSummary,
   createFinancialReportLoopAdapter,

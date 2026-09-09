@@ -1,6 +1,7 @@
 "use strict";
 
 const { EXCLUDED_KINDS, normaliseEntry, usdMicrosForEntry } = require("./earnings-ledger.js");
+const { usdMicrosFromDecimal } = require("./financial-money.js");
 const { computePayout } = require("./payout-policy.js");
 
 const MICROS_PER_MINOR = 10_000n;
@@ -103,21 +104,6 @@ function periodBounds({ kind, nowMs, timezone = "UTC" } = {}) {
     period_start: new Date(zonedMidnightMs(startKey, zone)).toISOString(),
     period_end: new Date(now).toISOString(),
   };
-}
-
-// Cost rows are estimates rather than settlement amounts, but the report still must not lose cost
-// through binary floating-point addition. More than six decimals rounds up by one micro-dollar so
-// payout capacity is never overstated.
-function usdMicrosFromDecimal(value) {
-  const raw = String(value == null ? "" : value).trim();
-  if (/^-/.test(raw)) fail("USD cost must be non-negative");
-  const match = raw.match(/^(\d+)(?:\.(\d+))?$/);
-  if (!match) fail(`USD cost must be a decimal, got ${JSON.stringify(value)}`);
-  const whole = BigInt(match[1]);
-  const fraction = match[2] || "";
-  const micros = BigInt((fraction.slice(0, 6) || "").padEnd(6, "0") || "0");
-  const remainder = fraction.slice(6);
-  return whole * 1_000_000n + micros + (/[1-9]/.test(remainder) ? 1n : 0n);
 }
 
 function nonNegativeAtomic(value) {

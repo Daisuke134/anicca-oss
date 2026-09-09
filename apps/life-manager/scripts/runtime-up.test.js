@@ -110,6 +110,30 @@ test("coverage worker capability receives the assembled Connector refresh servic
   assert.equal(typeof handlers["connector.coverage.refresh"], "function");
 });
 
+test("financial worker passes its injected Postgres boundary to the shared Financial Manager adapter", () => {
+  const query = async () => ({ rows: [] });
+  const readBalance = async () => "0";
+  let financialServices;
+  createWorkerHandlers({
+    LM_RUNTIME_TENANT_ID: "tenant-a",
+    LM_TELEGRAM_BOT_TOKEN: "telegram-token",
+    SUPABASE_URL: "https://supa.example",
+    SUPABASE_SERVICE_ROLE_KEY: "service-key",
+  }, ["report.financial.telegram"], {
+    query,
+    readBalance,
+    createRegistry({ servicesByAdapter }) {
+      financialServices = servicesByAdapter["financial-report-telegram"];
+      return {
+        hasCapability: (capability) => capability === "report.financial.telegram",
+        getByCapability: () => ({ execute: async () => ({ receipt: { status: "skipped" } }) }),
+      };
+    },
+  });
+  assert.equal(financialServices.query, query);
+  assert.equal(financialServices.readBalance, readBalance);
+});
+
 test("general money worker wires its injected bounded specialist through the registry", async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "lm-runtime-money-specialist-"));
   const specialist = async (expected) => ({

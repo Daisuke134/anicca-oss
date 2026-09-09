@@ -63,25 +63,47 @@ function inRange(records, start, end) {
   });
 }
 
-function buildFinancialManagerReport(rawRecords, reportingDate) {
+function addDays(key, days) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function zonedMidnight(key, timezone) {
+  const [year, month, day] = key.split("-").map(Number);
+  const wallUtc = Date.UTC(year, month - 1, day);
+  let instant = wallUtc;
+  for (let pass = 0; pass < 2; pass += 1) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en", {
+      timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(instant)).filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]));
+    const represented = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second),
+    );
+    instant = wallUtc - (represented - instant);
+  }
+  return instant;
+}
+
+function buildFinancialManagerReport(rawRecords, reportingDate, { timezone = "Asia/Tokyo" } = {}) {
   const records = rawRecords.map(projectFinancialRecord);
   const verified = records.filter((record) => record.verification.status === "verified");
   const month = reportingDate.slice(0, 7);
   const [year, monthNumber] = month.split("-").map(Number);
-  const monthStart = Date.parse(`${month}-01T00:00:00+09:00`);
+  const monthStart = zonedMidnight(`${month}-01`, timezone);
   const nextYear = monthNumber === 12 ? year + 1 : year;
   const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
-  const monthEnd = Date.parse(
-    `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01T00:00:00+09:00`,
+  const monthEnd = zonedMidnight(
+    `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`, timezone,
   );
   const verifiedBusiness = verified.filter((record) => record.scope === "business");
   const currentBusiness = inRange(verifiedBusiness, monthStart, monthEnd);
-  const dayStart = Date.parse(`${reportingDate}T00:00:00+09:00`);
-  const dayEnd = dayStart + (24 * 60 * 60 * 1000);
-  const sevenDayStart = dayStart - (6 * 24 * 60 * 60 * 1000);
-  const sevenDayStartLabel = new Date(
-    Date.parse(`${reportingDate}T12:00:00Z`) - (6 * 24 * 60 * 60 * 1000),
-  ).toISOString().slice(0, 10);
+  const dayStart = zonedMidnight(reportingDate, timezone);
+  const dayEnd = zonedMidnight(addDays(reportingDate, 1), timezone);
+  const sevenDayStartLabel = addDays(reportingDate, -6);
+  const sevenDayStart = zonedMidnight(sevenDayStartLabel, timezone);
   const balances = newestBalances(verified);
   const assets = new Map();
   const liabilities = new Map();

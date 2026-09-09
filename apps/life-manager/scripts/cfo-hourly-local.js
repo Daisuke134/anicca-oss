@@ -9,9 +9,8 @@ const { createJsonlFinancialRecordStore } = require("../lib/financial-record-sto
 const { createMoneytreeObservationStore } = require("../lib/moneytree-observation-store.js");
 const { ingestFinancialRecords, splitPaths } = require("../lib/financial-manager-ingest.js");
 const {
-  buildFinancialManagerReport,
-  renderFinancialManagerTelegram,
-} = require("../lib/financial-manager-report.js");
+  runFinancialManager,
+} = require("../lib/financial-manager-runtime.js");
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
@@ -100,60 +99,43 @@ async function runHourlyCfo(options = {}) {
     directoryPath: path.join(stateDir, "financial-records"),
   });
   const ingest = options.ingest || ingestFinancialRecords;
-  const ingestion = await ingest({
-    store, subjectId, now,
-    moneytreeEvidenceStore: options.moneytreeEvidenceStore || createMoneytreeObservationStore({
-      directoryPath: path.join(stateDir, "evidence", "moneytree"),
-    }),
-    agentReceiptPaths: options.agentReceiptPaths || [],
-    marketplaceReceiptPaths: options.marketplaceReceiptPaths || [],
-    pythonBin: options.pythonBin || "python3",
-  });
-  const unavailableSources = Object.entries(ingestion.sources || {})
-    .filter(([, status]) => status === "unavailable")
-    .map(([source]) => source);
-  if (unavailableSources.length) {
-    return {
-      status: "failed", reason: "financial_source_unavailable",
-      unavailableSources, reportingDate: date, recordCount: 0,
-      delivered: false, ingestion,
-    };
-  }
-  const records = await store.read({ subjectId });
-  const { report, digest } = buildFinancialManagerReport(records, date);
-  if (report.verifiedRecordCount === 0) {
-    return {
-      status: "quiet", reason: "no_verified_financial_records",
-      reportingDate: date, recordCount: records.length, delivered: false, ingestion,
-    };
-  }
   const snapshotFile = path.join(stateDir, "last-delivered-snapshot.json");
-  const previous = readSnapshot(snapshotFile);
-  if (previous && previous.digest === digest) {
-    return {
-      status: "quiet", reason: "unchanged",
-      reportingDate: date, recordCount: records.length, delivered: false, ingestion,
-    };
-  }
-  const observedAt = now.toISOString();
   const notify = options.notify || ((input) => defaultNotify(input, options));
-  const delivery = await notify({
-    eventKey: `cfo:${subjectId}:${digest}`,
-    observedAt,
-    message: renderFinancialManagerTelegram(report),
+  const result = await runFinancialManager({
+    subjectId, reportingDate: date, timezone: "Asia/Tokyo", now, store,
+    ingest: () => ingest({
+      store, subjectId, now,
+      moneytreeEvidenceStore: options.moneytreeEvidenceStore || createMoneytreeObservationStore({
+        directoryPath: path.join(stateDir, "evidence", "moneytree"),
+      }),
+      agentReceiptPaths: options.agentReceiptPaths || [],
+      marketplaceReceiptPaths: options.marketplaceReceiptPaths || [],
+      pythonBin: options.pythonBin || "python3",
+    }),
+    deliveryStore: {
+      lookup: ({ digest }) => {
+        const previous = readSnapshot(snapshotFile);
+        return previous && previous.digest === digest ? previous : null;
+      },
+      claim: async () => ({ claimed: true }),
+      markDelivered: ({ digest, report, delivery, observedAt }) => writeSnapshot(snapshotFile, {
+        schemaVersion: 1, digest, report,
+        delivery: { delivery: "delivered", provider_message_id: delivery.providerMessageId },
+        deliveredAt: observedAt,
+      }),
+    },
+    eventKey: ({ digest }) => `cfo:${subjectId}:${digest}`,
+    notify: async (input) => {
+      const delivery = await notify(input);
+      return {
+        delivered: delivery && delivery.delivery === "delivered",
+        providerMessageId: delivery && delivery.provider_message_id,
+      };
+    },
   });
-  if (!delivery || delivery.delivery !== "delivered" || !delivery.provider_message_id) {
-    return {
-      status: "failed", reason: `telegram_${delivery && delivery.delivery || "unknown"}`,
-      reportingDate: date, recordCount: records.length, delivered: false, ingestion,
-    };
-  }
-  writeSnapshot(snapshotFile, { schemaVersion: 1, digest, report, delivery, deliveredAt: observedAt });
-  return {
-    status: "sent", reason: null, reportingDate: date,
-    recordCount: records.length, delivered: true,
-    providerMessageId: delivery.provider_message_id, ingestion,
-  };
+  // Local callers consume the compact, stable boundary rather than report internals.
+  const { report, digest, duplicate, ...publicResult } = result;
+  return publicResult;
 }
 
 async function main(env = process.env) {
