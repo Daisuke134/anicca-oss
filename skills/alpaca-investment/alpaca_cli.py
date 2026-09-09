@@ -384,3 +384,89 @@ def submit_order(
     if not isinstance(result, dict) or result.get("client_order_id") != client_order_id:
         raise ValueError("alpaca_submit_readback_invalid")
     return result
+
+
+def submit_live_canary(*, credentials_path: Path, cli_path: Path,
+                       client_order_id: str, order: dict[str, Any]) -> dict[str, Any]:
+    """Submit the single frozen L09 live canary; no scheduled loop calls this function."""
+    expected = {"asset_class": "crypto", "notional_usd": "2.00", "side": "buy",
+                "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+    if order != expected or not re.fullmatch(r"lm-ai-[0-9a-f]{24}", client_order_id):
+        raise ValueError("live_canary_shape_invalid")
+    if _selected_mode() != "live":
+        raise ValueError("investment_mode_effect_forbidden")
+    env = _context(credentials_path, cli_path, "live")
+    result = _run(cli_path, [
+        "order", "submit", "--quiet", "--symbol", "BTC/USDC", "--notional", "2.00",
+        "--side", "buy", "--type", "market", "--time-in-force", "gtc",
+        "--client-order-id", client_order_id, "--jq",
+        "{id,client_order_id,status,submitted_at,symbol,notional,side,type,time_in_force}",
+    ], env)
+    if (not isinstance(result, dict) or result.get("client_order_id") != client_order_id
+            or result.get("symbol") not in {"BTC/USDC", "BTCUSDC"}
+            or result.get("notional") != "2"
+            or result.get("side") != "buy" or result.get("type") != "market"
+            or result.get("time_in_force") != "gtc"):
+        raise ValueError("live_canary_ack_invalid")
+    return result
+
+
+def read_live_canary(*, credentials_path: Path, cli_path: Path,
+                     client_order_id: str) -> dict[str, Any]:
+    """Verify the frozen canary from official order, FILL, and position records."""
+    env = _context(credentials_path, cli_path, "live")
+    query = (
+        f"first(.[]|select(.client_order_id=={json.dumps(client_order_id)})) // "
+        "{found:false}|if .found==false then . else "
+        "{found:true,id,client_order_id,status,filled_qty,filled_avg_price,symbol,side,notional,type,time_in_force} end"
+    )
+    order = _run(cli_path, [
+        "order", "list", "--quiet", "--status", "all", "--limit", "500", "--jq", query,
+    ], env)
+    if order == {"found": False}:
+        return {"status": "absent", "verified": False}
+    if not isinstance(order, dict) or order.get("found") is not True:
+        raise ValueError("live_canary_order_invalid")
+    if (order.get("client_order_id") != client_order_id
+            or order.get("symbol") not in {"BTC/USDC", "BTCUSDC"}
+            or order.get("side") != "buy" or order.get("notional") != "2"
+            or order.get("type") != "market" or order.get("time_in_force") != "gtc"):
+        raise ValueError("live_canary_order_mismatch")
+    status = order.get("status")
+    try:
+        filled_qty = Decimal(str(order.get("filled_qty") or "0"))
+    except InvalidOperation as error:
+        raise ValueError("live_canary_order_invalid") from error
+    if status in {"canceled", "expired", "rejected"} and filled_qty == 0:
+        return {"status": "terminal_failure", "verified": False, "order": order}
+    if status in {"canceled", "expired", "rejected"}:
+        return {"status": "partial_terminal", "verified": False, "order": order}
+    if status != "filled":
+        return {"status": "pending", "verified": False, "order": order}
+    fills = _run(cli_path, [
+        "account", "activity", "list", "--activity-types", "FILL", "--order-id", str(order["id"]),
+        "--page-size", "100",
+        "--direction", "desc", "--quiet", "--jq",
+        f"[.[]|select(.order_id=={json.dumps(order.get('id'))})|"
+        "{order_id,symbol,side,qty,price,transaction_time}]",
+    ], env)
+    positions = _run(cli_path, [
+        "position", "list", "--quiet", "--jq",
+        "[.[]|select(.symbol==\"BTCUSDC\" or .symbol==\"BTC/USDC\")|"
+        "{symbol,qty,market_value,unrealized_pl}]",
+    ], env)
+    try:
+        if not isinstance(fills, list) or not fills or not isinstance(positions, list) \
+                or len(positions) != 1:
+            raise ValueError
+        fill_total = sum((Decimal(str(fill["qty"])) for fill in fills), Decimal("0"))
+        if (any(fill.get("order_id") != order["id"] or fill.get("side") != "buy"
+                or fill.get("symbol") not in {"BTC/USDC", "BTCUSDC"} for fill in fills)
+                or fill_total != filled_qty
+                or Decimal(str(positions[0]["qty"])) != filled_qty
+                or filled_qty <= 0):
+            raise ValueError
+    except (InvalidOperation, KeyError, TypeError, ValueError) as error:
+        raise ValueError("live_canary_fill_mismatch") from error
+    return {"status": "verified", "verified": True, "order": order,
+            "fills": fills, "position": positions[0]}
