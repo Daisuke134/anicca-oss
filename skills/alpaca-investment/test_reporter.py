@@ -30,13 +30,19 @@ class ModeReportTest(unittest.TestCase):
             {"unrealized_pnl_usd": "0.00"},
             {"candidate_ref": "NO_TRADE", "gate": "model_no_trade",
              "observed_at": "2026-09-05T00:00:00Z", "mode": "shadow",
-             "application_status": "in_review"}, "none")
+             "application_status": "in_review", "risk": {
+                 "equity_pnl_ny_day_usd": "-1", "official_pnl_ny_day_usd": "-2",
+                 "unrealized_pnl_usd": "-0.50"}}, "none")
         self.assertIn("モード: shadow", message)
         self.assertIn("ライブ口座: 審査中", message)
         self.assertTrue(message.startswith("[Investment Loop][投資判断]"))
         self.assertNotIn("Codex", message)
         self.assertNotIn("Alpaca", message)
         self.assertIn("理由: 理由は記録されていません", message)
+        self.assertIn("日次純損益: -$2.00", message)
+        self.assertIn("含み損益: -$0.50", message)
+        self.assertIn("残り日次損失枠: $18.00", message)
+        self.assertIn("次回確認: 2026-09-05T00:05:00+00:00", message)
         self.assertNotIn("開始時$100,000", message)
         failure = reporter.render_failure(
             stage="observe", effect_uncertain=False,
@@ -47,6 +53,18 @@ class ModeReportTest(unittest.TestCase):
         self.assertNotIn("Alpaca", failure)
         self.assertIn("live注文", failure)
         self.assertNotIn("paper注文", failure)
+
+    def test_unknown_live_pnl_is_reported_unknown_not_zero(self):
+        message = reporter.render(
+            {"account": {"equity": "66.75", "cash": "0"}, "positions": [{}]},
+            {}, {"candidate_ref": "NO_TRADE", "gate": "risk_rejected",
+                 "reason": "daily evidence unknown", "observed_at": "bad-time",
+                 "mode": "live", "application_status": "active", "risk": {
+                     "equity_pnl_ny_day_usd": "0", "official_pnl_ny_day_usd": None,
+                     "unrealized_pnl_usd": "-0.01"}}, "none")
+        self.assertIn("日次純損益: 不明", message)
+        self.assertIn("残り日次損失枠: 不明", message)
+        self.assertIn("次回確認: 不明", message)
 
 
 class FailureBalanceTest(unittest.TestCase):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -69,8 +69,19 @@ def render(observation: dict[str, Any], campaign: dict[str, Any],
     cash = Decimal(str(observation["account"]["cash"]))
     change = equity - Decimal("100000")
     baseline_text = f"、開始時$100,000から {money(change)}" if mode == "paper" else ""
-    realized = campaign.get("realized_pnl_usd")
-    realized_text = f"確定損益 {money(Decimal(realized))}、" if realized is not None else ""
+    risk = decision.get("risk") if isinstance(decision.get("risk"), dict) else {}
+    equity_pnl = _decimal_or_none(risk.get("equity_pnl_ny_day_usd"))
+    official_pnl = _decimal_or_none(risk.get("official_pnl_ny_day_usd"))
+    daily_pnl = min(equity_pnl, official_pnl) if equity_pnl is not None and official_pnl is not None else None
+    remaining = max(Decimal("0"), Decimal("20") + min(Decimal("0"), daily_pnl)) \
+        if daily_pnl is not None else None
+    unrealized = _decimal_or_none(risk.get("unrealized_pnl_usd"))
+    observed = decision["observed_at"]
+    try:
+        next_wake = (datetime.fromisoformat(observed.replace("Z", "+00:00"))
+                     + timedelta(minutes=5)).isoformat()
+    except (TypeError, ValueError):
+        next_wake = "不明"
     effect_text = "注文なし" if effect == "none" else f"{mode}効果 {effect[:12]}"
     heading = "⏭️ 今回は投資しませんでした" if effect == "none" else "✅ 投資注文を実行しました"
     review = {
@@ -90,15 +101,29 @@ def render(observation: dict[str, Any], campaign: dict[str, Any],
         f"理由: {decision.get('reason') or '理由は記録されていません'}",
         f"資産: {money(equity)}",
         f"現金: {money(cash)}{baseline_text}",
-        f"損益: {realized_text}含み損益 {money(Decimal(campaign['unrealized_pnl_usd']))}",
+        f"日次純損益: {_money_or_unknown(daily_pnl)}",
+        f"含み損益: {_money_or_unknown(unrealized)}",
         f"保有: {len(observation['positions'])}件",
         f"注文: {effect_text}",
+        f"残り日次損失枠: {_money_or_unknown(remaining)}",
         f"観測時刻: {decision['observed_at']}",
-        "",
-        "次に自動で行うこと",
-        "5分後に市場と口座を再確認します。",
+        f"次回確認: {next_wake}",
         "ユーザーの操作は必要ありません。",
     ))
+
+
+def _decimal_or_none(value: Any):
+    try:
+        amount = Decimal(str(value))
+        return amount if amount.is_finite() else None
+    except (ValueError, TypeError, ArithmeticError):
+        return None
+
+
+def _money_or_unknown(amount) -> str:
+    if amount is None:
+        return "不明"
+    return f"-${abs(amount):,.2f}" if amount < 0 else f"${amount:,.2f}"
 
 
 def _deliver_message(state: Path, event_key: str, message: str,

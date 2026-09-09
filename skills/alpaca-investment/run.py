@@ -222,6 +222,7 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         )
         decision["deployment"] = deployment
         decision["mode"] = mode
+        decision["risk"] = allocator_snapshot["risk"]
         if effect != "none" and decision["approved"]:
             decision["approved"] = False
             decision["gate"] = "campaign_exit_used_effect_limit"
