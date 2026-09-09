@@ -430,18 +430,32 @@ test("a forced runtime job uses the durable job receipt as its one-shot dedupe b
     force: true,
     telegramTokenRef: "secret://telegram/bot-token",
   });
+  const durableReceipt = {
+    status: "sent",
+    telegram_message_id: 55,
+    snapshot_hash: "a".repeat(64),
+    sent_at: "2026-08-02T11:05:01.000Z",
+  };
+  const readReceipt = async () => durableReceipt;
+  const claimReceipt = async () => ({ claimed: false });
+  const markReceiptSent = async () => { throw new Error("must not replace durable receipt writer"); };
+  const markReceiptFailed = async () => { throw new Error("must not replace durable failure writer"); };
   let runtimeDeps;
   const execution = await executeFinancialReportJob(job, {
     secretProvider: { get: async () => "token" },
+    readReceipt,
+    claimReceipt,
+    markReceiptSent,
+    markReceiptFailed,
     runReport: async (_request, receivedDeps) => {
       runtimeDeps = receivedDeps;
       return { status: "skipped", report_kind: "weekly", reason: "fixture" };
     },
   });
 
-  assert.equal((await runtimeDeps.readReceipt()), null);
-  assert.deepEqual(await runtimeDeps.claimReceipt(), { claimed: true });
-  assert.equal(await runtimeDeps.markReceiptSent(), true);
-  assert.equal(await runtimeDeps.markReceiptFailed(), true);
+  assert.equal(runtimeDeps.readReceipt, readReceipt);
+  assert.equal(runtimeDeps.claimReceipt, claimReceipt);
+  assert.equal(runtimeDeps.markReceiptSent, markReceiptSent);
+  assert.equal(runtimeDeps.markReceiptFailed, markReceiptFailed);
   assert.equal(execution.receipt.status, "skipped");
 });

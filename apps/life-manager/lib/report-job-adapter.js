@@ -468,14 +468,6 @@ async function executeFinancialReportJob(job, deps = {}) {
   let telegramChatId;
   let telegramDispatchStarted = false;
   let result;
-  const forceReceiptBoundary = request.force
-    ? {
-      readReceipt: async () => null,
-      claimReceipt: async () => ({ claimed: true }),
-      markReceiptSent: async () => true,
-      markReceiptFailed: async () => true,
-    }
-    : {};
   try {
     result = await execute({
       uid: job.tenant_id,
@@ -484,7 +476,6 @@ async function executeFinancialReportJob(job, deps = {}) {
       force: request.force,
     }, {
       ...deps,
-      ...forceReceiptBoundary,
       telegramToken,
       sendTelegram: async (token, chatId, body, extra) => {
         telegramChatId = String(chatId);
