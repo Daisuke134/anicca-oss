@@ -38,6 +38,22 @@ def browser_entry(label: str, profile: str, port: int):
 
 
 class MacosLoopRegistryTest(unittest.TestCase):
+    def test_migrated_system_loops_keep_runtime_metadata_out_of_openclaw(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for loop_id in {
+            "browser-state-backup",
+            "cadence-deadline-check",
+            "claude-projects-backup",
+            "earning-health-allslots",
+            "session-vault",
+            "verify-loops-audit",
+        }:
+            with self.subTest(loop_id=loop_id):
+                row = registry["loops"][loop_id]
+                root = f"~/.local/state/life-manager/{loop_id}"
+                self.assertEqual(row["state_root"], root)
+                self.assertEqual(row["log_root"], f"{root}/logs")
+
     def test_life_manager_owned_loops_do_not_write_runtime_metadata_to_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         loop_ids = {

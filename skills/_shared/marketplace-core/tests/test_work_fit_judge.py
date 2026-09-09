@@ -12,6 +12,7 @@ Run: python3 -m pytest skills/_shared/marketplace-core/tests/test_work_fit_judge
 """
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -110,3 +111,23 @@ def test_the_prompt_carries_every_prohibition_and_the_postings():
     assert "代理店として販売いただきます" in prompt
     # Fitness only: this judge never writes the proposal or the price.
     assert "提案文も価格も書きません" in prompt
+
+
+def test_default_judge_uses_the_supported_shared_apply_task_class(tmp_path, monkeypatch):
+    result_path = tmp_path / "result.json"
+    result_path.write_text(json.dumps({"judgements": []}), encoding="utf-8")
+    (tmp_path / "summary.json").write_text(json.dumps({
+        "status": "success", "result_path": str(result_path),
+    }), encoding="utf-8")
+    observed = {}
+
+    def run(command, **kwargs):
+        observed["command"] = command
+        return type("Completed", (), {"returncode": 0, "stderr": ""})()
+
+    monkeypatch.setattr(fit.subprocess, "run", run)
+    fit._default_runner("prompt", tmp_path, "crowdworks-application")
+    index = observed["command"].index("--task-class")
+    assert observed["command"][index + 1] == "application-intent-planner"
+    escalation = observed["command"].index("--escalation-reason")
+    assert observed["command"][escalation + 1] == "shared marketplace application fitness decision"

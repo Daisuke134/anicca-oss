@@ -392,6 +392,36 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(log_root.stat().st_mode), 0o755)
         self.assertEqual(stat.S_IMODE(existing_stdout.stat().st_mode), 0o644)
         self.assertFalse((log_root / "launchd.err.log").exists())
+
+    def test_generic_install_creates_missing_state_and_log_roots(self):
+        value = registry()
+        state_root = self.root / ".local/state/new-state-root"
+        log_root = self.root / ".local/state/new-log-root"
+        value["loops"]["example"]["state_root"] = "~/.local/state/new-state-root"
+        value["loops"]["example"]["log_root"] = "~/.local/state/new-log-root"
+        target = self.root / "installed.plist"
+
+        def launchctl(args):
+            if args[0] == "print":
+                if not target.is_file():
+                    return 1, "not loaded"
+                current = plistlib.loads(target.read_bytes())
+                return 0, "arguments = {\n" + "\n".join(
+                    current["ProgramArguments"]
+                ) + "\n}\n"
+            return 0, ""
+
+        with patch.dict(os.environ, {"HOME": str(self.root)}):
+            rendered = build_apply_plan(value, self.root, SHA)[0]
+            result = install_one(
+                rendered, target, launchctl, attempts=1, sleeper=lambda _: None
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(state_root.is_dir())
+        self.assertTrue(log_root.is_dir())
+        self.assertFalse((log_root / "launchd.out.log").exists())
+        self.assertFalse((log_root / "launchd.err.log").exists())
         self.assertEqual(stat.S_IMODE(state_root.stat().st_mode), 0o755)
 
     def test_money_printer_install_secures_existing_and_new_launchd_log_files(self):

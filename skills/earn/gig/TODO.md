@@ -129,15 +129,16 @@ acceptance receipt changes a cell.
 
 | Marketplace | Apply | Reply | Storefront | Paid |
 |---|---|---|---|---|
-| Coconala | **Broken in the latest installed wake.** Installed release `936a5743` still reports a failing terminal; recent stderr contains `ENOSPC`, SQLite disk I/O, and a later `denied_source_id` initialization error. The merged all-category correction is not production acceptance. | **Historical effects accepted; current owner broken.** Installed/event release `aa8b4ca5` ends `entrypoint_exit_1`. The retained aggregate still represents `observed=174`, `readback=159`, `failed=0`, `pending=15`, but repeated authenticated-target opens hit `browser_tab_limit`; that historical aggregate does not override the newer failed terminal. | **Broken and unloaded.** Installed release `56ebb339` has a failed terminal and the owner is unloaded; recent writes also failed with `ENOSPC`. Historical listing publication is not current health or revenue proof. | **Reference acceptance retained; current owner broken.** `COCONALA-PAID-1` through `3C` still prove the five-room receipt chain, failed zero, formal delivery off and Ryu replay-zero. The installed `936a5743` owner now ends `entrypoint_exit_1`; no new customer effect is authorized merely to retest it. |
+| Coconala | **Account restriction persists.** The latest bounded run ends failed with official applied-history readback `403 Forbidden`, `observed=0`, `effect=0`, `failed=1`; direct authenticated inspection of a current request also returns 403. The application ledger has no row newer than 2026-09-02. Forty-two durable uncertain intents remain owned and no duplicate submission was attempted. | **Historical effects accepted; current owner broken.** Installed/event release `aa8b4ca5` ends `entrypoint_exit_1`. The retained aggregate still represents `observed=174`, `readback=159`, `failed=0`, `pending=15`, but repeated authenticated-target opens hit `browser_tab_limit`; that historical aggregate does not override the newer failed terminal. | **Broken and unloaded.** Installed release `56ebb339` has a failed terminal and the owner is unloaded; recent writes also failed with `ENOSPC`. Historical listing publication is not current health or revenue proof. | **Reference acceptance retained; current owner broken.** `COCONALA-PAID-1` through `3C` still prove the five-room receipt chain, failed zero, formal delivery off and Ryu replay-zero. The installed `936a5743` owner now ends `entrypoint_exit_1`; no new customer effect is authorized merely to retest it. |
 | Lancers | **Current terminal passes, revenue still unproven.** Installed release `d2d8262e` has a natural PASS, although its launchd exit metadata remains `78`; historical proposal `27861812` is the last named official application receipt and no new accepted contract or payout is proven. | **Current runtime passes.** Installed release `61750a04` has a natural PASS. Historical official correction `59145491`, Telegram readback and replay-zero remain the effect acceptance; no new contract revenue is proven. | **Current runtime passes, revenue unproven.** Installed release `75fab5a9` has a natural PASS. Catalog/public-readback changes are in main, but state preservation remains only on unmerged `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Broken and no revenue proof.** Installed release `75c600da` ends `entrypoint_exit_1`; the latest paid aggregate classifies `provider_inventory` with `observed=0`, `failed=1`. |
-| CrowdWorks | **Broken in the latest installed wake.** Installed release `d2d8262e` ends `entrypoint_exit_1`/exit `120`. Earlier durable application receipts remain history, not current health or accepted-contract revenue. | **Historical effects accepted; current owner broken.** Installed release `460851bf` ends `entrypoint_exit_120`. The retained shared aggregate represents `observed=10`, `readback=10`, `failed=0`, `pending=0` and five replay-zero receipts, but it does not override the newer failed terminal. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Broken and no revenue proof.** Installed release `75c600da` ends `entrypoint_exit_1`; current provider inventory fails before any real contract, delivery or payout receipt. |
+| CrowdWorks | **Runtime repair installed; application acceptance pending.** PR `#4742` is in main and targeted release `c5035c0b` produced a natural PASS, proving CDP attach recovery. It inspected 102 jobs but applied to zero because the newly corrected shared runner class required an explicit escalation reason that its caller omitted; the same run also exceeded its intended search budget. Both exact follow-up corrections pass 64 tests plus two subtests and await merge/release. One fresh official application plus Telegram receipt and replay-zero remain required. | **Historical effects accepted; current owner broken.** Installed release `460851bf` ends `entrypoint_exit_120`. The retained shared aggregate represents `observed=10`, `readback=10`, `failed=0`, `pending=0` and five replay-zero receipts, but it does not override the newer failed terminal. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Broken and no revenue proof.** Installed release `75c600da` ends `entrypoint_exit_1`; current provider inventory fails before any real contract, delivery or payout receipt. |
 | Mercor | **Working.** The latest installed 30-minute owner passes; prior consecutive natural wakes submitted distinct ready listings with official success readback and deduplicated Telegram receipts. | **Working.** Installed release `20198997` ended consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` with `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`. Official auth is authenticated; the one actionable human handoff read back existing Telegram receipt `70005` with `attempted=0`, and the outbox remains exactly three delivered rows with attempt count one. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Official empty-inventory monitoring, not live-accepted.** Installed release `ec59f8f0` reuses the fresh shared Reply snapshot and its natural terminal passed with `status=ok`, `observed=0`, `failed=0`, `pending=0`; official Contracts are currently empty. No real work item, submission or payout receipt exists. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
-**Host-wide runtime incident.** The Data volume is at 100% capacity with only about 404 MiB free.
-Recent Coconala, Lancers and CrowdWorks failures contain `ENOSPC`, SQLite disk-I/O failures and
+**Host-wide runtime incident.** The Data volume previously reached 100% capacity. The latest check
+has about 5.1 GiB free after another owner reclaimed space; this owner deleted nothing.
+Earlier Coconala, Lancers and CrowdWorks failures contain `ENOSPC`, SQLite disk-I/O failures and
 state/evidence temporary-write failures. Protected immutable-release GC evaluated 32 releases and
 removed none because all 32 are still referenced. Therefore no failing lane may be declared repaired
 until owner-aware cleanup restores a durable disk floor and that exact installed owner produces a new
@@ -149,42 +150,44 @@ ledger links official application or storefront acquisition to contract, accepte
 marketplace fee, payout and bank receipt. No marketplace besides the retained Coconala customer history
 currently has that complete new-revenue chain.
 
-The completed extraction order remains exactly `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
-`CROWDWORKS-PAID-1`. Mercor is the selected next marketplace, but its revenue path begins with a
-dedicated Apply owner because no current application, contract or buyer event exists. The controlling
-engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `CROWDWORKS-REPLY-1` ->
-`MERCOR-REPLY-1` -> `NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change:
-after the shared Coconala/Lancers Reply acceptance, close CrowdWorks Reply before Mercor Reply,
-then prove the existing Mercor Paid adapter on a real accepted work item.
-An adapter that is code-ready and running but lacks a real external contract stays unchecked and
-continues monitoring; external inventory waiting does not block implementation of the next adapter.
-This preserves acceptance truth without leaving the engineering lane idle while Apply, Reply and
-Storefront create the upstream contract.
+The completed extraction order remains historical evidence: `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
+`CROWDWORKS-PAID-1`. Dais now explicitly changes the controlling lane order to **Apply -> Reply ->
+Paid -> Storefront**. The active atom is `APPLY-REPORT-9`: restore Coconala's real application effect
+and then prove one fresh three-provider Apply receipt set. Completed Reply and Paid extraction work is
+not reopened or reimplemented; those owners keep monitoring while Apply creates the upstream contract.
+After Apply acceptance, recheck Reply continuous health, then close real-contract Paid acceptance,
+then finish Storefront coverage and revenue attribution.
 
-Why this order is fixed:
+Apply maximizes truthful eligible applications. It excludes only opportunities whose application or
+delivery would violate provider rules, require a false factual assertion, or require an outcome the
+installed capabilities cannot produce. A later interview, assessment, identity ceremony or physical
+submission is not an Apply-wide blocker: submit every reversible autonomous step, persist the exact
+work item as `WAITING_EXTERNAL`, send one deduplicated Telegram handoff when action is actually due,
+and continue to the next opportunity. Ranking may prioritize fit and expected net value, but it must
+not silently turn a non-empty eligible inventory into zero applications.
+
+Why this new order is fixed:
 
 1. `PANIC-1` and `PANIC-2` close the immediate host-pressure boundary before more browser work.
    They do not prove that macOS can never restart, but the sustained live workload now stays inside
    finite browser/process contracts.
-2. Close `SHARED-PAID-1` before adding another provider so Coconala's proven lifecycle becomes the
-   one reusable kernel instead of another copied `paid_direct.py`.
-3. Complete Lancers next because it is the measured second Paid boundary and therefore proves the
-   extraction against a different provider vocabulary, even while its live contract inventory is zero.
-4. Add CrowdWorks only after that boundary is proven; it contributes selectors, auth, provider state,
-   mutation and readback only, never another lifecycle.
-5. Restore Mercor Apply before claiming more Mercor Paid progress. It must produce identity-bound
-   application receipts and real-time Telegram reports; a running observer or empty inventory is not PASS.
-6. Build shared Reply next, then add Mercor only as a thin adapter. This prevents a temporary Mercor
-   message path from becoming a second Reply lifecycle.
-7. Prove Mercor Paid only after Apply and Reply create a real accepted work item. Human-required
-   steps become durable Telegram handoffs and waits, not fabricated autonomous success.
-8. Complete the Lancers and CrowdWorks real Reply acceptances through that shared kernel while their
-   Paid adapters continue monitoring for real contracts.
-9. Perform `PANIC-3` through `PANIC-6` last in their unchanged internal order. The macOS
+2. Close Apply first because zero applications guarantee zero new contracts for Reply and Paid.
+   PASS is a fresh official application readback plus Telegram receipt and following replay-zero on
+   Coconala, Lancers and CrowdWorks; Mercor retains its already proven application path.
+3. Recheck Reply next across Coconala, Lancers, CrowdWorks and Mercor. Existing shared-kernel and
+   provider effects remain valid, but every installed owner must end a fresh natural terminal and
+   represent every official buyer event exactly once.
+4. Close Paid after Reply. Coconala's reference acceptance and the shared adapters remain valid;
+   Lancers, CrowdWorks and Mercor stay live monitors until a real contract proves delivery, official
+   readback, acceptance/payment and replay-zero.
+5. Finish Storefront last: restore Coconala continuous health, integrate the existing Lancers
+   state/readback branch, add only a thin CrowdWorks adapter, and bind listing changes to attributable
+   inquiry, order and net-cash receipts.
+6. Perform `PANIC-3` through `PANIC-6` last in their unchanged internal order. The macOS
    update/reboot runs only while Dais is physically available; until then no Mac, loginwindow or Aqua
    restart is authorized.
-10. Canonicalize `loop-development/SKILL.md` last from measured Paid and Reply behavior; writing the
-   canon earlier would preserve guesses rather than the implementation that actually passed.
+7. Canonicalize `loop-development/SKILL.md` last from measured four-lane behavior; writing the canon
+   earlier would preserve guesses rather than the implementation that actually passed.
 
 Zero live contracts never permits skipping an adapter atom or checking it complete. It proves only
 the empty official inventory path. The atom stays open until a real contract produces submission,
@@ -192,9 +195,8 @@ same-session official readback and a following replay with effect zero.
 
 ## Host safety track and its explicit pause
 
-`PANIC-1` and `PANIC-2` are complete. Dais explicitly changes the controlling order: complete the
-Mercor Apply -> shared Reply -> Mercor Reply -> Mercor Paid revenue path, then the Lancers and
-CrowdWorks Reply acceptances, before the restart-dependent host atoms. `PANIC-3` through `PANIC-6`
+`PANIC-1` and `PANIC-2` are complete. Dais explicitly changes the controlling order to Apply ->
+Reply -> Paid -> Storefront before the restart-dependent host atoms. `PANIC-3` through `PANIC-6`
 remain required and retain their internal order. The measured WindowServer panic remains a real availability risk; this
 reorder states that an OS restart is not a repair for the current Coconala authentication,
 targeted-readback or remote-builder failures. Do not restart Mac, loginwindow or Aqua while Dais is
@@ -223,10 +225,10 @@ This is the only executable cursor for this owner. Older unchecked Coconala inci
 case lists below are historical evidence and do not reopen completed work or reorder this list.
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
-Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
-contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` and
-`CROWDWORKS-REPLY-1` and `MERCOR-REPLY-1` are complete. The active engineering atom is
-`NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
+Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
+official contract inventories are empty; they do not block the next implementable atom. The active
+engineering atom is `APPLY-REPORT-9`, followed by fresh three-provider Apply acceptance. Reply is
+next, Paid follows Reply, and Storefront follows Paid. This is Dais's explicit order change.
 
 Fresh cross-owner handoff audit:
 
@@ -244,10 +246,9 @@ Fresh cross-owner handoff audit:
   not edit that worktree or its Writer files. Changes to `config/loop-registry.json` or
   `skills/_shared/marketplace-core/` require a fresh overlap comparison, but no current file overlap
   was observed.
-- Dais asks to finish lanes one by one and discusses Reply, Apply, Storefront and Paid, but the wording
-  does not unambiguously replace the already fixed atomic cursor. Preserve the current order until an
-  explicit single sequence replaces it; keep the stopped Apply/Storefront work recorded rather than
-  silently dropping or duplicating it.
+- Dais now explicitly replaces the controlling sequence with Apply -> Reply -> Paid -> Storefront.
+  Promote the existing Apply work and evidence instead of duplicating it; keep completed Reply/Paid
+  extraction and stopped Storefront work recorded, monitored and available for their later turns.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -1278,10 +1279,10 @@ Fresh cross-owner handoff audit:
     gates once, removes duplicate or stale instructions, and the final three-provider runtime table
     shows each installed owner, release SHA, latest natural terminal and effect/readback status.
 
-## Parallel Apply-owner cursor — one reporting standard, no external CLI
+## Active Apply-owner cursor — one reporting standard, no external CLI
 
-Owned by the Apply owner and executed in parallel with the Paid cursor above; it does not reorder
-that cursor. Measured 2026-09-06. All three lanes send the same kind of sentence, through two
+Owned by the Apply owner and now controlling implementation before Reply, Paid and Storefront.
+Paid/Reply monitoring continues without reopening completed atoms. Measured 2026-09-06. All three lanes send the same kind of sentence, through two
 different transports, and only one of those survives being cloned by a stranger.
 
 | Piece | Coconala | Lancers | CrowdWorks |
@@ -2015,6 +2016,41 @@ from the chat, and two of them contradict what this cursor had previously report
     installing the two runtime dependencies or by the check reading them from a shared location.
     This belongs to whoever owns release cutting; it is recorded here because it has now cost the
     Apply lanes more downtime than any bug in them.
+
+22. [ ] `APPLY-CROWDWORKS-3` Close each Apply-owned browser page even when a bounded wake fails.
+    Measured 2026-09-09: the browser process, session vault and raw CDP websocket were healthy, but
+    Playwright attach timed out because an Apply navigation left one unresponsive CrowdWorks target
+    behind. Closing only that target restored attach in 0.9 seconds without restarting the browser
+    or logging in again. `application_owner.py` closed its page only on the success path, so any
+    crawl timeout could poison every later Apply, Reply and Paid attachment as
+    `vault_restore_failed`. The page now closes in `finally`; the focused CrowdWorks suite passes
+    24/24. PASS remains production evidence: merge and target the main-derived release, then record
+    a natural terminal, one new official application receipt with its Telegram report, and the next
+    wake's replay-zero. This repair must not be called complete from tests or process liveness.
+    The first main-derived natural wake proved the attach repair but exposed a second lifecycle
+    leak: the 240-second search deadline was checked only between groups, so one large group ran for
+    372 seconds. The deadline is now also checked before every posting and returns the measured
+    counters immediately; the focused owner suite passes 26/26.
+
+23. [ ] `APPLY-CROWDWORKS-4` Run the shared fitness judge through a supported Apply task class.
+    Measured 2026-09-09: `work_fit.py` invoked removed class `planning`; the current agent runner
+    rejects it before model execution, and CrowdWorks converted that configuration failure into a
+    decline for each otherwise eligible posting. The shared runner now uses
+    `application-intent-planner`, the same task family already used by Apply. Its first natural wake
+    then named the next exact contract violation: that route requires `--escalation-reason` and the
+    shared caller omitted it. The caller now supplies the bounded fitness-decision reason, and
+    CrowdWorks reports a runner failure as `judge_unavailable` rather than falsely adding it to
+    `not_workable`. Sixty-four tests plus two subtests pass. PASS remains merge, targeted release, a
+    natural wake with no runner-configuration decline, one official application/Telegram receipt,
+    and replay-zero.
+
+24. [ ] `APPLY-DISK-2` Let central cleanup clear the same durable pressure gate that release builds
+    read. Measured 2026-09-09: cleanup repeatedly passed and free space recovered from 400 MiB to
+    7.4 GiB, but release creation stayed blocked because cleanup wrote under
+    `~/.local/state/life-manager/state` while the cutter and producers read
+    `~/.openclaw/state/disk-pressure.block`. Point the cleanup governor at the existing shared host
+    state; do not unlink the flag manually or bypass the release gate. PASS = a natural cleanup wake
+    removes the stale flag, then the exact main SHA release builds without override.
 
 
 
@@ -7611,7 +7647,7 @@ queue is added. Each owner must also progress independent work concurrently insi
    project state or evidence; the separate manual Codex owns it.
 
    A registry audit found the four Coconala framework owners still pointed to one shared
-   `~/.openclaw` state/log root, while their actual marketplace data lives below `~/gig`. This makes
+   legacy OpenClaw state/log root, while their actual marketplace data lives below `~/gig`. This makes
    `lm-loop-run` receipts and cleanup scans cross-lane (the latest receipt even names
    `agent-economy-loop`) and explains why a lane cannot clean its own run boundary truthfully. Change
    only these four registry entries to unique `~/.local/state/life-manager/coconala/{apply,reply,paid,storefront}`

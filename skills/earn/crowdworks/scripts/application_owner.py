@@ -208,6 +208,9 @@ def _candidate(page, listings, groups):
         # the recommendation rail: 227 links for a 20-result search, nearly all unrelated.
         links=page.locator('h3 a[href*="/public/jobs/"]').evaluate_all("els => els.map(e => ({href:e.getAttribute('href') || '',title:(e.innerText || '').trim()}))")
         for link in links:
+            if time.monotonic() > deadline:
+                rejected["out_of_time"] += len(ordered) - ordered.index(listing)
+                return None,None,None,{"inspected":len(seen)-already,**rejected,"declined":declined}
             match=re.search(r"/public/jobs/([0-9]+)(?:[?#]|$)",link.get("href","") if isinstance(link,dict) else "")
             if match is None:continue
             job_id,title=match.group(1),link.get("title","")
@@ -248,11 +251,11 @@ def _candidate(page, listings, groups):
             # Coconala had no judgement here either and the marketplace restricted the account.
             verdict = _work_fit_verdict(job_id, title, detail or text)
             if verdict is not None:
-                rejected["not_workable"]+=1
                 # Not `quote`: that is urllib.parse.quote, used a few lines above to build the
                 # search URL, and binding it here made it local to the whole function and took
                 # the lane down with UnboundLocalError on the next wake.
                 reason, evidence_quote = verdict
+                rejected["judge_unavailable" if reason == "judge_unavailable" else "not_workable"]+=1
                 _decline(declined,job_id,title,f"募集文の「{evidence_quote}」が対応できない条件（{reason}）に当たります" if evidence_quote else f"対応できない条件（{reason}）に当たります")
                 continue
             return {"external_id":job_id,"title":re.sub(r"\s+"," ",title).strip()},matched,tier,{"inspected":len(seen)-already,**rejected,"declined":declined}
@@ -304,18 +307,20 @@ def main():
         if not ensured.authenticated:result={"ok":False,"status":ensured.error or ensured.status,"effect_delta":0}
         else:
             browser=account._browser(account.CDP_URL);page=browser.contexts[0].new_page()
-            configured=profile.run_apply(page=page,receipt_path=STATE/"profile-receipt.json")
-            imported=_reconcile(page) if configured.get("ok") else 0
-            if not configured.get("ok"):
-                result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
-            elif (candidate_result:=_candidate(page,_listings(),_groups(now)))[0] is None:
-                result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
-            else:
-                candidate,listing,tier,_inspected=candidate_result
-                due=(date.today()+timedelta(days=int(tier.get("delivery_days",7)))).isoformat()
-                tick=application.execute_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),proposed_amount_minor=tier["price_jpy"],delivery_due_on=due,expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
-                result={**tick.to_dict(),"status":"verified" if tick.application_verified else tick.error or tick.reason,"effect_delta":1 if tick.submitted else 0}
-            page.close()
+            try:
+                configured=profile.run_apply(page=page,receipt_path=STATE/"profile-receipt.json")
+                imported=_reconcile(page) if configured.get("ok") else 0
+                if not configured.get("ok"):
+                    result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
+                elif (candidate_result:=_candidate(page,_listings(),_groups(now)))[0] is None:
+                    result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
+                else:
+                    candidate,listing,tier,_inspected=candidate_result
+                    due=(date.today()+timedelta(days=int(tier.get("delivery_days",7)))).isoformat()
+                    tick=application.execute_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),proposed_amount_minor=tier["price_jpy"],delivery_due_on=due,expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
+                    result={**tick.to_dict(),"status":"verified" if tick.application_verified else tick.error or tick.reason,"effect_delta":1 if tick.submitted else 0}
+            finally:
+                page.close()
     # Reporting is a separate owner (crowdworks-revenue-report). Apply owns submissions only, so a
     # failed or slow report can never hold up an application, and vice versa.
     result["observed_at"]=now.isoformat();_write_status(result);print(json.dumps(result,ensure_ascii=False,separators=(",",":")));return 0 if result.get("ok") else 1

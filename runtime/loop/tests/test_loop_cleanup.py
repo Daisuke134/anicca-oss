@@ -28,7 +28,7 @@ class LoopCleanupTest(unittest.TestCase):
     def test_host_cleanup_uses_durable_shared_pressure_state(self):
         command = host_cleanup_command(Path('/release'), Path('/home'))
         self.assertEqual(command[-4:], [
-            '--home', '/home', '--state-dir', '/home/.local/state/life-manager/state',
+            '--home', '/home', '--state-dir', '/home/.openclaw/state',
         ])
 
     def test_host_cleanup_error_cannot_be_reported_as_success(self):

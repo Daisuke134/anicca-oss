@@ -34,6 +34,14 @@ DEST=""
 
 die() { echo "cut-loop-release: $*" >&2; exit 1; }
 
+# The central disk governor owns this flag and clears it only after recovery.
+# A release export is a large producer, so defer before Git, locks, or mkdir.
+PRESSURE_FILE="${LIFE_MANAGER_DISK_PRESSURE_FILE:-$HOME/.openclaw/state/disk-pressure.block}"
+if [ -f "$PRESSURE_FILE" ]; then
+  echo "cut-loop-release: disk pressure is active; release build deferred" >&2
+  exit 75
+fi
+
 cleanup() {
   local status=$?
   trap - EXIT INT TERM HUP

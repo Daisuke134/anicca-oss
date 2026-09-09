@@ -255,6 +255,14 @@ def _secure_log_paths(plist_bytes: bytes) -> None:
         path.chmod(0o600)
 
 
+def _ensure_runtime_roots(plist_bytes: bytes) -> None:
+    plist = plistlib.loads(plist_bytes)
+    state_root = Path(plist["EnvironmentVariables"]["LIFE_MANAGER_STATE_ROOT"])
+    state_root.mkdir(parents=True, exist_ok=True)
+    for key in ("StandardOutPath", "StandardErrorPath"):
+        Path(plist[key]).parent.mkdir(parents=True, exist_ok=True)
+
+
 def _loaded_arguments(text: str) -> list[str]:
     arguments, inside = [], False
     for raw in text.splitlines():
@@ -277,6 +285,7 @@ def install_one(item: dict, target: Path,
     label = item["label"]
     domain = f"gui/{os.getuid()}"
     service = f"{domain}/{label}"
+    _ensure_runtime_roots(item["plist_bytes"])
     if plistlib.loads(item["plist_bytes"]).get("Umask") == 0o077:
         _secure_log_paths(item["plist_bytes"])
     old_bytes = target.read_bytes() if target.is_file() else None

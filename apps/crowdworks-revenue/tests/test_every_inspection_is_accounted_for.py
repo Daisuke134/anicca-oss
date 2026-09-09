@@ -55,8 +55,24 @@ def test_the_truncated_search_says_how_much_it_did_not_read():
     assert re.search(r'rejected\["out_of_time"\]\s*\+=\s*len\(ordered\)\s*-\s*ordered\.index\(listing\)', source)
 
 
+def test_search_budget_is_checked_inside_each_group_not_only_between_groups():
+    """A single group can hold hundreds of postings and must not overrun the whole wake."""
+    source = _candidate_source()
+    inner_loop = source.index("for link in links:")
+    candidate_read = source.index("match=re.search", inner_loop)
+    between = source[inner_loop:candidate_read]
+    assert "time.monotonic() > deadline" in between
+    assert 'rejected["out_of_time"]' in between
+    assert "return None,None,None" in between
+
+
 def test_an_unreadable_posting_is_reported_not_just_counted():
     """Dais reads the declined list; a page that would not load is a decision like any other."""
     source = _candidate_source()
     assert "募集ページを読み込めませんでした" in source
     assert "type(error).__name__" in source
+
+
+def test_an_unavailable_judge_is_not_mislabeled_as_unworkable():
+    source = _candidate_source()
+    assert '"judge_unavailable" if reason == "judge_unavailable" else "not_workable"' in source
