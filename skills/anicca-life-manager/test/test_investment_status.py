@@ -47,6 +47,20 @@ def test_unknown_status_fails_closed_without_inventing_balance(tmp_path):
     assert "reply_markup" not in reply
 
 
+def test_unknown_daily_pnl_is_written_as_unknown_not_none(tmp_path):
+    _write(tmp_path / "alpaca-investment" / "account-status.json", {"application_status": "active"})
+    live = tmp_path / "alpaca-investment-shadow"
+    _write(live / "observation-latest.json", {
+        "mode": "shadow", "account": {"equity": "66.72", "cash": "0"}})
+    _write(live / "allocation-latest.json", {"approved": False, "reason": "安全確認中"})
+    _write(live / "risk-latest.json", {"official_pnl_ny_day_usd": None})
+
+    message = build_investment_status(tmp_path)
+
+    assert "日次純損益: 不明" in message
+    assert "None" not in message
+
+
 def test_missing_account_status_offers_exact_official_signup_link(tmp_path):
     reply = build_investment_reply(tmp_path)
 
