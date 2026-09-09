@@ -86,6 +86,72 @@ def test_acquire_stamps_pid_on_a_fresh_lease(monkeypatch, tmp_path):
     assert saved["gig-task"]["pid"] == os.getppid()
 
 
+def test_acquire_reclaims_oldest_parked_context_at_limit(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("CLOAK_BROWSER_MAX_CONTEXTS", "2")
+    _write_leases(leases_file, {
+        "old-idle": {
+            "context_id": "old-context", "target_id": "old-target",
+            "ws": "ws://127.0.0.1:9222/devtools/page/old-target",
+            "ts": 1, "token": "a" * 32, "generation": 1,
+            "pid": None, "parked": True,
+        },
+        "new-idle": {
+            "context_id": "new-context", "target_id": "new-target",
+            "ws": "ws://127.0.0.1:9222/devtools/page/new-target",
+            "ts": 2, "token": "b" * 32, "generation": 1,
+            "pid": None, "parked": True,
+        },
+    })
+    calls = []
+
+    async def dispose_then_create(pairs, timeout=None):
+        output = []
+        for method, params in pairs:
+            calls.append((method, params))
+            if method == "Target.disposeBrowserContext":
+                output.append({})
+            elif method == "Target.createBrowserContext":
+                output.append({"browserContextId": "fresh-context"})
+            elif method == "Target.createTarget":
+                output.append({"targetId": "fresh-target"})
+        return output
+
+    monkeypatch.setattr(module, "_calls", dispose_then_create)
+    result = module.acquire("next-task")
+
+    assert result["context_id"] == "fresh-context"
+    assert calls[0] == (
+        "Target.disposeBrowserContext", {"browserContextId": "old-context"}
+    )
+    saved = json.loads(leases_file.read_text(encoding="utf-8"))
+    assert set(saved) == {"new-idle", "next-task"}
+
+
+def test_acquire_never_reclaims_an_owned_context_at_limit(monkeypatch, tmp_path):
+    module = load_module()
+    leases_file = tmp_path / "leases.json"
+    monkeypatch.setenv("CLOAK_CONTEXT_LEASES_FILE", str(leases_file))
+    monkeypatch.setenv("CLOAK_BROWSER_MAX_CONTEXTS", "1")
+    _write_leases(leases_file, {
+        "active": {
+            "context_id": "active-context", "target_id": "active-target",
+            "ws": "ws://127.0.0.1:9222/devtools/page/active-target",
+            "ts": int(time.time()), "token": "a" * 32, "generation": 1,
+            "pid": os.getpid(),
+        }
+    })
+
+    try:
+        module.acquire("next-task")
+    except RuntimeError as error:
+        assert str(error) == "browser_context_limit"
+    else:
+        raise AssertionError("active context was reclaimed")
+
+
 def test_acquire_fails_closed_before_creating_context_at_browser_limit(monkeypatch, tmp_path):
     module = load_module()
     leases_file = tmp_path / "leases.json"
