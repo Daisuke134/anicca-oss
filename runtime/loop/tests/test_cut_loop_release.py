@@ -162,6 +162,8 @@ class CutLoopReleaseTest(unittest.TestCase):
                 f"  cat {cutter_arg.parent / 'origin.sha'}\n"
                 "  exit 0\n"
                 "fi\n"
+                "if [ \"$1\" = -C ] && [ \"$3\" = merge-base ]; then exit 0; fi\n"
+                "if [ \"$1\" = -C ] && [ \"$3\" = diff ]; then exit 1; fi\n"
                 "exit 1\n"
             )
             fake_git.chmod(0o755)
@@ -209,6 +211,62 @@ class CutLoopReleaseTest(unittest.TestCase):
                     "reconcile deterministic --loaded-idle-only --loop-id hf-gig-storefront-direct --loop-id hf-gig-paid-direct --loop-id life-manager-disk-cleanup",
                 ],
             )
+
+    def test_reconciler_reuses_complete_release_for_docs_only_main(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake_bin = root / "bin"
+            fake_bin.mkdir()
+            loops = root / "loops"
+            release = loops / "releases" / "current-release"
+            release.mkdir(parents=True)
+            current = loops / "current"
+            current.symlink_to(release)
+            current_sha = "b" * 40
+            main_sha = "a" * 40
+            (release / "RELEASE.json").write_text(
+                '{"sha":"%s","release_paths":"ALL"}\n' % current_sha
+            )
+            cutter_called = root / "cutter.called"
+            calls = root / "lm-loop.calls"
+            fake_git = fake_bin / "git"
+            fake_git.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = -C ] && [ \"$3\" = fetch ]; then exit 0; fi\n"
+                f"if [ \"$1\" = -C ] && [ \"$3\" = rev-parse ]; then printf '%s\\n' {main_sha}; exit 0; fi\n"
+                "if [ \"$1\" = -C ] && [ \"$3\" = merge-base ]; then exit 0; fi\n"
+                "if [ \"$1\" = -C ] && [ \"$3\" = diff ]; then exit 0; fi\n"
+                "exit 1\n"
+            )
+            fake_git.chmod(0o755)
+            cutter = release / "bin" / "cut-loop-release.sh"
+            cutter.parent.mkdir()
+            cutter.write_text(f"#!/bin/sh\ntouch {cutter_called}\nexit 99\n")
+            cutter.chmod(0o755)
+            lm_loop = release / "bin" / "lm-loop"
+            lm_loop.write_text(
+                "#!/bin/sh\n"
+                f"printf '%s\\n' \"$*\" >> {calls}\n"
+            )
+            lm_loop.chmod(0o755)
+
+            result = subprocess.run(
+                ["/bin/bash", str(ROOT / "bin/reconcile-agent-runner-release.sh")],
+                cwd=ROOT,
+                env={
+                    **os.environ,
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                    "LIFE_MANAGER_SOURCE_REPO": str(root),
+                    "LOOPS_ROOT": str(loops),
+                },
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(cutter_called.exists())
+            self.assertEqual(len(calls.read_text().splitlines()), 3)
 
 
 if __name__ == "__main__":
