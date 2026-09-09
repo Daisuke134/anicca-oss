@@ -1284,14 +1284,39 @@ Calendarを無関係なeventで埋めること自体を成果にしない。
 
 #### 2026-09-09 operational truth — AS-IS / IDEAL / remaining TODO
 
-このsnapshotはConnectorとFundraiserの現在の運用状態を示す。`0.0.3 Atomic TODO SSOT`の順序は変えず、次の未完atomは`CG-28`のままとする。
+このsnapshotはConnectorとFundraiserの現在の運用状態を示す。Daisの明示変更により、両loopを再開する共通先頭atomはdisk cleanupとする。cleanup後のConnector内部順序は`CG-28`から維持する。
 
 | loop | AS-IS（実測） | IDEAL（完了条件） | remaining TODO |
 |---|---|---|---|
 | Connector | ownerは`StartInterval=1800`。Connpass event 404393と405411は実申込、Calendar、Telegram evidenceまで成功済み。event 404826 `#pqc_study`はprovider登録readback後、canonical再読取が不安定でreconciliation待ち。最新wakeでは容量不足によりbrowser navigationとTelegram wake report deliveryが失敗した。installed release `7ca499f86`はcanonical readback retry merge `707546de3`より古い | 30分ごとにLuma→Connpassをprimaryとして今日を含む28日を探索し、Tokyo×YC/LT/AI/crypto/startupの`strong/moderate`だけを申込。provider official readback→Google Calendar exact 1→PNG/QRまたはreceipt→Telegram message/photo IDs→durable bundleを完成し、次wakeの重複を0にする | disk floorを回復し`707546de3`由来immutable releaseをbuild/deploy。event 404826のCalendar/Telegram/bundleをreconcile。次の自然wakeでLuma/Connpass continuation、Telegram every-wake delivery、30分ownerを実測。その後は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`の確定順序で閉じ、OSS one-command local installを最終readbackする |
 | Fundraiser | ownerは`StartInterval=1800`。Progressive Venturesの実応募とTelegram画像送信は成功済み。installed releaseは`8676fdb79`。後続の自然wakeは容量不足で`entrypoint_exit_75`となり、accelerator/VCの新規応募とcold emailの継続は未証明 | 30分ごとに新しいaccelerator/VCだけを発見・dedupeし、適格先へ応募またはcold emailをexact-onceで送り、provider/email readbackとTelegram receiptを残す | disk回復後に自然wakeを再開し、stale lockなし、新規応募またはcold email 1件、Telegram every-wake delivery、次wakeの重複0を実測。Connectorのscheduler/evidence/dedupe部品は共有するがprovider workflowとstate namespaceは分離する |
 
-共通blockerはData volumeの空きが212MiBまで低下した`ENOSPC`である。cleanかつmain統合済みの閉じたworktree 3件（論理サイズ約2.5GiB）を削除後も、APFS共有blockと並行writeのため実空きは986MiBに留まる。credential、mutable state、稼働release、未統合worktreeは削除していない。release buildと自然wakeの成功を実測するまで「working」または「fixed」と報告しない。
+共通blockerはData volumeの空きが212MiBまで低下した`ENOSPC`である。cleanかつmain統合済みの閉じたworktreeだけを段階的に削除しているが、APFS共有blockと並行writeのため空きは安定していない。credential、mutable state、稼働release、未統合worktreeは削除していない。release buildと自然wakeの成功を実測するまで「working」または「fixed」と報告しない。
+
+#### Telegram-first local OSS UX contract
+
+Telegramを各ユーザーのprimary UIとする。source、raw log、state fileを読まなくても、setup、設定、承認待ち、実行結果、失敗理由、次回時刻をTelegramだけで理解できることを要求する。password、OAuth token、API keyはTelegramへ入力・送信させない。
+
+1. local OSSの入口はclone後のone commandとする。そのcommandが依存確認、private config作成、Telegram pairing、Google OAuth案内、選択したloopのinstall、status readbackまで行う。
+2. onboardingは`/start`からConnector、Fundraiser、両方を選び、一問ずつ設定する。Connectorは興味、場所、自動申込範囲、Calendarを聞く。Fundraiserはstartup URL/deckまたは一問ずつのcompany context、stage、地域、応募・cold email方針を聞く。
+3. primary commandは`/status`、`/connector`、`/fundraiser`、`/inbox`、`/profile`、`/pause`、`/resume`、`/help`に限定し、通常操作はinline buttonで完結させる。
+4. notification levelは`important_only`、`digest`、`every_wake`の3つとし、defaultは`digest`。ユーザーが`every_wake`を選んだ場合、30分ごとの探索件数、採用・不採用理由、external effect、次回時刻を必ず送る。
+5. Connector成功通知はevent名、日時、場所、選定理由、provider URL、official registration state、Calendar URL、Telegram message IDを含む。providerが公式QRを提供する時はQR画像、提供しない時はregistration evidence画像を送り、QRを捏造しない。LT候補は締切、5分talk pack、`review/apply/skip` buttonとattendanceとは別の状態を示す。
+6. Connector no-effect通知はLuma/Connpass観測件数、28日内の空き、`weak/unknown/conflict/closed/paid`別不採用数、次回wakeを示す。「正常」「候補0」だけで終了しない。
+7. Fundraiser候補通知はprogram/VC名、適合理由、締切、地域/stage eligibility、未確認条件、`prepare/apply/skip` buttonを示す。不足情報は一問だけ聞き、回答をprivate startup contextへ保存して再質問しない。
+8. Fundraiser成功通知は応募先、提出artifact、official application ID/status、またはcold email宛先・件名・Gmail送信readback、次の追跡時刻を示す。返信時は要約、要求artifact、Calendar候補、返信buttonを示す。
+9. `/status`は各loopのrunning/paused/degraded、cadence、最終terminal、今週のsuccess数、承認待ち数、次回時刻を一画面で返す。process生存やTelegram送信だけをbusiness successとして表示しない。
+10. cloudはlocal acceptance後に同じAgent Coreをmulti-tenant hostへ載せる。Telegram onboardingとbusiness logicを二重実装せず、cloud固有差分はtenant isolation、credential vault、browser/session isolation、billing、data deletionだけにする。
+
+#### Cross-loop recovery and product TODO order — current SSOT
+
+1. **CLEANUP-FIRST — DONE:** safe disk floorを回復し、producerが再び枯渇させないgovernorを実測する。credential、state、active release、未統合worktreeを保持する。実測はData volume free `12.2 GB`（11 GiB超）、tier `PREVENTIVE`、pressure flag absent、cleanup errors `0`、protected deletions `0`。release gateはmain `60a48eebe`由来currentへ反映し、圧迫中のdirect実測でexit `75`・release count `36→36`、自然reconcilerでも反復`EX_TEMPFAIL`と新規release `0`を確認した。
+2. **CONNECTOR-RUNTIME:** `707546de3`由来releaseをbuild/deployし、event 404826のCalendar/Telegram/bundle reconciliation、Luma/Connpassの自然30分wake、replay-zeroを閉じる。その内部順序は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`。
+3. **FUNDRAISER-RUNTIME:** 自然30分wakeで新規accelerator/VC応募またはcold email exact 1、Telegram receipt、次wake duplicate 0を閉じる。
+4. **TELEGRAM-OSS-UX:** one-command local setup、pairing、onboarding、commands/buttons、notification levels、Connector/Fundraiserの上記message contractをclean installでE2Eする。
+5. **CLOUD-AFTER-LOCAL:** local acceptance後だけ、同じcoreをtenant分離されたcloudへhostし、Telegram-only signupからpause/data deletionまでE2Eする。
+
+Current active atomは順序2の**CONNECTOR-RUNTIME**である。後続atomを前倒ししない。
 
 #### 0.0.1 Product contract
 
