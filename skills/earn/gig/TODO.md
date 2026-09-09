@@ -2194,7 +2194,7 @@ from the chat, and two of them contradict what this cursor had previously report
     different application (`13395836` / proposal `305134745`) instead of replaying any prior
     mutation. Pending is empty; no browser, GUI session, or Mac restart occurred.
 
-28. [ ] `MERCOR-APPLY-2` Rank for acceptance probability and expected revenue, not merely a clickable
+28. [x] `MERCOR-APPLY-2` Rank for acceptance probability and expected revenue, not merely a clickable
     submit path. The current shared policy correctly says that qualifications are not automatic
     rejection gates, but the Mercor prompt turned that into near-indifference: the official ledger
     contains 72 pending-review applications, including Biology, Physics, Mathematics and Chemistry
@@ -2223,9 +2223,13 @@ from the chat, and two of them contradict what this cursor had previously report
     low `9`. It spent its one mutation on high-band `Operations / Program Management Experts`, whose
     official application page reads `4 of 4 steps done`, `100%` and `Your application has been
     submitted!`; the reused Domain Expert Interview was already complete. Telegram acknowledged the
-    deduplicated report once as message `71721`. Remaining PASS is the following natural wake's
-    replay-zero for listing `list_AAABndzg1d29zpYtIMRL2JC_`, followed by later score-band outcome
-    comparison when Mercor supplies interview or contract outcomes.
+    deduplicated report once as message `71721`. The following scheduled wake
+    `18d3a870233f2c08-69533` ended natural PASS at `2026-09-09T13:10:09Z` with
+    `observed_no_action`; the Operations listing remained exactly one row in the official-readback
+    application ledger. It did not resume any existing incomplete human-assessment application and
+    reported that observation once through Telegram message `71819`. This closes replay-zero.
+    Interview and contract outcomes remain normal future observations grouped by the retained score
+    band; their absence today does not reopen this implementation and effect acceptance.
 
 
 
