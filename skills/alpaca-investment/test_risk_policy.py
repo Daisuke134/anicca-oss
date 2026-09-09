@@ -54,6 +54,27 @@ class FixedRiskPolicyTest(unittest.TestCase):
         self.assertIsNone(snapshot["risk"]["official_pnl_ny_day_usd"])
         self.assertEqual(allocator.build_candidates(snapshot)[0]["max_loss_usd"], 10.0)
 
+    def test_usdc_funding_is_cash_like_not_an_open_risk_position(self):
+        clock = {"is_open": True, "timestamp": "2026-09-06T13:59:50Z"}
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            alpaca_cli, "_context", return_value={}), patch.object(
+                alpaca_cli, "_run", side_effect=[
+                    {"cash": "0", "equity": "66.75", "last_equity": "0"}, clock, [],
+                    [{"id": "deposit", "asset": "USDC", "usd_value": "66.75",
+                      "direction": "INCOMING", "status": "COMPLETE"}], [],
+                    [{"symbol": "USDCUSD", "market_value": "66.72", "unrealized_pl": "-0.03"}],
+                    0, {"price": "500", "timestamp": clock["timestamp"]}, [],
+                    {"tradable": True, "status": "active", "overnight_tradable": True,
+                     "overnight_halted": False},
+                    {"bid": "499", "ask": "500", "quote_at": clock["timestamp"]}, [],
+                ]):
+            snapshot = alpaca_cli.read_allocator_snapshot(
+                credentials_path=Path("missing"), cli_path=Path("missing"),
+                risk_day_path=Path(directory) / "risk-day.json")
+        self.assertEqual(snapshot["positions"], 0)
+        self.assertEqual(snapshot["available_cash_usd"], "66.72")
+        self.assertEqual(snapshot["risk"]["allocated_capital_usd"], "0")
+
     def test_provider_nanoseconds_and_utc_offset_are_valid_risk_time(self):
         snapshot = self._provider_snapshot("2026-09-06T09:59:50.123456789-04:00")
         self.assertFalse(evaluate_entry(snapshot["risk"], "10.00", now=NOW)["approved"])

@@ -288,7 +288,7 @@ def read_allocator_snapshot(
         "{price:.trade.p,timestamp:.trade.t}",
     ], env)
     crypto = _run(cli_path, [
-        "data", "crypto", "latest-quotes", "--symbols", "BTC/USD,ETH/USD", "--quiet", "--jq",
+        "data", "crypto", "latest-quotes", "--symbols", "BTC/USDC,ETH/USDC", "--quiet", "--jq",
         ".quotes|to_entries|map({symbol:.key,bid:.value.bp,ask:.value.ap,quote_at:.value.t})",
     ], env)
     qqq_asset = _run(cli_path, [
@@ -321,13 +321,17 @@ def read_allocator_snapshot(
         raise ValueError("alpaca_allocator_shape_invalid")
     try:
         equity = Decimal(str(account["equity"]))
-        allocated = sum((abs(Decimal(str(row["market_value"]))) for row in positions), Decimal("0"))
+        funding_positions = [row for row in positions if row.get("symbol") == "USDCUSD"]
+        risk_positions = [row for row in positions if row.get("symbol") != "USDCUSD"]
+        allocated = sum((abs(Decimal(str(row["market_value"]))) for row in risk_positions), Decimal("0"))
+        available_cash = Decimal(str(account["cash"])) + sum(
+            (Decimal(str(row["market_value"])) for row in funding_positions), Decimal("0"))
         unrealized = sum((Decimal(str(row["unrealized_pl"])) for row in positions), Decimal("0"))
         if any(not isinstance(row, dict) or row.get("activity_type") not in {"CSD", "CSW"}
                for row in cash_activities):
             raise ValueError
         cash_flow = sum((Decimal(str(row["net_amount"])) for row in cash_activities), Decimal("0"))
-        values = (equity, allocated, unrealized, cash_flow)
+        values = (equity, allocated, available_cash, unrealized, cash_flow)
         if any(not value.is_finite() for value in values):
             raise ValueError
         daily = reconcile_risk_day(risk_day_path, observed_at=observed, equity=equity,
@@ -340,8 +344,9 @@ def read_allocator_snapshot(
                 "ny_day": ny_day}
     except (KeyError, InvalidOperation, TypeError, ValueError) as error:
         raise ValueError("alpaca_allocator_risk_invalid") from error
-    return {"account": account, "clock": clock, "crypto": crypto,
-            "open_orders": orders, "option_quotes": options, "positions": len(positions), "risk": risk,
+    return {"account": account, "available_cash_usd": str(available_cash),
+            "clock": clock, "crypto": crypto,
+            "open_orders": orders, "option_quotes": options, "positions": len(risk_positions), "risk": risk,
             "qqq_asset": qqq_asset, "qqq_quote": qqq_quote, "spy": spy}
 
 
