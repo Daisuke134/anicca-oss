@@ -50,6 +50,7 @@ class CutLoopReleaseTest(unittest.TestCase):
                     "LOOPS_ROOT": str(loops),
                     "LOOPS_KEEP_RELEASES": "2",
                     "LIFE_MANAGER_LAUNCH_AGENTS_DIR": str(agents),
+                    "LIFE_MANAGER_DISK_PRESSURE_FILE": str(root / "no-pressure"),
                     "NPM_BIN": str(npm),
                 },
                 capture_output=True,
@@ -86,7 +87,7 @@ class CutLoopReleaseTest(unittest.TestCase):
             result = subprocess.run(
                 ["/bin/bash", str(ROOT / "bin/cut-loop-release.sh"), "origin/main"],
                 cwd=ROOT,
-                env={**os.environ, "LOOPS_ROOT": str(loops), "LOOPS_KEEP_RELEASES": "2", "NPM_BIN": str(npm)},
+                env={**os.environ, "LOOPS_ROOT": str(loops), "LOOPS_KEEP_RELEASES": "2", "LIFE_MANAGER_DISK_PRESSURE_FILE": str(root / "no-pressure"), "NPM_BIN": str(npm)},
                 capture_output=True, text=True, check=False,
             )
 
@@ -112,6 +113,7 @@ class CutLoopReleaseTest(unittest.TestCase):
                     "LOOPS_ROOT": str(root / "loops"),
                     "LOOPS_KEEP_RELEASES": "1",
                     "LIFE_MANAGER_LAUNCH_AGENTS_DIR": str(agents),
+                    "LIFE_MANAGER_DISK_PRESSURE_FILE": str(root / "no-pressure"),
                     "NPM_BIN": str(npm),
                 },
                 capture_output=True,

@@ -7631,7 +7631,7 @@ queue is added. Each owner must also progress independent work concurrently insi
    project state or evidence; the separate manual Codex owns it.
 
    A registry audit found the four Coconala framework owners still pointed to one shared
-   `~/.openclaw` state/log root, while their actual marketplace data lives below `~/gig`. This makes
+   legacy OpenClaw state/log root, while their actual marketplace data lives below `~/gig`. This makes
    `lm-loop-run` receipts and cleanup scans cross-lane (the latest receipt even names
    `agent-economy-loop`) and explains why a lane cannot clean its own run boundary truthfully. Change
    only these four registry entries to unique `~/.local/state/life-manager/coconala/{apply,reply,paid,storefront}`
