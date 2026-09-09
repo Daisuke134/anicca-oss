@@ -180,6 +180,17 @@
         "proposed_amount_minor": {
           "type": "integer",
           "minimum": 1
+        },
+        "pricing_mode": {
+          "enum": ["fixed", "hourly"]
+        },
+        "proposed_hourly_rate_minor": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "weekly_limit_hours": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },

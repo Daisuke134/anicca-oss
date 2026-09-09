@@ -118,6 +118,9 @@ class ApplicationReceipt:
     # only report a bare id, which is why CrowdWorks reports read "案件: 案件 13422653".
     opportunity_title: str | None = None
     proposed_amount_minor: int | None = None
+    pricing_mode: str | None = None
+    proposed_hourly_rate_minor: int | None = None
+    weekly_limit_hours: int | None = None
 
 
 @dataclass(frozen=True)
