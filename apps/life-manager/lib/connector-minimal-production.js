@@ -62,6 +62,7 @@ const STALE_TARGET_MAX_IDLE_MS = 660_000;
 const CONNECTOR_CDP_CONNECT_TIMEOUT_MS = 120_000;
 const PROVIDER_RANK_MAX_DATES = 12;
 const PROVIDER_RANK_MAX_CANDIDATES = 12;
+const PROVIDER_RANK_ROTATION_MS = 60_000;
 const CONNPASS_DURABLE_RECONCILE_LIMIT = 3;
 
 function invalid() {
@@ -415,7 +416,7 @@ function createProductionProviderRouter(options = {}) {
         ));
         const pending = candidates.filter((candidate) => !reconcile.includes(candidate));
         if (pending.length === 0) return candidates;
-        const rotation = Math.floor(exactNow(now()).getTime() / 1_800_000);
+        const rotation = Math.floor(exactNow(now()).getTime() / PROVIDER_RANK_ROTATION_MS);
         const rankingCandidates = boundedPendingCandidates(pending, rotation);
         const ranking = await rankCandidates({ candidates: rankingCandidates, preferences: eventPreferences });
         const sourceByRef = new Map(rankingCandidates.map((candidate) => [candidate.event_ref, candidate]));
