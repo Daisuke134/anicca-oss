@@ -75,6 +75,8 @@ def _rotation(now, listings):
     return (wake * LISTINGS_READ_PER_WAKE) % total
 # 固定報酬制 10,000円 〜 30,000円 / 固定報酬制 50,000円
 _BUDGET = re.compile(r"固定報酬制\s*([\d,]+)\s*円(?:\s*〜\s*([\d,]+)\s*円)?")
+_HOURLY_BUDGET = re.compile(r"時間単価制\s*([\d,]+)\s*円(?:\s*〜\s*([\d,]+)\s*円)?")
+WEEKLY_LIMIT_HOURS = 30
 
 def _listings():
     """The shared 3-platform catalog. The term derivation that used to live here is now
@@ -109,6 +111,11 @@ def _budget(text):
     if match is None: return None
     low = int(match.group(1).replace(",", ""))
     return (low, int(match.group(2).replace(",", "")) if match.group(2) else low)
+
+def _hourly_rate(text):
+    match = _HOURLY_BUDGET.search(text)
+    if match is None: return None
+    return int((match.group(2) or match.group(1)).replace(",", ""))
 
 def _priced(listing, text):
     """The best tier this job's stated budget can pay for, or the lowest tier when it states none.
@@ -247,10 +254,7 @@ def _candidate(page, listings, groups):
                 rejected["unsupported_workflow"]+=1
                 _decline(declined,job_id,title,"コンペは完成成果物の事前添付が必要な未実装workflowです")
                 continue
-            if "仕事の概要 時間単価制" in text:
-                rejected["unsupported_workflow"]+=1
-                _decline(declined,job_id,title,"時間単価は時給・週上限の公式readbackが未実装のworkflowです")
-                continue
+            hourly = "仕事の概要 時間単価制" in text
             matched = _listing_for(listings, title, detail)
             if matched is None:rejected["off_topic"]+=1;continue
             # The 医療事務 staffing post that matched on the word AI機能 alone, and would have
@@ -261,11 +265,12 @@ def _candidate(page, listings, groups):
                 rejected["wrong_category"]+=1
                 _decline(declined,job_id,title,f"募集カテゴリ「{_category(text)}」は受注できない区分（{refusal[0]}）です")
                 continue
-            tier=_priced(matched,text)
+            rate = _hourly_rate(text) if hourly else None
+            tier = ({**matched["tiers"][0], "pricing_mode": "hourly", "hourly_rate_minor": rate, "weekly_limit_hours": WEEKLY_LIMIT_HOURS} if rate is not None else None) if hourly else _priced(matched,text)
             if tier is None:
                 rejected["budget"]+=1
                 budget=_budget(text)
-                _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{matched['tiers'][0]['price_jpy']:,}円に届きません" if budget else "報酬額を読み取れませんでした")
+                _decline(declined,job_id,title,f"提示予算{budget[1]:,}円が最低単価{matched['tiers'][0]['price_jpy']:,}円に届きません" if budget else "時間単価または報酬額を読み取れませんでした")
                 continue
             # The category label got this far; the posting text decides. Without this the lane
             # applied to 「採用支援事業のパートナー募集」 and two more like it on 2026-09-07 --
@@ -338,8 +343,11 @@ def main():
                     result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
                 else:
                     candidate,listing,tier,_inspected=candidate_result
-                    due=(date.today()+timedelta(days=int(tier.get("delivery_days",7)))).isoformat()
-                    tick=application.execute_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),proposed_amount_minor=tier["price_jpy"],delivery_due_on=due,expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
+                    if tier.get("pricing_mode") == "hourly":
+                        tick=application.execute_hourly_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),hourly_rate_minor=tier["hourly_rate_minor"],weekly_limit_hours=tier["weekly_limit_hours"],expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
+                    else:
+                        due=(date.today()+timedelta(days=int(tier.get("delivery_days",7)))).isoformat()
+                        tick=application.execute_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),proposed_amount_minor=tier["price_jpy"],delivery_due_on=due,expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
                     result={**tick.to_dict(),"status":"verified" if tick.application_verified else tick.error or tick.reason,"effect_delta":1 if tick.submitted else 0}
             finally:
                 page.close()

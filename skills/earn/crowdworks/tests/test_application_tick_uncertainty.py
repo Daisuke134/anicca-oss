@@ -165,6 +165,10 @@ def _add_matching_proposal_detail(module, fields: _Fields, *, project_id: str, a
     fields.set(module._PROJECT_SELECTOR.format(project_id=project_id), _Field(fields, count=1))
     fields.set(module._AMOUNT_SELECTOR, _Field(fields, value=f"固定報酬: {amount_minor:,}円"))
     fields.set(module._DUE_SELECTOR, _Field(fields, value=_due_line(delivery_due_on)))
+    fields.set(
+        module._LATEST_CONDITION_SELECTOR,
+        _Field(fields, value=f"固定報酬: {amount_minor:,}円 {_due_line(delivery_due_on)}"),
+    )
     fields.set(module._PROGRESS_SELECTOR, _Field(fields, value="応募・スカウト"))
 
 
@@ -322,3 +326,63 @@ def test_list_walk_selectors_are_not_duplicated():
     assert source.count('a[href^="/proposals/"]') == 1
     assert 'a[href*="/e/proposals?page="]' not in source
     assert 'a[rel="next"]' not in source
+
+
+def test_hourly_application_fills_hourly_terms_and_returns_proposal_id():
+    module = load()
+
+    def wait_for_url(pattern, timeout=None):
+        page.url = "https://crowdworks.jp/proposals/305200001#scroll_to_message"
+
+    def extra(fields):
+        for selector, expected in (
+            ("#proposal_conditions_attributes_0_payment_type_hourly", "hourly"),
+            ("#how_to_present_hourly_contract_amount", "contract_amount"),
+        ):
+            fields.set(
+                f'input{selector}[type="radio"][value="{expected}"]',
+                _Field(fields, attrs={"type": "radio", "value": expected}),
+            )
+        fields.set('input#hourly_wage_dummy_[type="text"]', _Field(fields))
+        fields.set(
+            'input#proposal_conditions_attributes_0_hourly_wage_without_sales_tax[type="hidden"]',
+            _Field(fields, value="2000"),
+        )
+        fields.set(
+            'input#proposal_conditions_attributes_0_hours_limit[type="text"]',
+            _Field(fields, value="30"),
+        )
+
+    page = _build_page(module, wait_for_url=wait_for_url, extra=extra)
+
+    result = module._submit_application(
+        page,
+        {"external_id": PROJECT_ID},
+        PROPOSAL_TEXT,
+        2000,
+        None,
+        EXPIRE_PERIOD_DAYS,
+        pricing_mode="hourly",
+        weekly_limit_hours=30,
+    )
+
+    assert result == {"proposal_id": "305200001"}
+
+
+def test_hourly_detail_reads_rate_and_weekly_limit_from_official_condition():
+    module = load()
+    fields = _Fields()
+    fields.set(module._PROJECT_SELECTOR.format(project_id=PROJECT_ID), _Field(fields, count=1))
+    fields.set(module._LATEST_CONDITION_SELECTOR, _Field(fields, value="時間単価: 2,200円 / 週30時間"))
+    fields.set(module._PROGRESS_SELECTOR, _Field(fields, value="応募・スカウト"))
+    page = _Page(fields, url="about:blank")
+
+    observed = module._read_proposal_detail(page, "305200001", PROJECT_ID)
+
+    assert observed == {
+        "proposal_id": "305200001",
+        "project_id": PROJECT_ID,
+        "pricing_mode": "hourly",
+        "hourly_rate_minor": 2000,
+        "weekly_limit_hours": 30,
+    }

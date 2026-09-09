@@ -98,7 +98,11 @@ def decision_message(receipt: Mapping[str, object], now: str) -> str:
             "platform_display_name": "CrowdWorks",
             "title": title if isinstance(title, str) and title.strip() else f"案件 {project}",
             "proposal_id": proposal,
-            "quote": {"currency": "JPY", "amount": str(receipt.get("proposed_amount_minor") or ""), "unit": "固定報酬"},
+            "quote": {
+                "currency": "JPY",
+                "amount": str(receipt.get("proposed_hourly_rate_minor") or receipt.get("proposed_amount_minor") or ""),
+                "unit": f"時間単価 / 週上限{receipt.get('weekly_limit_hours')}時間" if receipt.get("pricing_mode") == "hourly" else "固定報酬",
+            },
         },
     }
     built = envelope.build_work_event_envelope(work_event=work_event, observed_at=datetime.fromisoformat(now))
