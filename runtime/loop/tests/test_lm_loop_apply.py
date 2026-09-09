@@ -194,6 +194,27 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["EARN_LEDGER"], str(earn_state / "earn-ledger.jsonl"))
         self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
 
+    def test_franklin_plists_own_release_code_and_instance_state(self):
+        entrypoint = self.root / "runtime/anicca-daemon.sh"
+        entrypoint.parent.mkdir(parents=True, exist_ok=True)
+        entrypoint.write_text("#!/bin/sh\nexit 0\n")
+        entrypoint.chmod(0o755)
+        for loop_id, instance, state_root in (
+            ("franklin-loop", "franklin", "~/.blockrun"),
+            ("franklin2-loop", "franklin2", "~/.franklin2-home/.blockrun"),
+        ):
+            with self.subTest(loop_id=loop_id):
+                value = registry("runtime/anicca-daemon.sh")
+                entry = value["loops"].pop("example")
+                entry.update({"label": f"ai.anicca.{loop_id}", "state_root": state_root})
+                value["loops"][loop_id] = entry
+                environment = plistlib.loads(
+                    build_apply_plan(value, self.root, SHA)[0]["plist_bytes"]
+                )["EnvironmentVariables"]
+                self.assertEqual(environment["ANICCA_REPO"], str(self.root.resolve()))
+                self.assertEqual(environment["ANICCA_INSTANCE"], instance)
+                self.assertEqual(environment["ANICCA_HOME"], os.path.expanduser(state_root))
+
     def test_writer_plist_projects_one_state_log_and_env_contract(self):
         writer_entrypoint = self.root / "skills/writer-agent/article-daily.sh"
         writer_entrypoint.parent.mkdir(parents=True)
@@ -1545,6 +1566,56 @@ class LmLoopApplyTest(unittest.TestCase):
         environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
         self.assertNotIn("LM_SELFBUILD_REPO", environment)
         self.assertEqual(environment["LM_SELFBUILD_TELEGRAM_TARGET"], "kept")
+
+    def test_franklin_target_retires_external_runtime_overrides(self):
+        loop_id = "franklin-loop"
+        release = self._release("release-franklin").resolve()
+        entrypoint = release / "runtime/anicca-daemon.sh"
+        entrypoint.parent.mkdir(parents=True, exist_ok=True)
+        entrypoint.write_text("#!/bin/sh\nexit 0\n")
+        entrypoint.chmod(0o755)
+        registry_value = registry("runtime/anicca-daemon.sh")
+        entry = registry_value["loops"].pop("example")
+        entry.update({"label": "ai.anicca.franklin-loop", "state_root": "~/.blockrun"})
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-franklin"
+        current.symlink_to(release)
+        values = self._apply_kwargs(
+            current,
+            self.root / "apply-franklin.lock",
+            [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+            label="ai.anicca.franklin-loop",
+            agents_dir_name="LaunchAgents-franklin",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.franklin-loop.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "ANICCA_REPO": "/legacy/private-checkout",
+            "ANICCA_STATE_DIR": "/legacy/hermes/state",
+            "FRANKLIN_PROXY_PORT": "8402",
+            "OPENCLAW_ENV_FILE": "/legacy/openclaw/.env",
+            "ALWAYS_ACT_ENABLED": "1",
+        })
+        target.write_bytes(plistlib.dumps(
+            installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target=loop_id, current=current, lock_path=values["lock_path"],
+            event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertEqual(environment["ANICCA_REPO"], str(release))
+        self.assertEqual(environment["ANICCA_INSTANCE"], "franklin")
+        self.assertEqual(environment["ANICCA_HOME"], os.path.expanduser("~/.blockrun"))
+        self.assertNotIn("ANICCA_STATE_DIR", environment)
+        self.assertNotIn("FRANKLIN_PROXY_PORT", environment)
+        self.assertNotIn("OPENCLAW_ENV_FILE", environment)
+        self.assertEqual(environment["ALWAYS_ACT_ENABLED"], "1")
 
     def test_agentmail_targets_retire_only_legacy_state_environment(self):
         retired = {

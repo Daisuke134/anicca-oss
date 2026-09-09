@@ -450,6 +450,12 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                         "ANICCA_RELEASE_SHA",
                         "CEO_EFFECTIVE_CRON_DIR",
                     ),
+                    "franklin-loop": (
+                        "ANICCA_STATE_DIR", "FRANKLIN_PROXY_PORT", "OPENCLAW_ENV_FILE",
+                    ),
+                    "franklin2-loop": (
+                        "ANICCA_STATE_DIR", "FRANKLIN_PROXY_PORT", "OPENCLAW_ENV_FILE",
+                    ),
                     # These two lanes' plists were installed while they were still rendered
                     # from skills/earn/gig/config/launchd-jobs.json's legacy manifest, which
                     # explicitly set GIG_DISK_HEADROOM_KIB="0" for them (see gig_disk_guard.py's

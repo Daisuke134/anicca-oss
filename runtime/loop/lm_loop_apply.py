@@ -120,6 +120,12 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "EARN_STATE_ROOT": earn_state,
             "EARN_LEDGER": str(Path(earn_state) / "earn-ledger.jsonl"),
         })
+    if loop_id in {"franklin-loop", "franklin2-loop"}:
+        value["EnvironmentVariables"].update({
+            "ANICCA_REPO": str(release_root),
+            "ANICCA_HOME": os.path.expanduser(entry["state_root"]),
+            "ANICCA_INSTANCE": "franklin" if loop_id == "franklin-loop" else "franklin2",
+        })
     if loop_id in {"pm-decision-loop", "pm-live-trade"}:
         node = shutil.which("node")
         if not node or not Path(node).is_absolute():
