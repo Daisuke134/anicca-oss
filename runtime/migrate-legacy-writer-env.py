@@ -42,6 +42,8 @@ KEYS = frozenset({
     "EARN_WATCH_PAYEE",
     "ODDS_API_KEY",
     "REINVEST_ANICCA_HOME",
+    "THE402_PUBLIC_URL",
+    "THE402_CONFIG_ROOT",
 })
 LINE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 

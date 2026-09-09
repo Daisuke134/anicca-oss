@@ -135,6 +135,18 @@ class WriterEnvironmentMigrationTest(unittest.TestCase):
                 target.read_text(encoding="utf-8"),
             )
 
+    def test_configure_accepts_the402_portable_runtime_settings(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "life-manager.env"
+            result = MODULE.configure(target, [
+                "THE402_PUBLIC_URL=https://seller.example",
+                "THE402_CONFIG_ROOT=/srv/life-manager/the402-config",
+            ])
+            self.assertEqual(result, {"configured": 2, "skipped": 0})
+            body = target.read_text(encoding="utf-8")
+            self.assertIn("THE402_PUBLIC_URL=https://seller.example\n", body)
+            self.assertIn("THE402_CONFIG_ROOT=/srv/life-manager/the402-config\n", body)
+
     def test_configure_accepts_earn_watch_install_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary).resolve() / "life-manager.env"
