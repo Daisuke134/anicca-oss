@@ -16,6 +16,12 @@ offers from measured conversion, and Paid completes accepted work through offici
 readback and replay-zero. A marketplace-specific customer case is evidence for this kernel, not a
 separate architecture or the definition of completion.
 
+The business outcome is a money-maximizing, self-improving fleet: every provider continuously seeks
+new attributable net revenue, learns from official application/reply/contract/payment outcomes, and
+improves the shared policy without forking provider copies. Runtime health is necessary but never the
+goal by itself; the terminal measure is new official contract, accepted delivery, payout and bank
+receipt evidence.
+
 ## End state — one marketplace money-printer kernel
 
 The goal is one self-hosted, no-human marketplace system whose Apply, Reply, Storefront and Paid
@@ -173,6 +179,30 @@ CrowdWorks also proves the shared hourly terms extension. A missing hourly adapt
 that provider's hourly form; it never suppresses its fixed-price or one-off inventory. Paid later
 normalizes each accepted contract and payout through the same work-item lifecycle regardless of how
 the marketplace priced the application.
+
+### Remaining execution summary — references the atomic cursors; does not reorder them
+
+1. **Apply:** close Coconala's official account restriction path, wire its shared fitness policy and
+   hard per-pass ceiling, then obtain the missing official Coconala application/Telegram/replay-zero
+   evidence that closes the three-provider `APPLY-FIT-4` gate. Keep Lancers and CrowdWorks applying
+   to permitted fixed-price, one-off and hourly work while preserving their verified receipts.
+2. **Apply shared completion:** widen discovery only after that gate, adopt shared DOM contracts from
+   measured failures, consolidate the remaining duplicated Apply modules, and close the owner-aware
+   disk-pressure atoms without bypassing release safety.
+3. **Reply:** obtain fresh natural health and complete official event coverage for Coconala, Lancers,
+   CrowdWorks and Mercor through the already extracted shared Reply kernel. Every buyer event is
+   replied to, estimated, durably deferred or handed off exactly once, with Telegram and replay-zero.
+4. **Paid:** retain Coconala as the accepted reference; keep Lancers, CrowdWorks and Mercor monitoring
+   official contracts, then close each provider only on a real contract's build/submission, official
+   acceptance/payment readback and replay-zero. Empty inventory is monitoring proof, not revenue.
+5. **Storefront:** restore Coconala's current owner health, integrate the existing Lancers
+   state/readback branch, add the thin CrowdWorks storefront adapter where the provider supports a
+   seller listing, and attribute listing changes through inquiry, order and net cash.
+6. **Fleet expansion and canon:** add Freelancer.com and later marketplaces as thin adapters, prove
+   all four lanes where the provider supports them, finish the deferred `PANIC-3`–`PANIC-6` maintenance
+   gates in their existing order, then canonicalize the measured method in
+   `skills/loop-development/SKILL.md`. A provider without storefront capability records that typed
+   absence instead of inventing a fake lane.
 
 Why this new order is fixed:
 
