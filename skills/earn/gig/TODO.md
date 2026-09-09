@@ -149,42 +149,44 @@ ledger links official application or storefront acquisition to contract, accepte
 marketplace fee, payout and bank receipt. No marketplace besides the retained Coconala customer history
 currently has that complete new-revenue chain.
 
-The completed extraction order remains exactly `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
-`CROWDWORKS-PAID-1`. Mercor is the selected next marketplace, but its revenue path begins with a
-dedicated Apply owner because no current application, contract or buyer event exists. The controlling
-engineering order is now `MERCOR-APPLY-1` -> `SHARED-REPLY-1` -> `CROWDWORKS-REPLY-1` ->
-`MERCOR-REPLY-1` -> `NEXT-MARKETPLACE-PAID-1`. This is an explicit Dais-directed order change:
-after the shared Coconala/Lancers Reply acceptance, close CrowdWorks Reply before Mercor Reply,
-then prove the existing Mercor Paid adapter on a real accepted work item.
-An adapter that is code-ready and running but lacks a real external contract stays unchecked and
-continues monitoring; external inventory waiting does not block implementation of the next adapter.
-This preserves acceptance truth without leaving the engineering lane idle while Apply, Reply and
-Storefront create the upstream contract.
+The completed extraction order remains historical evidence: `SHARED-PAID-1` -> `LANCERS-PAID-1` ->
+`CROWDWORKS-PAID-1`. Dais now explicitly changes the controlling lane order to **Apply -> Reply ->
+Paid -> Storefront**. The active atom is `APPLY-REPORT-9`: restore Coconala's real application effect
+and then prove one fresh three-provider Apply receipt set. Completed Reply and Paid extraction work is
+not reopened or reimplemented; those owners keep monitoring while Apply creates the upstream contract.
+After Apply acceptance, recheck Reply continuous health, then close real-contract Paid acceptance,
+then finish Storefront coverage and revenue attribution.
 
-Why this order is fixed:
+Apply maximizes truthful eligible applications. It excludes only opportunities whose application or
+delivery would violate provider rules, require a false factual assertion, or require an outcome the
+installed capabilities cannot produce. A later interview, assessment, identity ceremony or physical
+submission is not an Apply-wide blocker: submit every reversible autonomous step, persist the exact
+work item as `WAITING_EXTERNAL`, send one deduplicated Telegram handoff when action is actually due,
+and continue to the next opportunity. Ranking may prioritize fit and expected net value, but it must
+not silently turn a non-empty eligible inventory into zero applications.
+
+Why this new order is fixed:
 
 1. `PANIC-1` and `PANIC-2` close the immediate host-pressure boundary before more browser work.
    They do not prove that macOS can never restart, but the sustained live workload now stays inside
    finite browser/process contracts.
-2. Close `SHARED-PAID-1` before adding another provider so Coconala's proven lifecycle becomes the
-   one reusable kernel instead of another copied `paid_direct.py`.
-3. Complete Lancers next because it is the measured second Paid boundary and therefore proves the
-   extraction against a different provider vocabulary, even while its live contract inventory is zero.
-4. Add CrowdWorks only after that boundary is proven; it contributes selectors, auth, provider state,
-   mutation and readback only, never another lifecycle.
-5. Restore Mercor Apply before claiming more Mercor Paid progress. It must produce identity-bound
-   application receipts and real-time Telegram reports; a running observer or empty inventory is not PASS.
-6. Build shared Reply next, then add Mercor only as a thin adapter. This prevents a temporary Mercor
-   message path from becoming a second Reply lifecycle.
-7. Prove Mercor Paid only after Apply and Reply create a real accepted work item. Human-required
-   steps become durable Telegram handoffs and waits, not fabricated autonomous success.
-8. Complete the Lancers and CrowdWorks real Reply acceptances through that shared kernel while their
-   Paid adapters continue monitoring for real contracts.
-9. Perform `PANIC-3` through `PANIC-6` last in their unchanged internal order. The macOS
+2. Close Apply first because zero applications guarantee zero new contracts for Reply and Paid.
+   PASS is a fresh official application readback plus Telegram receipt and following replay-zero on
+   Coconala, Lancers and CrowdWorks; Mercor retains its already proven application path.
+3. Recheck Reply next across Coconala, Lancers, CrowdWorks and Mercor. Existing shared-kernel and
+   provider effects remain valid, but every installed owner must end a fresh natural terminal and
+   represent every official buyer event exactly once.
+4. Close Paid after Reply. Coconala's reference acceptance and the shared adapters remain valid;
+   Lancers, CrowdWorks and Mercor stay live monitors until a real contract proves delivery, official
+   readback, acceptance/payment and replay-zero.
+5. Finish Storefront last: restore Coconala continuous health, integrate the existing Lancers
+   state/readback branch, add only a thin CrowdWorks adapter, and bind listing changes to attributable
+   inquiry, order and net-cash receipts.
+6. Perform `PANIC-3` through `PANIC-6` last in their unchanged internal order. The macOS
    update/reboot runs only while Dais is physically available; until then no Mac, loginwindow or Aqua
    restart is authorized.
-10. Canonicalize `loop-development/SKILL.md` last from measured Paid and Reply behavior; writing the
-   canon earlier would preserve guesses rather than the implementation that actually passed.
+7. Canonicalize `loop-development/SKILL.md` last from measured four-lane behavior; writing the canon
+   earlier would preserve guesses rather than the implementation that actually passed.
 
 Zero live contracts never permits skipping an adapter atom or checking it complete. It proves only
 the empty official inventory path. The atom stays open until a real contract produces submission,
@@ -192,9 +194,8 @@ same-session official readback and a following replay with effect zero.
 
 ## Host safety track and its explicit pause
 
-`PANIC-1` and `PANIC-2` are complete. Dais explicitly changes the controlling order: complete the
-Mercor Apply -> shared Reply -> Mercor Reply -> Mercor Paid revenue path, then the Lancers and
-CrowdWorks Reply acceptances, before the restart-dependent host atoms. `PANIC-3` through `PANIC-6`
+`PANIC-1` and `PANIC-2` are complete. Dais explicitly changes the controlling order to Apply ->
+Reply -> Paid -> Storefront before the restart-dependent host atoms. `PANIC-3` through `PANIC-6`
 remain required and retain their internal order. The measured WindowServer panic remains a real availability risk; this
 reorder states that an OS restart is not a repair for the current Coconala authentication,
 targeted-readback or remote-builder failures. Do not restart Mac, loginwindow or Aqua while Dais is
@@ -223,10 +224,10 @@ This is the only executable cursor for this owner. Older unchecked Coconala inci
 case lists below are historical evidence and do not reopen completed work or reorder this list.
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
-Unchecked Lancers and CrowdWorks Paid atoms remain live acceptance monitors because their official
-contract inventories are empty; they do not block the next implementable atom. `SHARED-REPLY-1` and
-`CROWDWORKS-REPLY-1` and `MERCOR-REPLY-1` are complete. The active engineering atom is
-`NEXT-MARKETPLACE-PAID-1` by Dais's explicit order change.
+Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
+official contract inventories are empty; they do not block the next implementable atom. The active
+engineering atom is `APPLY-REPORT-9`, followed by fresh three-provider Apply acceptance. Reply is
+next, Paid follows Reply, and Storefront follows Paid. This is Dais's explicit order change.
 
 Fresh cross-owner handoff audit:
 
@@ -244,10 +245,9 @@ Fresh cross-owner handoff audit:
   not edit that worktree or its Writer files. Changes to `config/loop-registry.json` or
   `skills/_shared/marketplace-core/` require a fresh overlap comparison, but no current file overlap
   was observed.
-- Dais asks to finish lanes one by one and discusses Reply, Apply, Storefront and Paid, but the wording
-  does not unambiguously replace the already fixed atomic cursor. Preserve the current order until an
-  explicit single sequence replaces it; keep the stopped Apply/Storefront work recorded rather than
-  silently dropping or duplicating it.
+- Dais now explicitly replaces the controlling sequence with Apply -> Reply -> Paid -> Storefront.
+  Promote the existing Apply work and evidence instead of duplicating it; keep completed Reply/Paid
+  extraction and stopped Storefront work recorded, monitored and available for their later turns.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -1278,10 +1278,10 @@ Fresh cross-owner handoff audit:
     gates once, removes duplicate or stale instructions, and the final three-provider runtime table
     shows each installed owner, release SHA, latest natural terminal and effect/readback status.
 
-## Parallel Apply-owner cursor — one reporting standard, no external CLI
+## Active Apply-owner cursor — one reporting standard, no external CLI
 
-Owned by the Apply owner and executed in parallel with the Paid cursor above; it does not reorder
-that cursor. Measured 2026-09-06. All three lanes send the same kind of sentence, through two
+Owned by the Apply owner and now controlling implementation before Reply, Paid and Storefront.
+Paid/Reply monitoring continues without reopening completed atoms. Measured 2026-09-06. All three lanes send the same kind of sentence, through two
 different transports, and only one of those survives being cloned by a stranger.
 
 | Piece | Coconala | Lancers | CrowdWorks |
