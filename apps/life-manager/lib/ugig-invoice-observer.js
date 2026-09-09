@@ -64,6 +64,7 @@ async function observeUgigDeliveries({
     deliveries_seen: deliveries.length,
     pending: 0,
     waiting_for_merge: 0,
+    setup_required: 0,
     invoiced: 0,
     invoice_created: 0,
     paid: 0,
@@ -148,7 +149,16 @@ async function observeUgigDeliveries({
       payload.pr_links = delivery.pr_links;
       payload.items[0].link = delivery.pr_links[0];
     }
-    const created = await createInvoice(delivery.gig_id, payload);
+    let created;
+    try {
+      created = await createInvoice(delivery.gig_id, payload);
+    } catch (error) {
+      if (error?.code === "UGIG_SETUP_REQUIRED") {
+        result.setup_required += 1;
+        continue;
+      }
+      throw error;
+    }
     const id = invoiceId(created);
     if (!id) throw new Error("uGig invoice creation response did not include an invoice id");
     result.invoice_created += 1;

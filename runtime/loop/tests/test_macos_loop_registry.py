@@ -55,6 +55,20 @@ class MacosLoopRegistryTest(unittest.TestCase):
                 self.assertTrue(row["log_root"].startswith("~/.local/state/life-manager/"))
                 self.assertNotIn("openclaw", row["state_root"] + row["log_root"])
 
+    def test_life_manager_video_and_dev_jobs_share_the_receipt_backed_exec_adapter(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for loop_id in {
+            "life-manager-dev",
+            "life-manager-selfbuild",
+            "life-manager-taskmarket-ledger",
+            "life-manager-ugig-invoice-observer",
+            "lm-recording-store",
+        }:
+            with self.subTest(loop_id=loop_id):
+                row = registry["loops"][loop_id]
+                self.assertEqual(row["adapter"], "exec")
+                self.assertEqual(row["command"], [])
+
     def test_boot_panic_evidence_runs_once_when_the_aqua_session_loads(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         self.assertEqual(registry["loops"]["boot-panic-evidence"], {

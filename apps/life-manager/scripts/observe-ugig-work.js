@@ -24,7 +24,20 @@ async function fetchJson(fetchImpl, url, init = {}) {
   if (Buffer.byteLength(text, "utf8") > MAX_RESPONSE_BYTES) {
     throw new Error(`response too large from ${new URL(url).host}`);
   }
-  if (!response.ok) throw new Error(`HTTP ${response.status} from ${new URL(url).host}`);
+  if (!response.ok) {
+    if (response.status === 409) {
+      try {
+        if (JSON.parse(text)?.setup_required === true) {
+          const error = new Error("uGig payment setup required");
+          error.code = "UGIG_SETUP_REQUIRED";
+          throw error;
+        }
+      } catch (error) {
+        if (error?.code === "UGIG_SETUP_REQUIRED") throw error;
+      }
+    }
+    throw new Error(`HTTP ${response.status} from ${new URL(url).host}`);
+  }
   try {
     return text === "" ? {} : JSON.parse(text);
   } catch {

@@ -40,6 +40,7 @@ test("pending applications are observed without reading invoices or creating one
     deliveries_seen: 1,
     pending: 1,
     waiting_for_merge: 0,
+    setup_required: 0,
     invoiced: 0,
     invoice_created: 0,
     paid: 0,
