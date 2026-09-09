@@ -3,7 +3,7 @@
 status: ACTIVE
 owner: Dais / Life Manager
 created: 2026-08-01 JST
-updated: 2026-09-02 JST
+updated: 2026-09-09 JST
 scope: Upwork終端処理、公開context収束、汎用Life Manager kernel、既存5段階の各organ
 active_execution_surface: ELIZAOS_FORK_LOCAL_OSS_FIRST_MULTITENANT_CLOUD_AFTER_LOCAL_ACCEPTANCE
 
@@ -1282,6 +1282,17 @@ AI・cryptoをsoft preferenceとして全分野を残す記述、旧rolling cove
 Connectorの目的は、東京でLife Managerを広められるeventと登壇機会を早く確保することである。
 Calendarを無関係なeventで埋めること自体を成果にしない。
 
+#### 2026-09-09 operational truth — AS-IS / IDEAL / remaining TODO
+
+このsnapshotはConnectorとFundraiserの現在の運用状態を示す。`0.0.3 Atomic TODO SSOT`の順序は変えず、次の未完atomは`CG-28`のままとする。
+
+| loop | AS-IS（実測） | IDEAL（完了条件） | remaining TODO |
+|---|---|---|---|
+| Connector | ownerは`StartInterval=1800`。Connpass event 404393と405411は実申込、Calendar、Telegram evidenceまで成功済み。event 404826 `#pqc_study`はprovider登録readback後、canonical再読取が不安定でreconciliation待ち。最新wakeでは容量不足によりbrowser navigationとTelegram wake report deliveryが失敗した。installed release `7ca499f86`はcanonical readback retry merge `707546de3`より古い | 30分ごとにLuma→Connpassをprimaryとして今日を含む28日を探索し、Tokyo×YC/LT/AI/crypto/startupの`strong/moderate`だけを申込。provider official readback→Google Calendar exact 1→PNG/QRまたはreceipt→Telegram message/photo IDs→durable bundleを完成し、次wakeの重複を0にする | disk floorを回復し`707546de3`由来immutable releaseをbuild/deploy。event 404826のCalendar/Telegram/bundleをreconcile。次の自然wakeでLuma/Connpass continuation、Telegram every-wake delivery、30分ownerを実測。その後は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`の確定順序で閉じ、OSS one-command local installを最終readbackする |
+| Fundraiser | ownerは`StartInterval=1800`。Progressive Venturesの実応募とTelegram画像送信は成功済み。installed releaseは`8676fdb79`。後続の自然wakeは容量不足で`entrypoint_exit_75`となり、accelerator/VCの新規応募とcold emailの継続は未証明 | 30分ごとに新しいaccelerator/VCだけを発見・dedupeし、適格先へ応募またはcold emailをexact-onceで送り、provider/email readbackとTelegram receiptを残す | disk回復後に自然wakeを再開し、stale lockなし、新規応募またはcold email 1件、Telegram every-wake delivery、次wakeの重複0を実測。Connectorのscheduler/evidence/dedupe部品は共有するがprovider workflowとstate namespaceは分離する |
+
+共通blockerはData volumeの空きが212MiBまで低下した`ENOSPC`である。cleanかつmain統合済みの閉じたworktree 3件（論理サイズ約2.5GiB）を削除後も、APFS共有blockと並行writeのため実空きは986MiBに留まる。credential、mutable state、稼働release、未統合worktreeは削除していない。release buildと自然wakeの成功を実測するまで「working」または「fixed」と報告しない。
+
 #### 0.0.1 Product contract
 
 1. 一wakeは全Google Calendarのbusyを読み、今日を含む28日を対象にする。
@@ -1299,14 +1310,14 @@ Calendarを無関係なeventで埋めること自体を成果にしない。
    API discovery keyをwrite permissionとして扱わず、API write endpointは使わない。
 7. Peatix、Meetup、Doorkeeper、Eventbrite、TECH PLAY、KokuchProは実装を保持するが、Lumaとconnpassを尽くした後、
    同じtopic/quality gateを通る時だけfallbackにする。空き日を埋めるためにthresholdを下げない。
-8. official scheduleはsingle launchd labelのhourly wakeとする。一wakeの新規external Submitはattendanceまたはtalkの
+8. official scheduleはsingle launchd labelの30分wake（`StartInterval=1800`）とする。一wakeの新規external Submitはattendanceまたはtalkの
    どちらかexact 1件までとし、既存lock、10分deadline、effect-unknown stop、checkpoint、dedupeを維持する。
 9. attendance registrationとtalk applicationは別stateで追跡する。LT/CFPの公開根拠、申込URL、締切が本文で検証できる時だけ
    Life Manager 5分talk packを作り、provider readbackなしに登壇確定と表示しない。
 10. successはprovider official readback → event本体のGoogle Calendar exact 1件 → registration PNG/receipt →
     Telegram positive message/photo IDs → durable `applied_bundle`のchainが揃った時だけ成立する。
 11. 適格候補がない時は、28日内の空き日、provider別観測件数、`weak/unknown/conflict/closed/paid`の不採用件数、
-    次のhourly wakeをTelegramへ送る。Telegram送信自体はapplication successではない。
+    次の30分wakeをTelegramへ送る。Telegram送信自体はapplication successではない。
 12. 実装は単一OSS Life Manager repositoryの既存Connector skillに置く。新しいcloud、agent、DB、scheduler、browser profile、
     provider crawlerを作らず、credential、identity、Calendar ID、mutable state、receiptはrepo外へ置く。
 
@@ -1314,7 +1325,7 @@ Calendarを無関係なeventで埋めること自体を成果にしない。
 
 | surface | current measured behavior | required behavior |
 |---|---|---|
-| schedule | global currentは`20260831T195511-7b9257b6`。Connector、daily-driver、Marketing 13 labelsはfull release `20260831T192828-7ab5a318` / SHA `7ab5a318…`、Capafy daily/healthcheckは`20260831T193835-aced5c6b` / SHA `aced5c6b…`へ個別pinされている。native Connector owner exact 1、`StartInterval=3600`だが最新terminalはexit 2。Marketing 13 labelsはruns 0 / never exited | manual kickstartと途中reloadを使わず、各installed generationの最初の自然wakeでterminal/evidenceを取得する。global currentとloaded argvを同一視しない |
+| schedule | Connector native owner exact 1、`StartInterval=1800`。最新terminalは容量不足の影響を受け、Telegram every-wake deliveryも欠落した | manual kickstartと途中reloadを使わず、installed generationの自然30分wakeでterminal/evidenceを取得する。global currentとloaded argvを同一視しない |
 | cross-loop control plane | Capafy R0.2.3のauthoritative installed generationは`aced5c6b…`。daily install event `3eb485675e2c938ba6ea4017`はruns 0 / never exited、health install event `9bb11d92a935ca77ed1a38f7`はruns 3 / exit 0。global currentが`7b9257b6…`へ進んでも両Capafy plist mtimeとloaded argvは`aced5c6b…`を保持している | explicit clearまでCapafy daily/healthcheckをreload、restart、stop、applyしない。targetless/all-label applyは禁止。global currentは両Capafy plist/loaded jobを変えない場合だけ移動可能 |
 | release completeness | 同一SHAの最初のrelease `20260831T153415-7255b4bb`はproduction依存`playwright-core`を欠き、Calendar read後のbrowser rail生成でexit 2。後続full releaseは3 dependency tree、154,232 entries、789,376,561 bytesを保持し、runtime requireを通る | apply前に全Git blob/mode、locked runtime dependency、required-module importを検証し、不完全releaseをloadedにしない |
 | browser owner | `127.0.0.1:9222`は`job-search-daily`、`[::1]:9222`は宣言済み`daily-driver`。PR #3452でproduction rail/target controller/leaseはIPv6 daily-driver exactへ固定し、wrong-profile IPv4を拒否した。Connector全696/696、isolated live targetはpage `1→2→1`、lease 0、provider effect 0 | 最初の自然wakeでloaded release自身がIPv6 targetを所有・cleanupし、job-search/Gig profile非干渉をreadbackする |
@@ -1387,10 +1398,10 @@ Calendarを無関係なeventで埋めること自体を成果にしない。
 - [x] **CG-35** talk URL上のordinary verified fieldsだけを入力し、payment/CAPTCHA/本人確認/unknown required fieldでは`human_action_required`、official readbackなしでは`submitted`より先へ進めない。
 - [x] **CG-36** talk classifier、grounded pack、transition store、minimal productionのfocused testsをPASSさせ、LT sliceをcommit/pushする。
 
-##### F. Hourly owner and evidence UX
+##### F. 30-minute owner and evidence UX
 
-- [x] **CG-37** `minimal-production-contract.test.js`を`StartInterval=3600`、`StartCalendarInterval`なし、label exact 1へRED更新する。
-- [x] **CG-38** `ai.anicca.life-manager-connector-native.plist.template`だけをhourlyへ変更し、RunAtLoad、KeepAlive、second labelを追加しない。
+- [x] **CG-37** cadence contract testを通し、現在のinstalled ownerは`StartInterval=1800`、`StartCalendarInterval`なし、label exact 1である。
+- [x] **CG-38** `ai.anicca.life-manager-connector-native.plist.template`を30分間隔とし、RunAtLoad、KeepAlive、second labelを追加しない。
 - [x] **CG-39** ranking reason、priority class、LT state/deadlineを`connector-native-write-pipeline`の既存bundle lineageへ追加し、secret/raw prompt/bodyを保存しない。
 - [x] **CG-40** ticket/coverage Telegramへ「なぜ選んだか」「LT open/submitted/verified」「28日空き」を追加し、provider message IDなしをsuccessにしない。
 - [x] **CG-41** Connector full focused suite、shell syntax、plist render/lint、secret/PII scanをPASSさせ、hourly/evidence sliceをcommit/pushする。
