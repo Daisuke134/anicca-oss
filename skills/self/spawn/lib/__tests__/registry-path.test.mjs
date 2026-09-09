@@ -46,20 +46,25 @@ test("PROP-105m Tier 2 (live, no mock): COORDINATOR_HOME genuinely tracks the re
   }
 });
 
-test("PROP-105k Tier 2 (live, no mock, scoped to worktree add|remove — see sprint-1 report for the git-checkout/pull scope note): a real `git worktree add`/`git worktree remove` cycle on the canonical checkout leaves a fixture record in the durable registry byte-identical", () => {
-  const dir = path.dirname(CITIZENS_REGISTRY_PATH);
-  fs.mkdirSync(dir, { recursive: true });
+test("PROP-105k Tier 2 (live, no mock, scoped to worktree add|remove — see sprint-1 report for the git-checkout/pull scope note): a real `git worktree add`/`git worktree remove` cycle leaves an isolated fixture registry byte-identical", async () => {
+  const stateDir = fs.mkdtempSync(path.join(os.homedir(), ".lm-citizens-registry-test-"));
+  const previousStateDir = process.env.ANICCA_STATE_DIR;
+  process.env.ANICCA_STATE_DIR = stateDir;
+  const modulePath = pathToFileURL(path.resolve(__dirname, "../registry-path.mjs")).href;
+  const isolated = await import(`${modulePath}?test=${Date.now()}`);
+  const registryPath = isolated.CITIZENS_REGISTRY_PATH;
   const fixtureContent = JSON.stringify([{ id: "sprint1-red-phase-fixture-" + Date.now() }]);
-  fs.writeFileSync(CITIZENS_REGISTRY_PATH, fixtureContent);
+  fs.writeFileSync(registryPath, fixtureContent);
   const wtDir = fs.mkdtempSync(path.join(os.tmpdir(), "anicca-registry-path-worktree-"));
   fs.rmdirSync(wtDir); // git worktree add requires the target path not to already exist
   try {
     execFileSync("git", ["worktree", "add", "--detach", wtDir], { cwd: REPO_ROOT });
     execFileSync("git", ["worktree", "remove", "--force", wtDir], { cwd: REPO_ROOT });
-    assert.equal(fs.readFileSync(CITIZENS_REGISTRY_PATH, "utf8"), fixtureContent);
+    assert.equal(fs.readFileSync(registryPath, "utf8"), fixtureContent);
   } finally {
     fs.rmSync(wtDir, { recursive: true, force: true });
-    fs.rmSync(CITIZENS_REGISTRY_PATH, { force: true });
+    fs.rmSync(stateDir, { recursive: true, force: true });
+    if (previousStateDir === undefined) delete process.env.ANICCA_STATE_DIR;
+    else process.env.ANICCA_STATE_DIR = previousStateDir;
   }
 });
-

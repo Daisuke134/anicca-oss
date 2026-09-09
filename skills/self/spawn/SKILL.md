@@ -76,7 +76,8 @@ claimed to have earned.
 - **child earns on its own wake**: automaton.service `ExecStart=node dist/index.js --run` with
   `Environment=AUTOMATON_GOAL=earn`; the colony row records `wake_action:"earn"` / `earn_on_wake:true`.
 - **children.jsonl persisted live**: `resolveStateDir()` is fail-closed against /tmp; the ledger
-  defaults to `~/.hermes/state` (host) / `/var/lib/anicca` (`StateDirectory=anicca`, droplet) — durable.
+  defaults to `~/.local/state/life-manager/agent-economy/instance/state` (host) /
+  `/var/lib/anicca` (`StateDirectory=anicca`, droplet) — durable.
 
 ## Usage
 ```bash

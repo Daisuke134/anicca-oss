@@ -5,10 +5,10 @@ const { resolveStateDir } = require("../state-path");
 // gap 3 root cause: the live E2E wrote children.jsonl under /tmp, which is tmp-cleaned and gone.
 // resolveStateDir is fail-closed: it REFUSES any /tmp-rooted path so the colony ledger is never lost.
 
-test("defaults to the durable ~/.hermes/state when nothing is set", () => {
+test("defaults to the Life Manager Agent Economy instance state", () => {
   assert.strictEqual(
     resolveStateDir({ env: {}, home: "/home/anicca" }),
-    "/home/anicca/.hermes/state"
+    "/home/anicca/.local/state/life-manager/agent-economy/instance/state"
   );
 });
 
