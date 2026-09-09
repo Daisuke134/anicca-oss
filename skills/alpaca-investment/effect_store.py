@@ -85,12 +85,12 @@ def record_no_trade(ledger: Path, decision: dict[str, Any]) -> str:
     return decision_id
 
 
-def mark_started(ledger: Path, sealed: dict[str, str]) -> None:
+def mark_started(ledger: Path, sealed: dict[str, str]) -> bool:
     mode = _mode(sealed.get("mode"))
     if any(row.get("receipt_type") == "outcome" and row.get("effect_id") == sealed["effect_id"]
            for row in _rows(ledger)):
         raise ValueError("effect_already_completed")
-    _append_once(ledger, {
+    return _append_once(ledger, {
         **sealed, "mode": mode, "paper": mode == "paper", "receipt_type": "effect_intent",
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "schema_version": 1, "status": "started",
@@ -110,6 +110,31 @@ def _unresolved(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def unresolved_intent_count(ledger: Path) -> int:
     return len(_unresolved(_rows(ledger)))
+
+
+def effect_state(ledger: Path, effect_id: str) -> str:
+    """Return the durable state of one sealed effect without changing the ledger."""
+    rows = [row for row in _rows(ledger) if row.get("effect_id") == effect_id]
+    if any(row.get("receipt_type") == "outcome" for row in rows):
+        return "outcome"
+    statuses = {row.get("status") for row in rows if row.get("receipt_type") == "effect_intent"}
+    if "started" in statuses or "applied" in statuses or "reconciliation_blocked" in statuses:
+        return "started"
+    return "planned"
+
+
+def record_terminal_outcome(ledger: Path, sealed: dict[str, str], broker: dict[str, Any],
+                            outcome: str) -> bool:
+    """Close a canary intent only after an official terminal broker readback."""
+    if outcome not in {"live_canary_verified", "live_canary_terminal_failure"}:
+        raise ValueError("effect_outcome_invalid")
+    mode = _mode(sealed.get("mode"))
+    return _append_once(ledger, {
+        "broker": broker, "client_order_id": sealed["client_order_id"],
+        "effect_id": sealed["effect_id"], "mode": mode, "outcome": outcome,
+        "paper": mode == "paper", "receipt_type": "outcome",
+        "recorded_at": datetime.now(timezone.utc).isoformat(), "schema_version": 1,
+    }, ("receipt_type", "effect_id"))
 
 
 def reconcile_started(

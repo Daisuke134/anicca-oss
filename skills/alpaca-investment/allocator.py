@@ -123,7 +123,8 @@ def gate(snapshot: dict[str, Any], candidates: list[dict[str, Any]], decision: d
     candidate = offered.get(ref)
     if candidate is None:
         return {**decision, "approved": False, "gate": "candidate_not_offered"}
-    equity, cash = float(snapshot["account"]["equity"]), float(snapshot["account"]["cash"])
+    equity = float(snapshot["account"]["equity"])
+    cash = float(snapshot.get("available_cash_usd", snapshot["account"]["cash"]))
     probability, gain = float(decision["probability_profit"]), float(decision["expected_gain_usd"])
     loss = float(candidate["max_loss_usd"])
     fixed_risk = evaluate_entry(snapshot.get("risk"), candidate["max_loss_usd"])
