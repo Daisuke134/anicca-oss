@@ -1310,11 +1310,13 @@ Telegramを各ユーザーのprimary UIとする。source、raw log、state file
 
 #### Cross-loop recovery and product TODO order — current SSOT
 
-1. **CLEANUP-FIRST:** safe disk floorを回復し、producerが再び枯渇させないgovernorを実測する。credential、state、active release、未統合worktreeを保持する。
+1. **CLEANUP-FIRST — DONE:** safe disk floorを回復し、producerが再び枯渇させないgovernorを実測する。credential、state、active release、未統合worktreeを保持する。実測はData volume free `12.2 GB`（11 GiB超）、tier `PREVENTIVE`、pressure flag absent、cleanup errors `0`、protected deletions `0`。release gateはmain `60a48eebe`由来currentへ反映し、圧迫中のdirect実測でexit `75`・release count `36→36`、自然reconcilerでも反復`EX_TEMPFAIL`と新規release `0`を確認した。
 2. **CONNECTOR-RUNTIME:** `707546de3`由来releaseをbuild/deployし、event 404826のCalendar/Telegram/bundle reconciliation、Luma/Connpassの自然30分wake、replay-zeroを閉じる。その内部順序は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`。
 3. **FUNDRAISER-RUNTIME:** 自然30分wakeで新規accelerator/VC応募またはcold email exact 1、Telegram receipt、次wake duplicate 0を閉じる。
 4. **TELEGRAM-OSS-UX:** one-command local setup、pairing、onboarding、commands/buttons、notification levels、Connector/Fundraiserの上記message contractをclean installでE2Eする。
 5. **CLOUD-AFTER-LOCAL:** local acceptance後だけ、同じcoreをtenant分離されたcloudへhostし、Telegram-only signupからpause/data deletionまでE2Eする。
+
+Current active atomは順序2の**CONNECTOR-RUNTIME**である。後続atomを前倒ししない。
 
 #### 0.0.1 Product contract
 
