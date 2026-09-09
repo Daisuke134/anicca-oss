@@ -1874,10 +1874,12 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
    and refuses all of it correctly, which is the point -- the vocabulary is no longer deciding
    what the fleet is allowed to consider.
 
-8. [ ] `APPLY-SHARE-2` Coconala reads `work_fit.py`. Its planner carries its own wording for the
-   same prohibitions, so a rule Dais changes once has to be changed twice. Deliberately after
-   Coconala can apply again (`APPLY-COCONALA-1`): changing the refusal wording of a lane that
-   submits nothing proves nothing.
+8. [x] `APPLY-SHARE-2` Coconala reads `work_fit.py`. Commit `3221b675a` removed the planner's
+   separately owned prohibition classes and imports the shared
+   `work_fit.HARD_PROHIBITION_CLASSES` used by Lancers and CrowdWorks. The focused shared-refusal
+   suite passes 6/6 and the related planner/direct suites pass 28/28. This proves code ownership;
+   `APPLY-COCONALA-2` still requires the official restriction answer and a post-lift application
+   receipt before the lane reopens.
 
 9. [ ] `APPLY-SHARE-3` Adopt `dom_contract.py` in all three, in the order the evidence arrives:
    Lancers once `proposal-form-changes.jsonl` names its selectors, then CrowdWorks, then
@@ -1941,7 +1943,10 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
       and SNS広告運用 would all have been refused by rules that already exist and that Coconala
       never saw this lane apply.
     - A ceiling the lane cannot exceed, not just a slower wake. 30-minute cadence is shipped
-      (`APPLY-PACE-1`) but cadence alone does not cap a pass that submits twelve.
+      (`APPLY-PACE-1`). The production `--all-eligible` path uses the existing hard ceiling of 20
+      submit attempts, and refresh, coverage, same-wake reconciliation and parallel effect workers
+      share one file-locked `submit-attempt-budget.json`. A 40-worker regression admits exactly 20
+      reservations and rejects the remaining 20. This is a real per-wake ceiling, not cadence.
 
 13. [ ] `APPLY-COCONALA-3` Ask Coconala, because
     the restriction is not visible anywhere in the UI this lane can read: no banner on the
