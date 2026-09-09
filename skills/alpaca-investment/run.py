@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from allocator import build_candidates, choose, order_for
@@ -107,6 +108,21 @@ def _review_status(state: Path, mode: str, deployment: str) -> dict:
         return current
 
 
+def _nonpaper_campaign(observation: dict) -> dict:
+    try:
+        positions = observation["positions"]
+        if not isinstance(positions, list):
+            raise ValueError
+        unrealized = sum((Decimal(str(row["unrealized_pl"])) for row in positions), Decimal("0"))
+        if not unrealized.is_finite():
+            raise ValueError
+    except (KeyError, InvalidOperation, TypeError, ValueError) as error:
+        raise ValueError("investment_nonpaper_observation_invalid") from error
+    return {"exit_status": "NOT_APPLICABLE", "paper": False,
+            "positions": positions, "realized_pnl_usd": None,
+            "unrealized_pnl_usd": str(unrealized)}
+
+
 def main(*, attempt: int = 0, wake_id=None) -> int:
     wake_id = wake_id or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     mode = os.environ.get("LIFE_MANAGER_INVESTMENT_MODE")
@@ -149,11 +165,9 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
             cli_path=cli_path,
         )
         stage = "campaign_read"
-        campaign = reconcile(read_campaign_snapshot(
-            credentials_path=credentials_path,
-            cli_path=cli_path,
-            symbols=SYMBOLS,
-        ))
+        campaign = (reconcile(read_campaign_snapshot(
+            credentials_path=credentials_path, cli_path=cli_path, symbols=SYMBOLS))
+            if mode == "paper" else _nonpaper_campaign(observation))
         effect = "none"
         if campaign["exit_status"] == "EXIT_READY":
             exit_decision = {
