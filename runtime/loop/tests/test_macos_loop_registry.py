@@ -54,6 +54,13 @@ class MacosLoopRegistryTest(unittest.TestCase):
                 self.assertEqual(row["state_root"], root)
                 self.assertEqual(row["log_root"], f"{root}/logs")
 
+    def test_citizens_diff_monitor_keeps_its_runtime_metadata_out_of_hermes(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        row = registry["loops"]["citizens-diff-monitor"]
+        root = "~/.local/state/life-manager/citizens-diff-monitor"
+        self.assertEqual(row["state_root"], root)
+        self.assertEqual(row["log_root"], f"{root}/logs")
+
     def test_life_manager_owned_loops_do_not_write_runtime_metadata_to_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         loop_ids = {

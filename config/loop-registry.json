@@ -686,9 +686,9 @@
       "effect_class": "none",
       "entrypoint": "skills/self/spawn/scripts/citizens-diff-monitor.sh",
       "label": "ai.anicca.citizens-diff-monitor",
-      "log_root": "~/.hermes/logs",
+      "log_root": "~/.local/state/life-manager/citizens-diff-monitor/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.hermes"
+      "state_root": "~/.local/state/life-manager/citizens-diff-monitor"
     },
     "claude-projects-backup": {
       "cadence": {
