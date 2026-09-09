@@ -96,6 +96,7 @@ def choose(snapshot: dict[str, Any], candidates: list[dict[str, Any]], state: Pa
         "You allocate a paper-only investment account. Select exactly one candidate_ref offered below, "
         "or NO_TRADE. Judge near-term expected value from only this snapshot; never invent market data. "
         "probability_profit must be 0..1 and expected_gain_usd must be the upside conditional on profit. "
+        "Write reason as one concise natural Japanese sentence. "
         "Choose NO_TRADE with both numbers 0 when evidence is inadequate.\n"
         + json.dumps({"account": snapshot["account"], "candidates": candidates}, separators=(",", ":"))
     )

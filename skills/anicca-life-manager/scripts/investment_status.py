@@ -17,6 +17,16 @@ def _read_json(path: Path) -> dict:
         return {}
 
 
+def _money_or_unknown(value) -> str:
+    if isinstance(value, bool) or value is None:
+        return "不明"
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "不明"
+    return str(value) if number == number and abs(number) != float("inf") else "不明"
+
+
 def build_investment_reply(state_root: Path) -> dict:
     root = state_root / "alpaca-investment"
     account_path = root / "account-status.json"
@@ -67,7 +77,7 @@ def build_investment_reply(state_root: Path) -> dict:
         lines.append(f"運転: {mode}。資産 ${equity}、現金 ${cash}、今回の判断は{decision}です。")
         if reason:
             lines.append(f"理由: {reason}")
-        lines.append(f"日次純損益: {risk.get('official_pnl_ny_day_usd', '不明')}")
+        lines.append(f"日次純損益: {_money_or_unknown(risk.get('official_pnl_ny_day_usd'))}")
         lines.append("次回確認: 5分後（全wakeをTelegramで報告）")
     else:
         lines.append("運転状態: 最新snapshotをまだ読み取れません。5分後に自動再確認します。")
