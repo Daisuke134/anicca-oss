@@ -359,7 +359,31 @@ def acquire(task, url="about:blank", no_seed=False):
             return {"ok": True, "reused": True, **held}
 
         if len(leases) >= _max_contexts():
-            raise RuntimeError("browser_context_limit")
+            parked_rows = [
+                (name, row) for name, row in leases.items()
+                if row.get("parked") is True
+            ]
+            if not parked_rows:
+                raise RuntimeError("browser_context_limit")
+            parked_task, parked = min(
+                parked_rows,
+                key=lambda item: (item[1].get("ts", 0), item[0]),
+            )
+            try:
+                asyncio.run(_calls([(
+                    "Target.disposeBrowserContext",
+                    {"browserContextId": parked.get("context_id")},
+                )]))
+            except Exception as error:
+                if _browser_context_exists(parked.get("context_id")) is not False:
+                    parked["cleanup_pending"] = True
+                    parked["cleanup_error_type"] = type(error).__name__
+                    parked["ts"] = 0
+                    leases[parked_task] = parked
+                    _save(leases)
+                    raise RuntimeError("context_cleanup_pending") from error
+            leases.pop(parked_task, None)
+            _save(leases)
 
         cookies = []
         vault_path = _vault_path()
