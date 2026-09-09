@@ -1961,7 +1961,7 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
     itself remains closed until `APPLY-COCONALA-2` receives that answer; this checkbox proves only that
     the one authorized inquiry was sent and its pending ownership is durable.
 
-14. [ ] `APPLY-CROWDWORKS-1` CrowdWorks has no fitness judgement either, and it is now applying.
+14. [x] `APPLY-CROWDWORKS-1` CrowdWorks judges posting fitness before applying.
     Measured 2026-09-07, the first five applications after the category allow-list was removed:
 
     ```
@@ -1978,10 +1978,17 @@ is 4,246 lines -- Coconala alone is twenty-two times that.
     refusals, which are written to be judged against the posting text, only ever reach it as
     `category_refusal` on a category label.
 
-    This is the same shape as the Coconala restriction, one platform earlier: a lane applying
-    without judging. PASS = the posting text is judged against
-    `work_fit.HARD_PROHIBITION_CLASSES` before submission, and a wake that would have bid on the
-    three partner-recruitment postings declines them by name.
+    This had the same shape as the Coconala restriction, one platform earlier: a lane applying
+    without judging. Main now calls shared `work_fit.judge()` with the official posting title and
+    body before submission and fails closed when the judge is unavailable or omits the posting.
+    Natural wake `2026-09-09T11:21:17Z` inspected 70 official jobs and declined four through the
+    posting-text judge with `judge_unavailable=0`, naming each job and retaining the exact decisive
+    quote; examples include an onsite Web-direction role (`physical_or_onsite`) and two ongoing
+    third-party operations roles (`mandatory_desktop_or_browser_operations`). The 11:47 wake again
+    completed with `judge_unavailable=0`. The original three partner-recruitment postings are
+    already in official application history and cannot reappear as fresh candidates, so their
+    regression is covered by the shared fixture `採用支援事業のパートナー募集` / `代理店として販売`.
+    Focused shared-judge, shared-fit and CrowdWorks-owner tests pass 36/36.
 
 ### Reporting, measured by reading the chat rather than the logs — 2026-09-07
 
