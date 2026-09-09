@@ -10145,3 +10145,11 @@ loaded immutable releaseは`/Users/anicca/loops/releases/20260909T224237-e132451
 manual wakeの終端後にownerを触らず監視し、14:48:45 UTC開始の自然wake `wake-acf9d59a5f5a0e752192137d`でlaunchd `runs 5→6`を確認した。Calendar busy inventoryは4,554msで成功し、Luma auditは`observed 36 / normalized 6 / window 6 / free-open 3 / calendar-free 0`、Connpass auditは`observed 295 / normalized 295 / window 295 / free-open 246 / calendar-free 19`だった。Lumaの無料3件はすべて既存Calendarと衝突したため、申込・Calendar create・event Telegram photo・bundle作成は0である。
 
 同wakeはfallback providerを継続し、約5分15秒でexit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`、Telegram every-wake provider ID `72034`として終了した。applied bundleは`56→56`でduplicate 0、終了後はowner idle、Connector process 0、target lease `{}`、owner lock残留0だった。容量障害復旧後に自然30分scheduler、Calendar、provider continuation、Telegram、cleanupが一巡した証拠としてacceptするが、新規Luma live bundleは0なのでCG-44は**NOT DONE**のまま次の自然batchへ継続する。
+
+### O1B-25進捗532（追加manual rotation / docs-only release churn修復）
+
+別候補sliceを直ちに走査するため、自然wake終了後にmanual wake `wake-267942d49596569ab738c90e`を一回実行した。Calendarは成功し、Connpass auditは`295 / 295 / 295 / 246 / 19`、Lumaは前wakeと異なる公開inventory 20件から6件を詳細取得し、28日内2件、free/open 0、calendar-free 0だった。約5分でexit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`、Telegram every-wake ID `72049`、bundle `56→56`。候補rotationと継続稼働はacceptするが、新規Luma effect 0のためCG-44 acceptanceには数えない。
+
+同時にhost容量が3.5GiBから1.6GiBまで再低下し、173個のLaunchAgentが24種類のimmutable releaseを参照する状態で、毎分release reconcilerが`docs/**`だけのmain更新にもfull releaseを作る直接原因を確定した。reconcilerはcurrent complete releaseからmainまでの差分が`docs/**`だけなら既存releaseを再利用して対象loopのidle reconcileを続け、docs外に一件でも差分があれば従来どおり新releaseを切るよう修正した。integration testはdocs-onlyでcutter 0・reconcile 3、runtime差分でcutter 1を含む5/5、Shell、loop contract、Python、OSS、PII、gitleaks、TruffleHogの全CIがPASSした。PR #4815、main merge `f8038f7604dc62ca62c2e95f94eb709eb5c6891d`。
+
+並行runtime変更を含むmain descendant `d4022758b261ca1b3b0164ecc984c21935785961`のcomplete releaseが正当に作成された後、self-exclusionで9月2日の旧releaseに残っていた`life-manager-release-reconciler`と、直前SHAの`life-manager-disk-cleanup`を対象2labelだけcurrentへreconcileした。両plist/current SHAは`d4022758…`で一致し、disk cleanupはexit 0、release世代は`27→26`、空きは約2.4GiBへ回復した。次のdocs-only main更新でcurrent SHAとrelease directory countが不変であることをlive readbackして、この再発防止を閉じる。
