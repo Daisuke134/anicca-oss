@@ -1,18 +1,29 @@
 #!/bin/bash
 # citizens-diff-monitor — spawn Done-witness observer.
-# Watches ~/.hermes/state/citizens.json for genuine new entries vs the seed baseline.
+# Watches the self/spawn citizens registry for genuine new entries vs the seed baseline.
 # READ-ONLY on citizens.json; writes only its own baseline/pid/log.
 set -u
 
-HERMES="${HERMES_HOME:-$HOME/.hermes}"
-CITIZENS="$HERMES/state/citizens.json"
-BASELINE="$HERMES/state/citizens-baseline.json"
-PIDFILE="$HERMES/state/citizens-diff-monitor.pid"
-LOG="$HERMES/logs/citizens-diff-monitor.log"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/citizens-diff-monitor}"
+SPAWN_STATE_ROOT="${ANICCA_STATE_DIR:-$HOME/.hermes/state}"
+CITIZENS="${CITIZENS_REGISTRY_PATH:-$SPAWN_STATE_ROOT/citizens.json}"
+BASELINE="$STATE_ROOT/citizens-baseline.json"
+PIDFILE="$STATE_ROOT/citizens-diff-monitor.pid"
+LOG="$STATE_ROOT/logs/citizens-diff-monitor.log"
 INTERVAL="${CITIZENS_DIFF_INTERVAL:-60}"
 
-mkdir -p "$HERMES/state" "$HERMES/logs"
+mkdir -p "$STATE_ROOT/logs"
 echo $$ > "$PIDFILE"
+sleep_pid=""
+cleanup() {
+  if [ -n "$sleep_pid" ]; then
+    kill "$sleep_pid" 2>/dev/null || true
+    wait "$sleep_pid" 2>/dev/null || true
+  fi
+  rm -f "$PIDFILE"
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
@@ -46,5 +57,8 @@ while true; do
   else
     echo "[$(ts)] WARN: citizens.json missing" >> "$LOG"
   fi
-  sleep "$INTERVAL"
+  sleep "$INTERVAL" &
+  sleep_pid=$!
+  wait "$sleep_pid" || true
+  sleep_pid=""
 done
