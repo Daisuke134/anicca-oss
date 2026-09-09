@@ -211,6 +211,132 @@ implementation boundary, and the English/Japanese READMEs explain it to users.
 No contributor adds a local-only or cloud-only copy before proving that a thin
 host adapter cannot implement the shared contract.
 
+### 4.3 Agent Economy financial independence and zero-command UX
+
+The Agent Economy goal is not merely to display a wallet balance. A Life Manager citizen owns an isolated
+identity and wallet, earns externally verified revenue, pays its own compute and hosted-runtime costs from that
+revenue, retains a measured survival reserve, and continues operating without a human subscription, wallet,
+device or recurring top-up. A human may supply one bounded bootstrap; bootstrap money is never counted as
+revenue or evidence of independence.
+
+One Life Manager installation may support multiple citizens, but it starts with exactly one. A second citizen is
+eligible only after the parent has a verified `financially_independent` receipt, remains above its survival and
+recovery reserves after funding the child's complete bootstrap budget, and can tolerate the child failing. Only
+one unproven child may exist at a time. The product does not multiply identities merely because a wallet balance
+is positive.
+
+```text
+Life Manager control plane
+└── citizen supervisor
+    └── citizen/<citizen-id>
+        ├── identity + wallet
+        ├── revenue, cost, payment and compute receipts
+        ├── treasury + survival policy
+        ├── shared compute router
+        └── shared earning-loop adapters
+            ├── Agent Economy
+            ├── Connector / Fundraiser
+            ├── Marketplace / Gig Work
+            ├── Writer / Marketing / Mobile Apps
+            └── later repository-owned loops
+```
+
+Local and Cloud use the same citizen, wallet, receipt, treasury, compute-routing and loop-adapter contracts.
+Local persists private state in the Life Manager state root and uses the host supervisor. Cloud persists
+tenant-and-citizen-scoped state in the managed durable stores and uses the existing capability-job worker. A
+loop does not gain a second cloud implementation; only storage, browser and supervisor adapters differ.
+
+#### Setup experience
+
+Normal use has no Agent Economy start command.
+
+- Local: after `git clone`, `cd life-manager`, and `./install.sh`, installation creates the first isolated identity
+  and empty wallet, installs the Agent Economy owner from the immutable repository release, and starts it. The
+  user does not separately run `lm-loop start`. `./bin/lm-loop status agent-economy-loop` remains an optional
+  operator diagnostic, not onboarding.
+- Cloud: the unavoidable first Telegram `/start` creates or resumes the tenant. The provisioning job creates the
+  first citizen identity and wallet and starts Agent Economy automatically. Telegram bots cannot message a user
+  before that first user action. `/economy` is the one optional read/control surface; with no argument it returns
+  the current wallet, verified revenue, expenses, reserve, funding mode and next action. Setup, pause and emergency
+  controls use inline buttons rather than a command vocabulary.
+- Wallet-native, no-account earning lanes may start without human credentials. Provider-required KYC or consent is
+  reported as a scoped capability limitation; it never blocks unrelated no-human lanes or becomes a hidden shared
+  credential.
+
+The target `./install.sh` auto-start and Cloud `/economy` behavior are not current claims. Today Local has a
+registry-managed `agent-economy-loop`, but its public one-command installation and realtime Telegram lifecycle
+are incomplete. The current documented manual path is `./install.sh` followed by
+`ANICCA_BRAIN=claude-p ./start-local.sh node runtime/loop/index.mjs`; the one-shot
+`skills/agent-economy/run.sh` only reconciles and prints status. Cloud has the shared capability worker, daily
+Financial Manager delivery, and the user-facing Investment `/invest` surface; it does not yet run the complete
+Agent Economy citizen daemon or understand `/economy`. Investment is the only dedicated loop surface currently
+proven against loop state in the Cloud product; `/gig` and `/crowd` surfaces also exist but their live-state readers
+are not connected. Investment's current Cloud execution is dry-run with zero broker calls, and it is not the Cloud
+worker's only background capability.
+
+#### Telegram reporting contract
+
+Telegram is an observer and emergency-control surface, not a polling log. Every externally verified money or
+lifecycle transition reports immediately; unchanged wakes stay silent. Each delivery is deduplicated by the
+durable source receipt/event identity and records the provider message ID. A concise daily snapshot reports even
+when there is no transition, and `/economy` returns the same current projection on demand.
+
+The sender durably claims an event before calling Telegram. If Telegram's result is unknown, that claim enters
+quarantine and is not automatically resent; reconciliation resolves it against the provider result before another
+send. Daily snapshots use `(tenant_id, citizen_id, local_date)` as their durable dedupe key. A provider message ID
+is attached to the claimed delivery after success, so a crash between send and persistence cannot silently create
+an ordinary retry path.
+
+```text
+Immediate: verified revenue banked, refund/chargeback, compute payment, cloud/shelter payment,
+           reserve breach, funding-mode change, financially-independent graduation,
+           spawn approved/started/completed/failed, or loop unable to continue.
+Daily:     wallet balance, banked revenue, compute cost, shelter cost, operating surplus,
+           reserve/runway, self-funding coverage, active citizens and active earning loops.
+Silent:    unchanged heartbeat, unverified revenue candidate, duplicate receipt or replay.
+```
+
+The status projection must distinguish `observed`, `verified`, `banked`, `spent`, and `refunded`. A transfer from
+the owner, the citizen itself, or a sibling citizen is never revenue. `financially_independent` requires a trailing
+30-day measurement window, at least 30 further days of liquid runway funded only by verified external earnings,
+zero human-paid infrastructure during that trailing window, and verified external net revenue covering compute
+plus shelter by the treasury policy margin. Owner, bootstrap and sibling funds and their remaining balances are
+excluded from both revenue and runway evidence. Replication uses a stricter post-spawn reserve gate; graduation
+alone does not authorize a child.
+
+#### Ordered Agent Economy completion checklist
+
+This checklist does not reorder the established implementation sequence below. The active
+`citizens-diff-monitor` cutover and legacy retirement remain first.
+
+- [ ] `AE-UX-01` Finish the current citizen monitor cutover without touching the protected Gig owners; move the
+  self/spawn registry out of Hermes, then replace file-diff evidence with durable citizen lifecycle receipts.
+- [ ] `AE-UX-02` Make one citizen identity, one wallet and tenant/instance isolation the shared Local/Cloud
+  contract; remove human, Franklin, sibling-wallet and legacy-home fallbacks.
+- [ ] `AE-UX-03` Make `./install.sh` the Local zero-command bootstrap: create the first wallet, install one immutable
+  Agent Economy owner and start it idempotently; keep status/stop as optional operator controls.
+- [ ] `AE-UX-04` Add the Cloud citizen store, private signer boundary and idempotent `/start` provisioning job;
+  automatically start Agent Economy after provisioning, with no second business implementation.
+- [ ] `AE-UX-05` Add `/economy` as an optional authenticated status/control projection backed by the same receipt
+  state; expose buttons for setup gaps and emergency pause without requiring normal commands.
+- [ ] `AE-UX-06` Join every supported earning provider to verified revenue receipts and every compute, cloud,
+  storage, network and API charge to cost/payment receipts; reject self-pay, owner seed and unverified candidates.
+- [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
+  provider message ID, and prove identical replay causes zero second send on Local and Cloud.
+- [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
+  then citizen-wallet-funded x402 compute only within earned spendable surplus and session caps.
+- [ ] `AE-UX-09` Close the first economic loop with official evidence: earn, bank, pay compute, pay hosted shelter,
+  retain reserve, continue on the purchased compute, and issue `financially_independent` without human funding.
+- [ ] `AE-UX-10` Move Connector, Fundraiser and the remaining loops onto the same citizen identity, receipts and
+  paid-compute router one by one; remove ChatGPT/Codex subscription and local-device requirements only after each
+  loop's Cloud receipt-backed continuation passes.
+- [ ] `AE-UX-11` Permit exactly one child only when the parent remains independent after the full child bootstrap
+  and failure budget; prove isolated wallet/state, no duplicate work/payment, and child independence before another
+  replication.
+- [ ] `AE-UX-12` Pass clean-clone Local and fresh-tenant Cloud acceptance: automatic first citizen, realtime and
+  daily Telegram receipts, zero OpenClaw/Hermes/external-checkout dependency, no recurring human payment, no local
+  device requirement for Cloud, and continued operation after the human subscription is removed.
+
 ## 5. Dependency boundary
 
 Every required executable, adapter, schema, prompt and lockfile must live in this repository. An active runtime may
