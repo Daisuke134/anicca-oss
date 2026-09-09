@@ -22,9 +22,9 @@ function reportingDate(now) {
 }
 
 function agentReceiptPathsFromEnv(env) {
-  const agentHome = env.LM_AGENT_ECONOMY_HOME
-    || path.join(os.homedir(), "loops/agent-economy");
-  const defaultJournal = path.join(agentHome, "skills/earn/state/revenue-receipts.jsonl");
+  const agentStateRoot = env.LM_AGENT_ECONOMY_STATE_ROOT
+    || path.join(os.homedir(), ".local/state/life-manager/agent-economy");
+  const defaultJournal = path.join(agentStateRoot, "revenue-receipts.jsonl");
   return splitPaths(
     env.LM_CFO_AGENT_ECONOMY_RECEIPTS || env.REVENUE_RECEIPT_JOURNAL || defaultJournal,
   );

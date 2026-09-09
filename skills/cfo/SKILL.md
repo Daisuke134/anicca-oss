@@ -16,7 +16,7 @@ This skill runs one repository-owned CFO pass and exits. It is the operator-faci
 - State is outside the code release at `CFO_STATE_DIR` (default:
   `~/.local/state/life-manager/life-manager-cfo-hourly`). The wrapper and Node process use this exact
   same directory. Agent Economy revenue defaults to its repository-managed local state under
-  `~/loops/agent-economy`; `LM_AGENT_ECONOMY_HOME` or `REVENUE_RECEIPT_JOURNAL` may select another
+  `~/.local/state/life-manager/agent-economy`; `LM_AGENT_ECONOMY_STATE_ROOT` or `REVENUE_RECEIPT_JOURNAL` may select another
   self-hosted instance. Marketplace receipt journals are optional and explicitly configured with
   `LM_CFO_MARKETPLACE_RECEIPTS`. The wrapper records only the runner's redacted status envelope in
   `last-result.json`.

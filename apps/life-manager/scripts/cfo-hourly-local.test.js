@@ -158,13 +158,13 @@ test("CFO does not send a stale partial report when a source is unavailable", as
   assert.equal(called, false);
 });
 
-test("CFO defaults Agent Economy to its canonical managed state and accepts overrides", () => {
+test("CFO defaults Agent Economy to its portable Life Manager state and accepts overrides", () => {
   assert.deepEqual(agentReceiptPathsFromEnv({}), [
-    path.join(os.homedir(), "loops/agent-economy/skills/earn/state/revenue-receipts.jsonl"),
+    path.join(os.homedir(), ".local/state/life-manager/agent-economy/revenue-receipts.jsonl"),
   ]);
   assert.deepEqual(agentReceiptPathsFromEnv({
-    LM_AGENT_ECONOMY_HOME: "/agent-home",
-  }), ["/agent-home/skills/earn/state/revenue-receipts.jsonl"]);
+    LM_AGENT_ECONOMY_STATE_ROOT: "/agent-state",
+  }), ["/agent-state/revenue-receipts.jsonl"]);
   assert.deepEqual(agentReceiptPathsFromEnv({
     REVENUE_RECEIPT_JOURNAL: "/state/revenue.jsonl",
   }), ["/state/revenue.jsonl"]);
