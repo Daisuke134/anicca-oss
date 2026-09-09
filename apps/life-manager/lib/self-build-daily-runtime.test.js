@@ -251,7 +251,7 @@ test("the launchd entrypoint sources the portable state env, logs, and reports t
   const source = fs.readFileSync(ENTRYPOINT, "utf8");
   assert.match(source, /skills\/_shared\/send-telegram\.sh/);
   assert.doesNotMatch(source, /openclaw message send/);
-  assert.match(source, /LM_SELFBUILD_TELEGRAM_TARGET:\?/);
+  assert.match(source, /LM_SELFBUILD_TELEGRAM_TARGET:-\$\{TELEGRAM_ALERT_CHAT_ID:\?/);
   assert.doesNotMatch(source, /LM_SELFBUILD_TELEGRAM_TARGET:-\d{6,}/);
   assert.match(source, /HOME\/\.local\/state\/life-manager/);
   assert.match(source, /ENV_FILE=.*LIFE_MANAGER_STATE_HOME\/\.env/);
