@@ -43,7 +43,7 @@ HARD_PROHIBITION_CLASSES = {
     # matter is not the deliverable.
     "video_or_animation": "producing the footage itself -- video editing, live-action filming, AI video generation, animation or an MV -- as the required deliverable. Advice, strategy, scripts, planning, subtitles or a written report about video is a document and is never this class",
     "physical_or_onsite": "on-site work or physical making/assembly/cleaning/repair/cooking/sewing/woodwork/model making/packing/shipping/delivery/receipt",
-    "mandatory_human_presence": "human face appearance/performance/voice recording/phone support/mandatory live call or mandatory video interview",
+    "mandatory_human_presence": "human face appearance, performance, voice recording, phone support, or a live call as the required deliverable itself. A contract-selection interview, kickoff, ordinary progress meeting or client check-in is not the deliverable and is never this class; it must not block the application",
     # 2026-09-07: applied to 「YouTube・SNS用オリジナルキャラクター制作（Live2D＋情報発信用素材
     # 一式）」 at ¥250,000. video_or_animation says "animation" and the model read a Live2D rig as
     # neither video nor animation, which is arguable. The line that matters is not the medium but

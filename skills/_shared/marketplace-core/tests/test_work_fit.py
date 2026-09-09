@@ -219,3 +219,11 @@ def test_the_judge_prompt_carries_both_halves_of_each_line():
     prompt = fit.build_judgement_prompt([{"posting_id": "1", "title": "t", "body": "b"}])
     assert "producing the footage itself" in prompt
     assert "producing the audio itself" in prompt
+
+
+def test_selection_interviews_and_progress_meetings_do_not_block_application():
+    text = fit.HARD_PROHIBITION_CLASSES["mandatory_human_presence"]
+    assert "required deliverable itself" in text
+    for allowed in ("selection interview", "kickoff", "progress meeting", "client check-in"):
+        assert allowed in text
+    assert "must not block the application" in text
