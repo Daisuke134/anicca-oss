@@ -207,7 +207,7 @@ def build_judgement_prompt(postings: Sequence[Mapping[str, object]]) -> str:
 
 def _default_runner(prompt: str, evidence_dir: Path, loop: str) -> Mapping[str, object]:
     command = [
-        sys.executable, str(_AGENT_RUNNER), "--task-class", "planning", "--prompt-stdin",
+        sys.executable, str(_AGENT_RUNNER), "--task-class", "application-intent-planner", "--prompt-stdin",
         "--schema", str(JUDGEMENT_SCHEMA), "--evidence-dir", str(evidence_dir),
         "--task-label", "work-fit-judgement", "--loop", loop,
         "--workdir", str(Path(__file__).resolve().parents[4]),

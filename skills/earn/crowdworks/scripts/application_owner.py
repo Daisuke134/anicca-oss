@@ -304,18 +304,20 @@ def main():
         if not ensured.authenticated:result={"ok":False,"status":ensured.error or ensured.status,"effect_delta":0}
         else:
             browser=account._browser(account.CDP_URL);page=browser.contexts[0].new_page()
-            configured=profile.run_apply(page=page,receipt_path=STATE/"profile-receipt.json")
-            imported=_reconcile(page) if configured.get("ok") else 0
-            if not configured.get("ok"):
-                result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
-            elif (candidate_result:=_candidate(page,_listings(),_groups(now)))[0] is None:
-                result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
-            else:
-                candidate,listing,tier,_inspected=candidate_result
-                due=(date.today()+timedelta(days=int(tier.get("delivery_days",7)))).isoformat()
-                tick=application.execute_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),proposed_amount_minor=tier["price_jpy"],delivery_due_on=due,expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
-                result={**tick.to_dict(),"status":"verified" if tick.application_verified else tick.error or tick.reason,"effect_delta":1 if tick.submitted else 0}
-            page.close()
+            try:
+                configured=profile.run_apply(page=page,receipt_path=STATE/"profile-receipt.json")
+                imported=_reconcile(page) if configured.get("ok") else 0
+                if not configured.get("ok"):
+                    result={"ok":False,"status":configured.get("error","profile_incomplete"),"effect_delta":0}
+                elif (candidate_result:=_candidate(page,_listings(),_groups(now)))[0] is None:
+                    result={"ok":True,"status":"profile_complete_no_eligible_open_job","imported_applications":imported,"inspected_jobs":candidate_result[3],"effect_delta":0}
+                else:
+                    candidate,listing,tier,_inspected=candidate_result
+                    due=(date.today()+timedelta(days=int(tier.get("delivery_days",7)))).isoformat()
+                    tick=application.execute_application(page=page,opportunity=candidate,proposal_text=_proposal(listing,tier),proposed_amount_minor=tier["price_jpy"],delivery_due_on=due,expire_period_days=7,state_path=TRANSACTION,ledger_writer=_append,now=lambda:datetime.now(timezone.utc).isoformat(),account_ready=lambda:True)
+                    result={**tick.to_dict(),"status":"verified" if tick.application_verified else tick.error or tick.reason,"effect_delta":1 if tick.submitted else 0}
+            finally:
+                page.close()
     # Reporting is a separate owner (crowdworks-revenue-report). Apply owns submissions only, so a
     # failed or slow report can never hold up an application, and vice versa.
     result["observed_at"]=now.isoformat();_write_status(result);print(json.dumps(result,ensure_ascii=False,separators=(",",":")));return 0 if result.get("ok") else 1
