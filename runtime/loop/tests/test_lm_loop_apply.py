@@ -1546,6 +1546,10 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("LIFE_MANAGER_APP_DIR", environment)
         self.assertNotIn("CFO_STATE_DIR", environment)
         self.assertEqual(environment["TELEGRAM_ALERT_CHAT_ID"], "kept")
+        self.assertEqual(
+            environment["LIFE_MANAGER_ENV_FILE"],
+            str(Path.home() / ".local/state/life-manager/.env"),
+        )
         self.assertNotIn("WorkingDirectory", plistlib.loads(target.read_bytes()))
 
     def test_selfbuild_target_retires_only_legacy_source_override(self):
