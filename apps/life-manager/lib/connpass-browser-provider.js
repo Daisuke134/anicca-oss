@@ -85,6 +85,9 @@ async function readConnpassRegistrationStateOnPage(page) {
       const controls = [...document.querySelectorAll('button,a[role="button"],a.btn,input[type="submit"]')]
         .map((element) => String(element.innerText || element.value || element.getAttribute("aria-label") || "")
           .replace(/\s+/g, " ").trim()).filter(Boolean);
+      const statusMessages = [...document.querySelectorAll(".status_message")]
+        .map((element) => String(element.innerText || element.textContent || "")
+          .replace(/\s+/g, " ").trim()).filter(Boolean);
       const exact = (values) => controls.some((control) => values.includes(control));
       if (/\/(?:login|signin)(?:\/|$)/.test(path) || exact(["ログイン", "Login"])) {
         return { state: "login_required" };
@@ -92,10 +95,20 @@ async function readConnpassRegistrationStateOnPage(page) {
       if (/^\/event\/[1-9][0-9]*\/join\/complete\/$/.test(rawPath)) {
         return { state: "registered" };
       }
-      if (exact(["参加票を表示", "受付票を見る", "申し込みをキャンセル", "キャンセルする", "Registered"])) {
+      const canonicalEventPath = /^\/event\/[1-9][0-9]*\/$/.test(rawPath);
+      const hasCancelControl = exact([
+        "申し込みをキャンセル", "申し込みキャンセル", "申込キャンセル", "キャンセルする",
+      ]);
+      const hasPendingDecision = statusMessages.some((message) => (
+        /^参加は \d{4}\/\d{1,2}\/\d{1,2} に確定されます$/.test(message)
+      ));
+      if (canonicalEventPath && hasCancelControl && hasPendingDecision) {
+        return { state: "pending" };
+      }
+      if (exact(["参加票を表示", "受付票を見る", "申し込みをキャンセル", "申し込みキャンセル", "申込キャンセル", "キャンセルする", "Registered"])) {
         return { state: "registered" };
       }
-      if (/^\/event\/[1-9][0-9]*\/$/.test(rawPath) && ["抽選待ち", "補欠", "承認待ち", "キャンセル待ち"].some((marker) => lines.includes(marker))) return { state: "pending" };
+      if (canonicalEventPath && ["抽選待ち", "補欠", "承認待ち", "キャンセル待ち"].some((marker) => lines.includes(marker))) return { state: "pending" };
       if (/受付終了|募集終了|満員|定員に達しました/.test(body)) return { state: "unavailable", reason: "closed" };
       if (exact(["このイベントに申し込む", "イベントに申し込む", "参加申し込み", "申し込む"])) {
         return { state: "absent" };
