@@ -289,13 +289,15 @@ async function runCloudFinancialManagerReport(request = {}, deps = {}) {
   }
   const store = deps.financialStore || createPostgresFinancialRecordStore({ query: deps.query });
   const readLedger = deps.readLedger || ((wallet) => walletLedgerRuntime().readWalletLedger(wallet, deps));
-  const readCosts = deps.readCosts || ((tenantId) => (
-    legacyFinancialRuntime().readCostLedger(tenantId, deps)
+  const readCosts = deps.readCosts || ((tenantId, range) => (
+    legacyFinancialRuntime().readCostLedger(tenantId, { ...deps, ...range })
   ));
   if (typeof deps.readBalance !== "function") throw new Error("Financial Manager Base balance reader is required");
   const observedAt = new Date(nowMs).toISOString();
   const [ledgerRows, costRows, balanceAtomic] = await Promise.all([
-    readLedger(tenant.agent_wallet_address), readCosts(uid), deps.readBalance(tenant.agent_wallet_address),
+    readLedger(tenant.agent_wallet_address),
+    readCosts(uid, { since: bounds.period_start }),
+    deps.readBalance(tenant.agent_wallet_address),
   ]);
   let claimedDigest = null;
   const result = await runFinancialManager({

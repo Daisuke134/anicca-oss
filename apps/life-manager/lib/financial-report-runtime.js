@@ -70,7 +70,13 @@ async function readCostLedger(uid, opts = {}) {
   const tenantUid = String(uid == null ? "" : uid).trim();
   if (!tenantUid) throw new Error("financial report tenant uid is required");
   const { supaUrl, supaKey, fetchImpl } = credentials(opts);
+  const sinceDate = opts.since == null ? null : new Date(opts.since);
+  if (sinceDate && !Number.isFinite(sinceDate.getTime())) {
+    throw new Error("financial report cost start is invalid");
+  }
+  const since = sinceDate ? sinceDate.toISOString() : null;
   const query = `uid=eq.${encodeURIComponent(tenantUid)}` +
+    (since ? `&ts=gte.${encodeURIComponent(since)}` : "") +
     "&select=id,ts,kind,quantity,unit,est_usd,meta&order=ts.asc,id.asc";
   const rows = [];
   for (let start = 0; start <= MAX_COST_ROWS; start += PAGE_SIZE) {
