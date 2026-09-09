@@ -756,7 +756,9 @@ test("Connpass candidate-specific form blockers do not exhaust the wake before a
   }, state.dependencies);
 
   assert.equal(result.status, "applied_bundle");
-  assert.equal(state.calls.filter(([name]) => name === "agent").length, 3);
+  assert.equal(state.calls.filter(([name]) => name === "agent").length, 1);
+  assert.equal(state.calls.some(([name, eventRef]) => name === "agent" && eventRef.endsWith("/tier-one")), false);
+  assert.equal(state.calls.some(([name, eventRef]) => name === "agent" && eventRef.endsWith("/tier-two")), false);
   assert.equal(state.calls.some(([name, eventRef]) => name === "direct" && eventRef.endsWith("/next")), true);
 });
 

@@ -131,8 +131,11 @@ function createApiDiscovery({ now, apiClient }) {
         participation_slot_status: participationSlotStatus,
         lightning_talk_status: "unknown",
         application_deadline_at: null,
-        ticket_price_status: "free",
-        ticket_price_minor: 0,
+        // Connpass API v2 does not expose ticket-tier prices. Never turn
+        // that absence into a free-price claim; the join-page provider must
+        // validate an actual free, open tier before it can submit.
+        ticket_price_status: "provider_validation_required",
+        ticket_price_minor: null,
         participant_limit: Number.isSafeInteger(limit) ? limit : null,
         accepted_count: Number.isSafeInteger(accepted) ? accepted : null,
         waiting_count: Number.isSafeInteger(Number(event && event.waiting)) ? Number(event.waiting) : null,
@@ -352,7 +355,12 @@ function createConnpassScriptFirstWorkflow(options = {}) {
           continue;
         }
         if (candidate.registration_status !== "available") continue;
-        if (candidate.ticket_price_status !== "free" || candidate.ticket_price_minor !== 0) continue;
+        const explicitlyFree = candidate.ticket_price_status === "free"
+          && candidate.ticket_price_minor === 0;
+        const providerValidationRequired = candidate.discovery_source === "official_api_v2"
+          && candidate.ticket_price_status === "provider_validation_required"
+          && candidate.ticket_price_minor === null;
+        if (!explicitlyFree && !providerValidationRequired) continue;
         if (!isInPersonCandidate(candidate)) continue;
         freeOpenCount += 1;
         let calendarFree;

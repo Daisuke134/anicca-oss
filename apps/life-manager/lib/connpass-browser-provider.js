@@ -158,7 +158,7 @@ function selectParticipationTierIndex(tiers) {
   return inPerson ? inPerson.index : -1;
 }
 
-async function selectParticipationTier(participationGroup) {
+async function participationTierIndex(participationGroup) {
   const tiers = await participationGroup.evaluateAll((radios) => radios.map((radio) => {
     const row = radio.closest("li,tr,div,label");
     const label = String((row && row.innerText) || "").replace(/\s+/g, " ").trim();
@@ -168,6 +168,11 @@ async function selectParticipationTier(participationGroup) {
   if (index === -1) {
     throw providerError("Connpass participation tier unavailable", "CONNPASS_TIER_UNAVAILABLE", false);
   }
+  return index;
+}
+
+async function selectParticipationTier(participationGroup, plannedIndex) {
+  const index = plannedIndex == null ? await participationTierIndex(participationGroup) : plannedIndex;
   await participationGroup.nth(index).check();
 }
 
@@ -294,15 +299,6 @@ async function submitConnpassOnPage(page, _contract, dependencies = {}) {
     await joinControl.click();
     await page.waitForTimeout(1_000);
 
-    // Fail closed before touching anything else on the join page: a required
-    // organizer questionnaire field left empty makes Connpass silently no-op
-    // the confirm click later (page stays on /join/, nothing registers). See
-    // planConnpassQuestionnaire above for what this matches on and fills.
-    const questionnairePlan = await planConnpassQuestionnaire(page, identity);
-    if (!questionnairePlan || questionnairePlan.blocked !== false) {
-      throw providerError("Connpass questionnaire requires an answer", "CONNPASS_QUESTIONNAIRE_REQUIRED", false);
-    }
-
     // On the join page: validate BOTH the participation-type radio and the
     // free-confirm control before touching either. Fail closed — nothing is
     // clicked on this page until both targets are proven present.
@@ -317,11 +313,24 @@ async function submitConnpassOnPage(page, _contract, dependencies = {}) {
     if (confirmLabel !== "申し込みを確定する") {
       throw providerError("Connpass confirm control unavailable", "CONNPASS_CONFIRM_UNAVAILABLE", false);
     }
+    // Price and eligibility are provider facts, so prove an exact free,
+    // open, unrestricted tier before inspecting or filling organizer
+    // questions. This prevents a paid-only API candidate from being
+    // misclassified as a questionnaire problem and sent to agent fallback.
+    const tierIndex = await participationTierIndex(participationGroup);
+
+    // A required organizer questionnaire field left empty makes Connpass
+    // silently no-op the confirm click later. Only known factual fields are
+    // filled; every unknown choice remains fail-closed.
+    const questionnairePlan = await planConnpassQuestionnaire(page, identity);
+    if (!questionnairePlan || questionnairePlan.blocked !== false) {
+      throw providerError("Connpass questionnaire requires an answer", "CONNPASS_QUESTIONNAIRE_REQUIRED", false);
+    }
     // Pick the first free, open, unrestricted in-person tier in document
     // order (see selectParticipationTierIndex). Fails closed with
     // CONNPASS_TIER_UNAVAILABLE if none qualify — nothing below this point is
     // clicked in that case.
-    await selectParticipationTier(participationGroup);
+    await selectParticipationTier(participationGroup, tierIndex);
   } catch (error) {
     if (error && typeof error.unknownEffect === "boolean") throw error;
     throw providerError("Connpass control unavailable", "CONNPASS_CONTROL_UNAVAILABLE", false);
