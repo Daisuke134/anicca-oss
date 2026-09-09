@@ -345,6 +345,22 @@ def _read_surfaces(page: Any, verified_proposals: set[str], private_boards: list
     return result
 
 
+def _read_paid_surfaces(page: Any) -> dict[str, Any]:
+    """Read only the official sources that can create or settle Paid work."""
+    result = _snapshot(lambda path: _fetch(page, path), set())
+    result.update(_contract_sources(page))
+    result["contract_candidates"] += result.pop("storefront_contract_candidates")
+    result["contract_candidates"].sort(
+        key=lambda row: (row["source_kind"], row["provider_id"])
+    )
+    result["contract_candidate_count"] = len(result["contract_candidates"])
+    finance = _finance_source(page)
+    if finance.get("source_complete") is not True:
+        raise SourceFailure(str(finance.get("error") or "finance_source_incomplete"))
+    result["finance"] = finance
+    return result
+
+
 def read_only_inventory(*, state_path: Path = DEFAULT_STATE_PATH, browser_factory: Optional[Callable[[str], Any]] = None) -> dict[str, Any]:
     """ELZ-L01 preflight: read the seven surfaces and leave the marketplace untouched.
 
@@ -367,6 +383,33 @@ def read_only_inventory(*, state_path: Path = DEFAULT_STATE_PATH, browser_factor
         result = _failed(str(error), logged_in)
     except Exception as error:
         result = _failed("account_lock_busy" if type(error).__name__ == "_AccountLockBusy" else "observer_unavailable", logged_in)
+    finally:
+        if not _cleanup(page, browser):
+            result = _failed("cleanup_failed", logged_in)
+    return result
+
+
+def read_paid_inventory(*, state_path: Path = DEFAULT_STATE_PATH,
+                        browser_factory: Optional[Callable[[str], Any]] = None) -> dict[str, Any]:
+    """Paid-only inventory; Apply proposal completeness cannot suppress contracts."""
+    browser = page = None
+    logged_in = False
+    result = _failed("observer_unavailable")
+    try:
+        with application_tick.account_lock(Path(state_path).with_name("paid-preflight.json")):
+            browser, page = application_tick._open_owned_page(browser_factory)
+            if not application_tick._production_account_ready(page):
+                raise SourceFailure("account_unavailable")
+            logged_in = True
+            result = _read_paid_surfaces(page)
+            result["logged_in"] = True
+    except SourceFailure as error:
+        result = _failed(str(error), logged_in)
+    except Exception as error:
+        result = _failed(
+            "account_lock_busy" if type(error).__name__ == "_AccountLockBusy"
+            else "observer_unavailable", logged_in
+        )
     finally:
         if not _cleanup(page, browser):
             result = _failed("cleanup_failed", logged_in)
