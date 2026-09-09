@@ -2211,6 +2211,15 @@ from the chat, and two of them contradict what this cursor had previously report
     replay-zero. Then compare interview/contract yield by score band so later wakes improve from
     official outcomes rather than raw application count.
 
+    Shared ranking ownership is now implemented: `apply_policy.py` supplies the ordered expected-
+    value features and explicitly keeps weak fits later rather than rejecting them. Mercor consumes
+    that contract, ranks the whole visible priority window before spending its detail budget, and
+    must persist a `high|medium|low` band plus posting/fact evidence for every inspected listing.
+    The inspection ledger retains those fields for later outcome-band comparison. Focused Apply,
+    Mercor pass/reporting, submit-guard and receipt verification passes 43 tests plus 2 subtests.
+    Remaining PASS is production-only: main-derived natural wake, full priority-window inspection,
+    highest-grounded official submission, Telegram receipt, then replay-zero.
+
 
 
 
