@@ -66,6 +66,18 @@ class ModeReportTest(unittest.TestCase):
         self.assertIn("残り日次損失枠: 不明", message)
         self.assertIn("次回確認: 不明", message)
 
+    def test_live_account_and_nanosecond_next_wake_are_readable(self):
+        message = reporter.render(
+            {"account": {"equity": "66.72", "cash": "0", "status": "ACTIVE"},
+             "positions": [{}]}, {},
+            {"candidate_ref": "NO_TRADE", "gate": "model_no_trade", "reason": "見送り",
+             "observed_at": "2026-09-09T10:50:26.139497622-04:00", "mode": "shadow",
+             "risk": {"equity_pnl_ny_day_usd": "0",
+                      "official_pnl_ny_day_usd": "-0.02", "unrealized_pnl_usd": "-0.02"}},
+            "none")
+        self.assertIn("ライブ口座: 有効", message)
+        self.assertIn("次回確認: 2026-09-09T14:55:26.139497+00:00", message)
+
 
 class FailureBalanceTest(unittest.TestCase):
     def test_failure_report_reads_last_snapshot_and_names_it_as_latest(self):
