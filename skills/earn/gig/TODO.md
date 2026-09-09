@@ -2070,6 +2070,14 @@ from the chat, and two of them contradict what this cursor had previously report
     `_reconcile` ownership, include pending project IDs in the discovery exclusion set, and continue
     to the next job. PASS = merge/release, no second mutation for `13440560`, one later normal job
     reaches verified official readback and Telegram, then replay-zero.
+    Natural release `a7bb5663` later submitted job `13441669`; CrowdWorks' official proposal list
+    shows it as proposal `305111045` on the newest row, but `_confirmed_from_list` rejected the
+    entire readable first page merely because a page-two link existed. The transaction therefore
+    preserved the real effect as `submission_uncertain` instead of recording a false success or
+    retrying it. The focused fix accepts authoritative visible rows even when the list is paginated;
+    the CrowdWorks suite passes 14/14. This remains open until that exact pending effect imports to
+    the receipt ledger, Telegram names the job and terms, and the following wake performs no second
+    mutation.
 
 27. [ ] `APPLY-CROWDWORKS-7` Support time-based applications in the shared transaction contract.
     Natural release `7d5d6aa3` selected job `13435160`, an unusually strong fit: long-term remote

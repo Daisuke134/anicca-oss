@@ -115,8 +115,10 @@ def _confirmed_from_list(page: object, project_id: str) -> str | None:
     """
     page.goto(_PROPOSAL_LIST_URL)  # type: ignore[attr-defined]
     if not _exact_url(getattr(page, "url", None), "/e/proposals"): raise RuntimeError("proposal_list_unreadable")
-    for selector in ('a[href*="/e/proposals?page="]', 'a[rel="next"]'):
-        if page.locator(selector).count(): raise RuntimeError("proposal_list_paginated")  # type: ignore[attr-defined]
+    # Pagination does not make the visible page unreadable. CrowdWorks keeps the newest
+    # applications on page one, so rejecting the entire list merely because a page-two link exists
+    # strands every newly submitted application as uncertain. Read the authoritative visible rows;
+    # older pending entries can remain fenced until a later bounded page-walk is needed.
     links = _one(page, _TABLE_SELECTOR).locator('a[href^="/proposals/"]')
     count = links.count()
     if type(count) is not int: raise RuntimeError("proposal_list_unreadable")
