@@ -52,6 +52,58 @@ test("live-shaped pending application produces a truthful zero-mutation result",
   assert.doesNotMatch(output, /ugig_live_test/);
 });
 
+test("CoinPay setup-required response is a truthful no-effect observation", async () => {
+  let output = "";
+  const requests = [];
+  const result = await main({
+    apiKey: "ugig_live_test",
+    deliveries: [{
+      application_id: APPLICATION_ID,
+      gig_id: GIG_ID,
+      amount_usd: 1,
+      payment_currency: "sol",
+      merchant_wallet_address: WALLET,
+      category: "code",
+      pr_links: ["https://github.com/profullstack/aiornot.vote/pull/100"],
+      description: "RSS enclosure MIME fix",
+    }],
+    fetchImpl: async (url, init = {}) => {
+      requests.push({ url: String(url), method: init.method || "GET" });
+      let body;
+      let status = 200;
+      if (String(url).endsWith("/api/applications/my")) {
+        body = { applications: [{ id: APPLICATION_ID, gig_id: GIG_ID, status: "accepted" }] };
+      } else if (String(url).endsWith(`/api/gigs/${GIG_ID}/invoice`) && !init.method) {
+        body = { data: [] };
+      } else if (String(url).endsWith(`/api/gigs/${GIG_ID}/invoice`) && init.method === "POST") {
+        status = 409;
+        body = {
+          error: "Connect your CoinPay account before sending an invoice",
+          oauth_required: true,
+          setup_required: true,
+          setup_instructions: ["provider-owned instructions"],
+        };
+      } else if (String(url).startsWith("https://api.github.com/")) {
+        body = { merged_at: "2026-07-28T08:00:00.000Z" };
+      } else {
+        throw new Error(`unexpected request ${url}`);
+      }
+      return {
+        ok: status >= 200 && status < 300,
+        status,
+        async text() { return JSON.stringify(body); },
+      };
+    },
+    writeOutput: (text) => { output += text; },
+  });
+
+  assert.equal(result.setup_required, 1);
+  assert.equal(result.invoice_created, 0);
+  assert.equal(requests.filter((request) => request.method === "POST").length, 1);
+  assert.match(output, /"setup_required":1/);
+  assert.doesNotMatch(output, /CoinPay|provider-owned instructions|ugig_live_test/);
+});
+
 test("the registry alone owns the separate five-minute UGig loop", () => {
   const root = join(__dirname, "..");
   const boot = readFileSync(join(__dirname, "ugig-invoice-observer-boot.sh"), "utf8");

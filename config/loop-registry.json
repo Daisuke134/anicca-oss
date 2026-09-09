@@ -1845,6 +1845,7 @@
       "state_root": "~/.local/state/life-manager"
     },
     "life-manager-dev": {
+      "adapter": "exec",
       "cadence": {
         "calendar_interval": {
           "Hour": 4,
@@ -1855,6 +1856,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "system",
       "effect_class": "none",
       "entrypoint": "apps/life-manager/scripts/life-manager-dev-daily.js",
@@ -2006,6 +2008,7 @@
       "state_root": "~/.local/state/life-manager/release-reconciler"
     },
     "life-manager-selfbuild": {
+      "adapter": "exec",
       "cadence": {
         "calendar_interval": {
           "Hour": 4,
@@ -2016,6 +2019,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "system",
       "effect_class": "none",
       "entrypoint": "skills/life-manager/self-build-daily.sh",
@@ -2093,6 +2097,7 @@
       "state_root": "~/.anicca"
     },
     "lm-recording-store": {
+      "adapter": "exec",
       "cadence": {
         "start_interval_seconds": 1800
       },
@@ -2100,6 +2105,7 @@
         "max_age_days": 14,
         "max_runs": 100
       },
+      "command": [],
       "domain": "system",
       "effect_class": "none",
       "entrypoint": "skills/life-manager-video/run-store-recordings.sh",
