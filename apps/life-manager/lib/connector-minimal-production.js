@@ -31,6 +31,7 @@ const { createEventbriteScriptFirstWorkflow } = require("./connector-eventbrite-
 const { createTechPlayDiscoveryWorkflow } = require("./connector-techplay-workflow.js");
 const { createKokuchProDiscoveryWorkflow } = require("./connector-kokuchpro-workflow.js");
 const { readLumaFormProfile } = require("./luma-form-profile.js");
+const { runConnectorAgenticRegistration } = require("./connector-agentic-registration.js");
 const {
   createBoundedActionProposer,
   createPrivateValueResolver,
@@ -62,6 +63,7 @@ const STALE_TARGET_MAX_IDLE_MS = 660_000;
 const CONNECTOR_CDP_CONNECT_TIMEOUT_MS = 120_000;
 const PROVIDER_RANK_MAX_DATES = 12;
 const PROVIDER_RANK_MAX_CANDIDATES = 12;
+const PROVIDER_RANK_ROTATION_MS = 60_000;
 const CONNPASS_DURABLE_RECONCILE_LIMIT = 3;
 
 function invalid() {
@@ -415,7 +417,7 @@ function createProductionProviderRouter(options = {}) {
         ));
         const pending = candidates.filter((candidate) => !reconcile.includes(candidate));
         if (pending.length === 0) return candidates;
-        const rotation = Math.floor(exactNow(now()).getTime() / 1_800_000);
+        const rotation = Math.floor(exactNow(now()).getTime() / PROVIDER_RANK_ROTATION_MS);
         const rankingCandidates = boundedPendingCandidates(pending, rotation);
         const ranking = await rankCandidates({ candidates: rankingCandidates, preferences: eventPreferences });
         const sourceByRef = new Map(rankingCandidates.map((candidate) => [candidate.event_ref, candidate]));
@@ -647,6 +649,11 @@ function createMinimalProductionDependencies(options = {}) {
     now,
     onDiscoveryAudit: operations.recordDiscoveryAudit || (() => {}),
     readLumaFormProfile: () => readLumaFormProfile({ path: lumaFormProfilePath }),
+    agenticRegister: options.lumaAgenticRegister || ((input) => runConnectorAgenticRegistration({
+      ...input,
+      evidenceDir: lunaEvidenceDir,
+      repoRoot,
+    })),
     hasAppliedBundle: (candidate) => evidenceChain.hasAppliedBundle({
       provider: "luma",
       event_ref: candidate.event_ref,

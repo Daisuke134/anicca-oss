@@ -17,6 +17,7 @@ const PRODUCTION_TIME_ZONE = "Asia/Tokyo";
 const EVENT_REF = /^luma-event:\/\/event\/[A-Za-z0-9_-]+$/;
 const CANONICAL_URL = /^https:\/\/luma\.com\/[A-Za-z0-9_-]+$/;
 const LUMA_DETAIL_WALK_LIMIT = 6;
+const LUMA_DETAIL_ROTATION_MS = 60_000;
 const LUMA_DETAIL_NAVIGATION_TIMEOUT_MS = 15_000;
 const DIRECT_ACTION_FAILURE_REASONS = new Map([
   ["LUMA_REQUIRED_PROFILE_FIELD_UNAVAILABLE", "luma_required_profile_field_unavailable"],
@@ -152,12 +153,13 @@ function createLumaScriptFirstWorkflow(options = {}) {
   const now = options.now || (() => new Date());
   const discoverOnPage = options.discoverOnPage || ((input) => defaultDiscoverOnPage({
     ...input,
-    detailOffset: Math.floor(now().getTime() / 1_800_000) * LUMA_DETAIL_WALK_LIMIT,
+    detailOffset: Math.floor(now().getTime() / LUMA_DETAIL_ROTATION_MS) * LUMA_DETAIL_WALK_LIMIT,
   }));
   const isCalendarFree = options.isCalendarFree || defaultCalendarFree;
   const submitOnPage = options.submitOnPage || submitLumaOnPage;
   const readProviderStateOnPage = options.readProviderStateOnPage || defaultReadProviderStateOnPage;
   const readLumaFormProfile = options.readLumaFormProfile;
+  const agenticRegister = options.agenticRegister;
   const onDiscoveryAudit = options.onDiscoveryAudit || (() => {});
   // Fail closed: until production wiring proves an event has no bundle,
   // treat it as bundled so a mis-wired caller can never re-surface it.
@@ -168,6 +170,7 @@ function createLumaScriptFirstWorkflow(options = {}) {
     || typeof submitOnPage !== "function" || typeof readProviderStateOnPage !== "function"
     || typeof onDiscoveryAudit !== "function" || typeof hasAppliedBundle !== "function"
     || (readLumaFormProfile != null && typeof readLumaFormProfile !== "function")
+    || (agenticRegister != null && typeof agenticRegister !== "function")
   ) invalid();
 
   return Object.freeze({
@@ -230,7 +233,7 @@ function createLumaScriptFirstWorkflow(options = {}) {
       try {
         const outcome = await submitOnPage(page, selected, {
           readLumaFormProfile,
-          agenticRegister: undefined,
+          agenticRegister,
         });
         return outcome && outcome.status === "registered"
           ? Object.freeze({ status: "completed", method: "luma_direct_submit" })

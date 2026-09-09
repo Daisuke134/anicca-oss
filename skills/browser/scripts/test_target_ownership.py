@@ -174,6 +174,8 @@ def test_visible_tab_uses_owned_browser_context(tmp_path, monkeypatch):
 
     async def fake_call(method, params=None):
         calls.append((method, params))
+        if method == "Target.getTargets":
+            return {"targetInfos": []}
         return {"targetId": "visible-1"}
 
     monkeypatch.setattr(default_tab, "_call", fake_call)
@@ -182,7 +184,7 @@ def test_visible_tab_uses_owned_browser_context(tmp_path, monkeypatch):
         "https://coconala.com/talkrooms/18211957", owner="paid",
     )
 
-    assert calls == [("Target.createTarget", {
+    assert calls == [("Target.getTargets", None), ("Target.createTarget", {
         "url": "https://coconala.com/talkrooms/18211957",
         "browserContextId": "context-paid",
         "background": False,
@@ -204,6 +206,8 @@ def test_visible_tab_closes_new_target_when_owner_is_at_limit(tmp_path, monkeypa
 
     async def fake_call(method, params=None):
         calls.append((method, params))
+        if method == "Target.getTargets":
+            return {"targetInfos": [{"targetId": "existing"}]}
         return {"targetId": "surplus"}
 
     monkeypatch.setattr(default_tab, "_call", fake_call)
@@ -215,9 +219,73 @@ def test_visible_tab_closes_new_target_when_owner_is_at_limit(tmp_path, monkeypa
     assert ownership.targets_for_owner("paid") == {"existing"}
 
 
+def test_visible_tab_prunes_stale_owner_row_before_enforcing_limit(tmp_path, monkeypatch):
+    registry = tmp_path / "target-owners.json"
+    monkeypatch.setenv("CLOAK_TARGET_OWNERS_FILE", str(registry))
+    monkeypatch.setenv("CLOAK_BROWSER_MAX_TABS_PER_OWNER", "1")
+    ownership.claim_target("dead-target", "paid")
+    ownership.claim_target("foreign-live", "other")
+    monkeypatch.setattr(default_tab, "_lease", lambda owner: {
+        "ok": True, "context_id": f"context-{owner}",
+    })
+    calls = []
+
+    async def fake_call(method, params=None):
+        calls.append((method, params))
+        if method == "Target.getTargets":
+            return {"targetInfos": [{"targetId": "foreign-live"}]}
+        return {"targetId": "visible-1"}
+
+    monkeypatch.setattr(default_tab, "_call", fake_call)
+
+    row = default_tab.open_tab("https://coconala.com/talkrooms/2", owner="paid")
+
+    assert row["target_id"] == "visible-1"
+    assert ownership.targets_for_owner("paid") == {"visible-1"}
+    assert ownership.targets_for_owner("other") == {"foreign-live"}
+    assert calls[0] == ("Target.getTargets", None)
+
+
+def test_prune_keeps_same_owner_claim_created_after_snapshot(tmp_path, monkeypatch):
+    registry = tmp_path / "target-owners.json"
+    monkeypatch.setenv("CLOAK_TARGET_OWNERS_FILE", str(registry))
+    ownership.claim_target("dead-target", "paid", max_targets=2)
+
+    async def fake_call(method, params=None):
+        assert (method, params) == ("Target.getTargets", None)
+        ownership.claim_target("new-after-snapshot", "paid", max_targets=2)
+        return {"targetInfos": [{"targetId": "new-after-snapshot"}]}
+
+    monkeypatch.setattr(default_tab, "_call", fake_call)
+
+    assert asyncio.run(default_tab._prune_missing_target_rows("paid")) == 1
+    assert ownership.targets_for_owner("paid") == {"new-after-snapshot"}
+
+
+@pytest.mark.parametrize("result", [{}, {"targetInfos": [None]}, {"targetInfos": [{}]}])
+def test_prune_fails_closed_when_official_target_list_is_invalid(
+    tmp_path, monkeypatch, result,
+):
+    registry = tmp_path / "target-owners.json"
+    monkeypatch.setenv("CLOAK_TARGET_OWNERS_FILE", str(registry))
+    ownership.claim_target("existing", "paid")
+
+    async def fake_call(_method, _params=None):
+        return result
+
+    monkeypatch.setattr(default_tab, "_call", fake_call)
+
+    with pytest.raises(RuntimeError, match="targetInfos"):
+        asyncio.run(default_tab._prune_missing_target_rows("paid"))
+    assert ownership.targets_for_owner("paid") == {"existing"}
+
+
 def test_hidden_tab_closes_target_before_releasing_ownership(tmp_path, monkeypatch):
     registry = tmp_path / "target-owners.json"
     monkeypatch.setenv("CLOAK_TARGET_OWNERS_FILE", str(registry))
+    monkeypatch.setenv("CLOAK_BROWSER_MAX_TABS_PER_OWNER", "2")
+    ownership.claim_target("dead-hidden-1", "paid", max_targets=2)
+    ownership.claim_target("dead-hidden-2", "paid", max_targets=2)
     sent = []
     def nested_lease(owner):
         async def lease_result():
@@ -240,8 +308,11 @@ def test_hidden_tab_closes_target_before_releasing_ownership(tmp_path, monkeypat
             sent.append(json.loads(payload))
 
         async def recv(self):
-            request_id = sent[-1]["id"]
-            if request_id == 1:
+            request = sent[-1]
+            request_id = request["id"]
+            if request["method"] == "Target.getTargets":
+                return json.dumps({"id": request_id, "result": {"targetInfos": []}})
+            if request["method"] == "Target.createTarget":
                 return json.dumps({"id": 1, "result": {"targetId": "hidden-1"}})
             return json.dumps({"id": 2, "result": {"success": True}})
 
@@ -261,7 +332,10 @@ def test_hidden_tab_closes_target_before_releasing_ownership(tmp_path, monkeypat
 
     asyncio.run(default_tab._serve_hidden_tab("https://coconala.com", owner="paid"))
 
-    assert [row["method"] for row in sent] == ["Target.createTarget", "Target.closeTarget"]
-    assert sent[0]["params"]["browserContextId"] == "context-paid"
+    assert [row["method"] for row in sent] == [
+        "Target.getTargets", "Target.createTarget", "Target.closeTarget",
+    ]
+    assert sent[1]["params"]["browserContextId"] == "context-paid"
     assert sent[-1]["params"] == {"targetId": "hidden-1"}
     assert ownership.owner_for_target("hidden-1") is None
+    assert ownership.targets_for_owner("paid") == set()

@@ -523,7 +523,7 @@ test("production provider router fills the current three weeks before the fourth
   ]);
 });
 
-test("production provider router rotates the candidate chosen for each date every half hour", async () => {
+test("production provider router rotates the candidate chosen for each date every minute", async () => {
   const candidates = Array.from({ length: 12 }, (_, day) => ["a", "b"].map((suffix) => rankingCandidate(
     `day-${day + 1}-${suffix}`,
     new Date(Date.UTC(2026, 8, day + 1, 0)).toISOString(),
@@ -555,7 +555,7 @@ test("production provider router rotates the candidate chosen for each date ever
   });
 
   await router.discoverCandidates("connpass", [], {});
-  now = new Date(1_800_000);
+  now = new Date(60_000);
   await router.discoverCandidates("connpass", [], {});
   assert.deepEqual(rankingInputs[0].map((candidate) => candidate.event_ref),
     candidates.filter((_, index) => index % 2 === 0).map((candidate) => candidate.event_ref));

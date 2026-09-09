@@ -135,10 +135,10 @@ acceptance receipt changes a cell.
 
 | Marketplace | Apply | Reply | Storefront | Paid |
 |---|---|---|---|---|
-| Coconala | **Account restriction persists.** The latest bounded run ends failed with official applied-history readback `403 Forbidden`, `observed=0`, `effect=0`, `failed=1`; direct authenticated inspection of a current request also returns 403. The application ledger has no row newer than 2026-09-02. Forty-two durable uncertain intents remain owned and no duplicate submission was attempted. | **Historical effects accepted; current owner broken.** The owner is loaded but its latest natural terminal is `fail`/exit `78`; installed SHA `3968a9d0` and last event SHA `eee05950` are not converged. The retained aggregate still represents `observed=174`, `readback=159`, `failed=0`, `pending=15`, but historical effects do not override the newer failed terminal. | **Broken and unloaded.** Installed release `56ebb339` has a failed terminal and the owner is unloaded; recent writes also failed with `ENOSPC`. Historical listing publication is not current health or revenue proof. | **Reference acceptance retained; current owner not healthy.** `COCONALA-PAID-1` through `3C` still prove the five-room receipt chain, failed zero, formal delivery off and Ryu replay-zero. The owner is currently running, but its latest completed terminal is `fail`; process existence cannot replace a natural terminal or official effect readback. No new customer effect is authorized merely to retest it. |
-| Lancers | **Project/fixed-price applications are producing official receipts.** Natural release `25e45d35` reconciled project `5599521` as proposal `27907931` and project `5599537` as proposal `27907996`, both at JPY 20,000. Telegram delivered them once as messages `71494` and `71516`; later wakes kept each ledger receipt at one while continuing to new project `5599538`. The latest wake therefore ends `submission_uncertain` for a new fenced effect, not a duplicate of either verified application. No accepted contract or payout is proven yet. | **Current runtime passes.** Installed release `61750a04` has a natural PASS. Historical official correction `59145491`, Telegram readback and replay-zero remain the effect acceptance; no new contract revenue is proven. | **Current runtime passes, revenue unproven.** Installed release `75fab5a9` has a natural PASS. Catalog/public-readback changes are in main, but state preservation remains only on unmerged `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Broken and no revenue proof.** Installed release `75c600da` ends `entrypoint_exit_1`; the latest paid aggregate classifies `provider_inventory` with `observed=0`, `failed=1`. |
-| CrowdWorks | **Working for fixed-price and hourly applications.** Natural release `eee05950` retained earlier fixed-price proposal `305126036`, reconciled hourly proposals `305130945` and `305132604`, then submitted hourly proposal `305134017` with exact official rate/30-hour readback. Telegram messages `71454`, `71455`, `71463` are delivered, pending is empty, and the following natural PASS kept all three receipt counts at one while submitting a different job. Fixed-price/one-off work remains equally eligible; hourly support extends rather than replaces it. | **Current runtime passes; effect acceptance retained.** Installed/event release `460851bf` has a fresh natural PASS. The retained shared aggregate represents `observed=10`, `readback=10`, `failed=0`, `pending=0` and five replay-zero receipts. A new buyer event is still required for fresh reply-effect acceptance and revenue. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Current empty-inventory path passes; no revenue proof.** Installed/event release `75c600da` has a natural PASS, but there is no real accepted contract, delivery, payment or payout receipt. Empty inventory proves monitoring only. |
-| Mercor | **Mechanically working; hiring-probability policy is not accepted.** Installed/event release `367e72a2` has a natural PASS and official submission receipts, but the official ledger now contains 72 pending-review applications including Biology, Physics, Mathematics and Chemistry PhD specialists, Civil Engineering and other roles weakly grounded in the verified resume. The owner applies maximally, but does not yet maximize likely acceptance or expected revenue. `MERCOR-APPLY-2` owns the correction. | **Working.** Installed release `20198997` ended consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` with `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`. Official auth is authenticated; the one actionable human handoff read back existing Telegram receipt `70005` with `attempted=0`, and the outbox remains exactly three delivered rows with attempt count one. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Official empty-inventory monitoring, not live-accepted.** Installed release `ec59f8f0` reuses the fresh shared Reply snapshot and its natural terminal passed with `status=ok`, `observed=0`, `failed=0`, `pending=0`; official Contracts are currently empty. No real work item, submission or payout receipt exists. |
+| Coconala | **Account restriction persists.** The latest bounded run ends failed with official applied-history readback `403 Forbidden`, `observed=0`, `effect=0`, `failed=1`; direct authenticated inspection of a current request also returns 403. The application ledger has no row newer than 2026-09-02. Forty-two durable uncertain intents remain owned and no duplicate submission was attempted. | **Current runtime passes with durable ownership.** Installed/event release `4fd16d1f` ended consecutive natural PASS terminals at `2026-09-09T13:40:07Z` and `13:46:19Z` after pruning only stale Reply-owned target rows. Both aggregates observed `174`, read back/replayed `159`, failed `0`, kept `11` officially send-disabled threads waiting externally and `4` uncertain prior effects under reconcile ownership, and performed external effect `0`. | **Broken and unloaded.** Installed release `56ebb339` has a failed terminal and the owner is unloaded; recent writes also failed with `ENOSPC`. Historical listing publication is not current health or revenue proof. | **Reference acceptance retained; current owner not healthy.** `COCONALA-PAID-1` through `3C` still prove the five-room receipt chain, failed zero, formal delivery off and Ryu replay-zero. The owner is currently running, but its latest completed terminal is `fail`; process existence cannot replace a natural terminal or official effect readback. No new customer effect is authorized merely to retest it. |
+| Lancers | **Project/fixed-price applications are producing official receipts.** Natural release `25e45d35` reconciled project `5599521` as proposal `27907931` and project `5599537` as proposal `27907996`, both at JPY 20,000. Telegram delivered them once as messages `71494` and `71516`; later wakes kept each ledger receipt at one while continuing to new project `5599538`. The latest wake therefore ends `submission_uncertain` for a new fenced effect, not a duplicate of either verified application. No accepted contract or payout is proven yet. | **Current runtime passes with complete replay-zero.** Installed/event release `25e45d35` ended consecutive natural PASS terminals at `2026-09-09T13:45:06Z` and `13:51:25Z`. The latest official aggregate observes and reads back all seven threads once, classifies five as awaiting buyer and two as no reply required, and reports actionable `0`, pending `0`, failed `0`, effect `0`. Historical official correction `59145491` and its Telegram/readback receipt remain accepted without duplication. | **Current runtime passes, revenue unproven.** Installed release `75fab5a9` has a natural PASS. Catalog/public-readback changes are in main, but state preservation remains only on unmerged `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Broken and no revenue proof.** Installed release `75c600da` ends `entrypoint_exit_1`; the latest paid aggregate classifies `provider_inventory` with `observed=0`, `failed=1`. |
+| CrowdWorks | **Working for fixed-price and hourly applications.** Natural release `eee05950` retained earlier fixed-price proposal `305126036`, reconciled hourly proposals `305130945` and `305132604`, then submitted hourly proposal `305134017` with exact official rate/30-hour readback. Telegram messages `71454`, `71455`, `71463` are delivered, pending is empty, and the following natural PASS kept all three receipt counts at one while submitting a different job. Fixed-price/one-off work remains equally eligible; hourly support extends rather than replaces it. | **Current runtime passes with complete replay-zero.** Installed/event release `25e45d35` ended consecutive natural PASS terminals at `2026-09-09T13:48:00Z` and `13:56:48Z`. The latest official aggregate observes and reads back all eleven threads: five verified replies retain one Telegram delivery each (`69320`–`69324`), one awaits the buyer and five need no reply. Pending, failed and external effect are all zero. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Current empty-inventory path passes; no revenue proof.** Installed/event release `75c600da` has a natural PASS, but there is no real accepted contract, delivery, payment or payout receipt. Empty inventory proves monitoring only. |
+| Mercor | **Working with acceptance/value ranking.** Installed/event release `464216b4` ranked the complete visible 17-listing window as high `4`, medium `4`, low `9`, submitted high-band `Operations / Program Management Experts` with official `4 of 4`/`100%`/submitted readback, and reported it once through Telegram `71721`. The following natural PASS kept that listing at one official-ledger row and performed no duplicate effect. | **Working.** Installed release `20198997` ended consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` with `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`. Official auth is authenticated; the one actionable human handoff read back existing Telegram receipt `70005` with `attempted=0`, and the outbox remains exactly three delivered rows with attempt count one. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Official empty-inventory monitoring, not live-accepted.** Installed release `ec59f8f0` reuses the fresh shared Reply snapshot and its natural terminal passed with `status=ok`, `observed=0`, `failed=0`, `pending=0`; official Contracts are currently empty. No real work item, submission or payout receipt exists. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
@@ -2194,7 +2194,7 @@ from the chat, and two of them contradict what this cursor had previously report
     different application (`13395836` / proposal `305134745`) instead of replaying any prior
     mutation. Pending is empty; no browser, GUI session, or Mac restart occurred.
 
-28. [ ] `MERCOR-APPLY-2` Rank for acceptance probability and expected revenue, not merely a clickable
+28. [x] `MERCOR-APPLY-2` Rank for acceptance probability and expected revenue, not merely a clickable
     submit path. The current shared policy correctly says that qualifications are not automatic
     rejection gates, but the Mercor prompt turned that into near-indifference: the official ledger
     contains 72 pending-review applications, including Biology, Physics, Mathematics and Chemistry
@@ -2223,9 +2223,69 @@ from the chat, and two of them contradict what this cursor had previously report
     low `9`. It spent its one mutation on high-band `Operations / Program Management Experts`, whose
     official application page reads `4 of 4 steps done`, `100%` and `Your application has been
     submitted!`; the reused Domain Expert Interview was already complete. Telegram acknowledged the
-    deduplicated report once as message `71721`. Remaining PASS is the following natural wake's
-    replay-zero for listing `list_AAABndzg1d29zpYtIMRL2JC_`, followed by later score-band outcome
-    comparison when Mercor supplies interview or contract outcomes.
+    deduplicated report once as message `71721`. The following scheduled wake
+    `18d3a870233f2c08-69533` ended natural PASS at `2026-09-09T13:10:09Z` with
+    `observed_no_action`; the Operations listing remained exactly one row in the official-readback
+    application ledger. It did not resume any existing incomplete human-assessment application and
+    reported that observation once through Telegram message `71819`. This closes replay-zero.
+    Interview and contract outcomes remain normal future observations grouped by the retained score
+    band; their absence today does not reopen this implementation and effect acceptance.
+
+29. [x] `COCONALA-REPLY-2` Restore the current Coconala Reply owner before rechecking the other
+    providers. The current installed SHA is newer than the latest natural terminal, which fails
+    before observation with `RuntimeError: browser_tab_limit`. Official CDP lists no Coconala page,
+    while the Reply-scoped target registry retains two target IDs that no longer exist. PASS = target
+    creation prunes only registered IDs absent from official CDP before enforcing the per-owner limit;
+    a main-derived natural Reply wake observes the official inbox without a browser, GUI-session or
+    Mac restart; every actionable buyer event receives one reply, durable defer or handoff with
+    Telegram/readback; and a following natural wake replays external effects at zero.
+
+    PR `#4800` merged the owner-scoped, pre-snapshot stale-row recovery. It validates the complete
+    official `Target.getTargets` response before changing state, preserves foreign and post-snapshot
+    claims, and covers visible and hidden target creation; 36 tests plus 6 subtests pass and fresh
+    read-only review returned `ship`. Exact main release `4fd16d1f08f7a6c6a0e65315bde044d07c27d518`
+    was applied only to `hf-gig-reply-detector`. Natural runs `18d3aab539988048-46392` and
+    `18d3ab039d9c3e88-57434` both passed. The following aggregate was unchanged at observed `174`,
+    readback/replay-zero `159`, failed `0`, pending `15`, effect `0`: eleven counterparties are
+    officially send-disabled and remain `waiting_external`; four uncertain historical effects remain
+    durably `reconcile_unknown` instead of being duplicated. The scoped ownership registry returns to
+    zero after each wake. No browser, GUI session, loginwindow or Mac restart occurred.
+
+30. [x] `LANCERS-REPLY-2` Recheck Lancers Reply after Coconala returns to continuous health. PASS =
+    the installed owner ends a fresh natural terminal, reads every current official buyer event,
+    preserves the already accepted correction/message receipt without duplication, and classifies
+    every remaining event as replied, estimated, durably deferred or handed off exactly once with
+    Telegram and official readback. A following natural wake must replay all completed effects at
+    zero. Reuse the shared Reply kernel; do not add a Lancers-private lifecycle or reporter.
+
+    Installed/event release `25e45d359b64333943d8b45fcc7e740e16a4f37b` ended natural PASS
+    `18d3aaff5dab4a20-56541` at `2026-09-09T13:45:06Z`; the following natural run
+    `18d3ab4a44ac1dd8-69428` also passed at `13:51:25Z`. Its official aggregate is stable at
+    observed/readback `7`, actionable/pending/failed/effect `0`: five threads await the buyer and two
+    require no reply. The already accepted buyer correction remains official-readback and Telegram
+    owned, while both fresh wakes performed no duplicate effect. No code or production mutation was
+    needed.
+
+31. [x] `CROWDWORKS-REPLY-2` Recheck CrowdWorks Reply next through the same shared kernel. PASS = a
+    fresh natural terminal observes every current official buyer event exactly once, with each event
+    replied, durably deferred, handed off or officially classified no-action; Telegram and provider
+    readback agree; pending and failed are zero unless an exact durable external owner is recorded;
+    and the following natural wake replays completed effects at zero. Do not create a CrowdWorks-
+    private lifecycle or reporter.
+
+    Installed/event release `25e45d359b64333943d8b45fcc7e740e16a4f37b` ended natural PASS
+    `18d3ab21e7c5db68-62589` at `2026-09-09T13:48:00Z`; following natural run
+    `18d3ab71ed3e5430-71805` also passed at `13:56:48Z`. Its official aggregate observes/readbacks
+    eleven threads, retains five verified Reply/Telegram receipts `69320` through `69324` at one
+    attempt each, classifies one awaiting buyer and five no-reply threads, and ends pending `0`,
+    failed `0`, effect `0`. No code or production mutation was needed.
+
+32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
+    installed owner ends consecutive fresh natural terminals from authenticated official state,
+    represents every conversation/application event once through the shared Reply kernel, performs
+    no email-as-reply substitution, preserves each Telegram human handoff or verified platform effect
+    at one delivery, and replays completed effects at zero. Empty or human-gated inventory is valid
+    only with exact official observation and durable ownership.
 
 
 

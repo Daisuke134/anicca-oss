@@ -94,7 +94,7 @@ test("Luma default detail walk is bounded to six candidates while observed_count
   assert.equal(new Set(gotoCalls.slice(1)).size, 6);
 });
 
-test("Luma default detail walk advances by one full bounded slice every half hour", async () => {
+test("Luma default detail walk advances by one full bounded slice every minute", async () => {
   const slugs = Array.from({ length: 8 }, (_, index) => `rotated-${index + 1}`);
   const { page, gotoCalls } = defaultDiscoveryPage(slugs);
   let now = new Date(0);
@@ -103,7 +103,7 @@ test("Luma default detail walk advances by one full bounded slice every half hou
   await workflow.discoverCandidates({ page, calendar: [] });
   const first = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
   gotoCalls.length = 0;
-  now = new Date(1_800_000);
+  now = new Date(60_000);
   await workflow.discoverCandidates({ page, calendar: [] });
   const second = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
 
@@ -340,10 +340,11 @@ test("Luma discovery reconciles at most three already-registered unbundled event
   ]);
 });
 
-test("Luma direct action uses the retained submit function without agent assistance", async () => {
+test("Luma direct action forwards bounded agentic form assistance to the retained submit function", async () => {
   const calls = [];
   const page = Object.freeze({ page_id: "owned-page" });
   const selected = event("free-first");
+  const agenticRegister = async () => Object.freeze({ status: "ready", answers: [] });
   const workflow = createLumaScriptFirstWorkflow({
     async discoverOnPage() { return [selected]; },
     isCalendarFree() { return true; },
@@ -353,6 +354,7 @@ test("Luma direct action uses the retained submit function without agent assista
     },
     async readProviderStateOnPage() { return { status: "registered" }; },
     async readLumaFormProfile() { return Object.freeze({ profile_version: 1 }); },
+    agenticRegister,
   });
 
   const result = await workflow.runDirectAction({ page, candidate: selected });
@@ -361,7 +363,7 @@ test("Luma direct action uses the retained submit function without agent assista
   assert.equal(calls.length, 1);
   assert.equal(calls[0].suppliedPage, page);
   assert.equal(calls[0].contract.event_ref, selected.event_ref);
-  assert.equal(calls[0].dependencies.agenticRegister, undefined);
+  assert.equal(calls[0].dependencies.agenticRegister, agenticRegister);
   assert.equal(typeof calls[0].dependencies.readLumaFormProfile, "function");
 });
 
