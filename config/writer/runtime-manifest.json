@@ -1,36 +1,33 @@
 {
   "schema_version": 1,
   "runtime_root": "skills/writer-agent",
-  "runtime_tree_sha256": "ade3abe4a9f7b9d05cf364bc73734b24d2d9ff122171352f34f93544e2a67109",
-  "runtime_file_count": 515,
+  "runtime_tree_sha256": "3edfb2ad69520ed619a80fcba53c4823da21d8bb9406c70a2ec30845e60c5e6e",
+  "runtime_file_count": 531,
   "hash_algorithm": "sha256(sorted relative path + NUL + file bytes + NUL; excludes state and cache directories)",
   "source": {
-    "repository": "/Users/anicca/Projects/life-manager-main",
+    "repository": "https://github.com/Daisuke134/life-manager.git",
     "path": "skills/writer-agent",
-    "commit": "be5347f59df2cbf7a893e65481a81ace623dfc7c",
-    "repair_base": "be5347f59df2cbf7a893e65481a81ace623dfc7c",
-    "status": "A1-A6 merged main SHA used for the loaded immutable repair release"
+    "commit": "aa887b31080e34f769db7f937bf0db4f7f92b8e0",
+    "status": "canonical source on merged main"
   },
   "active_release": {
-    "path": "/Users/anicca/loops/releases/20260831T025240-be5347f5/skills/writer-agent",
-    "tree_sha256": "ade3abe4a9f7b9d05cf364bc73734b24d2d9ff122171352f34f93544e2a67109",
-    "file_count": 515,
-    "status": "all 14 installed Writer labels loaded from this immutable release"
+    "release_shas": [
+      "25e45d359b64333943d8b45fcc7e740e16a4f37b",
+      "7c71c900394167a19a48d4f86ccec78baea90d04"
+    ],
+    "status": "all 14 installed Writer labels load repository-owned immutable releases"
   },
   "state": {
     "active": "~/.local/state/life-manager/writer",
     "target": "~/.local/state/life-manager/writer",
     "credentials": "~/.config/life-manager/accounts",
     "owner_fence": "~/.local/state/life-manager/writer/owner-fence",
-    "parity": {
-      "status": "all-loaded-labels-share-target-state",
-      "source_file_count": 18326,
-      "target_file_count": 18326,
-      "source_bytes": 590863796,
-      "target_bytes": 590863796,
-      "tree_sha256": "2a58d15a8b30dfa4edabb4ed0d845833d30a7844212b2d9ddb492d6c525e6e02",
-      "pause_marker": "absent-in-source-and-target",
-      "target_directory_mode": "0700"
+    "validation": {
+      "status": "all-14-installed-labels-use-canonical-state",
+      "target_directory_mode": "0700",
+      "legacy_evidence_path": "~/.local/state/life-manager/writer/legacy-writer-engine-evidence",
+      "legacy_evidence_file_count": 1274,
+      "legacy_evidence_tree_sha256": "c57809707137af747eb8b4d158a465bf4f843882b2f31487d3a118b19696dd5b"
     }
   },
   "launchd_labels": [
@@ -50,20 +47,20 @@
     "ai.anicca.writer-sales-measure"
   ],
   "launchd_sources": {
-    "ai.anicca.article-daily": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-daily.plist",
-    "ai.anicca.article-healthcheck": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-healthcheck.plist",
-    "ai.anicca.article-resume": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-resume.plist",
-    "ai.anicca.article-zenn-retry": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-zenn-retry.plist",
-    "ai.anicca.article-self-improve": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-self-improve.plist",
-    "ai.anicca.article-audit-7day": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-audit-7day.plist",
-    "ai.anicca.article-learn-whitelist": "/Users/anicca/Library/LaunchAgents/ai.anicca.article-learn-whitelist.plist",
-    "ai.anicca.writer-claim-loop": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-claim-loop.plist",
-    "ai.anicca.writer-craft-train": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-craft-train.plist",
-    "ai.anicca.writer-money-sync": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-money-sync.plist",
-    "ai.anicca.writer-opportunity-discovery": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-opportunity-discovery.plist",
-    "ai.anicca.writer-opportunity-response": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-opportunity-response.plist",
-    "ai.anicca.writer-report": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-report.plist",
-    "ai.anicca.writer-sales-measure": "/Users/anicca/Library/LaunchAgents/ai.anicca.writer-sales-measure.plist"
+    "ai.anicca.article-daily": "~/Library/LaunchAgents/ai.anicca.article-daily.plist",
+    "ai.anicca.article-healthcheck": "~/Library/LaunchAgents/ai.anicca.article-healthcheck.plist",
+    "ai.anicca.article-resume": "~/Library/LaunchAgents/ai.anicca.article-resume.plist",
+    "ai.anicca.article-zenn-retry": "~/Library/LaunchAgents/ai.anicca.article-zenn-retry.plist",
+    "ai.anicca.article-self-improve": "~/Library/LaunchAgents/ai.anicca.article-self-improve.plist",
+    "ai.anicca.article-audit-7day": "~/Library/LaunchAgents/ai.anicca.article-audit-7day.plist",
+    "ai.anicca.article-learn-whitelist": "~/Library/LaunchAgents/ai.anicca.article-learn-whitelist.plist",
+    "ai.anicca.writer-claim-loop": "~/Library/LaunchAgents/ai.anicca.writer-claim-loop.plist",
+    "ai.anicca.writer-craft-train": "~/Library/LaunchAgents/ai.anicca.writer-craft-train.plist",
+    "ai.anicca.writer-money-sync": "~/Library/LaunchAgents/ai.anicca.writer-money-sync.plist",
+    "ai.anicca.writer-opportunity-discovery": "~/Library/LaunchAgents/ai.anicca.writer-opportunity-discovery.plist",
+    "ai.anicca.writer-opportunity-response": "~/Library/LaunchAgents/ai.anicca.writer-opportunity-response.plist",
+    "ai.anicca.writer-report": "~/Library/LaunchAgents/ai.anicca.writer-report.plist",
+    "ai.anicca.writer-sales-measure": "~/Library/LaunchAgents/ai.anicca.writer-sales-measure.plist"
   },
   "retired_launchd_labels": {
     "status": "retired-from-installed-launchagents",
@@ -75,25 +72,25 @@
       "ai.anicca.writer-resume"
     ],
     "reason": "separate ~/.local/bin/writer engine would create a second Writer pipeline",
-    "rollback_archive": "~/.local/state/life-manager/rollback/writer-legacy-cli-retired-20260820-a",
-    "launchctl_readback": "retired labels absent from the loaded Writer label census"
+    "rollback_archive": "deleted after exact-label absence and repository ownership were proven",
+    "launchctl_readback": "all five retired labels are absent from installed plists and gui launchd"
   },
   "path_audit": {
     "installed_writer_launchagents": 14,
-    "life_manager_templates": 10,
-    "installed_labels_with_life_manager_template": 8,
-    "installed_labels_without_life_manager_template": 6,
+    "life_manager_registry_entries": 14,
     "external_cli_labels": 0,
     "retired_external_cli_labels": 5,
-    "source_tree_script_labels": 6,
-    "status": "loaded-one-release",
-    "reason": "installed plist and launchctl readback prove all 14 Writer labels execute release be5347f59df2cbf7a893e65481a81ace623dfc7c and use the existing Writer state"
+    "status": "repository-releases-only",
+    "reason": "installed plist readback proves all 14 Writer labels execute Life Manager immutable releases and use the canonical Writer state"
   },
   "external_dependencies": {
-    "writer_engine_cli": "/Users/anicca/.local/bin/writer",
-    "writer_engine_root": "/Users/anicca/.local/lib/writer-engine",
-    "writer_engine_state": "/Users/anicca/.local/share/writer-engine",
-    "status": "retained-for-source-and-rollback; not-invoked-by-installed-writer-labels",
+    "writer_engine_cli": "~/.local/bin/writer",
+    "writer_engine_root": "~/.local/lib/writer-engine",
+    "writer_engine_state": "~/.local/share/writer-engine",
+    "evidence_archive": "~/.local/state/life-manager/writer/legacy-writer-engine-evidence",
+    "evidence_file_count": 1274,
+    "evidence_tree_sha256": "c57809707137af747eb8b4d158a465bf4f843882b2f31487d3a118b19696dd5b",
+    "status": "retired; cli, source root and external state root are absent",
     "loaded_definition_warning": null
   },
   "owner_fence": {
@@ -102,7 +99,7 @@
     "status": "loaded by the core Writer labels",
     "pause_gates": ["article-daily", "article-resume", "zenn-deferred-worker"],
     "fenced_workers": ["article-daily", "article-resume"],
-    "legacy_cli_pause_proven": false
+    "legacy_cli_pause_proven": true
   },
   "core_plist_cutover": {
     "status": "loaded-and-read-back",
@@ -112,7 +109,7 @@
       "ai.anicca.article-zenn-retry"
     ],
     "installed_path_readback": "life-manager-code-and-target-state",
-    "launchctl_readback": "daily, resume, and Zenn ProgramArguments resolve to release be5347f5",
+    "launchctl_readback": "daily, resume, and Zenn ProgramArguments resolve to repository release 25e45d359",
     "rollback_archive": "~/.local/state/life-manager/rollback/writer-core-cutover-20260820-a"
   },
   "worker_plist_cutover": {
@@ -131,58 +128,39 @@
       "ai.anicca.writer-craft-train"
     ],
     "installed_path_readback": "life-manager-code-and-target-state",
-    "launchctl_readback": "all 11 worker ProgramArguments resolve to release be5347f5",
+    "launchctl_readback": "the four article workers resolve to repository release 25e45d359 and the seven writer workers resolve to repository release 7c71c9003",
     "rollback_archives": [
       "~/.local/state/life-manager/rollback/writer-state-workers-cutover-20260820-a",
       "~/.local/state/life-manager/rollback/writer-legacy-path-cutover-20260820-a"
     ]
   },
   "cutover": {
-    "status": "one-loaded-release",
-    "reason": "launchctl-safe preflight passes and all 14 installed Writer labels read back the A1-A6 immutable release SHA and existing Writer state; same-run quality resume remains open",
+    "status": "repository-releases-only",
+    "reason": "all 14 installed Writer labels use Life Manager immutable releases and canonical state; the five legacy CLI labels, legacy process, plist references and open files are absent",
     "publication_paused": false,
-    "legacy_roots_must_not_be_deleted": true
+    "legacy_roots_must_not_be_deleted": false
   },
   "runtime_blocker": {
-    "status": "release-repaired-quality-resume-pending",
-    "observed": "A7 immutable release install",
+    "status": "resolved-for-legacy-retirement",
+    "observed": "final external Writer root retirement",
     "evidence": [
-      "launchctl-safe preflight reports Aqua manager, uid 501, readable gui/501, and mutation_allowed true",
-      "source and release Writer trees both contain 515 files and hash to ade3abe4a9f7b9d05cf364bc73734b24d2d9ff122171352f34f93544e2a67109",
-      "all 14 Writer labels were target-applied from /Users/anicca/loops/releases/20260831T025240-be5347f5",
-      "all 14 installed and loaded ProgramArguments resolve to /Users/anicca/loops/releases/20260831T025240-be5347f5/bin/lm-loop-run",
-      "all 14 loaded LIFE_MANAGER_RELEASE_SHA values equal be5347f59df2cbf7a893e65481a81ace623dfc7c",
-      "article-daily bootstrap created no new run and left run 20260829-165022 byte-identical"
+      "all 14 installed Writer labels resolve to repository-owned immutable releases and canonical Writer state",
+      "all five retired legacy CLI labels are absent from installed plists and gui launchd",
+      "legacy CLI process, open-file and executable plist references are zero",
+      "1274 legacy evidence files were copied into canonical Writer state with matching tree SHA-256 before old roots were deleted"
     ],
-    "interpretation": "The launchd control plane and A1-A6 release lineage are healthy. The remaining work begins with a natural article-resume wake for run 20260829-165022.",
-    "required_recovery": "Execute section 9.0 A8 through A11 using the natural Writer owners.",
-    "publication_effect": "no publication was triggered by the lineage cutover"
+    "interpretation": "The separate Writer CLI, source tree and mutable state root are no longer runtime dependencies.",
+    "required_recovery": "none for legacy retirement",
+    "publication_effect": "no Writer job was stopped, restarted, applied or manually executed during retirement"
   },
   "last_validation": {
-    "release_sha": "be5347f59df2cbf7a893e65481a81ace623dfc7c",
-    "current_release": "/Users/anicca/loops/current",
-    "activate": "all 14 installed Writer labels load the exact immutable current release and shared Writer state root",
-    "install_event_ids": [
-      "f08729ea0f6eafaeb2d8b599", "63f57dcde9a0efb06b77948e",
-      "644d4f49d4f4719c9689968b", "6785d806a76451f82eea5f59",
-      "d3e80338c4bcbba9fad053e0", "05e6cdb48cbe059c94909051",
-      "d0052f4d29586b6849de0ba9", "6f51495c8437e5ae7e1427f7",
-      "3c98303dda0f9265594bc5d6", "5e028f6615fd076f22c2c288",
-      "be602900f6bf6fe902f0330a", "c399ab6b9c1234c39e70cc7e",
-      "9356f9e4cd02771dda98e159", "fa06077e26d96076508cbb66"
-    ],
-    "rollback": {
-      "release": "/Users/anicca/loops/releases/20260831T011522-b73c27ca",
-      "release_sha": "b73c27ca93b86e629c58fab98d8d78436aeeee63",
-      "article_resume_install_event_id": "de74d004410e4ae2ce8a4f10",
-      "protected_release_registry": "/Users/anicca/.local/state/life-manager/protected-releases.json"
-    },
-    "bounded_wake": {
-      "creator_rc": 0,
-      "resume_rc": 0,
-      "publication_pause": false,
-      "state_dir": "~/.local/state/life-manager/writer",
-      "observed_behavior": "article-daily loaded A1-A6 code, created no new run, and left the three attempts and quality-repair-ready target run byte-identical; article-resume is installed for the explicit A8 wake"
-    }
+    "source_main_sha": "aa887b31080e34f769db7f937bf0db4f7f92b8e0",
+    "installed_writer_labels": 14,
+    "retired_legacy_labels_absent": 5,
+    "legacy_processes": 0,
+    "legacy_open_files": 0,
+    "legacy_plist_references": 0,
+    "canonical_state": "~/.local/state/life-manager/writer",
+    "legacy_evidence_tree_sha256": "c57809707137af747eb8b4d158a465bf4f843882b2f31487d3a118b19696dd5b"
   }
 }
