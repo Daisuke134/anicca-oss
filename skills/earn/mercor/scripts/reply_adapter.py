@@ -153,16 +153,20 @@ class MercorReplyAdapter:
                 (dict(message) for message in messages),
                 key=lambda message: str(message.get("internalDate") or ""),
             )
-            self.rows[f"gmail:{thread_id}"] = {
+            gmail_row = {
                 "kind": "gmail",
                 "raw": {"threadId": thread_id, "messages": ordered},
                 "observed_at": gmail_observed_at,
             }
+            if gmail_status == "stale":
+                gmail_row["pending_reason"] = "provider_source_stale"
+            self.rows[f"gmail:{thread_id}"] = gmail_row
         if gmail_status == "stale":
             self.rows["source:gmail"] = {
                 "kind": "source_health",
                 "raw": {"status": "stale", "observed_at": gmail_observed_at},
                 "observed_at": observed_at,
+                "pending_reason": "provider_source_stale",
             }
         return [self._observation(thread_id, row) for thread_id, row in self.rows.items()]
 
@@ -199,8 +203,10 @@ class MercorReplyAdapter:
         result = {"provider": "mercor", "account_id": self.gmail_account,
                   "thread_id": thread_id, "latest_event_id": self._event(row),
                   "observed_at": _required(row.get("observed_at"), "observed_at")}
-        if row["kind"] == "source_health":
-            result["pending_reason"] = "provider_source_stale"
+        if row.get("pending_reason") is not None:
+            result["pending_reason"] = _required(
+                row.get("pending_reason"), "pending_reason"
+            )
         return result
 
     def observe_one(self, thread_id: str) -> dict[str, str]:
