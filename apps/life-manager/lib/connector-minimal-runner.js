@@ -463,6 +463,7 @@ async function runMinimalConnectorWake(input = {}, injected = {}) {
           }
           const terminalDirectNoEffect = directFailureReason === `${provider}_session_expired`
             || (provider === "connpass" && directFailureReason === "connpass_registration_unavailable")
+            || (provider === "connpass" && directFailureReason === "connpass_tier_unavailable")
             || (provider === "luma" && directFailureReason === "luma_required_profile_field_unavailable");
           if (!terminalDirectNoEffect) try {
             operation = await action(

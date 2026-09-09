@@ -320,6 +320,23 @@ test("when every tier is full or restricted, submit clicks nothing and fails clo
   assert.deepEqual(page.calls, ["url", "click-join", "wait"]);
 });
 
+test("a paid-only event is rejected by its tier before an unrelated questionnaire can invoke fallback", async () => {
+  const page = joinFlowFixture({
+    tiers: [{ label: "一般参加 1000円 (会場払い) 先着順 1/10人", disabled: false }],
+    states: [{ state: "absent" }],
+    questionnaireGroups: [questionnaireGroupFixture({
+      fields: [{ tagName: "INPUT", type: "radio", name: "q1", checked: false, disabled: false }],
+    })],
+  });
+
+  await assert.rejects(submitConnpassOnPage(page), (error) => {
+    assert.equal(error.code, "CONNPASS_TIER_UNAVAILABLE");
+    assert.equal(error.unknownEffect, false);
+    return true;
+  });
+  assert.deepEqual(page.calls, ["url", "click-join", "wait"]);
+});
+
 test("a required unanswered organizer questionnaire clicks nothing and fails closed with CONNPASS_QUESTIONNAIRE_REQUIRED", async () => {
   const page = joinFlowFixture({
     states: [{ state: "absent" }],
