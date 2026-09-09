@@ -10153,3 +10153,11 @@ manual wakeの終端後にownerを触らず監視し、14:48:45 UTC開始の自�
 同時にhost容量が3.5GiBから1.6GiBまで再低下し、173個のLaunchAgentが24種類のimmutable releaseを参照する状態で、毎分release reconcilerが`docs/**`だけのmain更新にもfull releaseを作る直接原因を確定した。reconcilerはcurrent complete releaseからmainまでの差分が`docs/**`だけなら既存releaseを再利用して対象loopのidle reconcileを続け、docs外に一件でも差分があれば従来どおり新releaseを切るよう修正した。integration testはdocs-onlyでcutter 0・reconcile 3、runtime差分でcutter 1を含む5/5、Shell、loop contract、Python、OSS、PII、gitleaks、TruffleHogの全CIがPASSした。PR #4815、main merge `f8038f7604dc62ca62c2e95f94eb709eb5c6891d`。
 
 並行runtime変更を含むmain descendant `d4022758b261ca1b3b0164ecc984c21935785961`のcomplete releaseが正当に作成された後、self-exclusionで9月2日の旧releaseに残っていた`life-manager-release-reconciler`と、直前SHAの`life-manager-disk-cleanup`を対象2labelだけcurrentへreconcileした。両plist/current SHAは`d4022758…`で一致し、disk cleanupはexit 0、release世代は`27→26`、空きは約2.4GiBへ回復した。次のdocs-only main更新でcurrent SHAとrelease directory countが不変であることをlive readbackして、この再発防止を閉じる。
+
+### O1B-25進捗533（progress-only release churn live acceptance）
+
+進捗532のdocs-only merge `d2fdf974927622097c4fb32678ddcd35f4a0b2d3`後、新reconcilerの自然wakeを実測した。直前に入ったAlpaca runtime変更 `e9d407ef17668bd02aeb03cdb5353e6dd0a2685c`までは正当にcomplete releaseを作成したが、`e9d407ef…→d2fdf974…`のdocs-only差分では`cut-loop-release`子を一度も起動せず、既存releaseで対象loop reconcileだけを続行した。reconcilerはexit 0、`d2fdf974` release directory 0、current `e9d407ef…`、release count 26不変だった。
+
+続くmain更新が`docs/**`に加えて`skills/earn/gig/TODO.md`だけを変更し、同ledgerは実行時read 0であることを確認したため、progress-only判定をこのexact pathへ限定して追加した。他のskills Markdownはruntime扱いを維持する。focused integration/registry test 65/65と全CIがPASSし、PR #4823、main merge `14230525c928f6eca6fb713baacd7249c06afdd0`。並行main descendantのcomplete release `e16384027e7877af12f550bb0e1c01e6b67c33a5`へrelease reconcilerとdisk cleanupの対象2labelだけを更新し、両ownerの自然wake exit 0を確認した。current/release countは`e16384027… / 26`で不変、次main `6148edf666804acc77cc9e5dc980faa7176b6af1`との差分はGig TODOだけで新判定`runtime_diff=none`である。
+
+これでspec/TODOの進捗更新がfull immutable releaseを毎回増やしてConnectorをENOSPC停止させる再発経路は閉じた。host空きは約1.0GiBで依然低いため、runtime変更の正当なrelease build余力というhost-wide容量課題は残るが、CG-44の次の30分wakeは512MiB producer floorを上回る。Connector statusは引き続き**実用動作中 / CG-44 NOT DONE**、次は新規Luma live bundleの自然候補を継続する。
