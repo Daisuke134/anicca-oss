@@ -1,7 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
-const { projectFinancialRecord } = require("../../../runtime/contracts/common-record.cjs");
+const { projectFinancialRecord } = require("./financial-record-contract.js");
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;

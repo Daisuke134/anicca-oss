@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { isDeepStrictEqual } = require("node:util");
-const { projectFinancialRecord } = require("../../../runtime/contracts/common-record.cjs");
+const { projectFinancialRecord } = require("./financial-record-contract.js");
 
 function instant(value, label) {
   if (value == null) return null;
