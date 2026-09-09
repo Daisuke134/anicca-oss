@@ -698,6 +698,60 @@ cumulative realised/unrealised P&L, positions, remaining loss budget, observatio
 fields remain `unknown`; they are never fabricated as zero. Telegram acknowledgement uncertainty never retries an
 order.
 
+The following Japanese messages are the canonical owner-visible examples. Dollar values and times below are
+illustrative; production substitutes only official broker/readback values and renders an unavailable value as
+`不明`.
+
+```text
+[Investment Loop][投資判断]
+⏭️ 今回は投資しませんでした
+
+モード: live
+ライブ口座: 有効
+判断: NO_TRADE
+理由: 条件を満たす期待値のある候補がありません
+資産: $100.00
+現金: $100.00
+損益: 確定 $0.00、含み $0.00
+保有: 0件
+注文: 注文なし
+残り日次損失枠: $20.00
+観測時刻: 09:30
+次回確認: 09:35
+ユーザー操作は必要ありません。
+```
+
+```text
+[Investment Loop][投資判断]
+✅ 投資注文を実行しました
+
+モード: live
+判断: BTC/USDを買い
+理由: リスク調整後の期待値が基準を通過
+注文額: $8.00
+公式状態: 約定済み
+資産: $100.06
+現金: $92.00
+確定損益: $0.00
+含み損益: +$0.06
+保有: 1件
+残り日次損失枠: $19.94
+次回確認: 5分後
+ユーザー操作は必要ありません。
+```
+
+```text
+[Investment Loop][実行エラー]
+⚠️ 今回の投資判断を確定できませんでした
+
+停止段階: broker_readback
+新しい注文は送信していません。
+資産・現金: 最後に確認できた値
+次に自動で行うこと:
+5分後に安全な照合を再実行します。
+ユーザー操作は必要ありません。
+```
+
 Natural-wake reporting is not routed through OpenClaw. The Local investment runner uses the shared durable outbox
 and `TelegramClient` to call Telegram Bot API directly, matching the Lancers reporting pattern. Consequently an
 OpenClaw reload, restart, command-registry problem, or model failure cannot block the five-minute Investment report.
