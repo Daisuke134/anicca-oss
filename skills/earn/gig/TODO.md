@@ -2122,7 +2122,7 @@ from the chat, and two of them contradict what this cursor had previously report
     7.4 GiB, but release creation stayed blocked because cleanup wrote under
     `~/.local/state/life-manager/state` while the cutter and producers read
     the legacy shared host pressure flag. `central_cleanup.py` now invokes the governor with
-    `~/.openclaw/state`, exactly the default read by `cut-loop-release.sh`; no second marker owner
+    `$OPENCLAW_STATE_DIR`, exactly the configured root read by `cut-loop-release.sh`; no second marker owner
     remains. Natural cleanup wake `2026-09-09T12:02:24Z` completed with host errors and protected
     deletions both zero. The shared marker is absent, and nine seconds later full release
     `20260909T205617-2539b51c` built from that exact main SHA without an ignore/override flag.
