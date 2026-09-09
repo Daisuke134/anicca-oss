@@ -126,7 +126,8 @@ def effect_state(ledger: Path, effect_id: str) -> str:
 def record_terminal_outcome(ledger: Path, sealed: dict[str, str], broker: dict[str, Any],
                             outcome: str) -> bool:
     """Close a canary intent only after an official terminal broker readback."""
-    if outcome not in {"live_canary_verified", "live_canary_terminal_failure"}:
+    if outcome not in {"live_canary_verified", "live_canary_terminal_failure",
+                       "live_close_verified", "live_close_terminal_failure"}:
         raise ValueError("effect_outcome_invalid")
     mode = _mode(sealed.get("mode"))
     return _append_once(ledger, {
