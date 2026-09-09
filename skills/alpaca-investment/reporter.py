@@ -10,6 +10,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from risk_policy import parse_instant
+
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -78,19 +80,22 @@ def render(observation: dict[str, Any], campaign: dict[str, Any],
     unrealized = _decimal_or_none(risk.get("unrealized_pnl_usd"))
     observed = decision["observed_at"]
     try:
-        next_wake = (datetime.fromisoformat(observed.replace("Z", "+00:00"))
+        next_wake = (parse_instant(observed)
                      + timedelta(minutes=5)).isoformat()
     except (TypeError, ValueError):
         next_wake = "不明"
     effect_text = "注文なし" if effect == "none" else f"{mode}効果 {effect[:12]}"
     heading = "⏭️ 今回は投資しませんでした" if effect == "none" else "✅ 投資注文を実行しました"
+    application_status = decision.get("application_status")
+    if observation.get("account", {}).get("status") == "ACTIVE":
+        application_status = "active"
     review = {
         "in_review": "審査中",
         "approved": "承認済み",
         "active": "有効",
         "action_required": "追加対応が必要",
         "rejected": "不承認",
-    }.get(decision.get("application_status"), "未確認")
+    }.get(application_status, "未確認")
     return "\n".join((
         "[Investment Loop][投資判断]",
         heading,
