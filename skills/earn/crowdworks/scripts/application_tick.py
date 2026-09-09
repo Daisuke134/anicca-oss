@@ -45,7 +45,7 @@ _ASCII_DIGITS = re.compile(r"^[0-9]+$")
 _AMOUNT = re.compile(r"^固定報酬: (?P<amount>[1-9][0-9]{0,2}(?:,[0-9]{3})*)円$")
 _DUE = re.compile(r"^完了予定日: (?P<year>[0-9]{4})年(?P<month>0[1-9]|1[0-2])月(?P<day>0[1-9]|[12][0-9]|3[01])日\((?P<weekday>[月火水木金土日])\)$")
 _HOURLY_RATE = re.compile(r"時間単価:\s*(?P<amount>[1-9][0-9]{0,2}(?:,[0-9]{3})*)円")
-_WEEKLY_LIMIT = re.compile(r"週(?:上限)?\s*(?P<hours>[1-9][0-9]*)\s*時間")
+_WEEKLY_LIMIT = re.compile(r"(?:週(?:上限)?\s*|稼働時間/週:\s*)(?P<hours>[1-9][0-9]*)\s*時間")
 _PROJECT_SELECTOR = 'a[href="/public/jobs/{project_id}"]'
 _AMOUNT_SELECTOR = ".intro-employer_proposed_project > table.conditions span.quotation_price"
 _DUE_SELECTOR = ".intro-employer_proposed_project > table.conditions div.deadline"

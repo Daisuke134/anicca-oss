@@ -373,7 +373,10 @@ def test_hourly_detail_reads_rate_and_weekly_limit_from_official_condition():
     module = load()
     fields = _Fields()
     fields.set(module._PROJECT_SELECTOR.format(project_id=PROJECT_ID), _Field(fields, count=1))
-    fields.set(module._LATEST_CONDITION_SELECTOR, _Field(fields, value="時間単価: 2,200円 / 週30時間"))
+    fields.set(
+        module._LATEST_CONDITION_SELECTOR,
+        _Field(fields, value="時間単価: 2,200円 （稼働時間/週: 30時間）"),
+    )
     fields.set(module._PROGRESS_SELECTOR, _Field(fields, value="応募・スカウト"))
     page = _Page(fields, url="about:blank")
 
