@@ -2117,13 +2117,16 @@ from the chat, and two of them contradict what this cursor had previously report
     natural wake with no runner-configuration decline, one official application/Telegram receipt,
     and replay-zero.
 
-24. [ ] `APPLY-DISK-2` Let central cleanup clear the same durable pressure gate that release builds
+24. [x] `APPLY-DISK-2` Central cleanup clears the same durable pressure gate that release builds
     read. Measured 2026-09-09: cleanup repeatedly passed and free space recovered from 400 MiB to
     7.4 GiB, but release creation stayed blocked because cleanup wrote under
     `~/.local/state/life-manager/state` while the cutter and producers read
-    the legacy shared host pressure flag. Point the cleanup governor at the existing shared host
-    state; do not unlink the flag manually or bypass the release gate. PASS = a natural cleanup wake
-    removes the stale flag, then the exact main SHA release builds without override.
+    the legacy shared host pressure flag. `central_cleanup.py` now invokes the governor with
+    `~/.openclaw/state`, exactly the default read by `cut-loop-release.sh`; no second marker owner
+    remains. Natural cleanup wake `2026-09-09T12:02:24Z` completed with host errors and protected
+    deletions both zero. The shared marker is absent, and nine seconds later full release
+    `20260909T205617-2539b51c` built from that exact main SHA without an ignore/override flag.
+    Focused cleanup pressure/state tests pass 3/3.
 
 25. [x] `APPLY-CROWDWORKS-5` Do not let an unsupported competition form block normal applications.
     Natural release `3a3b93ae` selected job `13439041` and the shared judge ran successfully. Official
