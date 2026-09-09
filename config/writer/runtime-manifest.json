@@ -115,7 +115,7 @@
       "ai.anicca.article-zenn-retry"
     ],
     "installed_path_readback": "life-manager-code-and-target-state",
-    "launchctl_readback": "daily, resume, and Zenn ProgramArguments resolve to release be5347f5",
+    "launchctl_readback": "daily, resume, and Zenn ProgramArguments resolve to repository release 25e45d359",
     "rollback_archive": "~/.local/state/life-manager/rollback/writer-core-cutover-20260820-a"
   },
   "worker_plist_cutover": {
@@ -134,7 +134,7 @@
       "ai.anicca.writer-craft-train"
     ],
     "installed_path_readback": "life-manager-code-and-target-state",
-    "launchctl_readback": "all 11 worker ProgramArguments resolve to release be5347f5",
+    "launchctl_readback": "the four article workers resolve to repository release 25e45d359 and the seven writer workers resolve to repository release 7c71c9003",
     "rollback_archives": [
       "~/.local/state/life-manager/rollback/writer-state-workers-cutover-20260820-a",
       "~/.local/state/life-manager/rollback/writer-legacy-path-cutover-20260820-a"
