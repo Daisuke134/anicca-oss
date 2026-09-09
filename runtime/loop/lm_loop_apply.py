@@ -84,6 +84,10 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "CLOAK_CONTEXT_PARK_ON_IDLE": "1",
             "GIG_CDP_HEALTH_URL": "http://127.0.0.1:9222/json/version",
         })
+    if loop_id == "life-manager-cfo-hourly":
+        value["EnvironmentVariables"]["LIFE_MANAGER_ENV_FILE"] = str(
+            Path.home() / ".local/state/life-manager/.env"
+        )
     key, cadence = next(iter(entry["cadence"].items()))
     if key == "start_interval_seconds":
         value["StartInterval"] = cadence
