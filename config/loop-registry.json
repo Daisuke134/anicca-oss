@@ -483,9 +483,9 @@
       "effect_class": "none",
       "entrypoint": "skills/_shared/browser-state-backup.sh",
       "label": "ai.anicca.browser-state-backup",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/browser-state-backup/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/browser-state-backup"
     },
     "cadence-deadline-check": {
       "cadence": {
@@ -502,9 +502,9 @@
       "effect_class": "none",
       "entrypoint": "skills/self/cadence-deadline-check.sh",
       "label": "ai.anicca.cadence-deadline-check",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/cadence-deadline-check/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/cadence-deadline-check"
     },
     "capafy-goal-monitor": {
       "cadence": {
@@ -702,9 +702,9 @@
       "effect_class": "none",
       "entrypoint": "skills/_shared/claude-projects-backup.sh",
       "label": "ai.anicca.claude-projects-backup",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/claude-projects-backup/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/claude-projects-backup"
     },
     "clip-loop": {
       "adapter": "python",
@@ -774,9 +774,9 @@
       "effect_class": "none",
       "entrypoint": "skills/self/earning-health-allslots.sh",
       "label": "ai.anicca.earning-health-allslots",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/earning-health-allslots/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/earning-health-allslots"
     },
     "effect-watch": {
       "cadence": {
@@ -2573,9 +2573,9 @@
       "effect_class": "none",
       "entrypoint": "skills/browser/scripts/session_vault_tick.sh",
       "label": "ai.anicca.session-vault",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/session-vault/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/session-vault"
     },
     "slack-bridge": {
       "cadence": {
@@ -2704,9 +2704,9 @@
       "effect_class": "none",
       "entrypoint": "skills/self/verify-loops-audit.sh",
       "label": "ai.anicca.verify-loops-audit",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/verify-loops-audit/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/verify-loops-audit"
     },
     "warmup-flip-daily": {
       "cadence": {
