@@ -10165,3 +10165,11 @@ manual wakeの終端後にownerを触らず監視し、14:48:45 UTC開始の自�
 ### O1B-25進捗534（共有release作業中の自然Connector継続）
 
 release control-planeの修復・GC中もConnector ownerを触らず監視し、15:30 UTC台の自然wake `wake-2bcbe11c3f053406372f4895`でlaunchd runs 8を確認した。wakeはexit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`、Telegram every-wake provider ID `72120`として15:35:49 UTCに終了した。Luma auditは`observed 36 / normalized 6 / window 6 / free-open 3 / calendar-free 0`で、既存Calendarが埋まっているため新規申込0だった。容量圧迫と共有release更新の間にも30分scheduler、Calendar readback、provider continuation、Telegram deliveryが止まらなかった継続稼働証拠としてacceptするが、新規Luma bundle 0なのでCG-44は次の自然batchへ継続する。
+
+### O1B-25進捗535（Connector実用稼働確認 / host容量gate再発）
+
+続く自然wake `wake-0c9a42f`はlaunchd runs 9として開始し、Google Calendar readbackを4,061msで完了した。Luma auditは`observed 36 / normalized 6 / window 2 / free-open 1 / calendar-free 0`、Connpass auditは`observed 285 / free-open 249 / calendar-free 22`で、Lumaの唯一の無料候補は既存Calendarと衝突した。wakeは16:13:07 UTCにexit 0、Telegram every-wake provider ID `72194`、bundle 56不変、owner/lock残留0で終了した。これにより、Calendarが埋まっている現在も30分scheduler、Luma/Connpass探索、Calendar conflict skip、Telegram、cleanupが自然実行で継続しているため、Connectorは**実用動作中**とする。ただし新規Luma official registration/pending、Calendar exact 1、PNG/receipt、event Telegram IDsを同一eventで閉じていないため、CG-44は**NOT DONE**のまま維持する。
+
+同時にhost-wide容量を再監査した。空きは一時446MiBまで低下し、既存disk cleanup後も26 releaseのうち25世代がloaded LaunchAgentから参照され削除対象0だった。別ownerのrelease reconcilerがGig 2 labelとdisk cleanupを新releaseへtargeted reconcile中に空きは153MiBまで低下し、launchctl-safe preflight receiptがENOSPCになった。owner PIDを停止せずterminalまで追跡し、再生成可能かつprocess参照0のCodexBar Sparkle `Installation` cacheだけを削除して約228MiBを回収した。HyperFrames cacheは稼働process参照を検出したため削除0、別taskのworktree・cache・state・browser profile・loaded releaseへの削除0である。reconcilerと初回disk cleanupはhost cleanup 240秒timeoutでexit 1、owner消失後のdisk cleanup再実行はexit 0、errors 0、protected deletions 0だったが、全releaseがprotectedのため回収0、空き約402MiBで512MiB producer floor未満を維持した。
+
+したがって次の技術TODOは、全fleetの一括reloadや他ownerの削除で迂回せず、loaded immutable releaseの安全な集約または追加host容量の確保により空きを512MiB超へ安定化することである。容量gateを満たすまではConnectorを手動kickstartしない。固定順序は変更せず、容量安定化後に`CG-44 live Luma bundle → CG-45 replay-zero → CG-47 LT → CG-48 natural duplicate/cleanup → CG-51 Connector closure`を継続する。Fundraiser以降は前倒ししない。
