@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 DEPENDENCY_ROOTS = (
     Path("."),
+    Path("runtime/compute-proxy"),
     Path("runtime/agentmail"),
     Path("apps/life-manager"),
     Path("skills/earn/x402-sell"),
@@ -122,10 +123,11 @@ class CutLoopReleaseTest(unittest.TestCase):
             recorded = calls.read_text().splitlines()
             self.assertEqual(len(recorded), len(DEPENDENCY_ROOTS))
             self.assertTrue(recorded[0].endswith("|ci --omit=dev --ignore-scripts"))
-            self.assertIn("/runtime/agentmail|ci --omit=dev --ignore-scripts", recorded[1])
-            self.assertIn("/apps/life-manager|ci --omit=dev --ignore-scripts", recorded[2])
-            self.assertIn("/skills/earn/x402-sell|ci --omit=dev --ignore-scripts", recorded[3])
-            self.assertIn("/services/x402-endpoint|ci --omit=dev --ignore-scripts", recorded[4])
+            self.assertIn("/runtime/compute-proxy|ci --omit=dev --ignore-scripts", recorded[1])
+            self.assertIn("/runtime/agentmail|ci --omit=dev --ignore-scripts", recorded[2])
+            self.assertIn("/apps/life-manager|ci --omit=dev --ignore-scripts", recorded[3])
+            self.assertIn("/skills/earn/x402-sell|ci --omit=dev --ignore-scripts", recorded[4])
+            self.assertIn("/services/x402-endpoint|ci --omit=dev --ignore-scripts", recorded[5])
 
     def test_reconciler_pins_captured_main_sha_when_origin_moves_during_cut(self):
         with tempfile.TemporaryDirectory() as directory:

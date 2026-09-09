@@ -14,6 +14,13 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class CleanUserInstallTest(unittest.TestCase):
+    def test_installer_prepares_locked_compute_proxy_before_daemon_setup(self):
+        source = (ROOT / "install.sh").read_text()
+        dependency = '(cd "$REPO_ROOT/runtime/compute-proxy" && npm ci --no-audit --no-fund)'
+        self.assertIn(dependency, source)
+        self.assertLess(source.index(dependency), source.index("[5/6] daemon registration"))
+        self.assertNotIn('runtime/compute-proxy" && npm install', source)
+
     def test_agent_economy_accepts_the_common_immutable_release_contract(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

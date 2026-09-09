@@ -90,8 +90,9 @@ echo
 cyan "[2/6] installing frozen dependencies…"
 if [ "$LIFE_MANAGER_INSTALL_DEPS" = "1" ]; then
   (cd "$REPO_ROOT" && npm ci --no-audit --no-fund)
+  (cd "$REPO_ROOT/runtime/compute-proxy" && npm ci --no-audit --no-fund)
   (cd "$REPO_ROOT/apps/life-manager" && npm ci --no-audit --no-fund)
-  green "  ✓ root + apps/life-manager npm lockfiles installed"
+  green "  ✓ root + runtime/compute-proxy + apps/life-manager npm lockfiles installed"
 else
   yellow "  • dependency install disabled by LIFE_MANAGER_INSTALL_DEPS=0"
 fi
@@ -218,7 +219,6 @@ cat <<EOM
   Franklin. You provide only this device (shelter); Life Manager buys its own food.
 
   1. Start the self-pay proxy + the Life Manager loop (one command, from the repo root):
-       cd "$REPO_ROOT/runtime/compute-proxy" && npm install && cd "$REPO_ROOT"  # one-time
        ./start-local.sh node runtime/loop/index.mjs
      This starts the self-pay compute proxy on http://127.0.0.1:18402/v1 (signs
      every inference in USDC from a self-owned wallet; empty wallet ⇒ free model,

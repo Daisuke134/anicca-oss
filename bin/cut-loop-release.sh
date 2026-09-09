@@ -142,7 +142,7 @@ reuse_locked_dependencies() {
   return 1
 }
 
-for package_dir in "$DEST" "$DEST/runtime/agentmail" "$DEST/apps/life-manager" \
+for package_dir in "$DEST" "$DEST/runtime/compute-proxy" "$DEST/runtime/agentmail" "$DEST/apps/life-manager" \
   "$DEST/skills/earn/x402-sell" "$DEST/services/x402-endpoint"; do
   [ -f "$package_dir/package.json" ] && [ -f "$package_dir/package-lock.json" ] || continue
   if reuse_locked_dependencies "$package_dir"; then
