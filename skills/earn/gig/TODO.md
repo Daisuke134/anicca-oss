@@ -2048,7 +2048,7 @@ from the chat, and two of them contradict what this cursor had previously report
     read. Measured 2026-09-09: cleanup repeatedly passed and free space recovered from 400 MiB to
     7.4 GiB, but release creation stayed blocked because cleanup wrote under
     `~/.local/state/life-manager/state` while the cutter and producers read
-    `$LIFE_MANAGER_DISK_PRESSURE_FILE`. Point the cleanup governor at the existing shared host
+    the legacy shared host pressure flag. Point the cleanup governor at the existing shared host
     state; do not unlink the flag manually or bypass the release gate. PASS = a natural cleanup wake
     removes the stale flag, then the exact main SHA release builds without override.
 
