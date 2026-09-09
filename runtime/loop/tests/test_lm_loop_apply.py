@@ -178,6 +178,21 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
                          str(Path.home() / ".local/state/life-manager/example"))
 
+    def test_alpaca_shadow_plist_is_read_only_and_state_separated(self):
+        value = registry()
+        entry = value["loops"].pop("example")
+        entry.update({"effect_class": "none", "state_root": "~/.local/state/life-manager/alpaca-investment-shadow"})
+        value["loops"]["alpaca-investment-shadow"] = entry
+        rendered = plistlib.loads(build_apply_plan(value, self.root, SHA)[0]["plist_bytes"])
+        environment = rendered["EnvironmentVariables"]
+        self.assertEqual(environment["LIFE_MANAGER_INVESTMENT_MODE"], "shadow")
+        self.assertEqual(environment["ALPACA_INVESTMENT_SHADOW_CREDENTIALS_FILE"],
+                         str(Path.home() / ".local/share/anicca/credentials.json"))
+        self.assertEqual(environment["ALPACA_INVESTMENT_SHADOW_STATE_DIR"],
+                         str(Path.home() / ".local/state/life-manager/alpaca-investment-shadow"))
+        self.assertNotEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
+                            environment["ALPACA_INVESTMENT_SHADOW_STATE_DIR"])
+
     def test_agent_economy_plist_owns_code_and_mutable_home_paths(self):
         value = registry()
         value["loops"]["agent-economy-loop"] = value["loops"].pop("example")
