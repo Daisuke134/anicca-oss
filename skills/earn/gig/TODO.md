@@ -2060,7 +2060,7 @@ from the chat, and two of them contradict what this cursor had previously report
     an interview-based article. All three are refused on other grounds anyway, so the price parser
     is not costing work and the earlier read that it was is withdrawn.
 
-21. [ ] `APPLY-DISK-1` ★ Releases are never consolidated, and it stops the Apply lanes. Measured
+21. [x] `APPLY-DISK-1` Fresh releases own or reuse their locked runtime dependencies. Measured
     2026-09-07, the whole chain:
 
     ```
@@ -2081,10 +2081,14 @@ from the chat, and two of them contradict what this cursor had previously report
     `apps/life-manager/node_modules`, times forty. Copying the two packages into the current
     release and deleting the rest took the release tree from 15.1 GB to 8.3 GB.
 
-    PASS = a fresh release passes the global apply without a manual copy, whether by the cutter
-    installing the two runtime dependencies or by the check reading them from a shared location.
-    This belongs to whoever owns release cutting; it is recorded here because it has now cost the
-    Apply lanes more downtime than any bug in them.
+    `bin/cut-loop-release.sh` now APFS-clones `node_modules` only from a sealed release whose
+    package lock is byte-identical; without such a donor it runs locked production-only installs
+    for the repository root, `runtime/agentmail`, and `apps/life-manager`. Release
+    `20260909T205617-2539b51c` was cut automatically from main with `release_paths=ALL`; its
+    `apps/life-manager/node_modules` contains both `playwright-core` and `jsqr`. The same SHA then
+    recorded install PASS for Apply, Reply, Paid, Storefront and central cleanup, with no manual
+    dependency copy. The cutter's reuse, fallback build, and pinned-SHA regressions pass 4/4.
+    Release retention pressure is separate and remains owned by `APPLY-DISK-2`.
 
 22. [x] `APPLY-CROWDWORKS-3` Close each Apply-owned browser page even when a bounded wake fails.
     Measured 2026-09-09: the browser process, session vault and raw CDP websocket were healthy, but
