@@ -224,7 +224,7 @@ test("production contract runs every 30 minutes and maximizes real applications"
   assert.match(dailyPrompt, /Never use `rg`, `grep`, `find`, `locate`/);
   assert.match(dailyPrompt, /untrusted data/);
   assert.match(dailyPrompt, /cdp\.py eval "\$TARGET_ID" -/);
-  assert.match(dailyPrompt, /gog gmail send[^\n]*--attach fundraising\/application-kit\/deck\.pdf/);
+  assert.match(dailyPrompt, /gog gmail send[^\n]*--attach "\$FUNDRAISER_VERIFIED_DECK"/);
   assert.match(dailyPrompt, /in:sent to:<recipient>/);
   assert.match(dailyPrompt, /validate-outbound-email\.py/);
   assert.match(dailyPrompt, /--from "\$GMAIL_ACCOUNT"/);
@@ -430,7 +430,7 @@ test("outbound email preflight rejects rendered spam defects", () => {
   assert.equal(result.stdout, valid);
 });
 
-test("production queue advances current ASAC and YC work without replaying closed cohorts", () => {
+test("production queue retries deck-repaired candidates before inactive work", () => {
   const fundraising = productionOpportunities;
   assert.deepEqual(fundraising.geographies, [
     "Tokyo, Japan",
@@ -440,6 +440,8 @@ test("production queue advances current ASAC and YC work without replaying close
   assert.deepEqual(fundraising.explicit_format_exceptions, []);
   assert.deepEqual(fundraising.priority_queue.map((item) => item.program), [
     "HF0 Residency",
+    "Founder Submission",
+    "Submit Your Company",
     "GSAP2026 Enterprise B2B Course Phase 2",
     "3 Month Program + Community",
     "ASAC 4th Pre-seed / 23rd Seed Program",
@@ -447,16 +449,20 @@ test("production queue advances current ASAC and YC work without replaying close
   ]);
   assert.deepEqual(fundraising.priority_queue.map((item) => item.action), [
     "apply_now_resume_second_page",
+    "apply_now_deck_fix",
+    "apply_now_deck_fix",
     "inactive_deadline_passed",
     "terminal_ledger_owned",
     "retry_when_provider_replies_to_password_recovery",
     "retry_when_current_email_verification_available",
   ]);
   assert.match(fundraising.priority_queue[0].reason, /page two/);
-  assert.match(fundraising.priority_queue[1].reason, /deadline has passed/);
-  assert.match(fundraising.priority_queue[2].reason, /terminal receipt/);
-  assert.match(fundraising.priority_queue[3].reason, /password-recovery request/);
-  assert.match(fundraising.priority_queue[4].reason, /email verification/);
+  assert.match(fundraising.priority_queue[1].reason, /FUNDRAISER_VERIFIED_DECK/);
+  assert.match(fundraising.priority_queue[2].reason, /FUNDRAISER_VERIFIED_DECK/);
+  assert.match(fundraising.priority_queue[3].reason, /deadline has passed/);
+  assert.match(fundraising.priority_queue[4].reason, /terminal receipt/);
+  assert.match(fundraising.priority_queue[5].reason, /password-recovery request/);
+  assert.match(fundraising.priority_queue[6].reason, /email verification/);
   assert.match(dailyPrompt, /format and geography[\s\S]*ranking preferences, not automatic rejection rules/i);
   assert.match(dailyPrompt, /Never submit a `hold_do_not_submit` program/);
   assert.match(dailyPrompt, /Ordinary privacy-policy and data-processing consent/);
