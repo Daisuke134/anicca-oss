@@ -19,16 +19,16 @@
     {
       "program": "Founder Submission",
       "official_url": "https://www.playersfund.vc/submit",
-      "action": "apply_now_deck_fix",
-      "reason": "The latest receipt failed only because the generated pitch deck and matching context receipt were absent. The current build provides a deterministic preflight-verified deck.pdf. Reopen the current official founder submission form, attach only FUNDRAISER_VERIFIED_DECK, and continue to an official submission receipt or a newly observed explicit candidate failure.",
+      "action": "apply_now_native_submit_fix",
+      "reason": "The current form accepted every required field and FUNDRAISER_VERIFIED_DECK, but one coordinate click on Submit for Review produced no provider request and left the form unchanged. Reopen once, rebuild and read back the same fields, pass the deterministic pre-submit gate, then invoke the visible enabled submit button through its owning form's native requestSubmit(button) exactly once and observe the provider response. Never repeat if the effect is ambiguous.",
       "organization": "The Players Fund",
       "cohort_window": "rolling 2026"
     },
     {
       "program": "Submit Your Company",
       "official_url": "https://progressive.decilehub.com/submit_your_company",
-      "action": "apply_now_deck_fix",
-      "reason": "The current official Decile Hub intake still renders its Company, Founders, and Pitch deck stages. The latest receipt failed only because the generated pitch deck and matching context receipt were absent. The current build provides a deterministic preflight-verified deck.pdf. Attach only FUNDRAISER_VERIFIED_DECK and continue to an official submission receipt or a newly observed explicit candidate failure.",
+      "action": "apply_now_target_reacquire_fix",
+      "reason": "The current official Decile Hub intake accepted every required field and FUNDRAISER_VERIFIED_DECK and passed the deterministic pre-submit gate, but its owned CDP target disappeared before any final submit interaction. Reopen once in a fresh ai.anicca.fundraiser owned tab, rebuild and read back the known form, attach only FUNDRAISER_VERIFIED_DECK, pass the pre-submit gate, and submit exactly once. Never retry if a final submit effect becomes ambiguous.",
       "organization": "Progressive Ventures",
       "cohort_window": "rolling 2026"
     },

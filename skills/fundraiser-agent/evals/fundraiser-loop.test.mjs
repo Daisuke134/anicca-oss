@@ -449,16 +449,16 @@ test("production queue retries deck-repaired candidates before inactive work", (
   ]);
   assert.deepEqual(fundraising.priority_queue.map((item) => item.action), [
     "terminal_ledger_owned",
-    "apply_now_deck_fix",
-    "apply_now_deck_fix",
+    "apply_now_native_submit_fix",
+    "apply_now_target_reacquire_fix",
     "inactive_deadline_passed",
     "terminal_ledger_owned",
     "retry_when_provider_replies_to_password_recovery",
     "retry_when_current_email_verification_available",
   ]);
   assert.match(fundraising.priority_queue[0].reason, /terminal submit_unknown receipt/);
-  assert.match(fundraising.priority_queue[1].reason, /FUNDRAISER_VERIFIED_DECK/);
-  assert.match(fundraising.priority_queue[2].reason, /FUNDRAISER_VERIFIED_DECK/);
+  assert.match(fundraising.priority_queue[1].reason, /requestSubmit\(button\).*exactly once/);
+  assert.match(fundraising.priority_queue[2].reason, /fresh ai\.anicca\.fundraiser owned tab/);
   assert.match(fundraising.priority_queue[3].reason, /deadline has passed/);
   assert.match(fundraising.priority_queue[4].reason, /terminal receipt/);
   assert.match(fundraising.priority_queue[5].reason, /password-recovery request/);
