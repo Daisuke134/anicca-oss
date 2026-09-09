@@ -83,3 +83,9 @@ def test_competitions_do_not_masquerade_as_a_broken_fixed_price_form():
     assert '"仕事の概要 コンペ" in text' in source
     assert 'rejected["unsupported_workflow"]' in source
     assert "完成成果物の事前添付" in source
+
+
+def test_hourly_jobs_do_not_masquerade_as_a_broken_fixed_price_form():
+    source = _candidate_source()
+    assert '"仕事の概要 時間単価制" in text' in source
+    assert "時給・週上限の公式readbackが未実装" in source
