@@ -91,9 +91,34 @@ async def _call(method, params=None, timeout=20.0):
     return result
 
 
+async def _prune_missing_target_rows(owner):
+    """Drop only this owner's pre-snapshot rows missing from official CDP state."""
+    owned_before = target_ownership.targets_for_owner(owner)
+    result = await _call("Target.getTargets")
+    target_infos = result.get("targetInfos")
+    if not isinstance(target_infos, list):
+        raise RuntimeError("Target.getTargets returned no targetInfos list")
+    if any(
+        not isinstance(row, dict)
+        or not isinstance(row.get("targetId"), str)
+        or not row["targetId"]
+        for row in target_infos
+    ):
+        raise RuntimeError("Target.getTargets returned an invalid targetInfos row")
+    live = {
+        row["targetId"]
+        for row in target_infos
+    }
+    return sum(
+        target_ownership.release_target(target_id, owner)
+        for target_id in owned_before - live
+    )
+
+
 def open_tab(url, background=False, owner=None):
     owner = target_ownership.require_owner(owner)
     lease = _lease(owner)
+    asyncio.run(_prune_missing_target_rows(owner))
     opened = asyncio.run(_call("Target.createTarget", {
         "url": url,
         "browserContextId": lease["context_id"],
@@ -120,6 +145,7 @@ def open_tab(url, background=False, owner=None):
 async def _serve_hidden_tab(url, owner=None):
     owner = target_ownership.require_owner(owner)
     lease = await asyncio.to_thread(_lease, owner)
+    await _prune_missing_target_rows(owner)
     async with websockets.connect(_browser_ws(), max_size=64 * 1024 * 1024) as ws:
         await ws.send(json.dumps({
             "id": 1,
