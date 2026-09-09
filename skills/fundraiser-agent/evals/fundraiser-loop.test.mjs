@@ -448,7 +448,7 @@ test("production queue retries deck-repaired candidates before inactive work", (
     "Y Combinator",
   ]);
   assert.deepEqual(fundraising.priority_queue.map((item) => item.action), [
-    "apply_now_resume_second_page",
+    "terminal_ledger_owned",
     "apply_now_deck_fix",
     "apply_now_deck_fix",
     "inactive_deadline_passed",
@@ -456,7 +456,7 @@ test("production queue retries deck-repaired candidates before inactive work", (
     "retry_when_provider_replies_to_password_recovery",
     "retry_when_current_email_verification_available",
   ]);
-  assert.match(fundraising.priority_queue[0].reason, /page two/);
+  assert.match(fundraising.priority_queue[0].reason, /terminal submit_unknown receipt/);
   assert.match(fundraising.priority_queue[1].reason, /FUNDRAISER_VERIFIED_DECK/);
   assert.match(fundraising.priority_queue[2].reason, /FUNDRAISER_VERIFIED_DECK/);
   assert.match(fundraising.priority_queue[3].reason, /deadline has passed/);
