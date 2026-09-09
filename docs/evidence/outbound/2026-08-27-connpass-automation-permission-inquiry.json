@@ -8,5 +8,16 @@
   "thread_id": "19fd6497ec8cb93d",
   "question": "Whether the applicant may use browser automation in their own account to submit ordinary event participation forms after discovering candidates with the official v2 API.",
   "declared_fail_closed_behavior": "Until explicit permission is received, the system sends candidate URLs to the applicant by Telegram and performs zero automated connpass participation submissions.",
-  "official_response_status": "pending"
+  "official_response_status": "allowed_with_conditions",
+  "official_response_message_id": "1a0615e0df678098",
+  "official_response_observed_at": "2026-09-09T17:20:00+09:00",
+  "allowed_scope": "Browser automation of ordinary event participation by the account owner, using the owner's own connpass account, when the purpose is not scraping.",
+  "conditions": [
+    "wait at least 5 seconds between connpass accesses",
+    "do not submit on behalf of third parties",
+    "do not use for sales activity",
+    "avoid short-interval or bulk access to pages and APIs",
+    "do not bypass ordinary connpass flows or restrictions"
+  ],
+  "api_write_permission": "not_requested_and_not_implemented"
 }

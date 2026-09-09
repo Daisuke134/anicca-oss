@@ -1311,7 +1311,7 @@ Telegramを各ユーザーのprimary UIとする。source、raw log、state file
 #### Cross-loop recovery and product TODO order — current SSOT
 
 1. **CLEANUP-FIRST — DONE:** safe disk floorを回復し、producerが再び枯渇させないgovernorを実測する。credential、state、active release、未統合worktreeを保持する。実測はData volume free `12.2 GB`（11 GiB超）、tier `PREVENTIVE`、pressure flag absent、cleanup errors `0`、protected deletions `0`。release gateはmain `60a48eebe`由来currentへ反映し、圧迫中のdirect実測でexit `75`・release count `36→36`、自然reconcilerでも反復`EX_TEMPFAIL`と新規release `0`を確認した。
-2. **CONNECTOR-RUNTIME:** event 404826のCalendar/Telegram/bundle reconciliationと直後の自然30分replay-zeroはmain `885110c9…`由来releaseでDONE。残る内部順序は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`。
+2. **CONNECTOR-RUNTIME:** event 404826のCalendar/Telegram/bundle reconciliation、直後の自然30分replay-zero、CG-28 official permission receiptはDONE。残る内部順序は`CG-44 → CG-45 → CG-47 → CG-48 → CG-51`。
 3. **FUNDRAISER-RUNTIME:** 自然30分wakeで新規accelerator/VC応募またはcold email exact 1、Telegram receipt、次wake duplicate 0を閉じる。
 4. **TELEGRAM-OSS-UX:** one-command local setup、pairing、onboarding、commands/buttons、notification levels、Connector/Fundraiserの上記message contractをclean installでE2Eする。
 5. **CLOUD-AFTER-LOCAL:** local acceptance後だけ、同じcoreをtenant分離されたcloudへhostし、Telegram-only signupからpause/data deletionまでE2Eする。
@@ -1410,7 +1410,7 @@ Current active atomは順序2の**CONNECTOR-RUNTIME**である。後続atomを�
 - [x] **CG-25** `connector-connpass-workflow.js`のdiscoveryを既存`connpass-api-client.js`へ切り替え、active pathからcalendar page scrapingを外す。
 - [x] **CG-26** source scan regressionでactive connpass discoveryが`/api/v2/events/`以外へautomated list/detail accessしないことを検証する。
 - [x] **CG-27** connpass candidateでは参加枠、LT枠、補欠、締切、canonical URLをTelegram action receiptへ正規化し、local UI submit opt-in未設定時のSubmitを0にする。
-- [ ] **CG-28** provider APIのwrite permission問い合わせとofficial response receiptを追跡する。API writeは実装せず、provider responseがない間もUI申込の可否とは分離する。UI申込はDaisの明示的なローカルopt-in（`LM_CONNECTOR_CONNPASS_AUTOMATED_SUBMIT_ALLOWED=true`）だけが許可し、未設定・falseはTelegram action boundaryへ落とす。問い合わせ送信receiptは `docs/evidence/outbound/2026-08-27-connpass-automation-permission-inquiry.json`、official responseはpending。
+- [x] **CG-28** provider APIのwrite permission問い合わせとofficial response receiptを追跡する。API writeは実装しない。official responseは、本人自身のaccountによる通常参加申込のbrowser automationを、scraping目的でない範囲で許可した。最低5秒間隔、第三者代理・営業利用・短時間大量access・通常flow/制限回避の禁止を守る。UI申込はDaisの明示的なローカルopt-in（`LM_CONNECTOR_CONNPASS_AUTOMATED_SUBMIT_ALLOWED=true`）だけが許可され、未設定・falseはTelegram action boundaryへ落とす。送信・回答receiptは `docs/evidence/outbound/2026-08-27-connpass-automation-permission-inquiry.json`。
 - [x] **CG-29** API keyを使うread-only live canaryでTokyo 28日inventoryを取得し、API audit、secret非露出、Luma continuationをreadbackしてcommit/pushする。
 
 ##### E. Lightning Talk application
@@ -10098,3 +10098,9 @@ event 404826 `#pqc_study`のreconciliationが止まった直接原因は、現�
 loaded ownerを触らずに待ち、17:06:52 JSTの自然wakeでlaunchd `runs 1→2`を確認した。wake `wake-4ef37f94598f28087d080048`は約4分で終了し、exit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`、Telegram every-wake provider ID `71216`を保存した。既存event 404826を含むactionは0件で、providerへの再Submitを行っていない。
 
 終了後の独立Google Calendar API readbackはprivate idempotency property一致がexact 1件、event IDも初回と同一だった。durable applied bundleもevent 404826に対してexact 1件を維持した。target lease 0、owner inactive、Connector process 0、lock absent、launchd state `not running`でcleanupも完了した。これで404826 reconciliation直後の自然replay-zeroをacceptするが、別の新規Luma/Connpass適格event、独立LT receipt、連続自然wake gate、final closureを代用しない。
+
+### O1B-25進捗525（CG-28 official permission accepted）
+
+official Gmail thread `19fd6497ec8cb93d`をread-only再取得し、message countが2から4へ増え、provider側の新規response message `1a0615e0df678098`を確認した。回答は、本人自身のconnpass accountで通常のイベント参加申込をbrowser自動操作することを、scraping目的でない範囲で明示的に許可した。条件はconnpass accessを最低5秒以上空け、第三者代理、営業目的、短時間・大量access、通常flowまたは制限の回避を行わないことである。
+
+API writeは問い合わせ範囲外であり、引き続き実装0とする。既存のlocal opt-in、official API v2 discovery、5秒以上のrate limit、provider official readback、Calendar/Telegram/bundle evidence、fail-closed gateは回答条件と一致する。privacy-safe response receiptを更新してCG-28をDONEとし、次の固定cursorはCG-44の新規Luma live bundleである。
