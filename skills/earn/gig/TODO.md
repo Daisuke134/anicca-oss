@@ -2231,6 +2231,15 @@ from the chat, and two of them contradict what this cursor had previously report
     Interview and contract outcomes remain normal future observations grouped by the retained score
     band; their absence today does not reopen this implementation and effect acceptance.
 
+29. [ ] `COCONALA-REPLY-2` Restore the current Coconala Reply owner before rechecking the other
+    providers. The current installed SHA is newer than the latest natural terminal, which fails
+    before observation with `RuntimeError: browser_tab_limit`. Official CDP lists no Coconala page,
+    while the Reply-scoped target registry retains two target IDs that no longer exist. PASS = target
+    creation prunes only registered IDs absent from official CDP before enforcing the per-owner limit;
+    a main-derived natural Reply wake observes the official inbox without a browser, GUI-session or
+    Mac restart; every actionable buyer event receives one reply, durable defer or handoff with
+    Telegram/readback; and a following natural wake replays external effects at zero.
+
 
 
 
