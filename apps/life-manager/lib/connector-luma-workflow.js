@@ -152,7 +152,7 @@ function createLumaScriptFirstWorkflow(options = {}) {
   const now = options.now || (() => new Date());
   const discoverOnPage = options.discoverOnPage || ((input) => defaultDiscoverOnPage({
     ...input,
-    detailOffset: Math.floor(now().getTime() / 1_800_000),
+    detailOffset: Math.floor(now().getTime() / 1_800_000) * LUMA_DETAIL_WALK_LIMIT,
   }));
   const isCalendarFree = options.isCalendarFree || defaultCalendarFree;
   const submitOnPage = options.submitOnPage || submitLumaOnPage;

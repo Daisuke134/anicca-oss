@@ -91,10 +91,10 @@ test("Luma default detail walk is bounded to six candidates while observed_count
   assert.equal(result.length, 6);
   assert.equal(audits[0].observed_count, 13);
   assert.equal(gotoCalls.length, 7);
-  assert.equal(gotoCalls.includes("https://luma.com/bounded-7"), false);
+  assert.equal(new Set(gotoCalls.slice(1)).size, 6);
 });
 
-test("Luma default detail walk rotates to a different bounded slice every half hour", async () => {
+test("Luma default detail walk advances by one full bounded slice every half hour", async () => {
   const slugs = Array.from({ length: 8 }, (_, index) => `rotated-${index + 1}`);
   const { page, gotoCalls } = defaultDiscoveryPage(slugs);
   let now = new Date(0);
@@ -108,7 +108,8 @@ test("Luma default detail walk rotates to a different bounded slice every half h
   const second = gotoCalls.filter((url) => url !== "https://luma.com/tokyo?k=p");
 
   assert.deepEqual(first, slugs.slice(0, 6).map((slug) => `https://luma.com/${slug}`));
-  assert.deepEqual(second, [...slugs.slice(1, 7)].map((slug) => `https://luma.com/${slug}`));
+  assert.deepEqual(second, [...slugs.slice(6), ...slugs.slice(0, 4)]
+    .map((slug) => `https://luma.com/${slug}`));
 });
 
 test("Luma default detail navigation, read, and normalize failures skip one candidate and continue", async () => {

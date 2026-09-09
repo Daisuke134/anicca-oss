@@ -10104,3 +10104,9 @@ loaded ownerを触らずに待ち、17:06:52 JSTの自然wakeでlaunchd `runs 1�
 official Gmail thread `19fd6497ec8cb93d`をread-only再取得し、message countが2から4へ増え、provider側の新規response message `1a0615e0df678098`を確認した。回答は、本人自身のconnpass accountで通常のイベント参加申込をbrowser自動操作することを、scraping目的でない範囲で明示的に許可した。条件はconnpass accessを最低5秒以上空け、第三者代理、営業目的、短時間・大量access、通常flowまたは制限の回避を行わないことである。
 
 API writeは問い合わせ範囲外であり、引き続き実装0とする。既存のlocal opt-in、official API v2 discovery、5秒以上のrate limit、provider official readback、Calendar/Telegram/bundle evidence、fail-closed gateは回答条件と一致する。privacy-safe response receiptを更新してCG-28をDONEとし、次の固定cursorはCG-44の新規Luma live bundleである。
+
+### O1B-25進捗526（Luma bounded batch cursor repair）
+
+CG-44の自然候補待ちを監査し、Luma公開inventory 37件に対して一wakeのdetail上限は6件なのに、30分ごとの開始cursorが1件しか進まず、全候補一巡に最大18.5時間かかることを確定した。これは一wakeの負荷を抑えながら30分ごとに新しいeventを探すcontractに対して不要な重複walkである。
+
+一wakeのdetail上限6件は維持し、開始cursorだけを30分ごとに`1`ではなく`LUMA_DETAIL_WALK_LIMIT`の6件進めるよう最小修正した。37件なら最大7 wake、約3.5時間で一巡する。focused Luma/production 73/73、全Connector glob suite 737/737がPASSした。実Luma登録、Calendar write、Telegram送信、bundle作成はこのcode検証では0であり、CG-44のlive acceptanceは次のmain由来release自然wakeまで未完のまま維持する。
