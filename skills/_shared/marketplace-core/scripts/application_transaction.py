@@ -75,6 +75,7 @@ _LEGACY_PENDING_FIELDS = frozenset({
     "delivery_due_on",
 })
 _PENDING_FIELDS = _LEGACY_PENDING_FIELDS | {"project_id"}
+_HOURLY_PENDING_FIELDS = _PENDING_FIELDS | {"pricing_mode", "weekly_limit_hours"}
 
 
 def _is_sha256(value: object) -> bool:
@@ -131,9 +132,11 @@ def _read_state(path: Path) -> Tuple[Set[str], Dict[str, Dict[str, object]]]:
         # The title is optional and carried only so a later reconcile can name the job, so compare
         # the required fields rather than the exact set: an exact-set check rejected the whole state
         # file the moment a claim carried one, and every reconcile returned state_invalid.
-        if not isinstance(raw_entry, Mapping) or set(raw_entry) - _OPTIONAL_PENDING_FIELDS not in (
+        entry_fields = set(raw_entry) - _OPTIONAL_PENDING_FIELDS if isinstance(raw_entry, Mapping) else set()
+        if not isinstance(raw_entry, Mapping) or entry_fields not in (
             _LEGACY_PENDING_FIELDS,
             _PENDING_FIELDS,
+            _HOURLY_PENDING_FIELDS,
         ):
             raise _StateInvalid()
         entry_title = raw_entry.get("title")
@@ -148,13 +151,26 @@ def _read_state(path: Path) -> Tuple[Set[str], Dict[str, Dict[str, object]]]:
         amount_minor = raw_entry["amount_minor"]
         delivery_due_on = raw_entry["delivery_due_on"]
         project_id = raw_entry.get("project_id")
+        pricing_mode = raw_entry.get("pricing_mode", "fixed")
+        weekly_limit_hours = raw_entry.get("weekly_limit_hours")
+        terms_valid = (
+            pricing_mode == "fixed"
+            and _is_delivery_due_on(delivery_due_on)
+            and weekly_limit_hours is None
+        ) or (
+            pricing_mode == "hourly"
+            and delivery_due_on is None
+            and isinstance(weekly_limit_hours, int)
+            and not isinstance(weekly_limit_hours, bool)
+            and weekly_limit_hours > 0
+        )
         if (
             not _is_sha256(content_sha256)
             or isinstance(amount_minor, bool)
             or not isinstance(amount_minor, int)
             or amount_minor <= 0
-            or not _is_delivery_due_on(delivery_due_on)
-            or (set(raw_entry) == _PENDING_FIELDS and not _is_project_id(project_id))
+            or not terms_valid
+            or (entry_fields != _LEGACY_PENDING_FIELDS and not _is_project_id(project_id))
         ):
             raise _StateInvalid()
         entry = {
@@ -166,8 +182,11 @@ def _read_state(path: Path) -> Tuple[Set[str], Dict[str, Dict[str, object]]]:
         # Rebuilding the entry field by field is the third place the title was dropped, after the
         # writer's field list and the reader's exact-set check.
         if isinstance(entry_title, str) and entry_title.strip(): entry["title"] = entry_title.strip()
-        if set(raw_entry) == _PENDING_FIELDS:
+        if entry_fields != _LEGACY_PENDING_FIELDS:
             entry["project_id"] = project_id
+        if entry_fields == _HOURLY_PENDING_FIELDS:
+            entry["pricing_mode"] = pricing_mode
+            entry["weekly_limit_hours"] = weekly_limit_hours
         pending[marker] = entry
     return fingerprints, pending
 
@@ -180,6 +199,7 @@ def _write_state(
         marker: {
             **{field: entry[field] for field in _LEGACY_PENDING_FIELDS},
             **({"project_id": entry["project_id"]} if "project_id" in entry else {}),
+            **({"pricing_mode": entry["pricing_mode"], "weekly_limit_hours": entry["weekly_limit_hours"]} if "pricing_mode" in entry else {}),
             # The claim carries the job's name so a later reconcile can name it; dropping it here
             # is why receipts read "案件: 案件 13422653" instead of the job.
             **({"title": entry["title"]} if "title" in entry else {}),
@@ -232,7 +252,8 @@ def read_pending_descriptors(state_path: Path) -> list[Dict[str, object]]:
     return [
         {
             key: pending[marker][key]
-            for key in ("project_id", "amount_minor", "delivery_due_on")
+            for key in ("project_id", "amount_minor", "delivery_due_on", "pricing_mode", "weekly_limit_hours")
+            if key in pending[marker]
         }
         for marker in sorted(pending)
         if _is_project_id(pending[marker].get("project_id"))
@@ -258,12 +279,21 @@ def load_marketplace_contracts():
     return module
 
 
-def _valid_terms(proposed_amount_minor: object, delivery_due_on: object) -> bool:
-    return (
+def _valid_terms(proposed_amount_minor: object, delivery_due_on: object, pricing_mode: object, weekly_limit_hours: object) -> bool:
+    amount_valid = (
         isinstance(proposed_amount_minor, int)
         and not isinstance(proposed_amount_minor, bool)
         and proposed_amount_minor > 0
-        and _is_delivery_due_on(delivery_due_on)
+    )
+    return amount_valid and (
+        (pricing_mode == "fixed" and _is_delivery_due_on(delivery_due_on) and weekly_limit_hours is None)
+        or (
+            pricing_mode == "hourly"
+            and delivery_due_on is None
+            and isinstance(weekly_limit_hours, int)
+            and not isinstance(weekly_limit_hours, bool)
+            and weekly_limit_hours > 0
+        )
     )
 
 
@@ -311,14 +341,18 @@ def _reconcile_pending(
         return _uncertain(project_id, proposal_id if isinstance(proposal_id, str) else None)
 
     observed_proposal_id = _observed_proposal_id(observed)
-    observed_amount = observed.get("amount_minor") if isinstance(observed, Mapping) else None
-    terms_match = (
-        isinstance(observed_amount, int)
+    pricing_mode = pending_entry.get("pricing_mode", "fixed")
+    observed_amount = observed.get("hourly_rate_minor" if pricing_mode == "hourly" else "amount_minor") if isinstance(observed, Mapping) else None
+    terms_match = isinstance(observed, Mapping) and observed.get("project_id") == project_id and (
+        pricing_mode == "fixed"
+        and isinstance(observed_amount, int)
         and not isinstance(observed_amount, bool)
         and observed_amount == pending_entry["amount_minor"]
-        and isinstance(observed, Mapping)
-        and observed.get("project_id") == project_id
         and observed.get("delivery_due_on") == pending_entry["delivery_due_on"]
+        or pricing_mode == "hourly"
+        and observed.get("pricing_mode") == "hourly"
+        and observed_amount == pending_entry["amount_minor"]
+        and observed.get("weekly_limit_hours") == pending_entry["weekly_limit_hours"]
     )
     proposal_match = (
         observed_proposal_id is not None
@@ -359,7 +393,10 @@ def _reconcile_pending(
         title = pending_entry.get("title")
         if isinstance(title, str) and title.strip(): receipt["opportunity_title"] = title.strip()[:300]
         amount = pending_entry.get("amount_minor")
-        if isinstance(amount, int) and not isinstance(amount, bool) and amount > 0: receipt["proposed_amount_minor"] = amount
+        if pricing_mode == "hourly":
+            receipt.update({"pricing_mode": "hourly", "proposed_hourly_rate_minor": amount, "weekly_limit_hours": pending_entry["weekly_limit_hours"]})
+        elif isinstance(amount, int) and not isinstance(amount, bool) and amount > 0:
+            receipt["proposed_amount_minor"] = amount
         load_marketplace_contracts().parse_application_receipt(receipt)
         ledger_writer(receipt)
         pending.pop(marker, None)
@@ -381,13 +418,15 @@ def run_transaction(
     opportunity: Mapping[str, object],
     proposal_text: str,
     proposed_amount_minor: int,
-    delivery_due_on: str,
+    delivery_due_on: Optional[str],
     state_path: Path,
     account_ready: Callable[[], bool],
     submitter: Callable[..., object],
     readback: Callable[[Optional[str], str], Mapping[str, object]],
     ledger_writer: Callable[[Mapping[str, object]], object],
     now: Callable[[], object],
+    pricing_mode: str = "fixed",
+    weekly_limit_hours: Optional[int] = None,
 ) -> TickResult:
     if not isinstance(platform, str) or _PLATFORM_RE.fullmatch(platform) is None:
         raise ValueError("invalid_platform")
@@ -397,7 +436,7 @@ def run_transaction(
         return TickResult(ok=False, error="project_id_required")
     if not isinstance(proposal_text, str) or not proposal_text:
         return TickResult(ok=False, error="proposal_text_required", project_id=project_id)
-    if not _valid_terms(proposed_amount_minor, delivery_due_on):
+    if not _valid_terms(proposed_amount_minor, delivery_due_on, pricing_mode, weekly_limit_hours):
         return TickResult(ok=False, error="financial_terms_required", project_id=project_id)
 
     path = Path(state_path)
@@ -424,6 +463,8 @@ def run_transaction(
                     "delivery_due_on": delivery_due_on,
                     "project_id": project_id,
                 }
+                if pricing_mode == "hourly":
+                    pending_entry.update({"pricing_mode": "hourly", "weekly_limit_hours": weekly_limit_hours})
                 # Carry the job's name with the claim so a later reconcile, which only knows ids,
                 # can still write a receipt a human can read.
                 claim_title = opportunity.get("title") if isinstance(opportunity, Mapping) else None
