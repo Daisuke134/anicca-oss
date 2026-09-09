@@ -207,7 +207,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                     credentials_path=credentials_path, cli_path=cli_path, symbols=SYMBOLS))
         stage = "allocator_read"
         allocator_snapshot = read_allocator_snapshot(
-            credentials_path=credentials_path, cli_path=cli_path)
+            credentials_path=credentials_path, cli_path=cli_path,
+            risk_day_path=state / "risk-day.json")
         unresolved = reconciliation.get("unresolved")
         if isinstance(unresolved, bool) or not isinstance(unresolved, int) or unresolved != 0:
             raise ValueError("investment_unresolved_intent")
@@ -221,6 +222,7 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         )
         decision["deployment"] = deployment
         decision["mode"] = mode
+        decision["risk"] = allocator_snapshot["risk"]
         if effect != "none" and decision["approved"]:
             decision["approved"] = False
             decision["gate"] = "campaign_exit_used_effect_limit"

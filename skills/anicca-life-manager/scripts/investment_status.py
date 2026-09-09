@@ -21,8 +21,14 @@ def build_investment_reply(state_root: Path) -> dict:
     root = state_root / "alpaca-investment"
     account_path = root / "account-status.json"
     account = _read_json(account_path)
-    observation = _read_json(root / "observation-latest.json")
-    allocation = _read_json(root / "allocation-latest.json")
+    snapshot_root = next((candidate for candidate in (
+        state_root / "alpaca-investment-live",
+        state_root / "alpaca-investment-shadow",
+        root,
+    ) if (candidate / "observation-latest.json").is_file()), root)
+    observation = _read_json(snapshot_root / "observation-latest.json")
+    allocation = _read_json(snapshot_root / "allocation-latest.json")
+    risk = _read_json(snapshot_root / "risk-latest.json")
 
     if not account_path.exists():
         return {
@@ -50,18 +56,21 @@ def build_investment_reply(state_root: Path) -> dict:
     if application_status == "in_review":
         lines.append("ライブ口座: 審査中です。今は操作不要です。承認を確認したら、次に必要な操作だけ知らせます。")
     elif application_status in {"approved", "active"}:
-        lines.append("ライブ口座: 承認済みです。入金とリスク上限を確認するまでライブ注文は出しません。")
+        lines.append("ライブ口座: 有効です。現在の自動運転状態を下に表示します。")
     elif application_status in {"rejected", "action_required"}:
         lines.append("ライブ口座: 追加対応が必要です。Alpacaの画面で表示される本人対応だけ行ってください。")
     else:
         lines.append("ライブ口座: 状態をまだ確認できません。ライブ注文は出しません。")
 
     if equity is not None and cash is not None:
-        lines.append(f"paper loop: 稼働中。資産 ${equity}、現金 ${cash}、今回の判断は{decision}です。")
+        mode = observation.get("mode") if observation.get("mode") in {"paper", "shadow", "live"} else "不明"
+        lines.append(f"運転: {mode}。資産 ${equity}、現金 ${cash}、今回の判断は{decision}です。")
         if reason:
             lines.append(f"理由: {reason}")
+        lines.append(f"日次純損益: {risk.get('official_pnl_ny_day_usd', '不明')}")
+        lines.append("次回確認: 5分後（全wakeをTelegramで報告）")
     else:
-        lines.append("paper loop: 最新状態をまだ読み取れません。次の5分周期で再確認します。")
+        lines.append("運転状態: 最新snapshotをまだ読み取れません。5分後に自動再確認します。")
     return {"text": "\n".join(lines)}
 
 

@@ -26,7 +26,9 @@ def snapshot(**changes):
         "risk": {
             "allocated_capital_usd": "0",
             "cash_flow_ny_day_usd": "0",
-            "realized_pnl_ny_day_usd": "0",
+            "equity_pnl_ny_day_usd": "0",
+            "official_pnl_ny_day_usd": "0",
+            "risk_day_ready": True,
             "unrealized_pnl_usd": "0",
             "observed_at": now.isoformat().replace("+00:00", "Z"),
             "ny_day": now.astimezone(ZoneInfo("America/New_York")).date().isoformat(),
@@ -97,10 +99,9 @@ class OnePositionOneIntentTest(unittest.TestCase):
 
 
 class CashFlowAdjustedPnlTest(unittest.TestCase):
-    def test_deposit_and_withdrawal_are_not_counted_as_profit(self):
+    def test_completion_after_baseline_uses_usd_value_once_across_restart(self):
         observed = "2026-09-06T13:59:50Z"
-        responses = [
-            {"cash": "100081", "equity": "100081", "last_equity": "100000"},
+        common = [
             {"is_open": True, "timestamp": observed},
             [
                 {"activity_type": "CSD", "date": "2026-09-06", "net_amount": "100"},
@@ -111,17 +112,39 @@ class CashFlowAdjustedPnlTest(unittest.TestCase):
             {"tradable": True, "status": "active"},
             {"bid": "499", "ask": "500", "quote_at": observed}, [],
         ]
-        with patch.object(alpaca_cli, "_context", return_value={}), patch.object(
-            alpaca_cli, "_run", side_effect=responses
-        ) as read:
-            result = alpaca_cli.read_allocator_snapshot(
-                credentials_path=Path("missing"), cli_path=Path("missing"))
-        self.assertEqual(result["risk"]["cash_flow_ny_day_usd"], "60")
-        self.assertEqual(result["risk"]["realized_pnl_ny_day_usd"], "30")
+        baseline = [{"id": "funding", "asset": "USDC", "usd_value": None,
+                     "direction": "INCOMING", "status": "PROCESSING"}]
+        complete = [{"id": "funding", "asset": "USDC", "usd_value": "9.99707",
+                     "direction": "INCOMING", "status": "COMPLETE"}]
+        responses = ([{"cash": "100000", "equity": "100000", "last_equity": "99900"}]
+                     + common[:2] + [baseline, []] + common[2:]
+                     + [{"cash": "100009.99707", "equity": "100009.99707", "last_equity": "99900"}]
+                     + common[:2] + [complete, []] + common[2:] * 1
+                     + [{"cash": "100009.99707", "equity": "100009.99707", "last_equity": "99900"}]
+                     + common[:2] + [complete, []] + common[2:] * 1)
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            alpaca_cli, "_context", return_value={}), patch.object(
+                alpaca_cli, "_run", side_effect=responses) as read:
+            path = Path(directory) / "risk-day.json"
+            first = alpaca_cli.read_allocator_snapshot(
+                credentials_path=Path("missing"), cli_path=Path("missing"), risk_day_path=path)
+            second = alpaca_cli.read_allocator_snapshot(
+                credentials_path=Path("missing"), cli_path=Path("missing"), risk_day_path=path)
+            third = alpaca_cli.read_allocator_snapshot(
+                credentials_path=Path("missing"), cli_path=Path("missing"), risk_day_path=path)
+        self.assertFalse(first["risk"]["risk_day_ready"])
+        self.assertEqual(second["risk"]["cash_flow_ny_day_usd"], "9.99707")
+        self.assertEqual(second["risk"]["equity_pnl_ny_day_usd"], "0.00000")
+        self.assertEqual(third["risk"]["cash_flow_ny_day_usd"], "9.99707")
         activity_args = read.call_args_list[2].args[1]
         self.assertIn("CSD,CSW", activity_args)
         self.assertIn("2026-09-06T04:00:00Z", activity_args)
         self.assertIn("2026-09-07T04:00:00Z", activity_args)
+        self.assertEqual(read.call_args_list[3].args[1], [
+            "api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
+            "[.[]|{id,asset,usd_value,direction,status}]",
+        ])
+        self.assertIn("FILL", read.call_args_list[4].args[1])
 
 
 if __name__ == "__main__":

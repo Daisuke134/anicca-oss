@@ -28,6 +28,7 @@ def test_in_review_reuses_existing_paper_receipts(tmp_path):
     assert "資産 $99996.76" in message
     assert "取引なし" in message
     assert "No fresh edge." in message
+    assert "運転: 不明" in message
     assert "Alpaca Loop" not in message
     assert "Codex" not in message
 
@@ -42,7 +43,7 @@ def test_unknown_status_fails_closed_without_inventing_balance(tmp_path):
 
     assert "状態をまだ確認できません" in message
     assert "ライブ注文は出しません" in message
-    assert "最新状態をまだ読み取れません" in message
+    assert "最新snapshotをまだ読み取れません" in message
     assert "reply_markup" not in reply
 
 
@@ -73,8 +74,24 @@ def test_active_account_is_presented_as_live_ready_but_still_fail_closed(tmp_pat
 
     message = build_investment_status(tmp_path)
 
-    assert "承認済み" in message
-    assert "ライブ注文は出しません" in message
+    assert "有効です" in message
+    assert "審査中" not in message
+
+
+def test_prefers_live_snapshot_and_reports_every_wake_cadence(tmp_path):
+    _write(tmp_path / "alpaca-investment" / "account-status.json", {"application_status": "active"})
+    live = tmp_path / "alpaca-investment-live"
+    _write(live / "observation-latest.json", {
+        "mode": "live", "account": {"equity": "66.75", "cash": "0"}, "positions": [{}]})
+    _write(live / "allocation-latest.json", {"approved": False, "reason": "risk gate"})
+    _write(live / "risk-latest.json", {"official_pnl_ny_day_usd": "-0.02"})
+
+    message = build_investment_status(tmp_path)
+
+    assert "運転: live" in message
+    assert "資産 $66.75" in message
+    assert "日次純損益: -0.02" in message
+    assert "全wakeをTelegramで報告" in message
 
 
 def test_cli_prints_clickable_signup_url_for_new_user(tmp_path):

@@ -20,7 +20,8 @@ NOW = datetime(2026, 9, 6, 14, 0, tzinfo=timezone.utc)
 
 def risk(**changes):
     value = {"allocated_capital_usd": "89.99", "cash_flow_ny_day_usd": "0",
-             "realized_pnl_ny_day_usd": "-9.00",
+             "equity_pnl_ny_day_usd": "-19.99",
+             "official_pnl_ny_day_usd": "-19.99", "risk_day_ready": True,
              "unrealized_pnl_usd": "-10.99", "observed_at": "2026-09-06T13:59:50Z",
              "ny_day": "2026-09-06"}
     value.update(changes)
@@ -33,7 +34,7 @@ class FixedRiskPolicyTest(unittest.TestCase):
         with patch.object(alpaca_cli, "_context", return_value={}), patch.object(
             alpaca_cli, "_run", side_effect=[
                 {"cash": "99980.01", "equity": "99980.01", "last_equity": "100000.00"},
-                clock, [], [{"symbol": "SPY", "market_value": "89.99", "unrealized_pl": "-10.99"}],
+                clock, [], [], [], [{"symbol": "SPY", "market_value": "89.99", "unrealized_pl": "-10.99"}],
                 open_orders, {"price": "500", "timestamp": clock["timestamp"]},
                 [{"symbol": "BTC/USD", "bid": "49999", "ask": "50000", "quote_at": clock["timestamp"]}],
                 {"tradable": True, "status": "active", "overnight_tradable": True,
@@ -41,18 +42,21 @@ class FixedRiskPolicyTest(unittest.TestCase):
                 {"bid": "499", "ask": "500", "quote_at": clock["timestamp"]}, [],
             ]
         ):
-            return alpaca_cli.read_allocator_snapshot(
-                credentials_path=Path("missing"), cli_path=Path("missing"))
+            with tempfile.TemporaryDirectory() as directory:
+                return alpaca_cli.read_allocator_snapshot(
+                    credentials_path=Path("missing"), cli_path=Path("missing"),
+                    risk_day_path=Path(directory) / "risk-day.json")
 
     def test_provider_snapshot_builds_the_fixed_risk_inputs(self):
         snapshot = self._provider_snapshot()
         self.assertEqual(snapshot["positions"], 1)
-        self.assertEqual(snapshot["risk"], risk())
+        self.assertFalse(snapshot["risk"]["risk_day_ready"])
+        self.assertIsNone(snapshot["risk"]["official_pnl_ny_day_usd"])
         self.assertEqual(allocator.build_candidates(snapshot)[0]["max_loss_usd"], 10.0)
 
     def test_provider_nanoseconds_and_utc_offset_are_valid_risk_time(self):
         snapshot = self._provider_snapshot("2026-09-06T09:59:50.123456789-04:00")
-        self.assertTrue(evaluate_entry(snapshot["risk"], "10.00", now=NOW)["approved"])
+        self.assertFalse(evaluate_entry(snapshot["risk"], "10.00", now=NOW)["approved"])
 
     def test_boolean_open_order_count_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "^alpaca_allocator_shape_invalid$"):
@@ -69,7 +73,7 @@ class FixedRiskPolicyTest(unittest.TestCase):
         cases = [
             (risk(), "10.01"),
             (risk(allocated_capital_usd="90.01"), "10.00"),
-            (risk(realized_pnl_ny_day_usd="-9.01"), "10.00"),
+            (risk(equity_pnl_ny_day_usd="-20.00"), "10.00"),
         ]
         for snapshot, loss in cases:
             with self.subTest(snapshot=snapshot, loss=loss):

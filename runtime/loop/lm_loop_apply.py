@@ -52,15 +52,25 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "LIFE_MANAGER_BROWSER_CDP_PORT": str(browser_owner["cdp_port"]),
             "LIFE_MANAGER_BROWSER_PROFILE": os.path.expanduser(browser_owner["profile"]),
         })
-    if loop_id == "alpaca-investment":
+    if loop_id in {"alpaca-investment", "alpaca-investment-shadow"}:
+        mode = "shadow" if loop_id.endswith("-shadow") else "paper"
         value["EnvironmentVariables"].update({
             "LIFE_MANAGER_INVESTMENT_DEPLOYMENT": "local",
-            "LIFE_MANAGER_INVESTMENT_MODE": "paper",
+            "LIFE_MANAGER_INVESTMENT_MODE": mode,
             "ALPACA_INVESTMENT_PAPER_CREDENTIALS_FILE": str(
                 Path.home() / ".local/share/anicca/credentials.json"
             ),
-            "ALPACA_INVESTMENT_PAPER_STATE_DIR": os.path.expanduser(entry["state_root"]),
+            "ALPACA_INVESTMENT_PAPER_STATE_DIR": (str(
+                Path.home() / ".local/state/life-manager/alpaca-investment"
+            ) if mode == "shadow" else os.path.expanduser(entry["state_root"])),
         })
+        if mode == "shadow":
+            value["EnvironmentVariables"].update({
+                "ALPACA_INVESTMENT_SHADOW_CREDENTIALS_FILE": str(
+                    Path.home() / ".local/share/anicca/credentials.json"
+                ),
+                "ALPACA_INVESTMENT_SHADOW_STATE_DIR": os.path.expanduser(entry["state_root"]),
+            })
     if loop_id in _PRIVATE_LOG_LOOP_IDS:
         value["Umask"] = 0o077
     if loop_id in {"hf-gig-apply-direct", "hf-gig-storefront-direct", "hf-gig-paid-direct"}:
