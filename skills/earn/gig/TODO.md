@@ -34,6 +34,28 @@ to create every file before the second provider proves the split. Reuse the exis
 `contracts.py`, `ledger.py`, agent runner and `runtime/loop` primitives wherever they already satisfy
 the contract.
 
+### Contract-work expansion meta-loop — end state, not a cursor reorder
+
+After the current providers prove the four shared lanes, Life Manager repeatedly discovers additional
+contract-work markets, ranks them by obtainable net value and autonomous deliverability, and adds only
+a thin provider adapter. The seed set is Coconala, Lancers, CrowdWorks, Mercor, Freelancer.com,
+Upwork, Fiverr, uGig and AudioBabel; discovery must continue beyond that list and must not depend on
+language. Each candidate is classified by official capabilities rather than forced into fake lanes:
+Apply, Reply and Paid are common where supported; Storefront is present only when the provider offers
+seller listings. Identity-bound KYC, interview, voice/video capture or physical work becomes one
+deduplicated Telegram handoff containing the exact official URL, required action and resumable work
+item; every other work item continues independently.
+
+The meta-loop promotes nothing from code existence. It reuses the shared kernels and reporting,
+implements auth/selectors/state vocabulary/mutations/readback in the adapter, runs conformance tests,
+cuts a main-derived immutable release, proves a bounded canary with official receipts, then monitors
+contract, accepted delivery, payout and net cash. Platform policy and official account capacity set
+cadence; an invented interval such as “one application every three hours” is not evidence that a
+restricted account is permitted or safe. Lessons change one shared contract or policy only when they
+generalize; provider ceremonies remain in the adapter. This measured recipe is later canonicalized in
+`skills/loop-development/SKILL.md`, enabling the Life Manager development loop to find, build, verify,
+repair and improve new revenue loops without Dais or a coding harness choosing each platform.
+
 ```text
 skills/
 ├── _shared/marketplace-core/
@@ -138,12 +160,12 @@ acceptance receipt changes a cell.
 | Coconala | **Account restriction persists.** The latest bounded run ends failed with official applied-history readback `403 Forbidden`, `observed=0`, `effect=0`, `failed=1`; direct authenticated inspection of a current request also returns 403. The application ledger has no row newer than 2026-09-02. Forty-two durable uncertain intents remain owned and no duplicate submission was attempted. | **Current runtime passes with durable ownership.** Installed/event release `4fd16d1f` ended consecutive natural PASS terminals at `2026-09-09T13:40:07Z` and `13:46:19Z` after pruning only stale Reply-owned target rows. Both aggregates observed `174`, read back/replayed `159`, failed `0`, kept `11` officially send-disabled threads waiting externally and `4` uncertain prior effects under reconcile ownership, and performed external effect `0`. | **Broken and unloaded.** Installed release `56ebb339` has a failed terminal and the owner is unloaded; recent writes also failed with `ENOSPC`. Historical listing publication is not current health or revenue proof. | **Reference acceptance retained; current owner not healthy.** `COCONALA-PAID-1` through `3C` still prove the five-room receipt chain, failed zero, formal delivery off and Ryu replay-zero. The owner is currently running, but its latest completed terminal is `fail`; process existence cannot replace a natural terminal or official effect readback. No new customer effect is authorized merely to retest it. |
 | Lancers | **Project/fixed-price applications are producing official receipts.** Natural release `25e45d35` reconciled project `5599521` as proposal `27907931` and project `5599537` as proposal `27907996`, both at JPY 20,000. Telegram delivered them once as messages `71494` and `71516`; later wakes kept each ledger receipt at one while continuing to new project `5599538`. The latest wake therefore ends `submission_uncertain` for a new fenced effect, not a duplicate of either verified application. No accepted contract or payout is proven yet. | **Current runtime passes with complete replay-zero.** Installed/event release `25e45d35` ended consecutive natural PASS terminals at `2026-09-09T13:45:06Z` and `13:51:25Z`. The latest official aggregate observes and reads back all seven threads once, classifies five as awaiting buyer and two as no reply required, and reports actionable `0`, pending `0`, failed `0`, effect `0`. Historical official correction `59145491` and its Telegram/readback receipt remain accepted without duplication. | **Current runtime passes, revenue unproven.** Installed release `75fab5a9` has a natural PASS. Catalog/public-readback changes are in main, but state preservation remains only on unmerged `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Broken and no revenue proof.** Installed release `75c600da` ends `entrypoint_exit_1`; the latest paid aggregate classifies `provider_inventory` with `observed=0`, `failed=1`. |
 | CrowdWorks | **Working for fixed-price and hourly applications.** Natural release `eee05950` retained earlier fixed-price proposal `305126036`, reconciled hourly proposals `305130945` and `305132604`, then submitted hourly proposal `305134017` with exact official rate/30-hour readback. Telegram messages `71454`, `71455`, `71463` are delivered, pending is empty, and the following natural PASS kept all three receipt counts at one while submitting a different job. Fixed-price/one-off work remains equally eligible; hourly support extends rather than replaces it. | **Current runtime passes with complete replay-zero.** Installed/event release `25e45d35` ended consecutive natural PASS terminals at `2026-09-09T13:48:00Z` and `13:56:48Z`. The latest official aggregate observes and reads back all eleven threads: five verified replies retain one Telegram delivery each (`69320`–`69324`), one awaits the buyer and five need no reply. Pending, failed and external effect are all zero. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Current empty-inventory path passes; no revenue proof.** Installed/event release `75c600da` has a natural PASS, but there is no real accepted contract, delivery, payment or payout receipt. Empty inventory proves monitoring only. |
-| Mercor | **Working with acceptance/value ranking.** Installed/event release `464216b4` ranked the complete visible 17-listing window as high `4`, medium `4`, low `9`, submitted high-band `Operations / Program Management Experts` with official `4 of 4`/`100%`/submitted readback, and reported it once through Telegram `71721`. The following natural PASS kept that listing at one official-ledger row and performed no duplicate effect. | **Working.** Installed release `20198997` ended consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` with `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`. Official auth is authenticated; the one actionable human handoff read back existing Telegram receipt `70005` with `attempted=0`, and the outbox remains exactly three delivered rows with attempt count one. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Official empty-inventory monitoring, not live-accepted.** Installed release `ec59f8f0` reuses the fresh shared Reply snapshot and its natural terminal passed with `status=ok`, `observed=0`, `failed=0`, `pending=0`; official Contracts are currently empty. No real work item, submission or payout receipt exists. |
+| Mercor | **Working with acceptance/value ranking.** Installed/event release `464216b4` ranked the complete visible 17-listing window as high `4`, medium `4`, low `9`, submitted high-band `Operations / Program Management Experts` with official `4 of 4`/`100%`/submitted readback, and reported it once through Telegram `71721`. The following natural PASS kept that listing at one official-ledger row and performed no duplicate effect. | **Working through the shared Reply kernel.** Installed/event release `ce4fdbf4` ended consecutive natural PASS terminals at `2026-09-09T14:41:10Z` and `14:46:21Z`. Each fresh official snapshot observed/read back all `93` events, ended actionable/pending/failed/effect `0`, and replayed all `93` at zero. Gmail source health was fresh on both wakes. The durable Telegram outbox remains exactly three delivered rows (`70004`–`70006`) at one attempt each. Shared source-gap handling now makes every stale provider row pending before model or mutation instead of treating old evidence as fresh. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Official empty-inventory monitoring, not live-accepted.** Installed release `ec59f8f0` reuses the fresh shared Reply snapshot and its natural terminal passed with `status=ok`, `observed=0`, `failed=0`, `pending=0`; official Contracts are currently empty. No real work item, submission or payout receipt exists. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off by current policy.** The old browser/free-loop labels are retired or disabled. Provider adapter code exists, but no installed owner proves current applications. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** No Project Catalog/storefront receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
 **Host-wide runtime incident.** The Data volume previously reached 100% capacity. The latest check
-has about 5.1 GiB free after another owner reclaimed space; this owner deleted nothing.
+has more than 2 GiB free after central cleanup reclaimed space; this owner deleted no protected state.
 Earlier Coconala, Lancers and CrowdWorks failures contain `ENOSPC`, SQLite disk-I/O failures and
 state/evidence temporary-write failures. Protected immutable-release GC evaluated 32 releases and
 removed none because all 32 are still referenced. Therefore no failing lane may be declared repaired
@@ -2280,7 +2302,7 @@ from the chat, and two of them contradict what this cursor had previously report
     attempt each, classifies one awaiting buyer and five no-reply threads, and ends pending `0`,
     failed `0`, effect `0`. No code or production mutation was needed.
 
-32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
+32. [x] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
     no email-as-reply substitution, preserves each Telegram human handoff or verified platform effect
@@ -2296,9 +2318,15 @@ from the chat, and two of them contradict what this cursor had previously report
     observation time, and expose the outage through the shared Reply kernel as durable
     `provider_source_stale` pending while retrying it on every wake. Permanent/mixed failures and a
     missing or malformed first inventory remain fail-closed; stale input is never reported fresh.
-    Production acceptance and the second replay-zero terminal remain pending. Disk pressure also
-    produced earlier ENOSPC cleanup-write failures, so acceptance additionally requires terminals
-    without ENOSPC.
+    PR `#4806` merged the provider-neutral stale-source pending contract and thin Mercor adapter at
+    main SHA `ce4fdbf4d907ede2273c194a8de40af8f2539e3e`. Target-only apply receipt
+    `5e9ab257eb9c8c17352f9392` installed that same immutable release without a Mac, GUI-session or
+    browser restart. Natural runs `18d3ae0f81eee370-46244` and `18d3ae5849b6ba70-56115` passed at
+    `2026-09-09T14:41:10Z` and `14:46:21Z`; both official Gmail snapshots were fresh. The final
+    aggregate observed/read back `93`, replayed all `93` at zero, and ended actionable/pending/failed/
+    effect `0`. Telegram rows `70004`–`70006` remain delivered exactly once with attempt count one.
+    The error log was last modified before either acceptance wake, proving these terminals added no
+    ENOSPC, OSError, exit 120, exit 143, traceback or runtime error.
 
 
 
