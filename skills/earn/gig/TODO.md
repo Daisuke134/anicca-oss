@@ -2044,6 +2044,14 @@ from the chat, and two of them contradict what this cursor had previously report
     natural wake with no runner-configuration decline, one official application/Telegram receipt,
     and replay-zero.
 
+24. [ ] `APPLY-DISK-2` Let central cleanup clear the same durable pressure gate that release builds
+    read. Measured 2026-09-09: cleanup repeatedly passed and free space recovered from 400 MiB to
+    7.4 GiB, but release creation stayed blocked because cleanup wrote under
+    `~/.local/state/life-manager/state` while the cutter and producers read
+    `~/.openclaw/state/disk-pressure.block`. Point the cleanup governor at the existing shared host
+    state; do not unlink the flag manually or bypass the release gate. PASS = a natural cleanup wake
+    removes the stale flag, then the exact main SHA release builds without override.
+
 
 
 
