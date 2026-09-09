@@ -247,6 +247,10 @@ def _candidate(page, listings, groups):
                 rejected["unsupported_workflow"]+=1
                 _decline(declined,job_id,title,"コンペは完成成果物の事前添付が必要な未実装workflowです")
                 continue
+            if "仕事の概要 時間単価制" in text:
+                rejected["unsupported_workflow"]+=1
+                _decline(declined,job_id,title,"時間単価は時給・週上限の公式readbackが未実装のworkflowです")
+                continue
             matched = _listing_for(listings, title, detail)
             if matched is None:rejected["off_topic"]+=1;continue
             # The 医療事務 staffing post that matched on the word AI機能 alone, and would have

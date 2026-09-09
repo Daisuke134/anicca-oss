@@ -2071,6 +2071,18 @@ from the chat, and two of them contradict what this cursor had previously report
     to the next job. PASS = merge/release, no second mutation for `13440560`, one later normal job
     reaches verified official readback and Telegram, then replay-zero.
 
+27. [ ] `APPLY-CROWDWORKS-7` Support time-based applications in the shared transaction contract.
+    Natural release `7d5d6aa3` selected job `13435160`, an unusually strong fit: long-term remote
+    WordPress/PHP development, explicit Claude Code/Codex welcome, Japan-based applicant, official
+    range JPY 1,500–2,000/hour. The fixed-price adapter attempted its hidden fixed-price radio and
+    reported `proposal_form_changed`. Read-only field-level reproduction proves the official hourly
+    controls accept rate 2,000 and weekly limit 30, but the shared transaction can verify only a
+    fixed amount plus delivery date. Until that shared receipt supports pricing mode, hourly rate
+    and weekly limit, classify this exact workflow explicitly and continue to fixed-price jobs; do
+    not force a false fixed-price proposal. PASS = first close fixed-price official application,
+    Telegram and replay-zero, then extend the shared terms contract and submit one hourly job with
+    exact official rate/weekly-limit readback. This atom stays open while hourly inventory is skipped.
+
 
 
 
