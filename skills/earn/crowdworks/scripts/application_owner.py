@@ -208,6 +208,9 @@ def _candidate(page, listings, groups):
         # the recommendation rail: 227 links for a 20-result search, nearly all unrelated.
         links=page.locator('h3 a[href*="/public/jobs/"]').evaluate_all("els => els.map(e => ({href:e.getAttribute('href') || '',title:(e.innerText || '').trim()}))")
         for link in links:
+            if time.monotonic() > deadline:
+                rejected["out_of_time"] += len(ordered) - ordered.index(listing)
+                return None,None,None,{"inspected":len(seen)-already,**rejected,"declined":declined}
             match=re.search(r"/public/jobs/([0-9]+)(?:[?#]|$)",link.get("href","") if isinstance(link,dict) else "")
             if match is None:continue
             job_id,title=match.group(1),link.get("title","")
@@ -248,11 +251,11 @@ def _candidate(page, listings, groups):
             # Coconala had no judgement here either and the marketplace restricted the account.
             verdict = _work_fit_verdict(job_id, title, detail or text)
             if verdict is not None:
-                rejected["not_workable"]+=1
                 # Not `quote`: that is urllib.parse.quote, used a few lines above to build the
                 # search URL, and binding it here made it local to the whole function and took
                 # the lane down with UnboundLocalError on the next wake.
                 reason, evidence_quote = verdict
+                rejected["judge_unavailable" if reason == "judge_unavailable" else "not_workable"]+=1
                 _decline(declined,job_id,title,f"募集文の「{evidence_quote}」が対応できない条件（{reason}）に当たります" if evidence_quote else f"対応できない条件（{reason}）に当たります")
                 continue
             return {"external_id":job_id,"title":re.sub(r"\s+"," ",title).strip()},matched,tier,{"inspected":len(seen)-already,**rejected,"declined":declined}

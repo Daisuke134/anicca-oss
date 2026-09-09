@@ -129,3 +129,5 @@ def test_default_judge_uses_the_supported_shared_apply_task_class(tmp_path, monk
     fit._default_runner("prompt", tmp_path, "crowdworks-application")
     index = observed["command"].index("--task-class")
     assert observed["command"][index + 1] == "application-intent-planner"
+    escalation = observed["command"].index("--escalation-reason")
+    assert observed["command"][escalation + 1] == "shared marketplace application fitness decision"

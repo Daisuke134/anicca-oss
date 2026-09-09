@@ -211,6 +211,7 @@ def _default_runner(prompt: str, evidence_dir: Path, loop: str) -> Mapping[str, 
         "--schema", str(JUDGEMENT_SCHEMA), "--evidence-dir", str(evidence_dir),
         "--task-label", "work-fit-judgement", "--loop", loop,
         "--workdir", str(Path(__file__).resolve().parents[4]),
+        "--escalation-reason", "shared marketplace application fitness decision",
     ]
     # stderr is kept. A runner that refuses on configuration the lane cannot see is a lane that
     # stops applying without ever saying why.
