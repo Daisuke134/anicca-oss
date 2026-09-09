@@ -219,6 +219,11 @@ def test_timeout_confirmed_from_list_returns_same_proposal_id_marked_list_confir
 
     def extra(fields):
         _add_proposal_list(module, fields, proposal_ids=["304582247"])
+        # A second page is normal once the account has more than one page of applications. The
+        # current project is still visible on the first page and must be usable as official
+        # readback instead of making the whole list unreadable.
+        fields.set('a[href*="/e/proposals?page="]', _Field(fields, count=1))
+        fields.set('a[rel="next"]', _Field(fields, count=1))
         _add_matching_proposal_detail(
             module, fields, project_id=PROJECT_ID, amount_minor=AMOUNT_MINOR, delivery_due_on=DELIVERY_DUE_ON
         )
@@ -310,10 +315,10 @@ def test_form_never_opened_raises_submission_not_started_not_uncertain():
     assert module._PROPOSAL_LIST_URL not in page.goto_log
 
 
-# 7. The selectors used to walk the list appear exactly once in the file (no duplicated copy).
+# 7. The list walk has one implementation and does not reject normal pagination.
 def test_list_walk_selectors_are_not_duplicated():
     source = PATH.read_text(encoding="utf-8")
     assert source.count("_one(page, _TABLE_SELECTOR).locator(") == 1
     assert source.count('a[href^="/proposals/"]') == 1
-    assert source.count('a[href*="/e/proposals?page="]') == 1
-    assert source.count('a[rel="next"]') == 1
+    assert 'a[href*="/e/proposals?page="]' not in source
+    assert 'a[rel="next"]' not in source
