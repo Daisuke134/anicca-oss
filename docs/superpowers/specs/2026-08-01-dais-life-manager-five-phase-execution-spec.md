@@ -1288,7 +1288,7 @@ Calendarを無関係なeventで埋めること自体を成果にしない。
 
 | loop | AS-IS（実測） | IDEAL（完了条件） | remaining TODO |
 |---|---|---|---|
-| Connector | ownerは`StartInterval=1800`、loaded releaseはmain `885110c9…`由来。Connpass event 404826 `#pqc_study`は現行UIのpending表示parser修復後、official state `pending`→Google Calendar exact 1→Telegram message/photo positive IDs→durable `applied_bundle`までreconcile済み。Google Calendar APIの独立readbackでもevent ID exact 1、status `confirmed`、2026-09-25 19:00–21:00 JST、canonical Connpass URL、private idempotency propertyを確認した | 30分ごとにLuma→Connpassをprimaryとして今日を含む28日を探索し、Tokyo×YC/LT/AI/crypto/startupの`strong/moderate`だけを申込。provider official readback→Google Calendar exact 1→PNG/QRまたはreceipt→Telegram message/photo IDs→durable bundleを完成し、次wakeの重複を0にする | 次の自然30分wakeでevent 404826のprovider Submit 0、Calendar duplicate 0、bundle duplicate 0、Luma/Connpass continuation、Telegram every-wake delivery、single owner/cleanupを実測。その後は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`の確定順序で閉じ、OSS one-command local installを最終readbackする |
+| Connector | ownerは`StartInterval=1800`、loaded releaseはmain `885110c9…`由来。Connpass event 404826 `#pqc_study`は現行UIのpending表示parser修復後、official state `pending`→Google Calendar exact 1→Telegram message/photo positive IDs→durable `applied_bundle`までreconcile済み。次の自然30分wakeもexit 0、対象event再処理0、Calendar/bundle exact 1維持、Telegram every-wake positive ID、owner/lease/lock cleanupを実測した | 30分ごとにLuma→Connpassをprimaryとして今日を含む28日を探索し、Tokyo×YC/LT/AI/crypto/startupの`strong/moderate`だけを申込。provider official readback→Google Calendar exact 1→PNG/QRまたはreceipt→Telegram message/photo IDs→durable bundleを完成し、次wakeの重複を0にする | 404826 reconciliationと直後の自然replay-zeroはDONE。`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`の未完条件を確定順序で閉じ、OSS one-command local installを最終readbackする |
 | Fundraiser | ownerは`StartInterval=1800`。Progressive Venturesの実応募とTelegram画像送信は成功済み。installed releaseは`8676fdb79`。後続の自然wakeは容量不足で`entrypoint_exit_75`となり、accelerator/VCの新規応募とcold emailの継続は未証明 | 30分ごとに新しいaccelerator/VCだけを発見・dedupeし、適格先へ応募またはcold emailをexact-onceで送り、provider/email readbackとTelegram receiptを残す | disk回復後に自然wakeを再開し、stale lockなし、新規応募またはcold email 1件、Telegram every-wake delivery、次wakeの重複0を実測。Connectorのscheduler/evidence/dedupe部品は共有するがprovider workflowとstate namespaceは分離する |
 
 共通blockerはData volumeの空きが212MiBまで低下した`ENOSPC`である。cleanかつmain統合済みの閉じたworktreeだけを段階的に削除しているが、APFS共有blockと並行writeのため空きは安定していない。credential、mutable state、稼働release、未統合worktreeは削除していない。release buildと自然wakeの成功を実測するまで「working」または「fixed」と報告しない。
@@ -1311,7 +1311,7 @@ Telegramを各ユーザーのprimary UIとする。source、raw log、state file
 #### Cross-loop recovery and product TODO order — current SSOT
 
 1. **CLEANUP-FIRST — DONE:** safe disk floorを回復し、producerが再び枯渇させないgovernorを実測する。credential、state、active release、未統合worktreeを保持する。実測はData volume free `12.2 GB`（11 GiB超）、tier `PREVENTIVE`、pressure flag absent、cleanup errors `0`、protected deletions `0`。release gateはmain `60a48eebe`由来currentへ反映し、圧迫中のdirect実測でexit `75`・release count `36→36`、自然reconcilerでも反復`EX_TEMPFAIL`と新規release `0`を確認した。
-2. **CONNECTOR-RUNTIME:** event 404826のCalendar/Telegram/bundle reconciliationはmain `885110c9…`由来releaseでDONE。次の自然30分wakeでLuma/Connpass continuation、Telegram every-wake delivery、replay-zeroを閉じる。その内部順序は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`。
+2. **CONNECTOR-RUNTIME:** event 404826のCalendar/Telegram/bundle reconciliationと直後の自然30分replay-zeroはmain `885110c9…`由来releaseでDONE。残る内部順序は`CG-28 → CG-44 → CG-45 → CG-47 → CG-48 → CG-51`。
 3. **FUNDRAISER-RUNTIME:** 自然30分wakeで新規accelerator/VC応募またはcold email exact 1、Telegram receipt、次wake duplicate 0を閉じる。
 4. **TELEGRAM-OSS-UX:** one-command local setup、pairing、onboarding、commands/buttons、notification levels、Connector/Fundraiserの上記message contractをclean installでE2Eする。
 5. **CLOUD-AFTER-LOCAL:** local acceptance後だけ、同じcoreをtenant分離されたcloudへhostし、Telegram-only signupからpause/data deletionまでE2Eする。
@@ -10092,3 +10092,9 @@ event 404826 `#pqc_study`のreconciliationが止まった直接原因は、現�
 自然release reconcilerがmain由来immutable release `/Users/anicca/loops/releases/20260909T163142-885110c9`を作り、対象Connector labelだけへloadした。bounded canary wake `wake-1eb8de59bfdb3df7a70389b1`はexit 0 / `applied_bundle`となり、reconciliation queue `1→0`、official provider state `pending`、Google Calendar event、Telegram message `71155` / photo `71156`、wake delivery `71157`、同一lineageのdurable bundleを完成した。
 
 さらにConnector内部receiptだけに依存せず、同じ`gog` OAuth経路でGoogle Calendar APIをread-only照会した。event ID `73lo59pb8km170e506529c4s2s`はexact 1件、title `#pqc_study`、status `confirmed`、2026-09-25 19:00–21:00 JST、canonical Connpass URL、Connector private idempotency propertyを保持する。現時点の未完了は、次の自然30分wakeでprovider Submit 0、Calendar exact 1維持、bundle duplicate 0、Luma/Connpass continuation、Telegram every-wake positive ID、single owner/owned page/lock cleanupを確認するreplay-zeroだけである。手動kickstartはこの自然wake証拠へ数えない。
+
+### O1B-25進捗524（自然30分replay-zero accepted）
+
+loaded ownerを触らずに待ち、17:06:52 JSTの自然wakeでlaunchd `runs 1→2`を確認した。wake `wake-4ef37f94598f28087d080048`は約4分で終了し、exit 0、`completed_no_effect / provider_discovery_failed / consecutive_failure_count 0`、Telegram every-wake provider ID `71216`を保存した。既存event 404826を含むactionは0件で、providerへの再Submitを行っていない。
+
+終了後の独立Google Calendar API readbackはprivate idempotency property一致がexact 1件、event IDも初回と同一だった。durable applied bundleもevent 404826に対してexact 1件を維持した。target lease 0、owner inactive、Connector process 0、lock absent、launchd state `not running`でcleanupも完了した。これで404826 reconciliation直後の自然replay-zeroをacceptするが、別の新規Luma/Connpass適格event、独立LT receipt、連続自然wake gate、final closureを代用しない。
