@@ -95,6 +95,26 @@ def test_inventory_keeps_actionable_official_events_and_stable_ids(tmp_path):
     assert len({row["latest_event_id"] for row in rows}) == len(rows)
 
 
+def test_stale_gmail_is_explicit_pending_source_and_keeps_old_observation_time(tmp_path):
+    snapshot_path = tmp_path / "snapshot.json"
+    _snapshot(snapshot_path)
+    value = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    value["source_health"] = {"gmail": {
+        "status": "stale", "observed_at": "2026-09-08T08:30:00Z",
+        "reason": "mercor_gmail_inventory_unavailable:timeout,timeout",
+    }}
+    snapshot_path.write_text(json.dumps(value), encoding="utf-8")
+    adapter = reply.MercorReplyAdapter(
+        snapshot=snapshot_path, grounding={}, gmail_account="owner@example.com",
+        gog="gog", state_root=tmp_path,
+    )
+
+    rows = {row["thread_id"]: row for row in adapter.observe_threads()}
+
+    assert rows["gmail:thread_1"]["observed_at"] == "2026-09-08T08:30:00Z"
+    assert rows["source:gmail"]["pending_reason"] == "provider_source_stale"
+
+
 def test_every_official_reply_source_has_context_without_fabricating_actionability(tmp_path):
     adapter = _adapter(tmp_path)
     adapter.observe_threads()

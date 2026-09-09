@@ -66,6 +66,27 @@ def test_reply_effect_is_fenced_read_back_and_replay_zero(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_provider_source_gap_is_pending_without_model_or_effect(tmp_path):
+    row = {**event(thread="source:gmail", latest="stale-1"),
+           "pending_reason": "provider_source_stale"}
+    adapter = Adapter([row])
+    decisions = []
+
+    result = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda context: decisions.append(context),
+        state_root=tmp_path,
+    )
+
+    assert result["pending"] == 1
+    assert result["actionable"] == 1
+    assert result["items"] == [{
+        "thread_id": "source:gmail", "status": "pending",
+        "reason": "provider_source_stale", "effect": 0, "readback": 0, "failed": 0,
+    }]
+    assert decisions == []
+    assert adapter.effects == []
+
 def test_verified_effect_notifies_once_and_replay_does_not_duplicate(tmp_path):
     adapter = Adapter()
     reports = []

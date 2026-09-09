@@ -31,6 +31,16 @@ def _has_mercor_address(value: object) -> bool:
                for _name, address in getaddresses([str(value or "")]))
 
 
+def _valid_observed_at(value: object) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
+
+
 async def _capture(ws_url: str) -> dict[str, object]:
     parsed = urlsplit(ws_url)
     if parsed.scheme not in {"ws", "wss"} or parsed.hostname not in {
@@ -287,7 +297,8 @@ def _gmail(account: str, executable: str,
 
 
 def snapshot(*, ws_url: str, gmail_account: str, gog: str,
-             previous_gmail: list[dict[str, object]] | None = None) -> dict[str, object]:
+             previous_gmail: list[dict[str, object]] | None = None,
+             previous_gmail_observed_at: str | None = None) -> dict[str, object]:
     for attempt in range(2):
         try:
             value = asyncio.run(_capture(ws_url))
@@ -295,14 +306,18 @@ def snapshot(*, ws_url: str, gmail_account: str, gog: str,
         except RuntimeError as exc:
             if attempt or not str(exc).startswith("mercor_reply_sources_missing:"):
                 raise
+    observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     try:
         value["gmail"] = _gmail(gmail_account, gog, previous_gmail)
-        value["source_health"] = {"gmail": {"status": "fresh"}}
+        value["source_health"] = {
+            "gmail": {"status": "fresh", "observed_at": observed_at}
+        }
     except RuntimeError as exc:
         reason = str(exc)
         reusable = (
-            reason.startswith("mercor_gmail_inventory_unavailable:")
+            reason == "mercor_gmail_inventory_unavailable:timeout,timeout"
             and previous_gmail is not None
+            and _valid_observed_at(previous_gmail_observed_at)
             and all(
                 isinstance(row, dict)
                 and _valid_cached_thread(row, row.get("threadId"))
@@ -313,9 +328,10 @@ def snapshot(*, ws_url: str, gmail_account: str, gog: str,
             raise
         value["gmail"] = previous_gmail
         value["source_health"] = {
-            "gmail": {"status": "stale", "reason": reason}
+            "gmail": {"status": "stale", "reason": reason,
+                      "observed_at": previous_gmail_observed_at}
         }
-    value["observed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    value["observed_at"] = observed_at
     value["version"] = 1
     return value
 
@@ -328,15 +344,26 @@ def main(argv=None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     previous_gmail = None
+    previous_gmail_observed_at = None
     if args.output.is_file():
         try:
             previous = json.loads(args.output.read_text(encoding="utf-8"))
-            if isinstance(previous, dict) and isinstance(previous.get("gmail"), list):
+            if (isinstance(previous, dict) and previous.get("version") == 1
+                    and _valid_observed_at(previous.get("observed_at"))
+                    and isinstance(previous.get("gmail"), list)):
                 previous_gmail = previous["gmail"]
+                gmail_health = (previous.get("source_health") or {}).get("gmail")
+                previous_gmail_observed_at = (
+                    gmail_health.get("observed_at")
+                    if isinstance(gmail_health, dict)
+                    and gmail_health.get("status") == "stale"
+                    else previous["observed_at"]
+                )
         except (OSError, ValueError):
             pass
     value = snapshot(ws_url=args.ws, gmail_account=args.gmail_account, gog=args.gog,
-                     previous_gmail=previous_gmail)
+                     previous_gmail=previous_gmail,
+                     previous_gmail_observed_at=previous_gmail_observed_at)
     args.output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = args.output.with_suffix(".tmp")
     temporary.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True) + "\n",

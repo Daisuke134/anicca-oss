@@ -2292,8 +2292,10 @@ from the chat, and two of them contradict what this cursor had previously report
     `entrypoint_exit_1` at `14:03:08Z`. The authenticated Mercor page remains healthy and the last
     complete aggregate remains observed/readback `93`, actionable/pending/failed/effect `0`, all
     `replay_zero`; the terminal failure is the Gmail inventory command timing out twice. Preserve a
-    structurally valid previous Gmail inventory with explicit `source_health.gmail=stale` while
-    retrying it on every wake; never turn a missing or malformed first inventory into empty input.
+    structurally valid previous Gmail inventory only for two pure timeouts, retain its original
+    observation time, and expose the outage through the shared Reply kernel as durable
+    `provider_source_stale` pending while retrying it on every wake. Permanent/mixed failures and a
+    missing or malformed first inventory remain fail-closed; stale input is never reported fresh.
     Production acceptance and the second replay-zero terminal remain pending. Disk pressure also
     produced earlier ENOSPC cleanup-write failures, so acceptance additionally requires terminals
     without ENOSPC.

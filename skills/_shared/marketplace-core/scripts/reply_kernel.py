@@ -49,7 +49,10 @@ def _digest(value: Mapping[str, Any]) -> str:
 
 def _observation(value: Mapping[str, Any]) -> dict[str, str]:
     fields = ("provider", "account_id", "thread_id", "latest_event_id", "observed_at")
-    return {field: _text(value.get(field), field) for field in fields}
+    result = {field: _text(value.get(field), field) for field in fields}
+    if value.get("pending_reason") is not None:
+        result["pending_reason"] = _text(value.get("pending_reason"), "pending_reason")
+    return result
 
 
 def _state_path(root: Path, row: Mapping[str, Any]) -> Path:
@@ -217,6 +220,8 @@ def _run_locked(
     human_notify=None,
 ) -> dict[str, Any]:
     row = _observation(source)
+    if "pending_reason" in row:
+        return _pending(row, row["pending_reason"])
     inventory_event_id = row["latest_event_id"]
     path = _state_path(state_root, row)
     state = _load(path)
