@@ -146,11 +146,14 @@ class BrokerContextTest(unittest.TestCase):
         path.chmod(0o600)
         return path
 
-    def test_paper_and_live_contexts_use_separate_records(self):
+    @patch.object(CLI.subprocess, "run")
+    def test_paper_and_live_contexts_use_separate_records(self, run):
         with tempfile.TemporaryDirectory() as directory:
             root, cli = Path(directory), Path(directory) / "alpaca"
             cli.write_text("#!/bin/sh\n[ \"$1\" = version ] && echo 0.0.14\n")
             cli.chmod(0o700)
+            run.return_value.returncode = 0
+            run.return_value.stdout = CLI.CLI_VERSION + "\n"
             paper = self._credential(root / "paper", {
                 "service": "app.alpaca.markets", "paper_endpoint": CLI.PAPER_ENDPOINT,
                 "api_key": "paper-key", "api_secret": "paper-secret"})
