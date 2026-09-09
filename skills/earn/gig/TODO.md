@@ -2017,7 +2017,7 @@ from the chat, and two of them contradict what this cursor had previously report
     This belongs to whoever owns release cutting; it is recorded here because it has now cost the
     Apply lanes more downtime than any bug in them.
 
-22. [ ] `APPLY-CROWDWORKS-3` Close each Apply-owned browser page even when a bounded wake fails.
+22. [x] `APPLY-CROWDWORKS-3` Close each Apply-owned browser page even when a bounded wake fails.
     Measured 2026-09-09: the browser process, session vault and raw CDP websocket were healthy, but
     Playwright attach timed out because an Apply navigation left one unresponsive CrowdWorks target
     behind. Closing only that target restored attach in 0.9 seconds without restarting the browser
@@ -2032,7 +2032,7 @@ from the chat, and two of them contradict what this cursor had previously report
     372 seconds. The deadline is now also checked before every posting and returns the measured
     counters immediately; the focused owner suite passes 26/26.
 
-23. [ ] `APPLY-CROWDWORKS-4` Run the shared fitness judge through a supported Apply task class.
+23. [x] `APPLY-CROWDWORKS-4` Run the shared fitness judge through a supported Apply task class.
     Measured 2026-09-09: `work_fit.py` invoked removed class `planning`; the current agent runner
     rejects it before model execution, and CrowdWorks converted that configuration failure into a
     decline for each otherwise eligible posting. The shared runner now uses
@@ -2052,7 +2052,7 @@ from the chat, and two of them contradict what this cursor had previously report
     state; do not unlink the flag manually or bypass the release gate. PASS = a natural cleanup wake
     removes the stale flag, then the exact main SHA release builds without override.
 
-25. [ ] `APPLY-CROWDWORKS-5` Do not let an unsupported competition form block normal applications.
+25. [x] `APPLY-CROWDWORKS-5` Do not let an unsupported competition form block normal applications.
     Natural release `3a3b93ae` selected job `13439041` and the shared judge ran successfully. Official
     read-only form inspection proved CrowdWorks routed it to
     `/job_offers/13439041/competition/proposals/new`, requiring a finished file upload before any
@@ -2062,7 +2062,7 @@ from the chat, and two of them contradict what this cursor had previously report
     proposal success. PASS = merge/release and a natural wake reaches the next eligible normal job;
     final Apply acceptance still requires official submission, Telegram receipt and replay-zero.
 
-26. [ ] `APPLY-CROWDWORKS-6` Reconcile an uncertain application without making it head-of-line.
+26. [x] `APPLY-CROWDWORKS-6` Reconcile an uncertain application without making it head-of-line.
     Natural release `3a3b93ae` selected normal job `13440560` and attempted submission, but official
     list readback found no proposal and the transaction correctly remains pending with no proposal
     ID. Discovery read only verified receipts, so it would select the same pending project forever;
@@ -2078,6 +2078,14 @@ from the chat, and two of them contradict what this cursor had previously report
     the CrowdWorks suite passes 14/14. This remains open until that exact pending effect imports to
     the receipt ledger, Telegram names the job and terms, and the following wake performs no second
     mutation.
+    Production release `dc429ee1` closed the atom. Its first natural wake imported `13441669` as
+    official proposal `305111045`, then submitted a different normal fixed-price job `13441664` as
+    proposal `305116251`; both exact official receipts carry JPY 50,000 and each was delivered to
+    Telegram once as messages `71247` and `71248`. The next natural wake reconciled legacy pending
+    `13440560` as proposal `305102318` with `submitted=false`, `effect_delta=0`, and delivered its
+    receipt as Telegram message `71265`. Receipt counts for `13441669` and `13441664` remained one
+    each. Both wakes ended naturally with the installed/event SHA equal to `dc429ee1`, last exit
+    zero, terminal `pass`, and no browser, GUI session, or Mac restart.
 
 27. [ ] `APPLY-CROWDWORKS-7` Support time-based applications in the shared transaction contract.
     Natural release `7d5d6aa3` selected job `13435160`, an unusually strong fit: long-term remote
