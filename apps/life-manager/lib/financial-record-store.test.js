@@ -14,6 +14,9 @@ const { financialRecordId } = require("../../../runtime/contracts/common-record.
 const MIGRATION = fs.readFileSync(path.join(
   __dirname, "../migrations/2026-09-07-lm-financial-records.sql",
 ), "utf8");
+const WORKER_MIGRATION = fs.readFileSync(path.join(
+  __dirname, "../migrations/2026-09-09-lm-financial-records-worker.sql",
+), "utf8");
 
 function record(overrides = {}) {
   const value = {
@@ -87,6 +90,24 @@ test("Postgres store uses one tenant-scoped immutable append/read boundary", asy
   assert.match(calls[1].sql, /subject_id = \$1/i);
 });
 
+test("Postgres store opens the worker database lazily when no query is injected", async () => {
+  const calls = [];
+  class Pool {
+    constructor(options) { calls.push({ kind: "pool", options }); }
+    async query(sql, params) {
+      calls.push({ kind: "query", sql, params });
+      return { rows: [{ record: record() }] };
+    }
+  }
+  const store = createPostgresFinancialRecordStore({
+    connectionString: "postgres://worker.example/life-manager", Pool,
+  });
+  assert.deepEqual(await store.append(record()), { created: true, record: record() });
+  assert.deepEqual(calls[0], {
+    kind: "pool", options: { connectionString: "postgres://worker.example/life-manager", max: 4 },
+  });
+});
+
 test("store rejects unverified claims disguised as verified records", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "lm-financial-record-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -123,4 +144,9 @@ test("cloud table is immutable, tenant-indexed and private to the service role",
   assert.match(MIGRATION, /FOR SELECT TO service_role USING \(true\)/i);
   assert.match(MIGRATION, /FOR INSERT TO service_role WITH CHECK \(true\)/i);
   assert.match(MIGRATION, /BEFORE UPDATE OR DELETE/i);
+  assert.match(MIGRATION, /END;\s*\$\$;/i);
+  assert.match(WORKER_MIGRATION, /PRIMARY KEY \(subject_id, record_id\)/i);
+  assert.match(WORKER_MIGRATION, /UNIQUE \(subject_id, idempotency_key\)/i);
+  assert.match(WORKER_MIGRATION, /BEFORE UPDATE OR DELETE/i);
+  assert.match(WORKER_MIGRATION, /END;\s*\$\$;/i);
 });

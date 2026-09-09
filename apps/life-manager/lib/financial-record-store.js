@@ -6,6 +6,21 @@ const path = require("node:path");
 const { isDeepStrictEqual } = require("node:util");
 const { projectFinancialRecord } = require("./financial-record-contract.js");
 
+let defaultPool;
+
+function postgresQuery(options = {}) {
+  if (typeof options.query === "function") return options.query;
+  const connectionString = String(
+    options.connectionString || process.env.LM_RUNTIME_DATABASE_URL || "",
+  ).trim();
+  if (!connectionString) throw new Error("FinancialRecord Postgres connection required");
+  if (!defaultPool) {
+    const Pool = options.Pool || require("pg").Pool;
+    defaultPool = new Pool({ connectionString, max: 4 });
+  }
+  return defaultPool.query.bind(defaultPool);
+}
+
 function instant(value, label) {
   if (value == null) return null;
   if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
@@ -106,8 +121,8 @@ function createJsonlFinancialRecordStore({ directoryPath } = {}) {
   });
 }
 
-function createPostgresFinancialRecordStore({ query } = {}) {
-  if (typeof query !== "function") throw new Error("FinancialRecord Postgres query required");
+function createPostgresFinancialRecordStore(options = {}) {
+  const query = postgresQuery(options);
   return Object.freeze({
     async append(value) {
       const record = projectFinancialRecord(value);
