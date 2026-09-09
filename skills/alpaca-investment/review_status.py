@@ -17,10 +17,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 BROWSER = REPO / "skills/browser"
 DASHBOARD = "https://app.alpaca.markets/dashboard/overview"
-ACCOUNT_SWITCHER = '''document.querySelector("nav > div.h-14 > button") ||
-    [...document.querySelectorAll("button")].find(x => x.offsetParent !== null &&
-      (/(?:^|\\n)(?:Life Manager\\s*\\n)?(?:Paper|Live)\\s*-\\s*[a-z0-9]{6,}\\s*$/i.test(x.innerText.trim()) ||
-       /^Individual Trading(?:\\s|$)/i.test(x.innerText.trim())))'''
+ACCOUNT_SWITCHER = '''document.querySelector('[data-testid="account-switcher-button"]') ||
+    document.querySelector("nav > div.h-14 > button")'''
 
 
 def classify_dashboard(text: str, selected_account: str = "") -> str | None:
@@ -31,7 +29,9 @@ def classify_dashboard(text: str, selected_account: str = "") -> str | None:
         return "action_required"
     if "application rejected" in normalized:
         return "rejected"
-    if selected_account_kind(selected_account) == "live":
+    if selected_account_kind(selected_account) == "live" and (
+            not re.match(r"^individual trading(?:\s|$)", selected_account.strip(), re.IGNORECASE)
+            or "buying power" in normalized):
         return "active"
     return None
 
@@ -45,8 +45,11 @@ def selected_account_kind(value: str) -> str | None:
 
 
 def dashboard_ready(url: str, text: str, selected_account: str = "") -> bool:
-    return ("/login" in url or selected_account_kind(selected_account) is not None
-            or classify_dashboard(text) is not None)
+    if "/login" in url:
+        return True
+    if re.match(r"^individual trading(?:\s|$)", selected_account.strip(), re.IGNORECASE):
+        return classify_dashboard(text, selected_account) == "active"
+    return selected_account_kind(selected_account) is not None or classify_dashboard(text) is not None
 
 
 def due(receipt: dict, *, now: datetime | None = None, interval_seconds: int = 1800) -> bool:
@@ -125,7 +128,9 @@ def refresh(state: Path, *, force: bool = False) -> dict:
         status = classify_dashboard(text, selected)
         if status is None and selected_account_kind(selected) == "paper":
             _command([*cdp, "eval", target, "-"], stdin=f'({ACCOUNT_SWITCHER})?.click(); true', env=env)
-            switched = json.loads(_command([*cdp, "eval", target, "-"], stdin=f'(()=>{{const trigger={ACCOUNT_SWITCHER};const option=[...document.querySelectorAll("button")].find(x=>x!==trigger&&x.offsetParent!==null&&(/(?:^|\\n)Live\\s*-/.test(x.innerText.trim())||(/Brokerage Account/i.test(x.innerText)&&!/Paper Account/i.test(x.innerText))));option?.click();return Boolean(option)}})()', env=env))
+            switch_expression = f'''(()=>{{const trigger={ACCOUNT_SWITCHER};const menu=document.querySelector('[data-testid="account-switcher-dropdown"]');const option=[...(menu?.querySelectorAll("button")||[])].find(x=>x!==trigger&&x.offsetParent!==null&&(/(?:^|\\n)Live\\s*-/.test(x.innerText.trim())||(/Brokerage Account/i.test(x.innerText)&&!/Paper Account/i.test(x.innerText))));option?.click();return Boolean(option)}})()'''
+            switched = json.loads(_command(
+                [*cdp, "eval", target, "-"], stdin=switch_expression, env=env))
             if switched:
                 for _ in range(20):
                     time.sleep(0.5)
