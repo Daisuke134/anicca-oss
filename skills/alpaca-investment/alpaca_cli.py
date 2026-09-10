@@ -398,6 +398,141 @@ def read_crypto_history(*, credentials_path: Path, cli_path: Path,
     return result
 
 
+def read_live_performance_snapshot(
+    *, credentials_path: Path, cli_path: Path, period_start: str,
+    buy_client_order_id: str, sell_client_order_id: str,
+) -> dict[str, Any]:
+    """Rebuild the one completed live round trip from official broker records."""
+    if (buy_client_order_id == sell_client_order_id
+            or any(not re.fullmatch(r"lm-ai-[0-9a-f]{24}", value)
+                   for value in (buy_client_order_id, sell_client_order_id))):
+        raise ValueError("live_performance_order_ids_invalid")
+    start = parse_instant(period_start)
+    env = _context(credentials_path, cli_path, "live")
+    clients = json.dumps([buy_client_order_id, sell_client_order_id])
+    account = _run(cli_path, ["account", "get", "--quiet", "--jq", "{cash,equity}"], env)
+    clock = _run(cli_path, ["clock", "get", "--quiet", "--jq", "{timestamp}"], env)
+    positions = _run(cli_path, ["position", "list", "--quiet", "--jq",
+        "[.[]|{symbol,qty,market_value,unrealized_pl,current_price}]"], env)
+    transfers = _run(cli_path, ["api", "GET", "/v2/wallets/transfers", "--quiet", "--jq",
+        "[.[]|{id,asset,amount,usd_value,direction,status,created_at}]"], env)
+    orders = _run(cli_path, ["order", "list", "--quiet", "--status", "all", "--limit", "500",
+        "--jq", f"[.[]|select(.client_order_id as $id|{clients}|index($id))|"
+        "{id,client_order_id,status,symbol,side,filled_qty}]"], env)
+    order_ids = json.dumps([row.get("id") for row in orders]) if isinstance(orders, list) else "[]"
+    fills = _run(cli_path, ["account", "activity", "list", "--activity-types", "FILL",
+        "--page-size", "100", "--direction", "asc", "--quiet", "--jq",
+        f"[.[]|select(.order_id as $id|{order_ids}|index($id))|"
+        "{id,activity_type,order_id,symbol,side,qty,price,transaction_time}]"], env)
+    fees = _run(cli_path, ["account", "activity", "list", "--activity-types", "CFEE",
+        "--page-size", "100", "--direction", "asc", "--quiet", "--jq",
+        f"[.[]|select(.order_id as $id|{order_ids}|index($id))|"
+        "{id,activity_type,order_id,symbol,qty,price,date}]"], env)
+
+    def quotes(begin: datetime, end: datetime) -> list[dict[str, Any]]:
+        value = _run(cli_path, ["data", "crypto", "quotes", "--symbols", "BTC/USDC",
+            "--start", begin.isoformat().replace("+00:00", "Z"),
+            "--end", end.isoformat().replace("+00:00", "Z"), "--limit", "1000",
+            "--sort", "asc", "--quiet", "--jq",
+            '.quotes["BTC/USDC"]|map({t,bp,ap})'], env)
+        if not isinstance(value, list) or not value:
+            raise ValueError("live_performance_quote_missing")
+        return value
+
+    try:
+        if (not isinstance(account, dict) or not isinstance(clock, dict)
+                or not isinstance(positions, list) or not isinstance(transfers, list)
+                or not isinstance(orders, list) or not isinstance(fills, list)
+                or not isinstance(fees, list) or len(orders) != 2 or len(fills) != 2
+                or len(fees) != 2 or len(positions) != 1):
+            raise ValueError
+        by_client = {row["client_order_id"]: row for row in orders}
+        buy_order, sell_order = by_client[buy_client_order_id], by_client[sell_client_order_id]
+        if (buy_order.get("side") != "buy" or sell_order.get("side") != "sell"
+                or any(row.get("status") != "filled" or row.get("symbol") not in
+                       {"BTC/USDC", "BTCUSDC"} for row in orders)):
+            raise ValueError
+        by_order = {row["order_id"]: row for row in fills}
+        buy_fill, sell_fill = by_order[buy_order["id"]], by_order[sell_order["id"]]
+        if buy_fill.get("side") != "buy" or sell_fill.get("side") != "sell":
+            raise ValueError
+        complete = [row for row in transfers if row.get("asset") == "USDC"
+                    and row.get("direction") == "INCOMING" and row.get("status") == "COMPLETE"]
+        if len(complete) != 1 or positions[0].get("symbol") != "USDCUSD":
+            raise ValueError
+        transfer, position = complete[0], positions[0]
+        observed = parse_instant(clock["timestamp"])
+        if start > observed or parse_instant(transfer["created_at"]) > start:
+            raise ValueError
+        buy_time, sell_time = (parse_instant(row["transaction_time"])
+                               for row in (buy_fill, sell_fill))
+        if not start <= buy_time < sell_time <= observed:
+            raise ValueError
+        start_quotes = quotes(start, start + timedelta(seconds=30))
+        fill_quotes = [quotes(moment - timedelta(seconds=2), moment + timedelta(seconds=2))
+                       for moment in (buy_time, sell_time)]
+        latest = _run(cli_path, ["data", "crypto", "latest-quotes", "--symbols", "BTC/USDC",
+            "--quiet", "--jq", '.quotes["BTC/USDC"]|{t,bp,ap}'], env)
+        if not isinstance(latest, dict) or observed - parse_instant(latest["t"]) > timedelta(minutes=15):
+            raise ValueError
+
+        def number(value: Any) -> Decimal:
+            result = Decimal(str(value))
+            if not result.is_finite():
+                raise ValueError
+            return result
+
+        def nearest(rows: list[dict[str, Any]], moment: datetime) -> dict[str, Any]:
+            row = min(rows, key=lambda item: abs((parse_instant(item["t"]) - moment).total_seconds()))
+            if abs((parse_instant(row["t"]) - moment).total_seconds()) > 1:
+                raise ValueError
+            return row
+
+        buy_ref, sell_ref = nearest(fill_quotes[0], buy_time), nearest(fill_quotes[1], sell_time)
+        buy_qty, sell_qty = number(buy_fill["qty"]), number(sell_fill["qty"])
+        buy_price, sell_price = number(buy_fill["price"]), number(sell_fill["price"])
+        slippage = max(Decimal("0"), buy_price - number(buy_ref["ap"])) * buy_qty
+        slippage += max(Decimal("0"), number(sell_ref["bp"]) - sell_price) * sell_qty
+        fee_total = sum((abs(number(row["qty"])) * number(row["price"]) for row in fees), Decimal("0"))
+        transfer_amount, transfer_usd = number(transfer["amount"]), number(transfer["usd_value"])
+        position_qty, position_value = number(position["qty"]), number(position["market_value"])
+        realised_usdc = position_qty - transfer_amount
+        realised_usd = realised_usdc * number(position["current_price"])
+        unrealised = number(position["unrealized_pl"])
+        ending_nav = number(account["cash"]) + position_value
+        if (abs(number(account["equity"]) - ending_nav) > Decimal("0.01")
+                or abs((realised_usd + unrealised) - (ending_nav - transfer_usd)) > Decimal("0.01")):
+            raise ValueError
+        start_quote = start_quotes[0]
+        benchmark_start = (number(start_quote["bp"]) + number(start_quote["ap"])) / 2
+        benchmark_end = (number(latest["bp"]) + number(latest["ap"])) / 2
+        source_ids = [transfer["id"], buy_order["id"], sell_order["id"],
+                      *(row["id"] for row in fills), *(row["id"] for row in fees),
+                      f"BTC/USDC@{start_quote['t']}", f"BTC/USDC@{latest['t']}"]
+        if len(source_ids) != len(set(source_ids)):
+            raise ValueError
+    except (InvalidOperation, KeyError, TypeError, ValueError) as error:
+        raise ValueError("live_performance_receipts_invalid") from error
+    return {
+        "benchmark_end_price_usd": str(benchmark_end),
+        "benchmark_start_price_usd": str(benchmark_start),
+        "completed_round_trips": 1,
+        "ending_nav_usd": str(ending_nav),
+        "fees_usd": str(fee_total),
+        "gross_exposure_usd": str(buy_qty * buy_price),
+        "observed_at": clock["timestamp"],
+        "owner_cash_flow_usd": str(transfer_usd),
+        "peak_adjusted_nav_usd": "0",
+        "period_start": period_start,
+        "realized_pnl_usd": str(realised_usd),
+        "schema_version": 1,
+        "slippage_usd": str(slippage),
+        "source_receipt_ids": source_ids,
+        "starting_nav_usd": "0",
+        "unrealized_pnl_usd": str(unrealised),
+    }
+
+
 def submit_order(
     *, credentials_path: Path, cli_path: Path, client_order_id: str,
     order: dict[str, Any], mode: str | None = None,
