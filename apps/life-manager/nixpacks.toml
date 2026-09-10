@@ -2,4 +2,4 @@
 # over the Node `/ws` WebSocket — no local TTS/audio-transcode toolchain needed, so no extra nixPkgs.
 # "..." preserves nixpacks' auto-detected Node packages.
 [phases.setup]
-nixPkgs = ["..."]
+nixPkgs = ["...", "python3"]

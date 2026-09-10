@@ -19,14 +19,16 @@ class LocalCloudParityTest(unittest.TestCase):
         fixture_path = ROOT / "fixtures/preapproval-replay.json"
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
         local = run_parity_core(fixture)
+        cloud_script = REPO / "apps/life-manager/investment-core/parity_core.py"
         script = """
-const fs = require('node:fs');
-const { runParityCore } = require('./apps/life-manager/lib/investment-parity-core.js');
-const fixture = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
-process.stdout.write(JSON.stringify(runParityCore(fixture)));
+import importlib.util,json,pathlib,sys
+path=pathlib.Path(sys.argv[1])
+spec=importlib.util.spec_from_file_location('cloud_parity_core',path)
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+print(json.dumps(module.run_parity_core(json.load(open(sys.argv[2]))),sort_keys=True))
 """
         cloud = json.loads(subprocess.check_output(
-            ["node", "-e", script, str(fixture_path)], cwd=REPO, text=True
+            [sys.executable, "-c", script, str(cloud_script), str(fixture_path)], cwd=REPO, text=True
         ))
         expected = json.loads((
             REPO / "apps/life-manager/lib/fixtures/investment-parity-expected.json"
@@ -42,8 +44,11 @@ process.stdout.write(JSON.stringify(runParityCore(fixture)));
 
     def test_cloud_mismatch_fails_closed_before_receipt(self):
         source = (REPO / "apps/life-manager/lib/investment-dry-run.js").read_text(encoding="utf-8")
-        self.assertIn("assertLocalCloudParity", source)
-        self.assertLess(source.index("assertLocalCloudParity"), source.index("completeJob"))
+        self.assertIn("assert.deepStrictEqual", source)
+        self.assertLess(source.index("assert.deepStrictEqual"), source.index("await jobs.completeJob"))
+
+    def test_cloud_has_no_javascript_strategy_fork(self):
+        self.assertFalse((REPO / "apps/life-manager/lib/investment-parity-core.js").exists())
 
 
 if __name__ == "__main__":
