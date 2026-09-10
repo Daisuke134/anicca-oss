@@ -142,7 +142,7 @@ async function runInvestmentCloudShadow(input) {
     const env = { ...process.env,
       LIFE_MANAGER_INVESTMENT_MODE: "shadow", LIFE_MANAGER_INVESTMENT_DEPLOYMENT: "cloud",
       LIFE_MANAGER_INVESTMENT_AGENT_RUNNER: AGENT,
-      ALPACA_CLI: alpacaCli, ALPACA_INVESTMENT_STATE_DIR: stateDir,
+      ALPACA_CLI: alpacaCli,
       ALPACA_INVESTMENT_SHADOW_STATE_DIR: stateDir,
       ALPACA_INVESTMENT_SHADOW_CREDENTIALS_FILE: credentialsFile,
       LM_TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,
