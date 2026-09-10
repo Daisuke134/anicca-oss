@@ -34,7 +34,7 @@ class _TelegramClient:
 
     def send_text(self, message: str, *, chat_id: str):
         self.sends.append(message)
-        return {"message_ids": ["fixture-message-1"]}
+        return {"message_ids": [f"fixture-message-{len(self.sends)}"]}
 
 
 class PreapprovalReplayTest(unittest.TestCase):
@@ -101,7 +101,7 @@ class PreapprovalReplayTest(unittest.TestCase):
                     fixture["campaign"],
                     fixture["no_trade"],
                     "none",
-                    event_key="2026-09-10T12:05:00.000Z",
+                    event_key="a" * 64,
                 )
                 replayed = reporter.deliver(
                     state,
@@ -109,12 +109,17 @@ class PreapprovalReplayTest(unittest.TestCase):
                     fixture["campaign"],
                     {**fixture["no_trade"], "observed_at": "2026-09-10T12:05:59.000Z"},
                     "none",
-                    event_key="2026-09-10T12:05:00.000Z",
+                    event_key="a" * 64,
                 )
+                other_mode = reporter.deliver(
+                    state, fixture["observation"], fixture["campaign"],
+                    {**fixture["no_trade"], "observed_at": "2026-09-10T12:05:59.000Z"},
+                    "effect", event_key="b" * 64)
 
             self.assertEqual(delivered["message_id"], replayed["message_id"])
             self.assertEqual(delivered["status"], replayed["status"])
-            self.assertEqual(len(sends), 1)
+            self.assertNotEqual(delivered["message_id"], other_mode["message_id"])
+            self.assertEqual(len(sends), 2)
             self.assertIn("[Investment Loop][投資判断]", sends[0])
             self.assertIn("判断: NO_TRADE", sends[0])
             self.assertNotIn("Codex", sends[0])

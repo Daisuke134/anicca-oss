@@ -226,6 +226,7 @@ def _closing_marker(ownership: dict, sealed: dict) -> dict:
 def main(*, attempt: int = 0, wake_id=None) -> int:
     wake_id = (wake_id or os.environ.get("LIFE_MANAGER_INVESTMENT_WAKE_ID")
                or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))
+    cloud_event_key = os.environ.get("LIFE_MANAGER_INVESTMENT_EVENT_KEY")
     mode = os.environ.get("LIFE_MANAGER_INVESTMENT_MODE")
     state = Path(os.environ.get("ALPACA_INVESTMENT_STATE_DIR",
                                "~/.local/state/life-manager/alpaca-investment")).expanduser()
@@ -252,7 +253,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         if control["paused"] or control["killed"]:
             stage = "telegram_deliver"
             telegram = deliver_control(
-                state, control=control, wake_id=wake_id, mode=mode)
+                state, control=control, wake_id=wake_id, mode=mode,
+                event_key=cloud_event_key)
             print(json.dumps({
                 "effect": "none", "loop_id": "alpaca-investment", "mode": mode,
                 "reconciliation": reconciliation,
@@ -300,7 +302,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                 with control_fence(state) as current_control:
                     if current_control["paused"] or current_control["killed"]:
                         telegram = deliver_control(
-                            state, control=current_control, wake_id=wake_id, mode=mode)
+                            state, control=current_control, wake_id=wake_id, mode=mode,
+                            event_key=cloud_event_key)
                         print(json.dumps({
                             "effect": "none", "loop_id": "alpaca-investment", "mode": mode,
                             "reconciliation": reconciliation,
@@ -383,7 +386,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                 stage = "allocation_submit"
                 with control_fence(state) as current_control:
                     if current_control["paused"] or current_control["killed"]:
-                        telegram = deliver_control(state, control=current_control, wake_id=wake_id, mode=mode)
+                        telegram = deliver_control(state, control=current_control,
+                            wake_id=wake_id, mode=mode, event_key=cloud_event_key)
                         print(json.dumps({"effect":"none","loop_id":"alpaca-investment","mode":mode,
                             "reconciliation":reconciliation,"status":"killed" if current_control["killed"] else "paused",
                             "telegram_message_id":telegram["message_id"]}, separators=(",", ":")))
@@ -434,7 +438,7 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         _atomic_json(state / "campaign.json", campaign)
         stage = "telegram_deliver"
         telegram = deliver(state, observation, campaign, decision, effect,
-                           event_key=wake_id if deployment == "cloud" else None)
+                           event_key=cloud_event_key if deployment == "cloud" else None)
         summary = {
             "account": observation["account"],
             "activities_count": observation["activities_count"],
@@ -468,6 +472,7 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                     stage=stage,
                     effect_uncertain=effect_attempted or stage == "reconcile_started",
                     wake_id=wake_id,
+                    event_key=cloud_event_key,
                     observation=observation,
                     campaign=campaign,
                     mode=mode if mode in {"paper", "shadow", "live"} else "unknown",

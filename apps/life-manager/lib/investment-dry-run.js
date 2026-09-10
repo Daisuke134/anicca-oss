@@ -207,7 +207,7 @@ async function runInvestmentDryRun(now) {
       throw new Error("investment cloud schedules conflict");
     }
     const dependencies = productionDependencies();
-    return makeInvestmentCloudWake({ ...dependencies,
+    return makeInvestmentCloudWake({ ...dependencies, expectedMode: live ? "live" : "shadow",
       executeInvestment: runInvestmentCloud })(now);
   }
   if (process.env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED !== "true") {

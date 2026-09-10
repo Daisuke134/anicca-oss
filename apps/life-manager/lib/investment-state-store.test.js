@@ -19,6 +19,20 @@ test("listRunnable selects only active Cloud paper/shadow/live tenants with a bo
   assert.deepEqual(seen.params, [1]);
 });
 
+test("listRunnableForMode binds the active Cloud schedule mode in SQL", async () => {
+  let seen;
+  const row = { uid: "tenant-live", lifecycle: "active", deployment: "cloud", mode: "live",
+    paused: false, killed: false, core_digest: null, receipt_refs: [],
+    alpaca_api_key_ref: "secret://alpaca/api-key",
+    alpaca_api_secret_ref: "secret://alpaca/api-secret" };
+  const store = createInvestmentStateStore({ query: async (sql, params) =>
+    (seen = { sql, params }, { rows: [row] }) });
+  assert.deepEqual(await store.listRunnableForMode("live", 1), [row]);
+  assert.match(seen.sql, /mode = \$1/);
+  assert.deepEqual(seen.params, ["live", 1]);
+  await assert.rejects(store.listRunnableForMode("paper", 1), /invalid/);
+});
+
 const UID = "tenant-a";
 const STATE = Object.freeze({
   uid: UID,
