@@ -2684,6 +2684,26 @@ from the chat, and two of them contradict what this cursor had previously report
     open only until that exact quarantine is terminally classified and the current
     `proposal_pipeline_incomplete` diagnostic is reconciled without another duplicate mutation.
 
+    CrowdWorks acceptance is complete. The official append-only receipt store retains verified
+    proposal IDs `305338764`, `305342693`, `305346397` and the newer verified application
+    `305351407` for project `13442496`. The latter has one delivered Telegram application receipt
+    `74849`; subsequent natural wakes report no new eligible application/effect. The profile-parity
+    release briefly exposed `account_ensure_failed`, then recovered naturally without a browser
+    restart and ended deterministic PASS at `2026-09-10T21:13:53Z`, with the installed/event release
+    both `869476b4` and the official profile receipt still aligned. The previously named account,
+    profile-navigation and proposal-form failure classes therefore do not remain active blockers.
+
+    Mercor acceptance is complete for its application-shaped boundary. Authenticated official
+    readback verified `Public Sector / Legal / GTM Experts` as submitted with all four steps complete
+    and 100%, then Telegram receipt `74579` was delivered once. Later passes skipped already
+    incomplete/human-interview applications without stopping the queue, observed no action, and the
+    latest pass submitted `Study Domain Expert — Judge Calibration — Sales` with official pending-
+    review readback and Telegram receipt `74936`. The loop keeps resume-fit ranking separate from
+    truthfulness: weak fit lowers priority but is not invented as an eligibility prohibition.
+    Upwork remains officially published/profile-complete but bounded at zero Connects and zero free
+    applications; Freelancer.com remains retired with no repository-owned managed Apply owner. No
+    browser was started to manufacture acceptance for either zero-capacity provider.
+
 31. [x] `CROWDWORKS-REPLY-2` Recheck CrowdWorks Reply next through the same shared kernel. PASS = a
     fresh natural terminal observes every current official buyer event exactly once, with each event
     replied, durably deferred, handed off or officially classified no-action; Telegram and provider
