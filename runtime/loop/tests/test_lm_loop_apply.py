@@ -2038,6 +2038,42 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertNotIn("GIG_DISK_HEADROOM_KIB", environment)
         self.assertEqual(environment["GIG_OPERATOR_BRAKE_FILE"], "kept")
 
+    def test_affiliate_loop_target_retires_stale_external_landing_root(self):
+        release = self._release("release-affiliate").resolve()
+        registry_value = registry()
+        entry = registry_value["loops"].pop("example")
+        entry["label"] = "ai.anicca.affiliate-loop"
+        registry_value["loops"]["affiliate-loop"] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-affiliate"
+        current.symlink_to(release)
+        expected_arguments = [
+            str(release / "bin/lm-loop-run"), "affiliate-loop", str(release),
+        ]
+        values = self._apply_kwargs(
+            current, self.root / "apply-affiliate.lock", expected_arguments,
+            label="ai.anicca.affiliate-loop",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.affiliate-loop.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "AFFILIATE_LANDING_ROOT": "/tmp/legacy-affiliate-worktree",
+            "AFFILIATE_OPERATIONAL_SETTING": "kept",
+        })
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"],
+            target="affiliate-loop", current=current,
+            lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("AFFILIATE_LANDING_ROOT", environment)
+        self.assertEqual(environment["AFFILIATE_OPERATIONAL_SETTING"], "kept")
+
     def test_launchctl_recorder_rejects_wrong_service(self):
         launchctl_safe, _ = self._launchctl_recorder(["/release/bin/lm-loop-run", "example", "/release"])
 

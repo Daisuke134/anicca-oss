@@ -430,6 +430,7 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                     if item["loop_id"] in writer_loop_ids else ()
                 )
                 retired_environment_keys = {
+                    "affiliate-loop": ("AFFILIATE_LANDING_ROOT",),
                     "life-manager-cfo-hourly": ("LIFE_MANAGER_APP_DIR", "CFO_STATE_DIR"),
                     "life-manager-selfbuild": ("LM_SELFBUILD_REPO",),
                     "agentmail-webhook": (
