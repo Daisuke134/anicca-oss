@@ -36,7 +36,7 @@
   },
   "founder-loop": {
     "kind": "pass-marker",
-    "source": "~/.anicca-founder/STATE.md mtime",
+    "source": "~/.local/state/life-manager/founder-loop-cadence/STATE.md mtime",
     "boundary_tz": "Asia/Tokyo"
   },
   "pm-earner": {

@@ -9,6 +9,6 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOOP="${1:?usage: record-cost-event.sh <loop> <usd_estimate>}"
 USD_ESTIMATE="${2:?usage: record-cost-event.sh <loop> <usd_estimate>}"
-STATE_DIR="${CEO_STATE_DIR:-$HOME/.anicca-founder/state}"
+STATE_DIR="${CEO_STATE_DIR:-${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/founder-loop-cadence}/state}"
 mkdir -p "$STATE_DIR"
 python3 "$HERE/record_cost_event_cli.py" "$LOOP" "$USD_ESTIMATE" "$STATE_DIR"
