@@ -346,8 +346,10 @@ Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in 
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
 official contract inventories are empty. The active engineering atom is now
-`APPLY-PROFILE-PARITY-1`, because fresh official CrowdWorks evidence shows a blank avatar and the
-wrong public occupation even while Apply creates proposal receipts. Fresh Apply operational
+`APPLY-PROFILE-PARITY-1`, because fresh official CrowdWorks evidence shows a blank avatar even while
+Apply creates proposal receipts. The earlier screenshot of `プロンプトエンジニア` is stale: current
+official public readback already shows `AI-BPO（AI活用の業務改善） / AI関連サービス`, with software,
+AI-automation and training skills. Fresh Apply operational
 acceptance follows that profile correction. Reply then resumes at `CROWDWORKS-REPLY-ACTION-2` and
 `MERCOR-REPLY-2`; Paid follows Reply, and Storefront follows Paid. This preserves Dais's explicit
 Apply -> Reply -> Paid -> Storefront order.
@@ -2435,12 +2437,23 @@ from the chat, and two of them contradict what this cursor had previously report
 
     Execute atomically in this fixed sub-order: (1) compare the private factual profile and shared
     commercial profile projection with official Coconala, Lancers and CrowdWorks public profiles;
-    (2) correct CrowdWorks' blank avatar and prompt-engineer occupation; (3) correct only proven
+    (2) correct CrowdWorks' blank avatar; its current public occupation and positioning already match
+    the intended software-engineering / AI-automation / training profile, so do not rewrite them;
+    (3) correct only proven
     Coconala/Lancers drift; (4) project the same source through existing Mercor, Freelancer.com and
     Upwork adapters where those accounts are active; (5) read every changed public field and avatar
     back officially; (6) prove a second wake makes zero profile mutation. PASS does not require every
     provider to expose the same fields. It requires the same facts and positioning, provider-supported
     projection, no private credential/name leakage, one shared source, and provider-specific adapters.
+
+    Current implementation state: PR `#4923`, merge `59807376e9e62b50a7487de70b693d175a9fc032`,
+    routes CrowdWorks avatar projection to the existing shared asset
+    `skills/gig-work/profile/avatar.jpg`, detects the provider default image, reads the public profile
+    fields back, and skips an already aligned profile. Focused tests pass `15/15`. This is not yet
+    production acceptance: the installed owner still needs a natural terminal that changes the
+    official avatar, an official non-default public-image readback, and the following natural
+    replay-zero. A blank avatar may reduce trust and conversion, but no receipt proves that it is the
+    sole reason proposals have not become contracts.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
