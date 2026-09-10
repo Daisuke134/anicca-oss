@@ -205,6 +205,10 @@ class LmLoopApplyTest(unittest.TestCase):
                          str(Path.home() / ".local/share/anicca/credentials.json"))
         self.assertEqual(environment["ALPACA_INVESTMENT_LIVE_STATE_DIR"],
                          str(Path.home() / ".local/state/life-manager/alpaca-investment-live"))
+        self.assertEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
+                         str(Path.home() / ".local/state/life-manager/alpaca-investment"))
+        self.assertNotEqual(environment["ALPACA_INVESTMENT_PAPER_STATE_DIR"],
+                            environment["ALPACA_INVESTMENT_LIVE_STATE_DIR"])
 
     def test_agent_economy_plist_owns_code_and_mutable_home_paths(self):
         value = registry()
