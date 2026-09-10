@@ -154,6 +154,7 @@ def _sync_live_ownership(state: Path, credentials_path: Path, cli_path: Path,
                 raise ValueError("live_position_not_owned")
             ownership["status"] = "open"
             ownership["entry_filled_qty"] = str(filled)
+            ownership["owned_qty"] = str(held)
             _atomic_json(path, ownership)
         elif status in {"filled", "canceled", "expired", "rejected"} and not btc:
             ownership["status"] = "closed"
@@ -178,10 +179,16 @@ def _owned_live_position(ownership: dict | None, observation: dict) -> None:
     try:
         qty = Decimal(str(btc[0]["qty"]))
         filled = Decimal(str(ownership["entry_filled_qty"]))
+        owned = Decimal(str(ownership["owned_qty"]))
     except (InvalidOperation, KeyError, TypeError) as error:
         raise ValueError("live_position_not_owned") from error
-    if qty <= 0 or qty > filled:
+    if qty <= 0 or qty > filled or qty != owned:
         raise ValueError("live_position_not_owned")
+
+
+def _closing_marker(ownership: dict, sealed: dict) -> dict:
+    return {**ownership, "close_client_order_id": sealed["client_order_id"],
+            "close_effect_id": sealed["effect_id"], "status": "closing"}
 
 
 def main(*, attempt: int = 0, wake_id=None) -> int:
@@ -356,9 +363,7 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                     if not mark_started(state / "receipts.jsonl", sealed):
                         raise ValueError("investment_effect_already_started")
                     if mode == "live":
-                        marker = ({"close_client_order_id": sealed["client_order_id"],
-                                   "close_effect_id": sealed["effect_id"], **ownership,
-                                   "status": "closing"} if live_positions else {
+                        marker = (_closing_marker(ownership, sealed) if live_positions else {
                             "entry_client_order_id": sealed["client_order_id"],
                             "entry_effect_id": sealed["effect_id"], "entry_filled_qty": "0",
                             "status": "entry_pending", "symbol": "BTCUSD"})

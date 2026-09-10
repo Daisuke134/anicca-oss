@@ -232,7 +232,7 @@ class BrokerContextTest(unittest.TestCase):
             state = Path(directory)
             MODULE._atomic_json(state / "live-owned-position.json", {
                 "entry_client_order_id": "lm-ai-" + "d" * 24,
-                "entry_effect_id": "effect", "entry_filled_qty": "0.0001",
+                "entry_effect_id": "effect", "entry_filled_qty": "0.0001", "owned_qty": "0.0001",
                 "status": "open", "symbol": "BTCUSD"})
             with patch.object(MODULE, "find_order_by_client_id", return_value={
                     "status": "filled", "filled_qty": "0.0001"}):
@@ -245,7 +245,7 @@ class BrokerContextTest(unittest.TestCase):
             state = Path(directory)
             MODULE._atomic_json(state / "live-owned-position.json", {
                 "entry_client_order_id": "lm-ai-" + "e" * 24,
-                "entry_effect_id": "entry", "entry_filled_qty": "0.0001",
+                "entry_effect_id": "entry", "entry_filled_qty": "0.0001", "owned_qty": "0.0001",
                 "close_client_order_id": "lm-ai-" + "f" * 24,
                 "close_effect_id": "close", "status": "closing", "symbol": "BTCUSD"})
             with patch.object(MODULE, "find_order_by_client_id", return_value={
@@ -253,6 +253,23 @@ class BrokerContextTest(unittest.TestCase):
                 ownership = MODULE._sync_live_ownership(state, Path("credentials"),
                     Path("alpaca"), {"positions": [{"symbol": "BTCUSD", "qty": "0.0001"}]})
             self.assertEqual(ownership["status"], "open")
+
+    def test_second_close_marker_replaces_rejected_close_identity(self):
+        ownership = {"entry_client_order_id": "entry", "entry_effect_id": "entry-effect",
+            "owned_qty": "0.0001", "close_client_order_id": "old-close",
+            "close_effect_id": "old-effect", "status": "open", "symbol": "BTCUSD"}
+        marker = MODULE._closing_marker(ownership, {
+            "client_order_id": "new-close", "effect_id": "new-effect"})
+        self.assertEqual(marker["close_client_order_id"], "new-close")
+        self.assertEqual(marker["close_effect_id"], "new-effect")
+        self.assertEqual(marker["status"], "closing")
+
+    def test_replacement_btc_quantity_is_not_owned(self):
+        ownership = {"entry_client_order_id": "entry", "entry_filled_qty": "0.0001",
+            "owned_qty": "0.00009", "status": "open", "symbol": "BTCUSD"}
+        with self.assertRaisesRegex(ValueError, "^live_position_not_owned$"):
+            MODULE._owned_live_position(ownership, {
+                "positions": [{"symbol": "BTCUSD", "qty": "0.00008"}]})
 
 
 class BrokerSnapshotTest(unittest.TestCase):
