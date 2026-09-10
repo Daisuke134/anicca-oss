@@ -599,10 +599,9 @@ class CrowdWorksReplyAdapter:
                             "届いていな", "届いていません", "届いてません", "確認できな", "確認できません",
                             "受領していな", "受領してません", "確認していません", "未確認")):
                         return {}
-                    object_bound = "回答" in body
-                    if object_bound and any(positive in body for positive in (
-                            "確認しました", "確認できました", "受領しました", "届いています",
-                            "回答を確認", "回答確認")):
+                    if any(positive in body for positive in (
+                            "回答を確認しました", "回答を確認できました", "回答を受領しました",
+                            "回答が届いています", "回答確認しました", "回答確認できました")):
                         return {"verified": True,
                                 "provider_receipt_id": "google-form-buyer-confirmed:"
                                 + _text(row.get("event_id")), "observed_at": _now()}
