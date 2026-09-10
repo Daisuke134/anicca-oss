@@ -54,8 +54,11 @@ async function readInvestmentCloudWiring(opts = {}) {
   const parity = JSON.parse(fs.readFileSync(PARITY_PATH, "utf8"));
   const shadow = env.LM_INVESTMENT_CLOUD_SHADOW_ENABLED === "true";
   const dryRun = env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED === "true";
+  const durableRoot = String(env.LM_INVESTMENT_CLOUD_STATE_ROOT || "").trim();
+  const durableStateRootBound = durableRoot.startsWith("/") && durableRoot !== "/";
   return Object.freeze({
-    status: shadow ? "shadow_enabled" : dryRun ? "invalid_schedule_enabled" : "wired_disabled",
+    status: shadow ? (durableStateRootBound ? "shadow_enabled" : "invalid_shadow_config")
+      : dryRun ? "invalid_schedule_enabled" : "wired_disabled",
     deployment: "cloud",
     schedule_enabled: shadow || dryRun,
     broker_mutation_enabled: false,
@@ -64,6 +67,7 @@ async function readInvestmentCloudWiring(opts = {}) {
     core_artifact_ref: artifact.ref,
     queue: "life-manager-runtime-jobs",
     durable_receipts: true,
+    durable_state_root_bound: durableStateRootBound,
     secret_provider: health.provider,
     secret_provider_ok: health.ok,
     telegram_transport: "life-manager-telegram",
@@ -86,6 +90,7 @@ function productionDependencies() {
   return {
     stateStore: createInvestmentStateStore({ query }),
     runtimeStore: createInvestmentRuntimeStateStore({ query }),
+    stateRoot: String(process.env.LM_INVESTMENT_CLOUD_STATE_ROOT || "").trim(),
     secretProvider: createCloudInvestmentSecretProvider(),
     telegramTransport: sendMessage,
     jobs: {

@@ -62,6 +62,7 @@ function makeInvestmentCloudShadowWake(deps) {
     const telegramChatId = await deps.readChatId(owner.uid);
     const result = await deps.executeShadow({ tenantId: owner.uid, sealed,
       secretProvider: deps.secretProvider, telegramChatId,
+      stateRoot: deps.stateRoot,
       persist: (uid, next) => deps.runtimeStore.upsert(uid, next.bundle) });
     const receipt = { deployment: "cloud", mode: "shadow", effect_permission: "none",
       order_calls: 0, message_calls: 1, decision: result.decision || null,
@@ -103,16 +104,36 @@ async function runInvestmentCloudShadow(input) {
   if (![apiKey, apiSecret, telegramToken, telegramChatId].every((value) => String(value || "").trim())) {
     throw new Error("investment cloud shadow secret unavailable");
   }
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "investment-cloud-shadow-"));
+  const stateRoot = path.resolve(String(input.stateRoot || ""));
+  if (!input.stateRoot || stateRoot === path.parse(stateRoot).root) throw new Error("investment cloud durable state root invalid");
+  fs.mkdirSync(stateRoot, { recursive: true, mode: 0o700 });
+  fs.chmodSync(stateRoot, 0o700);
+  const stateDir = path.join(stateRoot, crypto.createHash("sha256").update(tenantId).digest("hex").slice(0, 32));
+  fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
   fs.chmodSync(stateDir, 0o700);
-  const credentialsFile = path.join(stateDir, "credentials.json");
+  const privateDir = fs.mkdtempSync(path.join(os.tmpdir(), "investment-cloud-credential-"));
+  fs.chmodSync(privateDir, 0o700);
+  const credentialsFile = path.join(privateDir, "credentials.json");
+  const markerPath = path.join(stateDir, ".cutover.json");
   let accountId;
   try {
-    importState({ stateDir, sealed: input.sealed });
     const alpacaCli = input.alpacaCli || process.env.ALPACA_CLI || "/app/.bin/alpaca";
     accountId = await (input.readAccountId || defaultReadAccountId)({ alpacaCli, apiKey, apiSecret });
     if (accountHash(accountId) !== input.sealed.bundle.account_binding.account_id_hash) {
       throw new Error("investment cloud account binding mismatch");
+    }
+    if (fs.existsSync(markerPath)) {
+      const marker = JSON.parse(fs.readFileSync(markerPath, "utf8"));
+      if (marker.account_id_hash !== input.sealed.bundle.account_binding.account_id_hash
+        || marker.source_release_sha !== input.sealed.bundle.cutover.source_release_sha) {
+        throw new Error("investment cloud durable state binding mismatch");
+      }
+    } else {
+      importState({ stateDir, sealed: input.sealed });
+      fs.writeFileSync(markerPath, `${JSON.stringify({
+        account_id_hash: input.sealed.bundle.account_binding.account_id_hash,
+        source_release_sha: input.sealed.bundle.cutover.source_release_sha,
+      })}\n`, { mode: 0o600, flag: "wx" });
     }
     const credentials = { credentials: [{ service: "app.alpaca.markets",
       live_endpoint: "https://api.alpaca.markets/v2", live_api_key: apiKey, live_api_secret: apiSecret }] };
@@ -134,10 +155,10 @@ async function runInvestmentCloudShadow(input) {
     return result;
   } finally {
     if (accountId && accountHash(accountId) === input.sealed.bundle.account_binding.account_id_hash) {
-      const next = exportState({ stateDir, accountId });
+      const next = exportState({ stateDir, accountId, cutover: input.sealed.bundle.cutover });
       await input.persist(tenantId, next);
     }
-    fs.rmSync(stateDir, { recursive: true, force: true });
+    fs.rmSync(privateDir, { recursive: true, force: true });
   }
 }
 

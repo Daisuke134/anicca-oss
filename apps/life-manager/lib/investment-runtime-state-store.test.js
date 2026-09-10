@@ -11,7 +11,17 @@ const INPUT = Object.freeze({
   schema_version: 1,
   exported_at: "2026-09-10T12:00:00.000Z",
   account_binding: { provider: "alpaca", endpoint: "live", account_id_hash: "a".repeat(64) },
-  files: { "risk-day.json": Buffer.from('{"ny_day":"2026-09-10"}\n').toString("base64") },
+  cutover: { status: "ready", local_stopped_at: "2026-09-10T12:00:00Z",
+    queues_drained_at: "2026-09-10T12:01:00Z", broker_reconciled_at: "2026-09-10T12:02:00Z",
+    source_release_sha: "b".repeat(40) },
+  files: {
+    "control.json": Buffer.from('{"paused":false,"killed":false,"revision":1}').toString("base64"),
+    "risk-day.json": Buffer.from(JSON.stringify({ ny_day: "2026-09-10", baseline_equity: "66",
+      baseline_observed_at: "2026-09-10T12:00:00Z", baseline_bank_cash_flow: "0",
+      baseline_trade_activity_ids: [], baseline_trades_clean: true, crypto_cash_flow: "0", transfers: {} })).toString("base64"),
+    "receipts.jsonl": "",
+    "telegram-outbox.sqlite3": Buffer.from("SQLite format 3\0fixture").toString("base64"),
+  },
 });
 
 test("runtime bundle is canonical, digest sealed, and tenant scoped", async () => {
