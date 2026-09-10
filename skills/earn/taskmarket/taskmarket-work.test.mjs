@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { classifyTask, runTaskMarketPass, selectTask } from './taskmarket-work.mjs';
+import { TASKMARKET_CLI, classifyTask, runTaskMarketPass, selectTask } from './taskmarket-work.mjs';
 
 const NOW = Date.parse('2026-07-28T08:00:00Z');
 const IMAGE_BRIEF = [
@@ -12,6 +12,11 @@ const IMAGE_BRIEF = [
   'FLOOR: made with a real frontier image model such as GPT Image 2 or better.',
   'DELIVER: one finished hero image, plus concept-note.md and sources.md.',
 ].join(' ');
+
+test('TaskMarket uses the repository-local CLI on every operating system', () => {
+  assert.equal(TASKMARKET_CLI, join(import.meta.dirname, 'node_modules', '.bin', 'taskmarket'));
+  assert.doesNotMatch(TASKMARKET_CLI, /homebrew/);
+});
 
 function task(overrides = {}) {
   return {

@@ -9,12 +9,7 @@ const { promisify } = require("node:util");
 
 const execFileAsync = promisify(execFile);
 const CLOUD_AGENT_ECONOMY_SLOTS = Object.freeze([
-  "x402_sell",
   "earn/taskmarket",
-  "self/spawn",
-  "economy/ubi",
-  "economy/lending",
-  "self/coordinate",
 ]);
 
 function safeSegment(value) {

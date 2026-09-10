@@ -99,7 +99,6 @@ test("Railway start command routes the worker role to internal-worker", () => {
 test("Agent Economy Cloud worker packages the shared monorepo runtime without Docker", () => {
   const config = fs.readFileSync(path.join(ROOT, "railway.worker.toml"), "utf8");
   assert.match(config, /npm ci --ignore-scripts --prefix apps\/life-manager/);
-  assert.match(config, /npm ci --ignore-scripts --prefix skills\/earn\/x402-sell/);
   assert.match(config, /npm ci --ignore-scripts --prefix skills\/earn\/taskmarket/);
   assert.match(config, /nixpacksConfigPath = "nixpacks\.worker\.toml"/);
   const nixpacks = fs.readFileSync(path.join(ROOT, "nixpacks.worker.toml"), "utf8");
@@ -134,15 +133,8 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     "skills/registry.json",
     "skills/earn/run.sh",
     "skills/earn/lib/resolve-identity.mjs",
-    "skills/earn/x402-sell/package.json",
     "skills/earn/taskmarket/package.json",
     "skills/_shared/lib/earn-guard.mjs",
-    "skills/economy/gig/lib/lock.mjs",
-    "skills/economy/gig/lib/ensure-agent-id.mjs",
-    "skills/self/spawn-child/lib/akt-cost-gate.js",
-    "skills/self/spawn-child/config.json",
-    "skills/self/telemetry-collect.sh",
-    "identity/genesis.md",
     "services/x402-endpoint/prisma/schema.prisma",
   ]) {
     assert.equal(checkIgnored(requiredPath), false, `${requiredPath} must be in the Railway build context`);
@@ -160,6 +152,8 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     "skills/writer-agent/reference/private.json",
     "skills/x-repost/x-repost-cli.sh",
     "skills/earn/polymarket-trade/run.sh",
+    "skills/earn/x402-sell/package.json",
+    "skills/self/spawn/run.sh",
     "skills/earn/README.md",
     "skills/earn/references/provider.md",
     "skills/earn/state/earn-ledger.jsonl",

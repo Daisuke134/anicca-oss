@@ -1,7 +1,7 @@
 [build]
 builder = "NIXPACKS"
 nixpacksConfigPath = "nixpacks.worker.toml"
-buildCommand = "npm ci --ignore-scripts && npm ci --ignore-scripts --prefix apps/life-manager && npm ci --ignore-scripts --prefix skills/earn/x402-sell && npm ci --ignore-scripts --prefix skills/earn/taskmarket"
+buildCommand = "npm ci --ignore-scripts && npm ci --ignore-scripts --prefix apps/life-manager && npm ci --ignore-scripts --prefix skills/earn/taskmarket"
 
 [deploy]
 startCommand = "node apps/life-manager/scripts/runtime-up.js internal-worker"

@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises
 import { execFile } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { loadEvmKey } from '../lib/resolve-identity.mjs';
@@ -10,7 +10,10 @@ import { evmErc20Balance, EVM_TOKENS, RPC } from '../lib/net-worth.mjs';
 import { generateImage as generateX402Image } from './x402-image-client.mjs';
 
 const USDC_DECIMALS = 1_000_000;
-const TASKMARKET_CLI = '/opt/homebrew/bin/taskmarket';
+export const TASKMARKET_CLI = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'node_modules', '.bin', 'taskmarket',
+);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_IMAGE_COST_USD = 0.07;
 const DAILY_IMAGE_CAP_USD = 0.14;
