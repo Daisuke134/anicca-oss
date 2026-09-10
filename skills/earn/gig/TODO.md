@@ -2524,6 +2524,18 @@ from the chat, and two of them contradict what this cursor had previously report
     the claim that CrowdWorks has zero contracts are both stale; neither may be used to reopen a
     completed avatar effect or to explain conversion without evidence.
 
+    Code/config audit identifies why the occupation drift survived a green profile receipt. The
+    private provider config requests `occupation="AI関連サービス"`, but the current public
+    `/occupations` page still renders `プロンプトエンジニア`. `profile.py` compares the selected value
+    only on the authenticated edit form; after mutation its public-page assertion covers display
+    name, introduction and avatar, but not occupation. A green edit-form hash therefore cannot prove
+    the buyer-visible occupation. The same audit also finds the commercial fields duplicated in
+    `~/.config/anicca/crowdworks/public-profile.json` while the repository-owned shared bundle is
+    prose-only `PROFILE-ASSETS.md`. The next change must not merely replace one private JSON value:
+    make one structured provider-neutral commercial profile the source, let the thin CrowdWorks
+    adapter map it to a supported occupation, and add exact public `/occupations` readback before the
+    receipt can say aligned. No production profile mutation was performed during this audit.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
