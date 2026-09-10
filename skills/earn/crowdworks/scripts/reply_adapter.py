@@ -486,6 +486,11 @@ class CrowdWorksReplyAdapter:
                 receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
                 if isinstance(receipt, Mapping) and receipt.get("status") == "prepared":
                     self._send_reply_once(intent["thread_id"], self.FORM_CONFIRMATION_BODY)
+                    self._write_json(receipt_path, {
+                        **dict(receipt), "status": "confirmation_requested",
+                        "confirmation_thread_id": intent["thread_id"],
+                        "confirmation_requested_at": _now(),
+                    })
                     return
             self._submit_google_form(payload)
             self._send_reply_once(intent["thread_id"], _text(payload.get("completion_body")))
@@ -568,7 +573,11 @@ class CrowdWorksReplyAdapter:
                 raise RuntimeError("google_form_receipt_invalid") from None
             if not isinstance(form_receipt, Mapping) or form_receipt.get("url_sha256") != url_sha256:
                 raise RuntimeError("google_form_receipt_invalid")
-            if form_receipt.get("status") == "prepared":
+            if form_receipt.get("status") in {"prepared", "confirmation_requested"}:
+                confirmation_thread = form_receipt.get("confirmation_thread_id")
+                if (form_receipt.get("status") == "confirmation_requested"
+                        and confirmation_thread != intent["thread_id"]):
+                    return {}
                 rows = self._detail(intent["thread_id"])
                 request_index = next((
                     index for index, row in enumerate(rows)
@@ -583,10 +592,11 @@ class CrowdWorksReplyAdapter:
                     if row["role"] != "buyer":
                         continue
                     if any(negative in body for negative in (
-                            "届いていない", "届いてません", "確認できない", "確認できません",
-                            "受領していない", "受領してません")):
+                            "届いていな", "届いていません", "届いてません", "確認できな", "確認できません",
+                            "受領していな", "受領してません", "確認していません", "未確認")):
                         return {}
-                    if any(positive in body for positive in (
+                    object_bound = "回答" in body or "フォーム" in body
+                    if object_bound and any(positive in body for positive in (
                             "確認しました", "確認できました", "受領しました", "届いています",
                             "回答を確認", "回答確認")):
                         return {"verified": True,
