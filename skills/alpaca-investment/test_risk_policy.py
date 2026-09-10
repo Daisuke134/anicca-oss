@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+import json
 import math
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -29,6 +31,38 @@ def risk(**changes):
 
 
 class FixedRiskPolicyTest(unittest.TestCase):
+    def test_allocator_prompt_exposes_usdc_backed_available_cash(self):
+        snapshot = {
+            "account": {"cash": "0", "equity": "66.72"},
+            "available_cash_usd": "66.72",
+            "clock": {"timestamp": "2026-09-10T10:00:00Z"},
+            "positions": 0,
+            "open_orders": 0,
+            "unresolved_intents": 0,
+        }
+        candidate = {
+            "asset_class": "crypto", "candidate_ref": "crypto://BTC/USDC",
+            "max_loss_usd": 10, "quote_age_seconds": 0, "spread_fraction": 0,
+            "symbol": "BTC/USDC",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path = root / "result.json"
+            result_path.write_text(json.dumps({
+                "candidate_ref": "NO_TRADE", "probability_profit": 0,
+                "expected_gain_usd": 0, "reason": "根拠不足",
+            }))
+
+            def completed(args, **kwargs):
+                payload = json.loads(kwargs["input"].splitlines()[-1])
+                self.assertEqual(payload["account"]["cash"], "0")
+                self.assertEqual(payload["available_cash_usd"], "66.72")
+                return subprocess.CompletedProcess(
+                    args, 0, json.dumps({"result_path": str(result_path)}), "")
+
+            with patch.object(allocator.subprocess, "run", side_effect=completed):
+                allocator.choose(snapshot, [candidate], root / "state", Path("runner"), root)
+
     def _provider_snapshot(self, timestamp="2026-09-06T13:59:50Z", open_orders=0):
         clock = {"is_open": True, "timestamp": timestamp}
         with patch.object(alpaca_cli, "_context", return_value={}), patch.object(
