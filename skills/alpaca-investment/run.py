@@ -144,9 +144,16 @@ def _sync_live_ownership(state: Path, credentials_path: Path, cli_path: Path,
                                      client_order_id=ownership.get(order_key, ""))
     status = broker.get("status") if broker else "absent"
     if ownership.get("status") == "entry_pending":
-        if status == "filled" and btc:
+        if btc and status in {"filled", "canceled", "expired", "rejected"}:
+            try:
+                held = Decimal(str(btc[0]["qty"]))
+                filled = Decimal(str(broker.get("filled_qty") or "0"))
+            except (InvalidOperation, KeyError, TypeError) as error:
+                raise ValueError("live_position_not_owned") from error
+            if held <= 0 or held > filled:
+                raise ValueError("live_position_not_owned")
             ownership["status"] = "open"
-            ownership["entry_filled_qty"] = broker.get("filled_qty")
+            ownership["entry_filled_qty"] = str(filled)
             _atomic_json(path, ownership)
         elif status in {"filled", "canceled", "expired", "rejected"} and not btc:
             ownership["status"] = "closed"

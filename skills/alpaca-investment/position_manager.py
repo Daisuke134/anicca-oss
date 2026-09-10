@@ -17,8 +17,9 @@ def choose(snapshot: dict[str, Any], observation: dict[str, Any], state: Path,
         ownership = json.loads((state / "live-owned-position.json").read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError) as error:
         raise ValueError("live_position_not_owned") from error
-    if (ownership.get("status") != "open" or ownership.get("symbol") != "BTCUSD" or not isinstance(ownership.get("client_order_id"), str)
-            or not ownership["client_order_id"].startswith("lm-ai-")):
+    if (ownership.get("status") != "open" or ownership.get("symbol") != "BTCUSD"
+            or not isinstance(ownership.get("entry_client_order_id"), str)
+            or not ownership["entry_client_order_id"].startswith("lm-ai-")):
         raise ValueError("live_position_not_owned")
     if len(positions) != 1 or positions[0].get("symbol") != "BTCUSD" \
             or snapshot.get("open_orders") != 0 or snapshot.get("unresolved_intents") != 0:
