@@ -106,6 +106,27 @@ def test_decision_version_reopens_old_no_effect_state_once(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_removed_decision_version_does_not_reopen_ordinary_no_effect_state(tmp_path):
+    adapter = Adapter([{**event(), "decision_version": "official-actions-v1"}])
+    reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _context: {"action": "noop", "classification": "awaiting_buyer"},
+        state_root=tmp_path,
+    )
+    adapter.rows[0].pop("decision_version")
+    decisions = []
+
+    replay = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda context: decisions.append(context),
+        state_root=tmp_path,
+    )
+
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert decisions == []
+
+
 def test_contract_intent_reconciles_after_provider_event_advances(tmp_path):
     class AcceptedThenInterrupted(Adapter):
         def mutate(self, intent):

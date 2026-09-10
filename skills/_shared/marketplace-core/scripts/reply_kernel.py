@@ -233,7 +233,11 @@ def _run_locked(
     prior_observation = state.get("observation")
     same_source_event = state.get("inventory_event_id") == inventory_event_id
     prior_status = state.get("status")
-    same_decision_version = state.get("decision_version") == row.get("decision_version")
+    current_decision_version = row.get("decision_version")
+    same_decision_version = (
+        current_decision_version is None
+        or state.get("decision_version") == current_decision_version
+    )
     if same_source_event and same_decision_version and prior_status in NO_EFFECT:
         return {"thread_id": row["thread_id"], "status": prior_status,
                 "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
