@@ -161,7 +161,15 @@ def _sync_live_ownership(state: Path, credentials_path: Path, cli_path: Path,
             _atomic_json(path, ownership)
     elif ownership.get("status") == "closing":
         if status in {"canceled", "expired", "rejected"} and btc:
+            try:
+                remaining = Decimal(str(btc[0]["qty"]))
+                previously_owned = Decimal(str(ownership["owned_qty"]))
+            except (InvalidOperation, KeyError, TypeError) as error:
+                raise ValueError("live_position_not_owned") from error
+            if remaining <= 0 or remaining > previously_owned:
+                raise ValueError("live_position_not_owned")
             ownership["status"] = "open"
+            ownership["owned_qty"] = str(remaining)
             _atomic_json(path, ownership)
         elif status == "filled" and not btc:
             ownership["status"] = "closed"

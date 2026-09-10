@@ -254,6 +254,22 @@ class BrokerContextTest(unittest.TestCase):
                     Path("alpaca"), {"positions": [{"symbol": "BTCUSD", "qty": "0.0001"}]})
             self.assertEqual(ownership["status"], "open")
 
+    def test_partial_terminal_close_restores_only_remaining_owned_qty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "1" * 24,
+                "entry_effect_id": "entry", "entry_filled_qty": "0.00010",
+                "owned_qty": "0.00010", "close_client_order_id": "lm-ai-" + "2" * 24,
+                "close_effect_id": "close", "status": "closing", "symbol": "BTCUSD"})
+            observation = {"positions": [{"symbol": "BTCUSD", "qty": "0.00004"}]}
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "canceled", "filled_qty": "0.00006"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), observation)
+            self.assertEqual(ownership["owned_qty"], "0.00004")
+            MODULE._owned_live_position(ownership, observation)
+
     def test_second_close_marker_replaces_rejected_close_identity(self):
         ownership = {"entry_client_order_id": "entry", "entry_effect_id": "entry-effect",
             "owned_qty": "0.0001", "close_client_order_id": "old-close",
