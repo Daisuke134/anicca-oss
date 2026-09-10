@@ -1,9 +1,11 @@
+import io
 import json
 import os
 import tempfile
 import threading
 import unittest
 import sys
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -44,6 +46,16 @@ class LiveCanaryTest(unittest.TestCase):
                 patch.object(live_canary, "read_live_canary", side_effect=broker_reads),
                 patch.object(live_canary, "submit_live_canary", side_effect=submit),
                 patch.object(live_canary.time, "sleep"))
+
+    def test_local_output_shape_remains_unchanged(self):
+        output = io.StringIO()
+        sealed = {"client_order_id": "lm-ai-" + "a" * 24, "effect_id": "b" * 64}
+        with redirect_stdout(output):
+            self.assertEqual(live_canary._output(
+                sealed, {"status": "verified", "verified": True}, False, "local"), 0)
+        value = json.loads(output.getvalue())
+        self.assertNotIn("deployment", value)
+        self.assertEqual(value["canary_ref"], "L09_LOCAL_CANARY_V1")
 
     def test_verified_fill_is_submitted_once_and_closed(self):
         verified = {"status": "verified", "verified": True, "order": {"id": "one"}}
@@ -140,6 +152,19 @@ class LiveCanaryTest(unittest.TestCase):
             first = self.common([{"status": "absent", "verified": False}], RuntimeError("ack_unknown"))
             with self.env(root, "cloud"), first[0], first[1], first[2], first[3], first[4], first[5]:
                 with self.assertRaisesRegex(RuntimeError, "ack_unknown"):
+                    live_canary.main()
+            ownership = json.loads((root / "state/live-owned-position.json").read_text())
+            self.assertEqual(ownership["status"], "entry_pending")
+            self.assertEqual(ownership["symbol"], "BTCUSD")
+
+    def test_cloud_ledger_crash_window_already_has_pending_ownership(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = self.common([{"status": "absent", "verified": False}], None)
+            with self.env(root, "cloud"), first[0], first[1], first[2], first[3], \
+                    patch.object(live_canary, "mark_started",
+                                 side_effect=RuntimeError("ledger_crash")), first[5]:
+                with self.assertRaisesRegex(RuntimeError, "ledger_crash"):
                     live_canary.main()
             ownership = json.loads((root / "state/live-owned-position.json").read_text())
             self.assertEqual(ownership["status"], "entry_pending")

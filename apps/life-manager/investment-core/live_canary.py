@@ -106,11 +106,13 @@ def _write_cloud_ownership(state: Path, sealed: dict[str, str], result: dict | N
 
 def _output(sealed: dict[str, str], result: dict, submitted: bool, deployment: str) -> int:
     value = {"canary_ref": CLOUD_CANARY_REF if deployment == "cloud" else CANARY_REF,
-             "deployment": deployment, "client_order_id": sealed["client_order_id"],
+             "client_order_id": sealed["client_order_id"],
              "effect_id": sealed["effect_id"],
              "observed_at": datetime.now(timezone.utc).isoformat(),
              "status": result["status"], "submitted_this_run": submitted,
              "verified": result.get("verified") is True}
+    if deployment == "cloud":
+        value["deployment"] = deployment
     print(json.dumps(value, sort_keys=True, separators=(",", ":")))
     return 0 if value["verified"] else 75
 
@@ -144,10 +146,10 @@ def main() -> int:
         with control_fence(state) as control:
             if control["paused"] or control["killed"]:
                 raise ValueError("live_canary_control_rejected")
+            if deployment == "cloud":
+                _write_cloud_ownership(state, sealed)
             if mark_started(ledger, sealed):
                 submitted = True
-                if deployment == "cloud":
-                    _write_cloud_ownership(state, sealed)
                 submit_live_canary(credentials_path=credentials, cli_path=cli,
                                    client_order_id=sealed["client_order_id"], order=ORDER)
     result = existing
