@@ -64,3 +64,41 @@ test("reuses the official TaskMarket verifier and writes its records to the shar
   assert.equal(result.recorded, 1);
   assert.deepEqual(appended.map((row) => row.kind), ["business_revenue", "fee"]);
 });
+
+test("official TaskMarket readback plus finalized Base transfer reaches the shared store", async () => {
+  const worker = `0x${"b".repeat(40)}`;
+  const requester = `0x${"e".repeat(40)}`;
+  const task = `0x${"a".repeat(64)}`;
+  const tx = `0x${"d".repeat(64)}`;
+  const topic = (address) => `0x${address.slice(2).padStart(64, "0")}`;
+  const award = { workerAddress: worker, workerAgentId: null, rank: 1,
+    grossAmount: "5000000", workerPayment: "4750000", platformFee: "250000",
+    settlementTxHash: tx, settledAt: "2026-09-11T04:00:00.000Z" };
+  const appended = [];
+  const fetchImpl = async (url, init = {}) => {
+    if (String(url).includes("/api/submissions/mine")) {
+      return { ok: true, status: 200, text: async () => JSON.stringify([{ taskId: task }]) };
+    }
+    if (String(url).includes(`/api/tasks/${task}`)) {
+      return { ok: true, status: 200, text: async () => JSON.stringify({ id: task, requester,
+        status: "completed", selfAward: false, awardCount: 1, awards: [award] }) };
+    }
+    const request = JSON.parse(init.body);
+    const result = request.method === "eth_chainId" ? "0x2105"
+      : request.method === "eth_getBlockByNumber" ? { number: "0x100" }
+        : { status: "0x1", transactionHash: tx, blockNumber: "0xff", logs: [{
+          address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", topics: [
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+            topic(requester), topic(worker),
+          ], data: `0x${BigInt(4750000).toString(16)}`,
+        }] };
+    return { ok: true, json: async () => ({ result }) };
+  };
+  const result = await persistTaskMarketRevenue({ identity: { tenant_id: "tenant-a", wallet: { address: worker } },
+    financialStore: { append: async (record) => { appended.push(record); return { created: true, record }; } },
+    recordedAt: "2026-09-11T05:00:00.000Z", selfWallets: [`0x${"c".repeat(40)}`], fetchImpl });
+  assert.equal(result.recorded, 1);
+  assert.deepEqual(appended.map((row) => [row.kind, row.amount_minor]), [
+    ["business_revenue", 5000000], ["fee", 250000],
+  ]);
+});
