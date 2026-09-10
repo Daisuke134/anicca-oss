@@ -146,7 +146,7 @@ class CrowdWorksReplyAdapter:
             self._reset_page()
             self.page.goto(url, wait_until="domcontentloaded", timeout=20_000)
         self.page.wait_for_timeout(1500)
-        if "/proposals/" not in self.page.url:
+        if not re.search(r"/(?:proposals|contracts)/\d+", self.page.url):
             raise RuntimeError("crowdworks_thread_unavailable")
 
     def _detail(self, thread_id: str) -> list[dict[str, str]]:
@@ -277,6 +277,19 @@ class CrowdWorksReplyAdapter:
             if (current is not None and isinstance(persisted, Mapping)
                     and self._same_contract_offer(current["payload"], persisted)):
                 return {"authoritative_absent": True}
+            contract_match = re.search(r"/contracts/(\d+)(?:[?#]|$)", self.page.url)
+            if contract_match is not None and isinstance(persisted, Mapping):
+                title = str(persisted.get("title") or "")
+                amount = str(persisted.get("amount") or "")
+                expected = [str(persisted.get(field) or "")
+                            for field in ("client", "worker")]
+                expected = [value for value in expected if value]
+                body = self.page.locator("body").inner_text()
+                if (title and amount and title in self.page.title()
+                        and amount in body and all(value in body for value in expected)):
+                    return {"verified": True,
+                            "provider_receipt_id": f"contract:{contract_match.group(1)}",
+                            "observed_at": _now()}
             progress = self.page.locator("div.progress_detail")
             if progress.count() != 1:
                 return {}

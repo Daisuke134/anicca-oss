@@ -80,9 +80,11 @@ class _Locator:
 
 
 class _Page:
-    def __init__(self, mapping, title="対象案件【クラウドワークス】"):
+    def __init__(self, mapping, title="対象案件【クラウドワークス】",
+                 url="https://crowdworks.jp/proposals/message-1"):
         self.mapping = mapping
         self._title = title
+        self.url = url
     def locator(self, selector): return self.mapping[selector]
     def wait_for_load_state(self, *_args, **_kwargs): pass
     def title(self): return self._title
@@ -195,6 +197,24 @@ def test_contract_readback_requires_one_visible_official_contract_link():
     ] = _Locator(count=0)
     assert uncertain.readback({"action": "accept_contract", "thread_id": "thread-1",
                                "payload": {"title": "対象案件", "amount": "12円"}}) == {}
+
+
+def test_contract_readback_accepts_exact_message_redirect_to_matching_contract():
+    adapter, _, _, _ = _contract_adapter(status="contracted")
+    adapter.page.url = "https://crowdworks.jp/contracts/63570481#scroll_to_message"
+    adapter.page.mapping[
+        'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+    ] = _Locator(count=0)
+    adapter.page.mapping["body"] = _Locator(
+        text="契約名 対象案件 クライアント 発注者 契約金額（税込） 12円 Kaito｜AI自動化"
+    )
+    payload = {"title": "対象案件", "amount": "12円", "client": "発注者",
+               "worker": "Kaito｜AI自動化"}
+
+    receipt = adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                                "payload": payload})
+
+    assert receipt["provider_receipt_id"] == "contract:63570481"
 
 
 def test_contract_readback_ignores_page_wide_or_mismatched_contract_links():
