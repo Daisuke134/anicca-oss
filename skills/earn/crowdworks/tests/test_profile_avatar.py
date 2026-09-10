@@ -28,6 +28,36 @@ def test_uploaded_public_avatar_is_aligned() -> None:
     assert profile._avatar_aligned(source) is True
 
 
+def test_current_attachment_avatar_is_read_back() -> None:
+    source = "https://crowdworks.jp/attachments/59139511.jpg?width=200&height=200"
+
+    class Locator:
+        first = None
+
+        def __init__(self) -> None:
+            self.first = self
+
+        def wait_for(self, **_kwargs: object) -> None:
+            return None
+
+        def count(self) -> int:
+            return 1
+
+        def get_attribute(self, name: str) -> str | None:
+            return source if name == "src" else None
+
+    class Page:
+        def locator(self, selector: str) -> Locator:
+            assert 'img[alt="userIcon"]' in selector
+            return Locator()
+
+    assert profile._public_avatar(Page()) == {
+        "present": True,
+        "aligned": True,
+        "hash": profile._hash(source),
+    }
+
+
 def test_shared_avatar_is_the_existing_provider_neutral_asset() -> None:
     expected = Path(__file__).parents[3] / "gig-work" / "profile" / "avatar.jpg"
 

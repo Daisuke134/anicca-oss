@@ -60,7 +60,7 @@ def _body(page:Any)->str:
 def _hash(value:str)->str|None: return hashlib.sha256(value.encode("utf-8")).hexdigest() if value else None
 def _avatar_aligned(source:Any)->bool:
     try:
-        value=urlsplit(source); return value.scheme=="https" and (value.hostname or "").lower() in _AVATAR_HOSTS and "/images/user_picture/default/" not in value.path
+        value=urlsplit(source); path=value.path; return value.scheme=="https" and (value.hostname or "").lower() in _AVATAR_HOSTS and (bool(re.fullmatch(r"/attachments/\d+\.(?:jpe?g|png)",path,re.I)) or "/user_picture/" in path and "/images/user_picture/default/" not in path)
     except Exception: return False
 def _validated_avatar(path:Path|str=DEFAULT_AVATAR_PATH)->Path:
     value=Path(path)
@@ -68,7 +68,7 @@ def _validated_avatar(path:Path|str=DEFAULT_AVATAR_PATH)->Path:
     return value
 def _public_avatar(page:Any)->dict[str,Any]:
     try:
-        selector='img[src*="/user_picture/"]'; page.locator(selector).first.wait_for(state="attached",timeout=20_000); source=_one(page,selector,"profile_avatar_readback_failed").get_attribute("src")
+        selector='img[alt="userIcon"], img[src*="/user_picture/"]'; page.locator(selector).first.wait_for(state="attached",timeout=20_000); source=_one(page,selector,"profile_avatar_readback_failed").get_attribute("src")
     except Exception: _fail("profile_avatar_readback_failed")
     return {"present":bool(source),"aligned":_avatar_aligned(source),"hash":_hash(source or "")}
 def _field(page:Any,selector:str,required:bool=False)->str:
