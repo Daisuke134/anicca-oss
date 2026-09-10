@@ -4,11 +4,13 @@ const assert = require("node:assert/strict");
 const {
   chmodSync,
   mkdtempSync,
+  readFileSync,
   symlinkSync,
   writeFileSync,
 } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 
 const {
@@ -34,6 +36,43 @@ test("--uid is mandatory and parsed without accepting a dangling option", () => 
   assert.throws(() => parseArgs([]), /--uid/i);
   assert.throws(() => parseArgs(["--uid"]), /--uid/i);
   assert.throws(() => parseArgs(["--uid", "--other"]), /--uid/i);
+});
+
+test("managed payout boot injects configured tenant or exits as an explicit safe no-op", () => {
+  const boot = require.resolve("./payout-boot.sh");
+  const root = mkdtempSync(join(tmpdir(), "lm-payout-boot-"));
+  const envFile = join(root, ".env");
+  const fakeNode = join(root, "node");
+  const python = spawnSync("/usr/bin/env", ["python3", "-c", "import sys; print(sys.executable)"], {
+    encoding: "utf8",
+  });
+  assert.equal(python.status, 0, python.stderr);
+  const pythonExecutable = python.stdout.trim();
+  assert.match(pythonExecutable, /^\//);
+  writeFileSync(envFile, "", { mode: 0o600 });
+  writeFileSync(fakeNode, '#!/bin/sh\nprintf "%s\\n" "$@"\n', { mode: 0o700 });
+
+  const missing = spawnSync("/bin/bash", [boot], {
+    encoding: "utf8",
+    env: { ...process.env, LIFE_MANAGER_ENV_FILE: envFile, LM_TENANT_UID: "" },
+  });
+  assert.equal(missing.status, 0);
+  assert.deepEqual(JSON.parse(missing.stdout), { status: "skipped", reason: "tenant_not_configured" });
+
+  const configured = spawnSync("/bin/bash", [boot], {
+    encoding: "utf8",
+    env: { ...process.env, LIFE_MANAGER_ENV_FILE: envFile, LIFE_MANAGER_NODE: fakeNode, LIFE_MANAGER_PYTHON: pythonExecutable, LM_TENANT_UID: "tenant-a" },
+  });
+  assert.equal(configured.status, 0, configured.stderr);
+  assert.match(configured.stdout, /run-agent-payout\.js\n--uid\ntenant-a/);
+
+  const oversized = spawnSync("/bin/bash", [boot], {
+    encoding: "utf8",
+    env: { ...process.env, LIFE_MANAGER_ENV_FILE: envFile, LIFE_MANAGER_NODE: fakeNode, LIFE_MANAGER_PYTHON: pythonExecutable, LM_TENANT_UID: "a".repeat(129) },
+  });
+  assert.equal(oversized.status, 78);
+  assert.match(oversized.stderr, /LM_TENANT_UID is invalid/);
+  assert.equal(oversized.stdout, "");
 });
 
 test("protected wallet reader requires a regular 0600 file whose key derives its public address", async () => {
