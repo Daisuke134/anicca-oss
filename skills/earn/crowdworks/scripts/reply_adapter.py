@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import sys
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
@@ -69,6 +70,14 @@ class CrowdWorksReplyAdapter:
                 pass
         self.page = self.browser.contexts[0].new_page()
         self.page.set_default_timeout(10_000)
+
+    @staticmethod
+    def _provider_route(url: str) -> tuple[str, str] | None:
+        parsed = urlsplit(url)
+        if parsed.scheme != "https" or parsed.netloc != "crowdworks.jp":
+            return None
+        match = re.fullmatch(r"/(proposals|contracts)/(\d+)", parsed.path)
+        return match.groups() if match is not None else None
 
     def _inbox_page_once(self, number: int) -> Mapping[str, Any]:
         self._open()
@@ -146,7 +155,7 @@ class CrowdWorksReplyAdapter:
             self._reset_page()
             self.page.goto(url, wait_until="domcontentloaded", timeout=20_000)
         self.page.wait_for_timeout(1500)
-        if "/proposals/" not in self.page.url:
+        if self._provider_route(self.page.url) is None:
             raise RuntimeError("crowdworks_thread_unavailable")
 
     def _detail(self, thread_id: str) -> list[dict[str, str]]:
@@ -277,6 +286,19 @@ class CrowdWorksReplyAdapter:
             if (current is not None and isinstance(persisted, Mapping)
                     and self._same_contract_offer(current["payload"], persisted)):
                 return {"authoritative_absent": True}
+            route = self._provider_route(self.page.url)
+            if route is not None and route[0] == "contracts" and isinstance(persisted, Mapping):
+                title = str(persisted.get("title") or "")
+                amount = str(persisted.get("amount") or "")
+                expected = [str(persisted.get(field) or "")
+                            for field in ("client", "worker")]
+                expected = [value for value in expected if value]
+                body = self.page.locator("body").inner_text()
+                if (title and amount and title in self.page.title()
+                        and amount in body and all(value in body for value in expected)):
+                    return {"verified": True,
+                            "provider_receipt_id": f"contract:{route[1]}",
+                            "observed_at": _now()}
             progress = self.page.locator("div.progress_detail")
             if progress.count() != 1:
                 return {}
