@@ -72,6 +72,12 @@ export function resolveEvmPrivateKey({ home, env } = {}) {
   const override = normalizeEvmKey(e.ANICCA_EVM_PRIVATE_KEY);
   if (override) return override;
 
+  const explicitWallet = e.ANICCA_EVM_WALLET_PATH;
+  if (explicitWallet) {
+    const fromExplicit = readJsonField(explicitWallet, 'privateKey');
+    if (fromExplicit) return normalizeEvmKey(fromExplicit);
+  }
+
   // Effective home mirrors resolve-wallet-path.sh: explicit ANICCA_HOME, else default $HOME/.anicca.
   const effectiveHome = home ?? e.ANICCA_HOME ?? (e.HOME ? path.join(e.HOME, '.anicca') : null);
   if (effectiveHome) {

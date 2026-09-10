@@ -29,6 +29,7 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
   process.env.COMPOSIO_GCAL_AUTH_CONFIG = "fixture-calendar-auth";
   process.env.LM_TELEGRAM_BOT_USERNAME = "LifeManagerBotbot";
   process.env.LM_STRIPE_PAYMENT_LINK = "https://buy.stripe.com/test_life_manager";
+  process.env.LM_CLOUD_CITIZEN_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString("base64");
   // Browser tasks ON: if slash routing ever fell through to this branch for the paid+done fixture
   // user, the classifier would call Gemini and the fake fetch below would throw.
   process.env.LM_BROWSER_TASKS_ENABLED = "1";
@@ -64,19 +65,35 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
   const userPatches = [];
   const feedbackRows = [];
   const investmentReads = [];
+  const runtimeJobs = new Map();
+  const cloudCitizens = new Map();
   let telegramSendOk = true;
   const logs = [];
   const originalConsoleLog = console.log;
   console.log = (...args) => logs.push(args.map(String).join(" "));
   pg.Pool = class FixturePool {
     query(sql, values) {
-      if (!/FROM public\.lm_investment_states/.test(sql)) throw new Error("unexpected runtime query");
-      investmentReads.push(values[0]);
-      return Promise.resolve({ rows: values[0] === "u1" ? [{
+      if (/FROM public\.lm_investment_states/.test(sql)) {
+        investmentReads.push(values[0]);
+        return Promise.resolve({ rows: values[0] === "u1" ? [{
         uid: "u1", lifecycle: "in_review", deployment: "cloud", mode: "paper",
         paused: false, killed: false, core_digest: null, receipt_refs: [],
         alpaca_api_key_ref: null, alpaca_api_secret_ref: null,
-      }] : [] });
+        }] : [] });
+      }
+      if (/INSERT INTO public\.lm_runtime_jobs/.test(sql)) {
+        const [jobId, tenantId, loopId, capability, effectClass, effectKey, refs, maxAttempts] = values;
+        if (runtimeJobs.has(jobId)) return Promise.resolve({ rows: [] });
+        const row = { job_id: jobId, tenant_id: tenantId, loop_id: loopId, capability,
+          effect_class: effectClass, effect_key: effectKey, input_refs: JSON.parse(refs), max_attempts: maxAttempts };
+        runtimeJobs.set(jobId, row);
+        return Promise.resolve({ rows: [row] });
+      }
+      if (/SELECT \* FROM public\.lm_runtime_jobs/.test(sql)) {
+        const row = runtimeJobs.get(values[0]);
+        return Promise.resolve({ rows: row && row.tenant_id === values[1] ? [row] : [] });
+      }
+      throw new Error("unexpected runtime query");
     }
   };
   process.env.LM_RUNTIME_DATABASE_URL = "postgresql://fixture.invalid/runtime";
@@ -144,6 +161,15 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
         notifications_enabled: true, paid: false,
       };
       return response(200, [{ status: "claimed", uid: startedRow.uid, chat_id: startedRow.telegram_chat_id }]);
+    }
+    if (url.pathname === "/rest/v1/rpc/provision_lm_cloud_citizen" && method === "POST") {
+      const body = JSON.parse(init.body || "{}");
+      const existing = cloudCitizens.get(body.p_tenant_id);
+      if (existing) return response(200, [{ ...existing, created: false }]);
+      const row = { tenant_id: body.p_tenant_id, citizen_id: body.p_citizen_id,
+        instance_id: body.p_instance_id, wallet_address: body.p_wallet_address };
+      cloudCitizens.set(body.p_tenant_id, row);
+      return response(200, [{ ...row, created: true }]);
     }
     if (url.pathname === "/rest/v1/lm_panel_command_receipts" && method === "GET") {
       const key = String(url.searchParams.get("idempotency_key") || "").replace(/^eq\./, "");
@@ -317,6 +343,8 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     assert.equal(await message("300", "/start@Bot payload"), 200);
     assert.equal(lastSent().reply_markup.inline_keyboard[0][0].url, "https://accounts.google.com/o/oauth2/auth?state=fixture");
     assert.equal(actorClaims, 4, "each new update is fenced while the existing tenant is reused");
+    assert.equal(cloudCitizens.size, 1, "all /start updates reuse one Cloud citizen");
+    assert.equal(runtimeJobs.size, 1, "all /start updates reuse one Agent Economy start job");
     assert.equal(await exactMessage(9199, "300", "/start", "999"), 200);
     assert.equal(sent.length, sentBeforeReplay + 2, "a different actor in the existing chat cannot start onboarding");
     assert.equal(actorClaims, 4, "cross-actor input is rejected before the claim RPC");

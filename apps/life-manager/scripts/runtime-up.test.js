@@ -33,6 +33,22 @@ const ROOT = path.join(__dirname, "../../..");
 const MONEY_TENANT = "tenant-a";
 const MONEY_OPPORTUNITY_ID = "a".repeat(64);
 const MONEY_GOAL_REF = `intent-entry://${MONEY_TENANT}/${MONEY_OPPORTUNITY_ID}`;
+
+test("a continuation is activated only after durable current-job completion", async () => {
+  const order = [];
+  await executeCapabilityJob({ tenant_id: "tenant-a", job_id: "job-a", attempt: 1,
+    capability: "agent-economy.start", effect_class: "money" }, {
+    workerId: "worker-a",
+    handlers: { "agent-economy.start": async () => ({
+      receipt: { kind: "agent_economy_wake", status: "completed" },
+      continuation: { job: { job_id: "next" }, availableAt: "2026-09-11T00:05:00.000Z" },
+    }) },
+    completeJob: async () => { throw new Error("non-atomic completion used"); },
+    completeJobAndEnqueue: async (input) => { order.push("atomic"); assert.equal(input.nextJob.job_id, "next"); },
+    failJob: async () => { throw new Error("unexpected failure"); },
+  });
+  assert.deepEqual(order, ["atomic"]);
+});
 const MONEY_JOB_ID = `goal:${MONEY_OPPORTUNITY_ID}`;
 
 test("active capability work refreshes worker liveness without starting a second claim", () => {
@@ -997,4 +1013,48 @@ test("marketing video publication worker wires the Honne EN profile and TikTok i
   assert.equal(typeof services.profileProvider.get, "function");
   assert.equal(typeof services.integrationProvider.get, "function");
   assert.equal(typeof services.secretProvider.get, "function");
+});
+
+test("Agent Economy Cloud worker runs the shared wake and schedules the next wake", async () => {
+  const key = Buffer.alloc(32, 4).toString("base64");
+  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "lm-ae-worker-"));
+  let services;
+  let wakeCalls = 0;
+  const handlers = createWorkerHandlers({ LM_CLOUD_CITIZEN_ENCRYPTION_KEY: key, LM_DATA_DIR: root }, ["agent-economy.start"], {
+    async query(sql, values) {
+      if (/INSERT INTO public\.lm_runtime_jobs/.test(sql)) {
+        return { rows: [{ job_id: values[0], tenant_id: values[1], loop_id: values[2],
+          capability: values[3], effect_class: values[4], effect_key: values[5],
+          input_refs: JSON.parse(values[6]), max_attempts: values[7], available_at: values[8] }] };
+      }
+      assert.match(sql, /FROM public\.lm_cloud_citizens/);
+      assert.doesNotMatch(sql, /ciphertext|private\.lm_cloud_citizen_signers/);
+      return { rows: [{ tenant_id: values[0], citizen_id: "primary", instance_id: "cloud",
+        wallet_address: `0x${"a".repeat(40)}` }] };
+    },
+    createAgentEconomyCloudWakeRunner({ citizenStore, dataDir }) {
+      assert.ok(citizenStore);
+      assert.equal(dataDir, root);
+      return async (identity) => {
+        wakeCalls += 1;
+        assert.equal(identity.tenant_id, "tenant-a");
+        return { wake_id: "wake-1", kind: "idle", slot: null, profitable: false };
+      };
+    },
+    createRegistry({ servicesByAdapter }) {
+      services = servicesByAdapter["agent-economy-cloud"];
+      const { createAgentEconomyCloudLoopAdapter } = require("../lib/agent-economy-cloud-adapter.js");
+      const adapter = createAgentEconomyCloudLoopAdapter(services);
+      return { hasCapability: (value) => value === "agent-economy.start", getByCapability: () => adapter };
+    },
+  });
+  const { buildAgentEconomyStartJob } = require("../lib/agent-economy-cloud-adapter.js");
+  const result = await handlers["agent-economy.start"]({
+    ...buildAgentEconomyStartJob({ tenantId: "tenant-a", citizenId: "primary", instanceId: "cloud" }),
+    available_at: "2026-09-11T00:00:00.000Z",
+  });
+  assert.equal(result.receipt.kind, "agent_economy_wake");
+  assert.equal(result.receipt.status, "completed");
+  assert.equal(wakeCalls, 1);
+  assert.ok(services.citizenStore);
 });

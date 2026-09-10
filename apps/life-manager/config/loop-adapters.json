@@ -112,6 +112,16 @@
       "factory_export": "createMarketplaceApplicationLoopAdapter"
     },
     {
+      "adapter_id": "agent-economy-cloud",
+      "loop_id": "agent-economy",
+      "capability": "agent-economy.start",
+      "effect_classes": [
+        "none"
+      ],
+      "module_ref": "lib/agent-economy-cloud-adapter.js",
+      "factory_export": "createAgentEconomyCloudLoopAdapter"
+    },
+    {
       "adapter_id": "connector-coverage-refresh",
       "loop_id": "connector.coverage",
       "capability": "connector.coverage.refresh",

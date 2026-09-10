@@ -404,6 +404,21 @@ async function completeJob(input, opts = {}) {
   );
 }
 
+async function completeJobAndEnqueue(input, opts = {}) {
+  const id = identity(input);
+  const receipt = receiptObject(input.receipt);
+  const next = buildRuntimeJob(input.nextJob);
+  const availableAt = availableInstant(input.availableAt);
+  if (next.tenant_id !== id.tenantId) throw new Error("runtime continuation tenant mismatch");
+  const { query } = database(opts);
+  return oneRow(query,
+    "SELECT * FROM public.complete_lm_runtime_job_and_enqueue($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14::timestamptz)",
+    [id.tenantId, id.jobId, id.attempt, id.workerId, JSON.stringify(receipt), next.job_id,
+      next.loop_id, next.capability, next.effect_class, next.effect_key, next.tenant_id,
+      JSON.stringify(next.input_refs), next.max_attempts, availableAt],
+    "runtime completion or continuation lost lease");
+}
+
 async function failJob(input, opts = {}) {
   const id = identity(input);
   const errorCode = nonEmpty(input && input.errorCode, "runtime error code");
@@ -464,6 +479,7 @@ module.exports = {
   claimJobs,
   heartbeatJob,
   completeJob,
+  completeJobAndEnqueue,
   failJob,
   resolveReconciliation,
   recordUnknownReconciliation,

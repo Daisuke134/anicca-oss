@@ -85,10 +85,13 @@ const { claimEvent, unclaimEvent, applyBilling } = require("./lib/billing.js");
 const { constructStripeWebhookEvent, stripeWebhookAllowed } = require("./lib/stripe-webhook-signature.js");
 const { recordCost } = require("./lib/ledger.js");
 const { recordUsageEvent } = require("./lib/usage-event.js");
+const { createCloudCitizenStore } = require("./lib/cloud-citizen-store.js");
+const { provisionAndStartAgentEconomy } = require("./lib/agent-economy-cloud-provisioning.js");
+const { enqueueJob } = require("./lib/runtime-job-store.js");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder"); // apiKey unused by constructEvent
 const SUPA_URL = process.env.SUPABASE_URL, SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPOSIO_KEY = process.env.COMPOSIO_API_KEY;
-let moneyPrinterSource, moneyPrinterRuntimePool, moneyPrinterRuntimeStore, investmentStateStore;
+let moneyPrinterSource, moneyPrinterRuntimePool, moneyPrinterRuntimeStore, investmentStateStore, cloudCitizenStore;
 function getMoneyPrinterRuntimeStore() {
   if (!moneyPrinterRuntimeStore) {
     const connectionString = String(process.env.LM_RUNTIME_DATABASE_URL || process.env.LM_FEEDBACK_DATABASE_URL || "").trim();
@@ -104,6 +107,25 @@ function getInvestmentStateStore() {
     investmentStateStore = createInvestmentStateStore({ query: moneyPrinterRuntimePool.query.bind(moneyPrinterRuntimePool) });
   }
   return investmentStateStore;
+}
+function getCloudCitizenStore() {
+  if (!cloudCitizenStore) {
+    cloudCitizenStore = createCloudCitizenStore({
+      supaUrl: SUPA_URL,
+      supaKey: SUPA_KEY,
+      encryptionKey: process.env.LM_CLOUD_CITIZEN_ENCRYPTION_KEY,
+    });
+  }
+  return cloudCitizenStore;
+}
+async function ensureCloudAgentEconomy(tenantId) {
+  getMoneyPrinterRuntimeStore();
+  return provisionAndStartAgentEconomy({ tenantId }, {
+    citizenStore: getCloudCitizenStore(),
+    enqueueJob: (input) => enqueueJob(input, {
+      query: moneyPrinterRuntimePool.query.bind(moneyPrinterRuntimePool),
+    }),
+  });
 }
 async function readBrowserHandoff(uid) {
   getMoneyPrinterRuntimeStore();
@@ -1049,13 +1071,15 @@ const server = http.createServer(async (req, res) => {
               updateId: update.update_id,
               profileName: [u.firstName, u.lastName].filter(Boolean).join(" "),
             }, { supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+            if (!new Set(["claimed", "replayed"]).has(claim.status)) throw new Error("telegram actor claim failed");
+            if (claim.status === "claimed" && String(claim.chat_id) !== String(u.chatId)) throw new Error("telegram actor claim failed");
+            row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+            if (!row || !row.uid) throw new Error("telegram actor unavailable");
+            await ensureCloudAgentEconomy(row.uid);
             if (claim.status === "replayed") {
               res.writeHead(200); res.end("ok");
               return;
             }
-            if (claim.status !== "claimed" || String(claim.chat_id) !== String(u.chatId)) throw new Error("telegram actor claim failed");
-            row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
-            if (!row || !row.uid) throw new Error("telegram actor unavailable");
             const commandStore = createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY });
             commandStore.createOAuthState = commandStore.createTelegramOAuthState;
             const telegramScope = { uid: row.uid, chatId: u.chatId };
