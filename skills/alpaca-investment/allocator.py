@@ -1,4 +1,4 @@
-"""Model allocation with a deterministic paper-risk boundary."""
+"""Model allocation with a deterministic risk boundary."""
 
 from __future__ import annotations
 
@@ -93,7 +93,7 @@ def choose(snapshot: dict[str, Any], candidates: list[dict[str, Any]], state: Pa
     state.mkdir(parents=True, exist_ok=True, mode=0o700)
     _schema(schema_path)
     prompt = (
-        "You allocate a paper-only investment account. Select exactly one candidate_ref offered below, "
+        "You allocate an investment account. Select exactly one candidate_ref offered below, "
         "or NO_TRADE. Judge near-term expected value from only this snapshot; never invent market data. "
         "probability_profit must be 0..1 and expected_gain_usd must be the upside conditional on profit. "
         "Write reason as one concise natural Japanese sentence. "

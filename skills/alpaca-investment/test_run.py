@@ -166,10 +166,10 @@ class BrokerContextTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 CLI._context(paper, cli, mode="live")
 
-    def test_submit_rejects_shadow_and_live_before_cli_or_order(self):
+    def test_submit_rejects_shadow_before_cli_or_order(self):
         with patch.object(CLI, "_context") as context, patch.object(CLI, "_run") as run, \
                 patch.object(CLI.subprocess, "run") as process:
-            for mode in ("shadow", "live"):
+            for mode in ("shadow",):
                 with self.subTest(mode=mode), self.assertRaisesRegex(
                     ValueError, "^investment_mode_effect_forbidden$"):
                     CLI.submit_order(
@@ -181,6 +181,111 @@ class BrokerContextTest(unittest.TestCase):
         context.assert_not_called()
         run.assert_not_called()
         process.assert_not_called()
+
+    def test_live_submit_accepts_only_bounded_btc_usdc(self):
+        acknowledgement = {"client_order_id": "lm-ai-" + "a" * 24, "symbol": "BTC/USDC"}
+        valid = {"asset_class": "crypto", "notional_usd": "10.00", "side": "buy",
+                 "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+        with patch.object(CLI, "_context", return_value={}), patch.object(
+                CLI, "_run", return_value=acknowledgement) as run:
+            self.assertEqual(CLI.submit_order(credentials_path=Path("credentials"),
+                cli_path=Path("alpaca"), client_order_id=acknowledgement["client_order_id"],
+                order=valid, mode="live"), acknowledgement)
+        self.assertIn("--notional", run.call_args.args[1])
+        for invalid in ({**valid, "notional_usd": "10.01"},
+                        {**valid, "symbol": "ETH/USDC"},
+                        {**valid, "side": "sell"}):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                    ValueError, "^unsupported_live_order_shape$"):
+                CLI.submit_order(credentials_path=Path("credentials"), cli_path=Path("alpaca"),
+                    client_order_id=acknowledgement["client_order_id"], order=invalid, mode="live")
+
+    def test_live_submit_accepts_exact_btc_exit_qty(self):
+        client_id = "lm-ai-" + "b" * 24
+        order = {"asset_class": "crypto", "qty": "0.000123456", "side": "sell",
+                 "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+        with patch.object(CLI, "_context", return_value={}), patch.object(
+                CLI, "_run", return_value={"client_order_id": client_id}) as run:
+            CLI.submit_order(credentials_path=Path("credentials"), cli_path=Path("alpaca"),
+                             client_order_id=client_id, order=order, mode="live")
+        self.assertIn("--qty", run.call_args.args[1])
+
+    def test_live_ownership_selects_btc_not_usdc_and_opens_from_fill(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "c" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0",
+                "status": "entry_pending", "symbol": "BTCUSD"})
+            observation = {"positions": [
+                {"symbol": "USDCUSD", "qty": "60"},
+                {"symbol": "BTCUSD", "qty": "0.0001"}]}
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "filled", "filled_qty": "0.00011"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), observation)
+            self.assertEqual(ownership["status"], "open")
+            MODULE._owned_live_position(ownership, observation)
+
+    def test_live_ownership_closes_when_position_disappears(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "d" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0.0001", "owned_qty": "0.0001",
+                "status": "open", "symbol": "BTCUSD"})
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "filled", "filled_qty": "0.0001"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), {"positions": []})
+            self.assertEqual(ownership["status"], "closed")
+
+    def test_rejected_close_restores_owned_position(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "e" * 24,
+                "entry_effect_id": "entry", "entry_filled_qty": "0.0001", "owned_qty": "0.0001",
+                "close_client_order_id": "lm-ai-" + "f" * 24,
+                "close_effect_id": "close", "status": "closing", "symbol": "BTCUSD"})
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "rejected", "filled_qty": "0"}):
+                ownership = MODULE._sync_live_ownership(state, Path("credentials"),
+                    Path("alpaca"), {"positions": [{"symbol": "BTCUSD", "qty": "0.0001"}]})
+            self.assertEqual(ownership["status"], "open")
+
+    def test_partial_terminal_close_restores_only_remaining_owned_qty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "1" * 24,
+                "entry_effect_id": "entry", "entry_filled_qty": "0.00010",
+                "owned_qty": "0.00010", "close_client_order_id": "lm-ai-" + "2" * 24,
+                "close_effect_id": "close", "status": "closing", "symbol": "BTCUSD"})
+            observation = {"positions": [{"symbol": "BTCUSD", "qty": "0.00004"}]}
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "canceled", "filled_qty": "0.00006"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), observation)
+            self.assertEqual(ownership["owned_qty"], "0.00004")
+            MODULE._owned_live_position(ownership, observation)
+
+    def test_second_close_marker_replaces_rejected_close_identity(self):
+        ownership = {"entry_client_order_id": "entry", "entry_effect_id": "entry-effect",
+            "owned_qty": "0.0001", "close_client_order_id": "old-close",
+            "close_effect_id": "old-effect", "status": "open", "symbol": "BTCUSD"}
+        marker = MODULE._closing_marker(ownership, {
+            "client_order_id": "new-close", "effect_id": "new-effect"})
+        self.assertEqual(marker["close_client_order_id"], "new-close")
+        self.assertEqual(marker["close_effect_id"], "new-effect")
+        self.assertEqual(marker["status"], "closing")
+
+    def test_replacement_btc_quantity_is_not_owned(self):
+        ownership = {"entry_client_order_id": "entry", "entry_filled_qty": "0.0001",
+            "owned_qty": "0.00009", "status": "open", "symbol": "BTCUSD"}
+        with self.assertRaisesRegex(ValueError, "^live_position_not_owned$"):
+            MODULE._owned_live_position(ownership, {
+                "positions": [{"symbol": "BTCUSD", "qty": "0.00008"}]})
 
 
 class BrokerSnapshotTest(unittest.TestCase):
@@ -233,6 +338,42 @@ class ShadowReadOnlyTest(unittest.TestCase):
         campaign_read.assert_not_called()
         campaign_reconcile.assert_not_called()
         submit.assert_not_called()
+
+
+class LiveRunTest(unittest.TestCase):
+    def test_live_entry_submits_once_and_durably_marks_pending_ownership(self):
+        observation = {"account": {"cash": "0", "equity": "66"}, "activities_count": 0,
+            "clock": {"observed_at": "2026-09-10T08:00:00Z"},
+            "open_and_closed_orders_count": 0,
+            "positions": [{"symbol": "USDCUSD", "qty": "66", "unrealized_pl": "0"}]}
+        snapshot = {"account": {"cash": "0", "equity": "66"},
+            "available_cash_usd": "66", "clock": {"timestamp": "2026-09-10T08:00:00Z"},
+            "crypto": [], "open_orders": 0, "option_quotes": [], "positions": 0,
+            "risk": {}, "qqq_asset": {}, "qqq_quote": {}, "spy": {}}
+        decision = {"approved": True, "candidate_ref": "crypto://BTC/USDC",
+            "candidate": {"asset_class": "crypto"}, "gate": "approved",
+            "observed_at": "2026-09-10T08:00:00Z"}
+        order = {"asset_class": "crypto", "notional_usd": "10.00", "side": "buy",
+            "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+        with tempfile.TemporaryDirectory() as directory, patch.dict(MODULE.os.environ, {
+            "LIFE_MANAGER_INVESTMENT_MODE": "live", "LIFE_MANAGER_INVESTMENT_DEPLOYMENT": "local",
+            "ALPACA_INVESTMENT_LIVE_CREDENTIALS_FILE": str(Path(directory) / "credentials.json"),
+            "ALPACA_INVESTMENT_LIVE_STATE_DIR": str(Path(directory) / "state")}, clear=True), \
+            patch.object(MODULE, "reconcile_started", return_value={"pending": 0, "reconciled": 0, "unresolved": 0}), \
+            patch.object(MODULE, "observe", return_value=observation), \
+            patch.object(MODULE, "read_allocator_snapshot", return_value=snapshot), \
+            patch.object(MODULE, "build_candidates", return_value=[]), \
+            patch.object(MODULE, "choose", return_value=decision), \
+            patch.object(MODULE, "order_for", return_value=order), \
+            patch.object(MODULE, "evaluate_entry", return_value={"approved": True}), \
+            patch.object(MODULE, "allocation_gate", return_value={"approved": True}), \
+            patch.object(MODULE, "submit_order", return_value={"submitted_at": "now"}) as submit, \
+            patch.object(MODULE, "deliver", return_value={"message_id": "live"}):
+            self.assertEqual(MODULE.main(wake_id="live-entry"), 0)
+            marker = json.loads((Path(directory) / "state/live-owned-position.json").read_text())
+        submit.assert_called_once()
+        self.assertEqual(marker["status"], "entry_pending")
+        self.assertEqual(marker["symbol"], "BTCUSD")
 
 
 class PortablePassTest(unittest.TestCase):

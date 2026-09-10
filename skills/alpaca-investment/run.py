@@ -9,15 +9,18 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from allocator import build_candidates, choose, order_for
+from allocator import build_candidates, choose, gate as allocation_gate, order_for
 from alpaca_cli import (CLI_OPERATIONS, SAFE_ERROR_CODES, find_order_by_client_id, observe,
                         read_allocator_snapshot, read_campaign_snapshot, submit_order)
 from campaign import CANDIDATE_REF, SYMBOLS, exit_order, reconcile
 from control import control_fence, read_control
-from effect_store import mark_started, reconcile_started, record_no_trade, seal
+from effect_store import (mark_started, reconcile_started, record_no_trade, seal,
+                          unresolved_intent_count)
 from reporter import deliver, deliver_control, deliver_failure
+from position_manager import choose as choose_position, exit_order as live_exit_order
 from review_status import read_receipt as read_application_status
 from review_status import refresh as refresh_application_status
+from risk_policy import evaluate_entry
 
 
 def _atomic_json(path: Path, value: dict) -> None:
@@ -123,6 +126,79 @@ def _nonpaper_campaign(observation: dict) -> dict:
             "unrealized_pnl_usd": str(unrealized)}
 
 
+def _sync_live_ownership(state: Path, credentials_path: Path, cli_path: Path,
+                         observation: dict) -> dict | None:
+    path = state / "live-owned-position.json"
+    try:
+        ownership = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError as error:
+        raise ValueError("live_position_not_owned") from error
+    btc = [row for row in observation.get("positions", []) if row.get("symbol") == "BTCUSD"]
+    if len(btc) > 1 or ownership.get("symbol") != "BTCUSD":
+        raise ValueError("live_position_not_owned")
+    order_key = "close_client_order_id" if ownership.get("status") == "closing" \
+        else "entry_client_order_id"
+    broker = find_order_by_client_id(credentials_path=credentials_path, cli_path=cli_path,
+                                     client_order_id=ownership.get(order_key, ""))
+    status = broker.get("status") if broker else "absent"
+    if ownership.get("status") == "entry_pending":
+        if btc and status in {"filled", "canceled", "expired", "rejected"}:
+            try:
+                held = Decimal(str(btc[0]["qty"]))
+                filled = Decimal(str(broker.get("filled_qty") or "0"))
+            except (InvalidOperation, KeyError, TypeError) as error:
+                raise ValueError("live_position_not_owned") from error
+            if held <= 0 or held > filled:
+                raise ValueError("live_position_not_owned")
+            ownership["status"] = "open"
+            ownership["entry_filled_qty"] = str(filled)
+            ownership["owned_qty"] = str(held)
+            _atomic_json(path, ownership)
+        elif status in {"filled", "canceled", "expired", "rejected"} and not btc:
+            ownership["status"] = "closed"
+            _atomic_json(path, ownership)
+    elif ownership.get("status") == "closing":
+        if status in {"canceled", "expired", "rejected"} and btc:
+            try:
+                remaining = Decimal(str(btc[0]["qty"]))
+                previously_owned = Decimal(str(ownership["owned_qty"]))
+            except (InvalidOperation, KeyError, TypeError) as error:
+                raise ValueError("live_position_not_owned") from error
+            if remaining <= 0 or remaining > previously_owned:
+                raise ValueError("live_position_not_owned")
+            ownership["status"] = "open"
+            ownership["owned_qty"] = str(remaining)
+            _atomic_json(path, ownership)
+        elif status == "filled" and not btc:
+            ownership["status"] = "closed"
+            _atomic_json(path, ownership)
+    elif ownership.get("status") == "open" and not btc:
+        ownership["status"] = "closed"
+        _atomic_json(path, ownership)
+    return ownership
+
+
+def _owned_live_position(ownership: dict | None, observation: dict) -> None:
+    btc = [row for row in observation.get("positions", []) if row.get("symbol") == "BTCUSD"]
+    if ownership is None or ownership.get("status") != "open" or len(btc) != 1:
+        raise ValueError("live_position_not_owned")
+    try:
+        qty = Decimal(str(btc[0]["qty"]))
+        filled = Decimal(str(ownership["entry_filled_qty"]))
+        owned = Decimal(str(ownership["owned_qty"]))
+    except (InvalidOperation, KeyError, TypeError) as error:
+        raise ValueError("live_position_not_owned") from error
+    if qty <= 0 or qty > filled or qty != owned:
+        raise ValueError("live_position_not_owned")
+
+
+def _closing_marker(ownership: dict, sealed: dict) -> dict:
+    return {**ownership, "close_client_order_id": sealed["client_order_id"],
+            "close_effect_id": sealed["effect_id"], "status": "closing"}
+
+
 def main(*, attempt: int = 0, wake_id=None) -> int:
     wake_id = wake_id or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     mode = os.environ.get("LIFE_MANAGER_INVESTMENT_MODE")
@@ -164,6 +240,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
             credentials_path=credentials_path,
             cli_path=cli_path,
         )
+        ownership = (_sync_live_ownership(state, credentials_path, cli_path, observation)
+                     if mode == "live" else None)
         stage = "campaign_read"
         campaign = (reconcile(read_campaign_snapshot(
             credentials_path=credentials_path, cli_path=cli_path, symbols=SYMBOLS))
@@ -229,44 +307,82 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         allocator_snapshot["unresolved_intents"] = unresolved
         candidates = build_candidates(allocator_snapshot)
         stage = "allocation_decide"
-        decision = choose(
-            allocator_snapshot, candidates, state,
-            Path(__file__).resolve().parents[2] / "runtime/agent-runner/agent_runner.py",
-            Path(__file__).resolve().parents[2],
-        )
+        runner = Path(__file__).resolve().parents[2] / "runtime/agent-runner/agent_runner.py"
+        workdir = Path(__file__).resolve().parents[2]
+        live_positions = mode == "live" and allocator_snapshot.get("positions", 0) > 0
+        if live_positions:
+            _owned_live_position(ownership, observation)
+            position = choose_position(allocator_snapshot, observation, state, runner, workdir)
+            decision = {"approved": position["action"] == "EXIT",
+                        "candidate_ref": "position://BTCUSD", "gate": "position_exit" if position["action"] == "EXIT" else "position_hold",
+                        "reason": position["reason"], "position_action": position["action"],
+                        "position_qty": position["qty"], "observed_at": allocator_snapshot["clock"]["timestamp"]}
+        else:
+            if mode == "live" and ownership and ownership.get("status") in {"entry_pending", "closing"}:
+                decision = {"approved": False, "candidate_ref": "NO_TRADE",
+                            "gate": "ownership_pending", "reason": "既存注文の公式確定を待つ。",
+                            "observed_at": allocator_snapshot["clock"]["timestamp"]}
+            else:
+                decision = choose(allocator_snapshot, candidates, state, runner, workdir)
         decision["deployment"] = deployment
         decision["mode"] = mode
         decision["risk"] = allocator_snapshot["risk"]
         if effect != "none" and decision["approved"]:
             decision["approved"] = False
             decision["gate"] = "campaign_exit_used_effect_limit"
-        if decision["approved"] and mode == "paper":
+        if decision["approved"] and mode in {"paper", "live"}:
             stage = "allocation_order_build"
-            order = order_for(decision)
-            stage = "allocation_submit"
-            with control_fence(state) as current_control:
-                if current_control["paused"] or current_control["killed"]:
-                    telegram = deliver_control(
-                        state, control=current_control, wake_id=wake_id, mode=mode)
-                    print(json.dumps({
-                        "effect": "none", "loop_id": "alpaca-investment", "mode": mode,
-                        "reconciliation": reconciliation,
-                        "status": "killed" if current_control["killed"] else "paused",
-                        "telegram_message_id": telegram["message_id"],
-                    }, separators=(",", ":")))
-                    return 0
-                sealed = seal(state / "receipts.jsonl", decision, order)
-                mark_started(state / "receipts.jsonl", sealed)
-                effect_attempted = True
-                submit_order(credentials_path=credentials_path, cli_path=cli_path,
-                             client_order_id=sealed["client_order_id"], order=order)
-            stage = "allocation_reconcile"
-            reconcile_started(
-                state / "receipts.jsonl",
-                lambda value: find_order_by_client_id(
-                    credentials_path=credentials_path, cli_path=cli_path, client_order_id=value),
-            )
-            effect = sealed["effect_id"]
+            order = (live_exit_order({"qty": decision["position_qty"]})
+                     if live_positions else order_for(decision))
+            if mode == "live" and not live_positions:
+                if order.get("asset_class") != "crypto" or order.get("symbol") != "BTC/USDC":
+                    decision.update({"approved": False, "gate": "live_asset_rejected"})
+                    record_no_trade(state / "receipts.jsonl", decision)
+                    order = None
+            if order is None:
+                effect = "none"
+            else:
+                stage = "allocation_submit"
+                with control_fence(state) as current_control:
+                    if current_control["paused"] or current_control["killed"]:
+                        telegram = deliver_control(state, control=current_control, wake_id=wake_id, mode=mode)
+                        print(json.dumps({"effect":"none","loop_id":"alpaca-investment","mode":mode,
+                            "reconciliation":reconciliation,"status":"killed" if current_control["killed"] else "paused",
+                            "telegram_message_id":telegram["message_id"]}, separators=(",", ":")))
+                        return 0
+                    # Re-read official slots under the exclusive effect fence so two
+                    # overlapping wakes cannot both act on the same stale snapshot.
+                    fresh = read_allocator_snapshot(credentials_path=credentials_path,
+                        cli_path=cli_path, risk_day_path=state / "risk-day.json")
+                    fresh["unresolved_intents"] = unresolved_intent_count(state / "receipts.jsonl")
+                    if (fresh.get("open_orders") != 0 or unresolved_intent_count(
+                            state / "receipts.jsonl") != 0 or
+                            (live_positions and fresh.get("positions") != 1) or
+                            (not live_positions and fresh.get("positions") != 0)):
+                        raise ValueError("investment_effect_fence_rejected")
+                    if mode == "live" and not live_positions and not evaluate_entry(
+                            fresh.get("risk"), order.get("notional_usd"))["approved"]:
+                        raise ValueError("investment_effect_fence_rejected")
+                    if mode == "live" and not live_positions:
+                        refreshed = allocation_gate(fresh, build_candidates(fresh), decision)
+                        if not refreshed["approved"]:
+                            raise ValueError("investment_effect_fence_rejected")
+                    sealed = seal(state / "receipts.jsonl", decision, order)
+                    if not mark_started(state / "receipts.jsonl", sealed):
+                        raise ValueError("investment_effect_already_started")
+                    if mode == "live":
+                        marker = (_closing_marker(ownership, sealed) if live_positions else {
+                            "entry_client_order_id": sealed["client_order_id"],
+                            "entry_effect_id": sealed["effect_id"], "entry_filled_qty": "0",
+                            "status": "entry_pending", "symbol": "BTCUSD"})
+                        _atomic_json(state / "live-owned-position.json", marker)
+                    effect_attempted = True
+                    acknowledgement = submit_order(credentials_path=credentials_path, cli_path=cli_path,
+                        client_order_id=sealed["client_order_id"], order=order, mode=mode)
+                stage = "allocation_reconcile"
+                reconcile_started(state / "receipts.jsonl", lambda value: find_order_by_client_id(
+                    credentials_path=credentials_path, cli_path=cli_path, client_order_id=value))
+                effect = sealed["effect_id"]
         else:
             if decision["approved"]:
                 decision.update({"approved": False, "gate": f"{mode}_read_only"})

@@ -355,12 +355,49 @@ def submit_order(
     *, credentials_path: Path, cli_path: Path, client_order_id: str,
     order: dict[str, Any], mode: str | None = None,
 ) -> dict[str, Any]:
-    """Submit one already-gated paper order through the pinned CLI."""
+    """Submit one already-gated paper order or tightly bounded live crypto order."""
     if not re.fullmatch(r"lm-ai-[0-9a-f]{24}", client_order_id):
         raise ValueError("client_order_id_invalid")
     mode = _selected_mode(mode)
-    if mode != "paper":
+    if mode == "shadow":
         raise ValueError("investment_mode_effect_forbidden")
+    if mode == "live":
+        expected = {"asset_class", "side", "symbol", "time_in_force", "type"}
+        if order.get("symbol") != "BTC/USDC" or order.get("asset_class") != "crypto" \
+                or order.get("type") != "market" or order.get("time_in_force") != "gtc":
+            raise ValueError("unsupported_live_order_shape")
+        if order.get("side") == "buy":
+            expected.add("notional_usd")
+            try:
+                amount = Decimal(str(order.get("notional_usd")))
+                valid = amount.is_finite() and Decimal("0") < amount <= Decimal("10")
+            except InvalidOperation:
+                valid = False
+            if set(order) != expected or not valid:
+                raise ValueError("unsupported_live_order_shape")
+            args = ["order", "submit", "--quiet", "--symbol", "BTC/USDC",
+                    "--notional", str(order["notional_usd"]), "--side", "buy", "--type", "market",
+                    "--time-in-force", "gtc", "--client-order-id", client_order_id]
+        elif order.get("side") == "sell":
+            expected.add("qty")
+            try:
+                qty = Decimal(str(order.get("qty")))
+                valid = qty.is_finite() and qty > 0 and qty.as_tuple().exponent >= -9
+            except InvalidOperation:
+                valid = False
+            if set(order) != expected or not valid:
+                raise ValueError("unsupported_live_order_shape")
+            args = ["order", "submit", "--quiet", "--symbol", "BTC/USDC", "--qty", str(order["qty"]),
+                    "--side", "sell", "--type", "market", "--time-in-force", "gtc",
+                    "--client-order-id", client_order_id]
+        else:
+            raise ValueError("unsupported_live_order_shape")
+        env = _context(credentials_path, cli_path, mode)
+        result = _run(cli_path, [*args, "--jq",
+            "{client_order_id,status,submitted_at,symbol,notional,qty,side,type,time_in_force}"], env)
+        if not isinstance(result, dict) or result.get("client_order_id") != client_order_id:
+            raise ValueError("alpaca_submit_readback_invalid")
+        return result
     env = _context(credentials_path, cli_path, mode)
     if order.get("asset_class") == "crypto" and order.get("symbol") in {"BTC/USD", "ETH/USD"}:
         args = ["order", "submit", "--quiet", "--symbol", order["symbol"],

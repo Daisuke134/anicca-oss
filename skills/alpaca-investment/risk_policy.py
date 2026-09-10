@@ -60,7 +60,7 @@ def evaluate_entry(snapshot: dict[str, Any], max_loss_usd: Any,
         ny_day = current.astimezone(ZoneInfo("America/New_York")).date().isoformat()
         checks = {
             "allocated_capital": allocated >= 0 and allocated + loss <= CAPITAL_CAP,
-            "daily_loss": min(equity_pnl, official_pnl) > -DAILY_LOSS_CAP,
+            "daily_loss": min(equity_pnl, official_pnl) - loss >= -DAILY_LOSS_CAP,
             "fresh": Decimal(str((current - observed).total_seconds())) >= 0
                      and Decimal(str((current - observed).total_seconds())) <= MAX_AGE_SECONDS,
             "new_york_day": snapshot.get("ny_day") == ny_day,

@@ -84,7 +84,8 @@ class FixedRiskPolicyTest(unittest.TestCase):
             self._provider_snapshot(open_orders=False)
 
     def test_exact_owner_caps_allow_only_below_or_at_limits(self):
-        result = evaluate_entry(risk(), "10.00", now=NOW)
+        result = evaluate_entry(risk(equity_pnl_ny_day_usd="-10.00",
+                                     official_pnl_ny_day_usd="-10.00"), "10.00", now=NOW)
         self.assertTrue(result["approved"])
         self.assertEqual(result["limits"], {"allocated_capital_usd": "100.00",
                                              "daily_loss_usd": "20.00",
@@ -95,6 +96,7 @@ class FixedRiskPolicyTest(unittest.TestCase):
             (risk(), "10.01"),
             (risk(allocated_capital_usd="90.01"), "10.00"),
             (risk(equity_pnl_ny_day_usd="-20.00"), "10.00"),
+            (risk(equity_pnl_ny_day_usd="-19.99", official_pnl_ny_day_usd="-19.99"), "10.00"),
         ]
         for snapshot, loss in cases:
             with self.subTest(snapshot=snapshot, loss=loss):
