@@ -2456,6 +2456,19 @@ from the chat, and two of them contradict what this cursor had previously report
     replay-zero. A blank avatar may reduce trust and conversion, but no receipt proves that it is the
     sole reason proposals have not become contracts.
 
+    Fresh production evidence narrows the remaining CrowdWorks substep. The natural installed wake
+    did upload the shared avatar exactly once: authenticated official public readback now exposes
+    `https://crowdworks.jp/attachments/59139511.jpg` as the unique `alt=userIcon` image. The wake
+    nevertheless failed `profile_avatar_readback_failed` because release `59807376...` recognized
+    only the provider's retired `/user_picture/` URL shape. PR `#4926`, merge
+    `f7833519e7ae307ea571a38685ec7e6be07d19bd`, admits the current exact CrowdWorks attachment shape
+    and DOM identity while retaining the legacy form; focused tests pass `16/16`. Production
+    replay-zero remains unproved. Do not cut another release while host free space is about 191 MiB:
+    central cleanup reports errors/protected deletions `0/0`, but all 33 evaluated releases are
+    protected and reclaimed bytes are zero. Wait for owner-safe disk recovery, then install this
+    merged SHA only on `crowdworks-revenue-application` and require a natural no-profile-mutation
+    terminal plus the same official avatar readback before checking this atom.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
