@@ -373,3 +373,26 @@ def test_google_form_answers_bind_current_metadata_to_private_profiles(tmp_path)
         ("entry.12_year", "2025"), ("entry.12_month", "04"),
         ("entry.12_day", "01"), ("emailAddress", "private@example.com"),
     ]
+
+
+def test_google_form_readback_resumes_message_without_resubmitting_form(tmp_path):
+    state = tmp_path / "reply" / "state.json"
+    adapter = adapter_module.CrowdWorksReplyAdapter({}, state_path=state)
+    url_hash = "a" * 64
+    receipt = adapter._form_receipt_path(url_hash)
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(__import__("json").dumps({
+        "url_sha256": url_hash, "confirmation_sha256": "b" * 64,
+    }), encoding="utf-8")
+    body = "Googleフォームへの回答を完了しました。"
+    intent = {"action": "external_action", "thread_id": "thread-1", "payload": {
+        "kind": "submit_google_form", "url_sha256": url_hash, "completion_body": body,
+    }}
+    adapter._detail = lambda _thread: []
+    assert adapter.readback(intent) == {"resume_required": True}
+    adapter._detail = lambda _thread: [{
+        "event_id": "message-1", "role": "seller", "body": body,
+    }]
+    result = adapter.readback(intent)
+    assert result["verified"] is True
+    assert result["provider_receipt_id"].endswith(":message-1")
