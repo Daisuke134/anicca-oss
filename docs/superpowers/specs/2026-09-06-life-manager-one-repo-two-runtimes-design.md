@@ -363,7 +363,8 @@ This checklist does not reorder the established implementation sequence below. T
   also reuses the existing official TaskMarket award verifier: only a completed non-self-awarded task whose award is
   present in provider readback and whose exact Base USDC transfer is finalized on-chain becomes tenant gross revenue
   plus its separately classified marketplace fee. Owner/self wallets, pending awards and mismatched transfers remain
-  excluded. Focused TaskMarket, Cloud wake and economic-record tests pass 19/19. Remaining inside this atom:
+  excluded. Focused TaskMarket, Cloud wake and economic-record tests pass 20/20, including the full official API
+  readback plus finalized Base transfer projection into the shared store. Remaining inside this atom:
   receipt-backed compute, hosted cloud, storage, network and API cost coverage plus the non-TaskMarket earning
   providers actually enabled for Agent Economy.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
