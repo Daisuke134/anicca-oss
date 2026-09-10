@@ -14,34 +14,39 @@ import repeatability
 
 
 class RepeatabilityTest(unittest.TestCase):
-    def fixture(self, root: Path, wakes: int, days: int):
+    def fixture(self, root: Path, wakes: int, days: int, live_wakes: int = 0):
         shadow = root / "shadow"; live = root / "live"
         shadow.mkdir(); live.mkdir()
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        events = []
-        for index in range(wakes):
-            at = start + timedelta(days=index % days, seconds=index * 2)
-            run = f"run-{index}-{100 + index % 3}"
-            events.append({"event_id": f"execute-{index}", "run_id": run,
-                           "phase": "execute", "status": "running", "timestamp": at.isoformat(),
-                           "effect_class": "none", "effect_status": "not_applicable"})
-            events.append({"event_id": f"report-{index}", "run_id": run,
-                           "phase": "report", "status": "pass",
-                           "timestamp": (at + timedelta(seconds=1)).isoformat(),
-                           "effect_class": "none", "effect_status": "not_applicable"})
-        (shadow / "events.jsonl").write_text(
-            "".join(json.dumps(row) + "\n" for row in events), encoding="utf-8")
-        database = sqlite3.connect(shadow / "telegram-outbox.sqlite3")
-        database.execute("CREATE TABLE telegram_outbox (event_key TEXT PRIMARY KEY,"
-                         "message_sha256 TEXT NOT NULL,message TEXT NOT NULL,status TEXT NOT NULL,"
-                         "attempt_count INTEGER NOT NULL,provider_message_id TEXT,created_at TEXT NOT NULL,"
-                         "claimed_at TEXT,delivered_at TEXT,last_error_code TEXT)")
-        for index in range(wakes):
-            at = start + timedelta(days=index % days, seconds=index * 2)
-            database.execute("INSERT INTO telegram_outbox VALUES (?,?,?,?,?,?,?,?,?,?)",
-                             (f"alpaca-wake:{index}", "hash", "fixture", "delivered", 1, str(index),
-                              at.isoformat(), None, (at + timedelta(seconds=1)).isoformat(), None))
-        database.commit(); database.close()
+        for state, count, offset, effect_class, effect_status in (
+                (shadow, wakes, 0, "none", "not_applicable"),
+                (live, live_wakes, wakes, "money", "unknown")):
+            events = []
+            database = sqlite3.connect(state / "telegram-outbox.sqlite3")
+            database.execute("CREATE TABLE telegram_outbox (event_key TEXT PRIMARY KEY,"
+                             "message_sha256 TEXT NOT NULL,message TEXT NOT NULL,status TEXT NOT NULL,"
+                             "attempt_count INTEGER NOT NULL,provider_message_id TEXT,created_at TEXT NOT NULL,"
+                             "claimed_at TEXT,delivered_at TEXT,last_error_code TEXT)")
+            for local_index in range(count):
+                index = offset + local_index
+                at = start + timedelta(days=index % days, seconds=index * 2)
+                run = f"run-{index}-{100 + index % 3}"
+                events.append({"event_id": f"execute-{index}", "run_id": run,
+                               "phase": "execute", "status": "running", "timestamp": at.isoformat(),
+                               "provider": "shared-agent-runner",
+                               "effect_class": effect_class, "effect_status": effect_status})
+                events.append({"event_id": f"report-{index}", "run_id": run,
+                               "phase": "report", "status": "pass",
+                               "timestamp": (at + timedelta(seconds=1)).isoformat(),
+                               "provider": "shared-agent-runner",
+                               "effect_class": effect_class, "effect_status": effect_status})
+                database.execute("INSERT INTO telegram_outbox VALUES (?,?,?,?,?,?,?,?,?,?)",
+                                 (f"alpaca-wake:{index}", "hash", "fixture", "delivered", 1,
+                                  str(index), at.isoformat(), None,
+                                  (at + timedelta(seconds=1)).isoformat(), None))
+            (state / "events.jsonl").write_text(
+                "".join(json.dumps(row) + "\n" for row in events), encoding="utf-8")
+            database.commit(); database.close()
         return shadow, live, start
 
     @patch.object(repeatability, "_official_orders", return_value={
@@ -78,6 +83,38 @@ class RepeatabilityTest(unittest.TestCase):
         self.assertEqual(result["status"], "pass")
         self.assertTrue(result["checks"]["repeatability_window"])
         self.assertFalse(result["checks"]["calendar_days"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_shadow_and_live_wakes_complete_one_window(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 86, 2, live_wakes=14)
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["observed"]["natural_wakes"], 100)
+        self.assertEqual(result["observed"]["shadow_wakes"], 86)
+        self.assertEqual(result["observed"]["live_wakes"], 14)
+        self.assertEqual(result["observed"]["delivered_reports"], 100)
+        self.assertEqual(result["observed"]["unreported_wakes"], 0)
+        self.assertTrue(result["checks"]["shadow_no_effect"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_inner_provider_report_is_not_a_natural_wake(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 1, 1, live_wakes=1)
+            with (live / "events.jsonl").open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"event_id": "inner", "run_id": "inner-run",
+                    "phase": "report", "status": "pass", "provider": "codex",
+                    "timestamp": (start + timedelta(seconds=10)).isoformat(),
+                    "effect_class": "money", "effect_status": "unknown"}) + "\n")
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["observed"]["natural_wakes"], 2)
+        self.assertTrue(result["checks"]["one_terminal_per_run"])
 
     @patch.object(repeatability, "_official_orders", return_value={
         "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
