@@ -545,6 +545,19 @@ test("runtime store reads and idempotently qualifies one exact opportunity", asy
   }
 });
 
+test("runtime store heals an already-poisoned title containing a newline on read", async () => {
+  const expected = {
+    tenant_id: TENANT,
+    opportunity_id: ID,
+    goal_ref: `intent-entry://${TENANT}/${ID}`,
+  };
+  const store = createMoneyPrinterRuntimeStore({
+    query: async () => ({ rows: [{ ...opportunity(), title: "Biohub \n Cell  Tracking" }] }),
+  });
+  const row = await store.readOpportunity(expected);
+  assert.equal(row.title, "Biohub Cell Tracking");
+});
+
 test("runtime store rejects non-QUALIFIED or non-exact opportunity qualification", async () => {
   const expected = {
     tenant_id: TENANT,

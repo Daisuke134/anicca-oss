@@ -36,6 +36,14 @@ test("canonical opportunity identity is stable from tenant and canonical HTTPS U
   assert.equal(Object.hasOwn(first, "provider"), false);
 });
 
+test("title with embedded newlines and double spaces canonicalizes to single-spaced text", () => {
+  const built = buildOpportunity({
+    ...INPUT,
+    title: "Biohub \n Cell  Tracking During Development",
+  });
+  assert.equal(built.title, "Biohub Cell Tracking During Development");
+});
+
 test("atomic create readback is called once and rejects a conflicting row", async () => {
   const canonical = buildOpportunity(INPUT);
   const calls = [];

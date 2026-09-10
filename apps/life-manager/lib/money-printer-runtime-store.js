@@ -1,6 +1,6 @@
 "use strict";
 
-const { canonicalOpportunityInput } = require("./money-printer-opportunity.js");
+const { canonicalOpportunityInput, normalizeOpportunityTitle } = require("./money-printer-opportunity.js");
 
 const TENANT_ID = /^[a-z0-9][a-z0-9._-]{0,199}$/;
 const OPPORTUNITY_ID = /^[0-9a-f]{64}$/;
@@ -281,7 +281,7 @@ function opportunityRow(result, expected, label) {
     String(row.opportunity_id || "") !== expected.opportunityId
     || String(row.goal_ref || "") !== expected.goalRef
   ) throw new Error(`money printer runtime store ${label} readback invalid`);
-  return row;
+  return row.title == null ? row : { ...row, title: normalizeOpportunityTitle(row.title) };
 }
 
 function normalizeOpportunityReadback(row) {
@@ -317,7 +317,7 @@ function sourceOpportunityRow(result, expected) {
     || String(row.goal_ref || "") !== actual.goal_ref
     || typeof row.status !== "string" || !row.status.trim()
   ) throw new Error("money printer runtime store opportunity source readback invalid");
-  return row;
+  return row.title === actual.title ? row : { ...row, title: actual.title };
 }
 
 function createMoneyPrinterRuntimeStore({ query } = {}) {

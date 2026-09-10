@@ -20,6 +20,10 @@ function invalid(label) {
   throw new Error(`money printer opportunity ${label} invalid`);
 }
 
+function normalizeOpportunityTitle(value) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ") : value;
+}
+
 function text(value, label, pattern, max) {
   if (typeof value !== "string") invalid(label);
   const result = value.trim();
@@ -72,7 +76,7 @@ function canonicalOpportunityInput(input = {}) {
     uid,
     opportunity_id: opportunityId,
     source_url: sourceUrl,
-    title: text(input.title, "title", null, 300),
+    title: text(normalizeOpportunityTitle(input.title), "title", null, 300),
     goal_statement: text(input.goalStatement, "goal statement", null, 4_000),
     value_minor: exactMinor(input.valueMinor),
     currency: text(String(input.currency == null ? "" : input.currency).toUpperCase(), "currency", CURRENCY, 3),
@@ -143,5 +147,6 @@ module.exports = {
   buildOpportunity,
   canonicalOpportunityInput,
   createOpportunity,
+  normalizeOpportunityTitle,
   opportunityIdFor(input) { return canonicalOpportunityInput(input).opportunity_id; },
 };
