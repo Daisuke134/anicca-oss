@@ -89,6 +89,7 @@ class MacosLoopRegistryTest(unittest.TestCase):
     def test_unloaded_stale_external_artifacts_are_retired(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         for label in (
+            "ai.anicca.fleet-daily",
             "ai.anicca.freelancer-bid-watch",
             "ai.anicca.probe-rollback-1782857566-85245-proactive",
         ):
