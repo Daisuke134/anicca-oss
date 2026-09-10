@@ -112,6 +112,42 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   const buildIgnore = fs.readFileSync(path.join(ROOT, ".dockerignore"), "utf8");
   assert.match(buildIgnore, /!runtime\/\*\*/);
   assert.match(buildIgnore, /!skills\/\*\*/);
+  const ignoreProbe = fs.mkdtempSync(path.join(os.tmpdir(), "lm-worker-ignore-"));
+  fs.writeFileSync(path.join(ignoreProbe, ".gitignore"), buildIgnore);
+  spawnSync("git", ["init", "--quiet"], { cwd: ignoreProbe });
+  const checkIgnored = (relativePath) => {
+    const absolutePath = path.join(ignoreProbe, relativePath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, "probe");
+    return spawnSync(
+      "git",
+      ["check-ignore", "--no-index", "--quiet", relativePath],
+      { cwd: ignoreProbe },
+    ).status === 0;
+  };
+  for (const requiredPath of [
+    "runtime/loop/index.mjs",
+    "runtime/contracts/citizen-identity.cjs",
+    "skills/registry.json",
+    "skills/earn/run.sh",
+    "skills/earn/lib/resolve-identity.mjs",
+    "skills/earn/x402-sell/package.json",
+    "skills/earn/taskmarket/package.json",
+    "skills/_shared/lib/earn-guard.mjs",
+    "services/x402-endpoint/prisma/schema.prisma",
+  ]) {
+    assert.equal(checkIgnored(requiredPath), false, `${requiredPath} must be in the Railway build context`);
+  }
+  for (const excludedPath of [
+    "skills/earn/lib/__tests__/net-worth.test.mjs",
+    "skills/earn/README.md",
+    "skills/earn/state/earn-ledger.jsonl",
+    "skills/earn/x402-sell/node_modules/example.js",
+    "skills/earn/.env",
+  ]) {
+    assert.equal(checkIgnored(excludedPath), true, `${excludedPath} must stay out of the Railway build context`);
+  }
+  fs.rmSync(ignoreProbe, { recursive: true, force: true });
 });
 
 test("runtime worker entrypoint fails closed for every non-worker argv", () => {

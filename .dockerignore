@@ -6,7 +6,6 @@ apps/*
 !runtime/
 !runtime/**
 !skills/
-!skills/**
 !skills/video/
 !skills/video/**
 !skills/alpaca-investment/
@@ -29,6 +28,17 @@ services/*
 services/x402-endpoint/*
 !services/x402-endpoint/prisma/
 !services/x402-endpoint/prisma/**
+# The shared Agent Economy loop resolves its live tools from skills/registry.json.
+# Package runtime source, but keep tests, docs, fixtures, state, and vendored deps out.
+!skills/**
+skills/**/__tests__/**
+skills/**/*test.*
+skills/**/tests/**
+skills/**/fixtures/**
+skills/**/state/**
+skills/**/node_modules/**
+skills/**/README.md
+skills/**/SKILL.md
 **/.env
 **/node_modules
 **/__pycache__
