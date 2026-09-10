@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "primary_role_family": "software_engineering",
+  "role_families": [
+    "software_engineering",
+    "ai_automation",
+    "training"
+  ],
+  "public_aliases": {
+    "coconala": "Kosuke｜教育研修PPT×AI活用",
+    "crowdworks": "Kaito｜AI自動化"
+  },
+  "biography_ja": "プロフィールをご覧いただきありがとうございます。ソフトウェア開発、AIを活用した業務改善・自動化、教育・研修向けの資料制作を中心に対応しています。\n\n【対応できること】\n・ChatGPT、Python、GAS、n8n、Difyを使った定型業務の自動化\n・Excel、Googleスプレッドシートを含むデータ整理と業務フロー改善\n・PowerPoint、Googleスライドによる教育・研修資料の構成設計とデザイン\n・Web記事、SEO記事の構成作成、執筆、校正\n・TypeScriptを使ったWeb開発と既存サイトの修正\n\n【進め方】\n1. 目的、現状、希望納期、成果物の形式を確認します。\n2. 要件と作業範囲を整理し、着手前に認識をそろえます。\n3. 初稿または試作を共有し、確認内容を反映します。\n4. 動作や内容を人の目で最終確認して納品します。\n\nAIを使う場合は案件ごとに利用範囲を明確にし、生成結果をそのまま納品せず、品質・事実関係・読みやすさを確認します。単発の制作だけでなく、更新や引き継ぎがしやすい形に整えることも大切にしています。迅速で自然な日本語の連絡を心がけ、初めてのご依頼でも進行状況が分かるよう丁寧に対応します。",
+  "skills": [
+    {"name": "ChatGPT", "level": "4", "years": 3, "note_ja": "業務改善、構成作成、品質確認を含む実務活用"},
+    {"name": "Python", "level": "4", "years": 3, "note_ja": "定型業務の自動化、データ処理、スクレイピング"},
+    {"name": "TypeScript", "level": "3", "years": 3, "note_ja": "Web開発と既存機能の修正"},
+    {"name": "MS-Powerpoint (パワーポイント)", "level": "4", "years": 5, "note_ja": "教育・研修資料の構成設計、テンプレート制作"},
+    {"name": "MS-Excel (エクセル)", "level": "3", "years": 3, "note_ja": "データ整理と定型業務の効率化"},
+    {"name": "Google Spreadsheet", "level": "4", "years": 3, "note_ja": "集計、共有運用、GAS連携"},
+    {"name": "SEOライティング", "level": "3", "years": 3, "note_ja": "検索意図に沿った構成作成、執筆、校正"}
+  ],
+  "proof_refs": [
+    "skills/gig-work/profile/PROFILE-ASSETS.md"
+  ],
+  "avatar_ref": "skills/gig-work/profile/avatar.jpg"
+}

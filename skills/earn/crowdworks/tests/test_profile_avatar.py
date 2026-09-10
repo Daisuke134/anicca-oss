@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -99,6 +100,7 @@ def test_matching_official_components_need_no_profile_mutation() -> None:
     config = {
         "display_name": "Kaito｜AI自動化",
         "occupation": "AI関連サービス",
+        "occupation_detail": {"id": "142", "label": "プロンプトエンジニア"},
         "status": "available",
         "hours_limit": "31-40",
         "min_hourly_wage": 3000,
@@ -115,3 +117,74 @@ def test_matching_official_components_need_no_profile_mutation() -> None:
 
     components["occupation"]["hash"] = profile._hash("プロンプトエンジニア")
     assert profile._profile_aligned(components, config) is False
+
+
+def test_shared_commercial_profile_owns_crowdworks_public_fields(tmp_path: Path) -> None:
+    provider_path = tmp_path / "provider.json"
+    provider_path.write_text(
+        '{"version":1,"provider_employee_id":"7145638","display_name":"old",'
+        '"occupation":"AI関連サービス","simple_introduction":"old",'
+        '"introduction":"old","skills":[{"name":"old","level":"1","years":1,"note":"old"}],'
+        '"status":"available",'
+        '"hours_limit":"31-40","min_hourly_wage":3000,"max_hourly_wage":5000,'
+        '"web_meeting":"available","job_categories":["Webプログラミング"]}',
+        encoding="utf-8",
+    )
+    provider_path.chmod(0o600)
+
+    config = profile.load_config(provider_path, profile.DEFAULT_COMMERCIAL_PROFILE_PATH)
+
+    assert config["display_name"] == "Kaito｜AI自動化"
+    assert config["occupation"] == "ITエンジニア"
+    assert config["occupation_detail"] == {"id": "1", "label": "システムエンジニア（SE）"}
+    assert "ソフトウェア" in config["introduction"]
+    assert {item["name"] for item in config["skills"]} >= {"Python", "TypeScript"}
+    assert config["avatar_path"] == str(profile.DEFAULT_AVATAR_PATH)
+    assert json.loads(json.dumps(config, ensure_ascii=False))["occupation_detail"]["id"] == "1"
+
+
+def test_buyer_visible_detail_occupation_is_required_for_alignment() -> None:
+    config = {
+        "display_name": "Kaito｜AI自動化",
+        "occupation": "ITエンジニア",
+        "occupation_detail": {"id": "1", "label": "システムエンジニア（SE）"},
+        "status": "available",
+        "hours_limit": "31-40",
+        "min_hourly_wage": 3000,
+        "max_hourly_wage": 5000,
+        "web_meeting": "available",
+        "introduction": "ソフトウェア開発とAI自動化、教育研修支援",
+        "job_categories": ["Webプログラミング"],
+        "skills": [{"name": "Python"}, {"name": "TypeScript"}],
+    }
+    components = profile._expected_components(config)
+    components["avatar"] = {"aligned": True}
+    components["occupation_detail"]["hash"] = profile._hash("142:プロンプトエンジニア")
+
+    assert profile._profile_aligned(components, config) is False
+
+
+def test_public_detail_occupation_reads_exact_buyer_visible_id_and_label() -> None:
+    class Item:
+        def get_attribute(self, name: str) -> str | None:
+            return "/public/employees/occupation/1" if name == "href" else None
+
+        def inner_text(self) -> str:
+            return "システムエンジニア（SE）"
+
+    class Items:
+        def count(self) -> int:
+            return 1
+
+        def nth(self, _index: int) -> Item:
+            return Item()
+
+    class Page:
+        def locator(self, selector: str) -> Items:
+            assert "/public/employees/occupation/" in selector
+            return Items()
+
+    assert profile._public_occupation_detail(Page()) == {
+        "id": "1",
+        "label": "システムエンジニア（SE）",
+    }
