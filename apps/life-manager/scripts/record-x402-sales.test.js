@@ -12,6 +12,7 @@ const {
   findLedgerPaths,
   processLedgers,
   the402EvidenceClassifier,
+  main,
 } = require("./record-x402-sales.js");
 
 const PAY_TO = "0x810f6d61f7606deee2657d3083e150a222bc29c5";
@@ -285,7 +286,7 @@ test("wrong chain, pending receipt, transfer mismatch, and self initiator fail c
   }
 });
 
-test("a Supabase uniqueness retry is exposed as a duplicate, not new revenue", async () => {
+test("store idempotency is exposed as a duplicate, not new revenue", async () => {
   const source = ledger([JSON.stringify(sale())]);
   const result = await processLedgers({
     ledgerPaths: [source.path],
@@ -301,6 +302,21 @@ test("a Supabase uniqueness retry is exposed as a duplicate, not new revenue", a
   assert.equal(result.recorded, 0);
   assert.equal(result.duplicates, 1);
   assert.deepEqual(result.transactions, [TX]);
+});
+
+test("default owner writes verified x402 revenue to the common FinancialRecord store", async () => {
+  const source = ledger([JSON.stringify(sale())]);
+  const appended = [];
+  const result = await main({
+    stateDir: source.dir, selfWallets: [PAY_TO], rpcCall: rpcFixture().rpcCall,
+    classifyRevenue: async () => ({ kind: "sale" }), subjectId: "tenant-a",
+    financialStore: { append: async (record) => { appended.push(record); return { created: true, record }; } },
+    writeOutput: () => {},
+  }, []);
+  assert.equal(result.recorded, 1);
+  assert.deepEqual(appended.map((row) => [row.subject_id, row.kind, row.amount_minor, row.currency]), [
+    ["tenant-a", "business_revenue", 500000, "USDC"],
+  ]);
 });
 
 test("ledger receiver is bound by its canonical external-inflows filename", async () => {
@@ -334,6 +350,7 @@ test("launchd wiring uses absolute executables, a bounded timeout, and five-minu
   assert.doesNotMatch(boot, /\.openclaw/);
   assert.match(boot, /X402_STATE_DIR.*\.local\/state\/life-manager\/x402-sell/);
   assert.match(boot, /REPO_ROOT.*skills\/earn\/x402-sell\/lib\/self-wallets\.mjs/);
+  assert.match(boot, /LM_FINANCIAL_RECORDS_DIR/);
   assert.doesNotMatch(boot, /\$\{HOME\}\/anicca/);
   assert.match(plist, /<string>\/bin\/bash<\/string>/);
   assert.match(plist, /<key>StartInterval<\/key>\s*<integer>300<\/integer>/);

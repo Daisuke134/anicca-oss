@@ -365,8 +365,11 @@ This checklist does not reorder the established implementation sequence below. T
   plus its separately classified marketplace fee. Owner/self wallets, pending awards and mismatched transfers remain
   excluded. Focused TaskMarket, Cloud wake and economic-record tests pass 20/20, including the full official API
   readback plus finalized Base transfer projection into the shared store. Remaining inside this atom:
-  receipt-backed compute, hosted cloud, storage, network and API cost coverage plus the non-TaskMarket earning
-  providers actually enabled for Agent Economy.
+  the existing x402 sale/work verifier now also writes exact USDC revenue into the same FinancialRecord store used
+  by the local CFO instead of defaulting to the legacy Supabase-only earnings table; finalized-chain, external-payer,
+  owned-recipient and The402 provenance gates remain unchanged, and focused x402/common-store tests pass 32/32.
+  Remaining inside this atom: receipt-backed compute, hosted cloud, storage, network and API cost coverage plus
+  realized Yield, Solana Trade and Polymarket results actually enabled for Agent Economy.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
