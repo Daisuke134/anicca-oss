@@ -48,11 +48,15 @@ function makeInvestmentCloudShadowWake(deps) {
     if (!claimed.length) return { status: "already_processed", effect_permission: "none" };
     const job = claimed[0];
     const refs = job.input_refs || {};
-    if (job.job_id !== jobId || job.tenant_id !== owner.uid || job.loop_id !== "investment.cloud"
+    const claimedSlot = String(refs.schedule_slot_ref || "").replace(/^schedule-slot:\/\//, "");
+    const claimedJobId = crypto.createHash("sha256")
+      .update(`${owner.uid}\n${claimedSlot}\n${artifact.digest}`).digest("hex");
+    if (job.job_id !== claimedJobId || fiveMinuteSlot(claimedSlot) !== claimedSlot
+      || job.tenant_id !== owner.uid || job.loop_id !== "investment.cloud"
       || job.capability !== "investment.shadow" || job.effect_class !== "none" || job.effect_key !== null
       || refs.investment_state_ref !== `investment-state://${owner.uid}`
       || refs.runtime_state_ref !== `investment-runtime-state://${owner.uid}`
-      || refs.core_artifact_ref !== artifact.ref || refs.schedule_slot_ref !== `schedule-slot://${slot}`) {
+      || refs.core_artifact_ref !== artifact.ref) {
       throw new Error("investment cloud shadow claimed job invalid");
     }
     const telegramChatId = await deps.readChatId(owner.uid);
@@ -61,9 +65,9 @@ function makeInvestmentCloudShadowWake(deps) {
       persist: (uid, next) => deps.runtimeStore.upsert(uid, next.bundle) });
     const receipt = { deployment: "cloud", mode: "shadow", effect_permission: "none",
       order_calls: 0, message_calls: 1, decision: result.decision || null,
-      telegram_message_id: String(result.telegram_message_id), observed_at: slot,
+      telegram_message_id: String(result.telegram_message_id), observed_at: claimedSlot,
       core_artifact_ref: artifact.ref, runtime_state_digest: sealed.digest };
-    await deps.jobs.completeJob({ tenantId: owner.uid, jobId, attempt: job.attempt, workerId, receipt });
+    await deps.jobs.completeJob({ tenantId: owner.uid, jobId: job.job_id, attempt: job.attempt, workerId, receipt });
     return { status: "completed", receipt };
   };
 }
