@@ -3,7 +3,7 @@ set -u
 source "$(dirname "$0")/runtime-env.sh"
 DIR="$X402_SKILL_DIR"
 node --input-type=module -e \
-  'import { resolveThe402PublicOrigin } from process.argv[1]; resolveThe402PublicOrigin();' \
+  'const { resolveThe402PublicOrigin } = await import(process.argv[1]); resolveThe402PublicOrigin();' \
   "$DIR/state-paths.mjs" || {
     echo "THE402_PUBLIC_URL must be configured in ${X402_ENV_FILE} as a public HTTPS origin" >&2
     exit 2

@@ -1,0 +1,7 @@
+{
+  "loops": [
+    {"label":"gig-work","max_silence_hours":24,"ledgers":["~/gig/applied.jsonl","~/gig/shuppin.jsonl","~/gig/earnings.jsonl"]},
+    {"label":"capafy","max_silence_hours":48,"ledgers":["~/.local/state/life-manager/state/capafy-earn-ledger.jsonl"]},
+    {"label":"writer","max_silence_hours":48,"ledgers":["~/.local/state/life-manager/writer/craft-train.jsonl"]}
+  ]
+}

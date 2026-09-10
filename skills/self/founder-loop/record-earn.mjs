@@ -16,8 +16,15 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };
 function die(m) { console.error("record-earn: " + m); process.exit(1); }
 
-// FIND-401: prod root is an env-independent absolute literal; only test may relocate it.
-const FOUNDER_DIR = TEST ? (process.env.FOUNDER_DIR || path.join(process.env.HOME || os.homedir(), ".anicca-founder")) : "/home/life-manager/.anicca-founder";
+// Production follows the registry-owned per-loop root; only tests may use FOUNDER_DIR.
+const DEFAULT_FOUNDER_DIR = path.join(os.userInfo().homedir, ".local", "state", "life-manager", "founder-loop-cadence");
+const FOUNDER_DIR = TEST
+  ? (process.env.FOUNDER_DIR || DEFAULT_FOUNDER_DIR)
+  : (process.env.LIFE_MANAGER_STATE_ROOT || DEFAULT_FOUNDER_DIR);
+if (!path.isAbsolute(FOUNDER_DIR)) die("LIFE_MANAGER_STATE_ROOT must be absolute");
+if (!TEST && path.resolve(FOUNDER_DIR) !== path.resolve(DEFAULT_FOUNDER_DIR)) {
+  die("LIFE_MANAGER_STATE_ROOT must equal the canonical founder-loop-cadence root");
+}
 const STATE = path.join(FOUNDER_DIR, "state");
 const WALLET_JSON = path.join(FOUNDER_DIR, "wallet.json");
 const CURSOR_FILE = path.join(STATE, "block-cursor.txt");
@@ -131,7 +138,7 @@ if (now < cursor) die("block height went backwards (fail-closed)");
 
 // FIND-702: cap the scan span so a single eth_getLogs never exceeds the provider's block-range limit (a silent
 // truncation would under-count). Advance the cursor only by what we actually scanned — the next run continues; no skip.
-const MAX_SPAN = 9000;
+const MAX_SPAN = 2000;
 const to = Math.min(now, cursor + MAX_SPAN);
 
 const earned = await externalInflow(cursor + 1, to).catch((e) => die("getLogs failed (fail-closed): " + e.message));

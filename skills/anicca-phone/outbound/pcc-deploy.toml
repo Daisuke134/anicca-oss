@@ -1,5 +1,0 @@
-agent_name = "twilio-chatbot-dial-out"
-secret_set = "twilio-chatbot"
-
-[scaling]
-	min_agents = 1

@@ -362,7 +362,9 @@ def _founder_state_md_path():
     # first commit too, so founder-loop's Cadence Contract's marker_jst_date was always None and
     # cadence_met() always returned False here — every 21:00 JST cadence-deadline-check.sh
     # escalated a false "NOT met" self-fix for founder-loop regardless of real earn activity.
-    return os.environ.get("FOUNDER_STATE_MD_PATH") or os.path.expanduser("~/.anicca-founder/STATE.md")
+    return os.environ.get("FOUNDER_STATE_MD_PATH") or os.path.expanduser(
+        "~/.local/state/life-manager/founder-loop-cadence/STATE.md"
+    )
 
 
 def _founder_loop_marker_jst_date():

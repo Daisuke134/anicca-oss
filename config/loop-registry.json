@@ -6,12 +6,10 @@
     "ai.anicca.crowdworks.negotiation",
     "ai.anicca.crowdworks.storefront",
     "ai.anicca.fleet-daily",
-    "ai.anicca.freelancer-bid-watch",
     "ai.anicca.freelancer-revenue-application",
     "ai.anicca.freelancer-revenue-work-sync",
     "ai.anicca.job-search-camofox",
     "ai.anicca.job-search-observability",
-    "ai.anicca.probe-rollback-1782857566-85245-proactive",
     "ai.anicca.provision-browser.buyma.na-l5-client",
     "ai.anicca.provision-browser.instagram.capafy-provision",
     "ai.anicca.provision-browser.tiktok-anicca-jp",
@@ -21,17 +19,6 @@
     "ai.anicca.tsbridge"
   ],
   "loops": {
-    "alpaca-investment": {
-      "cadence": {"start_interval_seconds": 300},
-      "cleanup": {"max_age_days": 14, "max_runs": 100},
-      "domain": "financial",
-      "effect_class": "trade",
-      "entrypoint": "skills/alpaca-investment/run.py",
-      "label": "ai.anicca.alpaca-investment",
-      "log_root": "~/.local/state/life-manager/alpaca-investment/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/alpaca-investment"
-    },
     "alpaca-investment-shadow": {
       "cadence": {
         "start_interval_seconds": 300
@@ -719,9 +706,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/earn/marketing-engine/report/scheduled_runner.py",
       "label": "ai.anicca.clip-loop",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/clip-loop/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/clip-loop"
     },
     "daily-nl-report": {
       "cadence": {
@@ -808,9 +795,9 @@
       "effect_class": "none",
       "entrypoint": "skills/anicca-core/scripts/f7-silence-check.sh",
       "label": "ai.anicca.f7-silence-check",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/f7-silence-check/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/f7-silence-check"
     },
     "founder-loop-cadence": {
       "cadence": {
@@ -824,9 +811,9 @@
       "effect_class": "none",
       "entrypoint": "skills/self/founder-loop/founder-loop.sh",
       "label": "ai.anicca.founder-loop-cadence",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/founder-loop-cadence/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/founder-loop-cadence"
     },
     "franklin-loop": {
       "cadence": {
@@ -2373,70 +2360,6 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/x402-sell"
     },
-    "phone-conversation": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "message",
-      "entrypoint": "services/sutando-phone/start.sh",
-      "label": "ai.anicca.phone-conversation",
-      "log_root": "~/.local/state/life-manager/phone-conversation/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/phone-conversation"
-    },
-    "phone-tunnel": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "none",
-      "entrypoint": "services/sutando-phone/tunnel.sh",
-      "label": "ai.anicca.phone-tunnel",
-      "log_root": "~/.local/state/life-manager/phone-tunnel/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/phone-tunnel"
-    },
-    "phone-tunnel-watcher": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "none",
-      "entrypoint": "services/sutando-phone/tunnel-watcher.sh",
-      "label": "ai.anicca.phone-tunnel-watcher",
-      "log_root": "~/.local/state/life-manager/phone-tunnel-watcher/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/phone-tunnel-watcher"
-    },
-    "pipecat-phone": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "message",
-      "entrypoint": "skills/anicca-phone/outbound/run.sh",
-      "label": "ai.anicca.pipecat-phone",
-      "log_root": "~/.local/state/life-manager/pipecat-phone/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/pipecat-phone"
-    },
     "pm-decision-loop": {
       "cadence": {
         "start_interval_seconds": 3600
@@ -2535,9 +2458,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/marketing-engine/report/scheduled_runner.py",
       "label": "ai.anicca.self-improve-evolve",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/self-improve-evolve/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/self-improve-evolve"
     },
     "session-vault": {
       "cadence": {
@@ -2554,22 +2477,6 @@
       "log_root": "~/.local/state/life-manager/session-vault/logs",
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/session-vault"
-    },
-    "slack-bridge": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "system",
-      "effect_class": "message",
-      "entrypoint": "services/slack-bridge/slack-bridge.py",
-      "label": "ai.anicca.slack-bridge",
-      "log_root": "~/.local/state/life-manager/slack-bridge/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/slack-bridge"
     },
     "stripe-revenue-listener": {
       "cadence": {
@@ -3251,11 +3158,13 @@
   },
   "retired_labels": [
     "ai.anicca.agents-skills-sync",
+    "ai.anicca.alpaca-investment",
     "ai.anicca.autohedge",
     "ai.anicca.bounty-proactive",
     "ai.anicca.cfo-daily",
     "ai.anicca.citizens-diff-monitor",
     "ai.anicca.dd-keepalive-healthcheck",
+    "ai.anicca.freelancer-bid-watch",
     "ai.anicca.hf-gig-release-watch",
     "ai.anicca.job-search-browser",
     "ai.anicca.job-search-mercor",
@@ -3290,6 +3199,11 @@
     "ai.anicca.openclaw-conformity-monkey",
     "ai.anicca.openclaw-core-backup",
     "ai.anicca.openclaw-janitor-monkey",
+    "ai.anicca.pipecat-phone",
+    "ai.anicca.phone-conversation",
+    "ai.anicca.phone-tunnel",
+    "ai.anicca.phone-tunnel-watcher",
+    "ai.anicca.probe-rollback-1782857566-85245-proactive",
     "ai.anicca.reelclaw-en-card-1",
     "ai.anicca.reelclaw-en-card-2",
     "ai.anicca.reelclaw-en-card-3",
@@ -3303,6 +3217,7 @@
     "ai.anicca.reelclaw-ja-widget-1",
     "ai.anicca.reelclaw-ja-widget-2",
     "ai.anicca.runtime-loop-healthcheck",
+    "ai.anicca.slack-bridge",
     "ai.anicca.slack-metrics-poller",
     "ai.anicca.sol-trade-earning-healthcheck",
     "ai.anicca.sync-memory",

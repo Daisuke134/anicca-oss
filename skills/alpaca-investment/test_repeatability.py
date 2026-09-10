@@ -93,6 +93,30 @@ class RepeatabilityTest(unittest.TestCase):
         self.assertFalse(result["checks"]["natural_wakes"])
 
     @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_one_hundred_wakes_pass_without_thirty_days(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 100, 1)
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue(result["checks"]["repeatability_window"])
+        self.assertFalse(result["checks"]["calendar_days"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_thirty_days_with_weekend_pass_without_one_hundred_wakes(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 30, 30)
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue(result["checks"]["repeatability_window"])
+        self.assertFalse(result["checks"]["natural_wakes"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
         "count": 2, "duplicate_client_ids": 1, "duplicate_order_ids": 0})
     def test_duplicate_official_client_id_fails(self, _official):
         with tempfile.TemporaryDirectory() as directory:
@@ -109,6 +133,42 @@ class RepeatabilityTest(unittest.TestCase):
             shadow, live, start = self.fixture(Path(directory), 100, 30)
             database = sqlite3.connect(shadow / "telegram-outbox.sqlite3")
             database.execute("DELETE FROM telegram_outbox WHERE event_key='alpaca-wake:99'")
+            database.commit(); database.close()
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertFalse(result["checks"]["telegram_every_wake"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_delivered_failure_report_counts_for_failed_wake(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 1, 1)
+            events = [json.loads(line) for line in
+                      (shadow / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+            events[-1]["status"] = "fail"
+            (shadow / "events.jsonl").write_text(
+                "".join(json.dumps(row) + "\n" for row in events), encoding="utf-8")
+            database = sqlite3.connect(shadow / "telegram-outbox.sqlite3")
+            database.execute("UPDATE telegram_outbox SET event_key='alpaca-failure:0' "
+                             "WHERE event_key='alpaca-wake:0'")
+            database.commit(); database.close()
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["observed"]["delivered_reports"], 1)
+        self.assertTrue(result["checks"]["telegram_every_wake"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_two_deliveries_for_one_wake_fail(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 1, 1)
+            database = sqlite3.connect(shadow / "telegram-outbox.sqlite3")
+            database.execute("INSERT INTO telegram_outbox VALUES (?,?,?,?,?,?,?,?,?,?)",
+                             ("alpaca-failure:duplicate", "hash2", "fixture2", "delivered",
+                              1, "duplicate", (start + timedelta(milliseconds=500)).isoformat(),
+                              None, (start + timedelta(seconds=1)).isoformat(), None))
             database.commit(); database.close()
             result = repeatability.evaluate(
                 shadow_state=shadow, live_state=live, start=start, required_days=30,

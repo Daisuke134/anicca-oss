@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from runtime.host.browser_port_owner import _process_group_exists, _terminate_process_group
+from runtime.host.browser_port_owner import (
+    _process_group_exists,
+    _terminate_process_group,
+    _wait_for_browser,
+)
 from pathlib import Path
 
 
@@ -18,6 +22,51 @@ LANCERS_LAUNCHER = Path(__file__).parents[3] / "skills/earn/lancers/scripts/brow
 
 
 class BrowserPortOwnerTests(unittest.TestCase):
+    def test_live_child_with_dead_cdp_exits_for_launchd_recovery(self):
+        child = MagicMock(pid=43210)
+        child.wait.side_effect = [
+            subprocess.TimeoutExpired("browser", 0),
+            subprocess.TimeoutExpired("browser", 0),
+            subprocess.TimeoutExpired("browser", 0),
+        ]
+        with (
+            patch("runtime.host.browser_port_owner._port_answers", return_value=False),
+            patch("runtime.host.browser_port_owner.time.monotonic", side_effect=[0, 61, 62, 63]),
+        ):
+            self.assertEqual(
+                _wait_for_browser(
+                    child,
+                    port=9227,
+                    startup_grace_seconds=60,
+                    probe_interval_seconds=0,
+                    max_consecutive_failures=3,
+                ),
+                75,
+            )
+
+    def test_one_failed_cdp_probe_does_not_restart_a_healthy_owner(self):
+        child = MagicMock(pid=43210)
+        child.wait.side_effect = [
+            subprocess.TimeoutExpired("browser", 0),
+            subprocess.TimeoutExpired("browser", 0),
+            subprocess.TimeoutExpired("browser", 0),
+            0,
+        ]
+        with (
+            patch("runtime.host.browser_port_owner._port_answers", side_effect=[True, False, True]),
+            patch("runtime.host.browser_port_owner.time.monotonic", return_value=100),
+        ):
+            self.assertEqual(
+                _wait_for_browser(
+                    child,
+                    port=9227,
+                    startup_grace_seconds=0,
+                    probe_interval_seconds=0,
+                    max_consecutive_failures=3,
+                ),
+                0,
+            )
+
     def test_permission_denied_probe_means_group_still_exists(self):
         with patch("runtime.host.browser_port_owner.os.killpg", side_effect=PermissionError):
             self.assertTrue(_process_group_exists(43210))

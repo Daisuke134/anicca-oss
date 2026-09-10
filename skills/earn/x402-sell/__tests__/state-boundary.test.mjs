@@ -50,6 +50,13 @@ test('The402 boot loads the public origin from the canonical Life Manager env be
   assert.equal(result.stdout, 'https://portable.example');
   const boot = readFileSync(join(ROOT, 'the402-boot.sh'), 'utf8');
   assert.ok(boot.indexOf('resolveThe402PublicOrigin') < boot.indexOf('lsof -ti tcp:8096'));
+  const validationSource = boot.match(/node --input-type=module -e \\\n\s+'([^']+)'/u)?.[1];
+  assert.ok(validationSource, 'boot must expose its pre-mutation Node validation expression');
+  const validation = spawnSync('node', ['--input-type=module', '-e', validationSource, join(ROOT, 'state-paths.mjs')], {
+    encoding: 'utf8',
+    env: { ...process.env, THE402_PUBLIC_URL: 'https://portable.example' },
+  });
+  assert.equal(validation.status, 0, validation.stderr);
 });
 
 test('shell entrypoints source the shared runtime environment', () => {

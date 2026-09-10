@@ -38,6 +38,12 @@ def browser_entry(label: str, profile: str, port: int):
 
 
 class MacosLoopRegistryTest(unittest.TestCase):
+    def test_legacy_paper_investment_is_retired_after_live_shadow_cutover(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        self.assertNotIn("alpaca-investment", registry["loops"])
+        self.assertIn("alpaca-investment-shadow", registry["loops"])
+        self.assertIn("ai.anicca.alpaca-investment", registry["retired_labels"])
+
     def test_migrated_system_loops_keep_runtime_metadata_out_of_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         for loop_id in {
@@ -58,6 +64,29 @@ class MacosLoopRegistryTest(unittest.TestCase):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         self.assertNotIn("citizens-diff-monitor", registry["loops"])
         self.assertIn("ai.anicca.citizens-diff-monitor", registry["retired_labels"])
+
+    def test_obsolete_phone_and_bridge_runtimes_are_retired(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for loop_id, label in (
+            ("pipecat-phone", "ai.anicca.pipecat-phone"),
+            ("phone-conversation", "ai.anicca.phone-conversation"),
+            ("phone-tunnel", "ai.anicca.phone-tunnel"),
+            ("phone-tunnel-watcher", "ai.anicca.phone-tunnel-watcher"),
+            ("slack-bridge", "ai.anicca.slack-bridge"),
+        ):
+            with self.subTest(loop_id=loop_id):
+                self.assertNotIn(loop_id, registry["loops"])
+                self.assertIn(label, registry["retired_labels"])
+
+    def test_unloaded_stale_external_artifacts_are_retired(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for label in (
+            "ai.anicca.freelancer-bid-watch",
+            "ai.anicca.probe-rollback-1782857566-85245-proactive",
+        ):
+            with self.subTest(label=label):
+                self.assertNotIn(label, registry["external_labels"])
+                self.assertIn(label, registry["retired_labels"])
 
     def test_life_manager_owned_loops_do_not_write_runtime_metadata_to_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
@@ -549,12 +578,20 @@ class MacosLoopRegistryTest(unittest.TestCase):
             row["entrypoint"],
             "skills/earn/marketing-engine/report/scheduled_runner.py",
         )
+        self.assertEqual(
+            row["state_root"], "~/.local/state/life-manager/self-improve-evolve",
+        )
+        self.assertEqual(
+            row["log_root"], "~/.local/state/life-manager/self-improve-evolve/logs",
+        )
 
     def test_clip_loop_uses_direct_python_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         row = registry["loops"]["clip-loop"]
         self.assertEqual(row["adapter"], "python")
         self.assertEqual(row["command"], ["clip"])
+        self.assertEqual(row["state_root"], "~/.local/state/life-manager/clip-loop")
+        self.assertEqual(row["log_root"], "~/.local/state/life-manager/clip-loop/logs")
         self.assertEqual(
             row["entrypoint"],
             "skills/earn/marketing-engine/report/scheduled_runner.py",
@@ -615,7 +652,7 @@ class MacosLoopRegistryTest(unittest.TestCase):
         self.assertEqual(registry["loops"]["life-manager-payout"]["effect_class"], "money")
         self.assertEqual(registry["loops"]["life-manager-honne-ja"]["effect_class"], "publish")
         self.assertEqual(registry["loops"]["agentmail-replier"]["domain"], "earn")
-        self.assertEqual(registry["loops"]["phone-conversation"]["domain"], "physical")
+        self.assertIn("ai.anicca.phone-conversation", registry["retired_labels"])
         self.assertEqual(registry["loops"]["x-repost"]["label"], "ai.anicca.x-repost-pass")
         self.assertEqual(registry["loops"]["x-tweeter"]["label"], "ai.anicca.x-tweeter-pass")
         self.assertEqual(registry["loops"]["x-tweeter"]["cadence"],

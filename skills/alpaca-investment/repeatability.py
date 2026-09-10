@@ -86,7 +86,8 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
     terminal_runs = [row.get("run_id") for row in terminal]
     pids = {match.group(1) for row in terminal
             if (match := re.search(r"-(\d+)$", str(row.get("run_id"))))}
-    delivered = [row for row in outbox if str(row["event_key"]).startswith("alpaca-wake:")
+    delivered = [row for row in outbox
+                 if str(row["event_key"]).startswith(("alpaca-wake:", "alpaca-failure:"))
                  and row["status"] == "delivered"
                  and row["provider_message_id"] and row["delivered_at"]
                  and row["last_error_code"] is None]

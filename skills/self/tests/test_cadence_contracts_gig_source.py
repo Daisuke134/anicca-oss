@@ -62,7 +62,7 @@ UNCHANGED_BASELINE = {
         # BUG FIX 2026-07-11: source path corrected from ".../state/STATE.md" (never matched
         # where founder-loop.sh actually writes) to ".../STATE.md" — see cadence-evidence.py's
         # _founder_state_md_path() comment for the full root-cause trace.
-        "kind": "pass-marker", "source": "~/.anicca-founder/STATE.md mtime",
+        "kind": "pass-marker", "source": "~/.local/state/life-manager/founder-loop-cadence/STATE.md mtime",
         "boundary_tz": "Asia/Tokyo",
     },
     "pm-earner": {

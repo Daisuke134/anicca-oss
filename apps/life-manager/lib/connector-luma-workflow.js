@@ -235,10 +235,18 @@ function createLumaScriptFirstWorkflow(options = {}) {
           readLumaFormProfile,
           agenticRegister,
         });
-        return outcome && outcome.status === "registered"
-          ? Object.freeze({ status: "completed", method: "luma_direct_submit" })
-          : Object.freeze({ status: "failed", safe_reason: "direct_action_unverified" });
+        if (outcome && outcome.status === "registered") {
+          return Object.freeze({ status: "completed", method: "luma_direct_submit" });
+        }
+        return Object.freeze({
+          status: "failed",
+          safe_reason: outcome && outcome.effect_started === true
+            ? "effect_unknown" : "direct_action_unverified",
+        });
       } catch (error) {
+        if (error && error.unknownEffect === true) {
+          return Object.freeze({ status: "failed", safe_reason: "effect_unknown" });
+        }
         const code = String(error && error.code || "");
         return Object.freeze({
           status: "failed",

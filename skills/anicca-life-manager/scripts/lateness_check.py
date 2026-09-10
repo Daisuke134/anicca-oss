@@ -446,6 +446,13 @@ def _wait_for_call_outcome(call_sid: str, deadline_sec: int = 120):
     return last
 
 
+def _wait_for_available_call(call_sid: str):
+    """Poll a real call only; an unavailable optional phone channel returns immediately."""
+    if call_sid is None:
+        return None
+    return _wait_for_call_outcome(call_sid, deadline_sec=120)
+
+
 def _user_moved(origin_loc, fresh_loc, threshold_m: int):
     """True if user moved more than threshold_m between origin_loc and fresh_loc."""
     if not (origin_loc and fresh_loc):
@@ -486,14 +493,8 @@ def gemini_reachable():
 def place_lateness_call(ctx):
     """Fire the lateness-mode call.
 
-    New (#20, 2026-05-29): goes through the Pipecat outbound /dialout endpoint
-    instead of the old imokenet bridge. The persona + ctx splicing happens inside
-    the bot (see anicca-oss-pipecat/skills/anicca-phone/outbound/bot.py).
-
-    Source of the dial-out endpoint:
-      1. ANICCA_PHONE_DIALOUT_URL env var (preferred — set by launchd / cron config)
-      2. ~/.local/state/life-manager/state/anicca_phone_url.txt (matches the imokenet URL_FILE pattern)
-      3. http://127.0.0.1:7860/dialout (local default during dev)
+    A managed dial-out endpoint is optional.  When one is not configured, keep
+    the lateness/Telegram path alive and skip the unavailable phone channel.
     """
     # Pre-flight: skip a doomed call (Twilio robotic "application error") when Gemini Live is down.
     ok, why = gemini_reachable()
@@ -502,10 +503,10 @@ def place_lateness_call(ctx):
               f"Fix: resolve Google Cloud billing (dunning) or swap to a funded GEMINI_API_KEY. ctx: {ctx[:120]}")
         print(f"[late] call skipped — gemini unreachable: {why}")
         return None
-    base = (
-        os.environ.get("ANICCA_PHONE_DIALOUT_URL")
-        or "http://127.0.0.1:3100"  # sutando phone-conversation default port
-    ).rstrip("/")
+    base = os.environ.get("ANICCA_PHONE_DIALOUT_URL", "").strip().rstrip("/")
+    if not base:
+        print("[late] call skipped — no managed dial-out endpoint")
+        return None
     to = os.environ.get("LATE_PHONE") or prof.phone() or os.environ.get("DAIS_PHONE_SMS_INTL")
     # Build Gemini Live system_instruction with location + route awareness.
     # sutando /call expects {to, message}; message is passed verbatim as the
@@ -513,14 +514,18 @@ def place_lateness_call(ctx):
     message = _build_anicca_voice_prompt(ctx, prof.name() or "the user")
     body = json.dumps({"to": to, "message": message}).encode()
     req = urllib.request.Request(
-        f"{base}/call",  # sutando phone-conversation endpoint (BP: conversation-server.ts:1359)
+        f"{base}/call",
         data=body,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        resp = json.loads(r.read().decode())
-    return resp.get("callSid") or resp.get("call_sid")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            resp = json.loads(r.read().decode())
+        return resp.get("callSid") or resp.get("call_sid")
+    except (OSError, ValueError) as exc:
+        print(f"[late] call skipped — dial-out unavailable: {exc}")
+        return None
 
 
 def _build_anicca_voice_prompt(ctx: str, name: str) -> str:
@@ -871,8 +876,12 @@ def main():
         origin_loc = loc_now  # captured before any call placed
 
         for attempt in range(2, MAX + 1):
+            outcome = _wait_for_available_call(sid)
+            if outcome is None:
+                print("[late] RELENTLESS skipped — phone channel unavailable")
+                break
             # Poll Twilio for outcome of the previous attempt (max 2 min).
-            status, dur = _wait_for_call_outcome(sid, deadline_sec=120)
+            status, dur = outcome
             pickup_seems_real = dur >= 25  # call held > 25s ≈ heard Anicca
             print(f"[late] RELENTLESS attempt #{attempt-1}/{MAX}: status={status} dur={dur}s pickup_real={pickup_seems_real}")
 

@@ -57,7 +57,10 @@ REPO_ROOT = Path(os.environ.get("LIFE_MANAGER_REPO", Path(__file__).resolve().pa
 
 
 def _state_dir() -> str:
-    return os.environ.get("CEO_STATE_DIR") or os.path.expanduser("~/.anicca-founder/state")
+    root = os.environ.get("LIFE_MANAGER_STATE_ROOT") or os.path.expanduser(
+        "~/.local/state/life-manager/founder-loop-cadence"
+    )
+    return os.environ.get("CEO_STATE_DIR") or os.path.join(root, "state")
 
 
 def _cadence_contracts_path() -> str:

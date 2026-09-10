@@ -417,8 +417,7 @@ async def _fetch_category(
 
     os.environ["CLOAK_CDP_BASE_URL"] = cdp_base
     async with hidden_page_target(url) as ws_url:
-        import websockets
-        async with websockets.connect(ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024) as ws:
+        async with await _cdp_connect(ws_url) as ws:
             cid = 1
             await _call(ws, "Page.enable", {}, cid); cid += 1
             await ws.send(json.dumps({"id": cid, "method": "Page.navigate", "params": {"url": url}})); cid += 1
