@@ -717,9 +717,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/earn/marketing-engine/report/scheduled_runner.py",
       "label": "ai.anicca.clip-loop",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/clip-loop/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/clip-loop"
     },
     "daily-nl-report": {
       "cadence": {

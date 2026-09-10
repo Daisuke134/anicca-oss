@@ -12,7 +12,7 @@ source "$DIR/_instance_paths.sh"
 [ "$CLIP_QUEUE" = "$HOME/clips/queue" ] || { echo "FAIL: default QUEUE = $CLIP_QUEUE"; FAIL=1; }
 [ "$CLIP_POSTED" = "$HOME/clips/posted" ] || { echo "FAIL: default POSTED = $CLIP_POSTED"; FAIL=1; }
 [ "$CLIP_ACCTS" = "$HOME/.cloak/clip-accounts.json" ] || { echo "FAIL: default ACCTS = $CLIP_ACCTS"; FAIL=1; }
-[ "$CLIP_LEDGER" = "$HOME/.local/state/life-manager/state/clip-earn-ledger.jsonl" ] || { echo "FAIL: default LEDGER = $CLIP_LEDGER"; FAIL=1; }
+[ "$CLIP_LEDGER" = "$HOME/.local/state/life-manager/clip-loop/clip-earn-ledger.jsonl" ] || { echo "FAIL: default LEDGER = $CLIP_LEDGER"; FAIL=1; }
 
 # case 2: ANICCA_INSTANCE=clawrouter => suffixed, non-overlapping with default
 (
@@ -22,9 +22,9 @@ source "$DIR/_instance_paths.sh"
   [ "$CLIP_QUEUE" = "$HOME/clips/queue-clawrouter" ] || { echo "FAIL: clawrouter QUEUE = $CLIP_QUEUE"; exit 1; }
   [ "$CLIP_POSTED" = "$HOME/clips/posted-clawrouter" ] || { echo "FAIL: clawrouter POSTED = $CLIP_POSTED"; exit 1; }
   [ "$CLIP_ACCTS" = "$HOME/.cloak/clip-accounts-clawrouter.json" ] || { echo "FAIL: clawrouter ACCTS = $CLIP_ACCTS"; exit 1; }
-  [ "$CLIP_LEDGER" = "$HOME/.local/state/life-manager/state/clip-earn-ledger-clawrouter.jsonl" ] || { echo "FAIL: clawrouter LEDGER = $CLIP_LEDGER"; exit 1; }
+  [ "$CLIP_LEDGER" = "$HOME/.local/state/life-manager/clip-loop/clip-earn-ledger-clawrouter.jsonl" ] || { echo "FAIL: clawrouter LEDGER = $CLIP_LEDGER"; exit 1; }
   [ "$CLIP_QUEUE" != "$HOME/clips/queue" ] || { echo "FAIL: clawrouter queue collides with default"; exit 1; }
-  [ "$CLIP_LEDGER" != "$HOME/.local/state/life-manager/state/clip-earn-ledger.jsonl" ] || { echo "FAIL: clawrouter ledger collides with default"; exit 1; }
+  [ "$CLIP_LEDGER" != "$HOME/.local/state/life-manager/clip-loop/clip-earn-ledger.jsonl" ] || { echo "FAIL: clawrouter ledger collides with default"; exit 1; }
 ) || FAIL=1
 
 # case 3: EARN_LEDGER override still wins regardless of instance
