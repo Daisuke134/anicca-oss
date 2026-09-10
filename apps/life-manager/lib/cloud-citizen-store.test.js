@@ -59,9 +59,15 @@ test("provisioning converges on one public identity per tenant and isolates tena
   assert.notEqual(other.identity.wallet.address, sameTenant[0].identity.wallet.address);
 });
 
-test("factory exposes the cloud provisioning contract used by /start", async () => {
+test("factory uses the explicit runtime database even when Supabase is configured", async () => {
   const db = memoryDatabase();
-  const store = createCloudCitizenStore({ query: db.query, encryptionKey: KEY });
+  const store = createCloudCitizenStore({
+    query: db.query,
+    supaUrl: "https://database.example",
+    supaKey: "service-secret",
+    encryptionKey: KEY,
+    fetch: async () => { throw new Error("Supabase must not be called"); },
+  });
   const result = await store.provision("tenant-a");
   assert.equal(result.created, true);
   assert.equal(result.identity.tenant_id, "tenant-a");

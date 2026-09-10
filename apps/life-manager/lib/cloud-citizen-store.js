@@ -99,7 +99,7 @@ async function provisionCloudCitizen(input, opts = {}) {
     walletAddress: wallet.address,
   });
   const sealed = encryptSigner(wallet.privateKey, identity, encryptionKey(opts.encryptionKey));
-  const rpc = supabaseProvision(opts);
+  const rpc = typeof opts.query === "function" ? null : supabaseProvision(opts);
   const rows = rpc ? await rpc(identity, sealed) : (await database(opts)(`
       SELECT * FROM public.provision_lm_cloud_citizen($1,$2,$3,$4,$5,$6,$7)
     `, [
@@ -121,7 +121,7 @@ function createCloudCitizenStore(opts = {}) {
       const base = String(opts.supaUrl || process.env.SUPABASE_URL || "").replace(/\/$/, "");
       const key = String(opts.supaKey || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
       const request = opts.fetch || global.fetch;
-      if (base && key && typeof request === "function") {
+      if (typeof opts.query !== "function" && base && key && typeof request === "function") {
         const response = await request(`${base}/rest/v1/lm_cloud_citizens?tenant_id=eq.${encodeURIComponent(id)}&select=tenant_id,citizen_id,instance_id,wallet_address&limit=1`, {
           headers: { apikey: key, Authorization: `Bearer ${key}` },
         });
