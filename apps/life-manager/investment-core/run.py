@@ -209,6 +209,15 @@ def _owned_live_position(ownership: dict | None, observation: dict) -> None:
         raise ValueError("live_position_not_owned")
 
 
+def _observe_and_sync_live_ownership(
+        state: Path, credentials_path: Path, cli_path: Path) -> tuple[dict, dict | None]:
+    with control_fence(state):
+        observation = _normalize_live_position_symbols(observe(
+            credentials_path=credentials_path, cli_path=cli_path))
+        ownership = _sync_live_ownership(state, credentials_path, cli_path, observation)
+    return observation, ownership
+
+
 def _closing_marker(ownership: dict, sealed: dict) -> dict:
     return {**ownership, "close_client_order_id": sealed["client_order_id"],
             "close_effect_id": sealed["effect_id"], "status": "closing"}
@@ -251,17 +260,14 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
             }, separators=(",", ":")))
             return 0
         stage = "observe"
-        observation = observe(
-            credentials_path=credentials_path,
-            cli_path=cli_path,
-        )
         if mode == "live":
-            observation = _normalize_live_position_symbols(observation)
-        if mode == "live":
-            with control_fence(state):
-                ownership = _sync_live_ownership(
-                    state, credentials_path, cli_path, observation)
+            observation, ownership = _observe_and_sync_live_ownership(
+                state, credentials_path, cli_path)
         else:
+            observation = observe(
+                credentials_path=credentials_path,
+                cli_path=cli_path,
+            )
             ownership = None
         stage = "campaign_read"
         campaign = (reconcile(read_campaign_snapshot(
