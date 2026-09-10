@@ -2,8 +2,12 @@
 "use strict";
 
 const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { recordPolymarketCycle } = require("../lib/polymarket-cycle.js");
 const { generateMonthlyReport } = require("../lib/earnings-runtime.js");
+const { createJsonlFinancialRecordStore } = require("../lib/financial-record-store.js");
+const { createPolymarketFinancialWriter } = require("../lib/earnings-financial-record.js");
 
 const PUSD = "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB";
 const PUSD_DECIMALS = 6;
@@ -31,11 +35,11 @@ async function rpc(fetchImpl, rpcUrl, method, params) {
   return body.result;
 }
 
-async function verifyRedeemReceipt(cycle, fetchImpl, rpcUrl) {
-  const receipt = await rpc(fetchImpl, rpcUrl, "eth_getTransactionReceipt", [cycle.redeem_tx_hash]);
-  if (receipt.status !== "0x1") throw new Error(`redeem receipt is not successful (${receipt.status})`);
-  if (String(receipt.transactionHash).toLowerCase() !== String(cycle.redeem_tx_hash).toLowerCase()) {
-    throw new Error("redeem receipt transaction hash does not match the cycle");
+async function verifyTransactionReceipt(txHash, label, fetchImpl, rpcUrl) {
+  const receipt = await rpc(fetchImpl, rpcUrl, "eth_getTransactionReceipt", [txHash]);
+  if (receipt.status !== "0x1") throw new Error(`${label} receipt is not successful (${receipt.status})`);
+  if (String(receipt.transactionHash).toLowerCase() !== String(txHash).toLowerCase()) {
+    throw new Error(`${label} receipt transaction hash does not match the cycle`);
   }
   return receipt;
 }
@@ -66,8 +70,21 @@ async function main(deps = {}, argv = process.argv.slice(2)) {
   const rpcUrl = env.POLYGON_RPC || DEFAULT_POLYGON_RPC;
   const cycle = JSON.parse(readFile(evidencePath, "utf8"));
 
-  const receipt = await verifyRedeemReceipt(cycle, fetchImpl, rpcUrl);
-  const record = await recordCycle(cycle);
+  const tradeReceipt = await verifyTransactionReceipt(cycle.trade_tx_hash, "trade", fetchImpl, rpcUrl);
+  const receipt = await verifyTransactionReceipt(cycle.redeem_tx_hash, "redeem", fetchImpl, rpcUrl);
+  const receipts = {
+    [String(cycle.trade_tx_hash).toLowerCase()]: tradeReceipt,
+    [String(cycle.redeem_tx_hash).toLowerCase()]: receipt,
+  };
+  const subjectId = env.LM_CFO_SUBJECT_ID || env.LM_CFO_UID || env.LM_UID || "local";
+  const financialStore = deps.financialStore || createJsonlFinancialRecordStore({
+    directoryPath: env.LM_FINANCIAL_RECORDS_DIR
+      || path.join(env.CFO_STATE_DIR || path.join(os.homedir(), ".local", "state", "life-manager", "life-manager-cfo-hourly"), "financial-records"),
+  });
+  const recordEntry = createPolymarketFinancialWriter({
+    store: financialStore, subjectId, receipts,
+  });
+  const record = await recordCycle(cycle, { recordEntry });
   const report = await generateReport({
     year,
     month,

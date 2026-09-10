@@ -35,4 +35,51 @@ function createFinancialEarningsWriter({ store, subjectId, now = () => new Date(
   };
 }
 
-module.exports = { earningsIncomeToFinancialRecord, createFinancialEarningsWriter };
+function polymarketEarningToFinancialRecord(row, {
+  subjectId, receipts, recordedAt = new Date().toISOString(),
+} = {}) {
+  const kind = {
+    financial_external_income: ["business_revenue", "credit"],
+    financial_realized_loss: ["business_cost", "debit"],
+    financial_fee: ["fee", "debit"],
+  }[row?.kind];
+  const tx = String(row?.tx_hash || "").toLowerCase();
+  const receipt = receipts?.[tx];
+  const receiptTx = String(receipt?.transactionHash || "").toLowerCase();
+  if (!kind || row?.source !== "polymarket_cycle" || receipt?.status !== "0x1"
+    || !/^0x[0-9a-f]{64}$/.test(tx) || !/^0x[0-9a-f]{64}$/.test(receiptTx)
+    || receiptTx !== tx) {
+    throw new Error("verified Polymarket settlement row required");
+  }
+  const amount = Number(row.amount_minor);
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Polymarket amount invalid");
+  const key = `earnings-financial:v1:${row.entry_key}`;
+  const recorded = new Date(recordedAt).toISOString();
+  return {
+    schema_version: 1, record_type: "financial_record",
+    record_id: financialRecordId(subjectId, key), subject_id: subjectId,
+    scope: "business", kind: kind[0], direction: kind[1],
+    amount_minor: amount, currency: "USD",
+    occurred_at: new Date(row.occurred_at).toISOString(), recorded_at: recorded,
+    idempotency_key: key,
+    source: { provider: "polymarket", source_type: "wallet", external_ref: tx },
+    verification: { status: "verified", observed_at: recorded,
+      evidence_refs: [`eip155://137/tx/${receiptTx.slice(2)}`] },
+  };
+}
+
+function createPolymarketFinancialWriter({ store, subjectId, receipts, now = () => new Date().toISOString() }) {
+  if (!store || typeof store.append !== "function") throw new Error("FinancialRecord store required");
+  return async (row) => {
+    const record = polymarketEarningToFinancialRecord(row, { subjectId, receipts, recordedAt: now() });
+    const write = await store.append(record);
+    return { ok: true, duplicate: write.created === false, entry_key: row.entry_key };
+  };
+}
+
+module.exports = {
+  earningsIncomeToFinancialRecord,
+  createFinancialEarningsWriter,
+  polymarketEarningToFinancialRecord,
+  createPolymarketFinancialWriter,
+};
