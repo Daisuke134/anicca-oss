@@ -120,6 +120,9 @@ services/facilitator/scripts/*
 !services/x402-worker/
 services/x402-worker/*
 !services/x402-worker/package.json
+!services/x402-endpoint/package.json
+!services/x402-endpoint/package-lock.json
+!services/x402-endpoint/pnpm-lock.yaml
 !skills/anicca-phone/inbound/client/typescript/package.json
 !skills/anicca-phone/inbound/client/typescript/package-lock.json
 !skills/economy/gig/package.json
