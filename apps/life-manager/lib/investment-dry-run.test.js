@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { makeInvestmentDryRun, fiveMinuteSlot, runInvestmentDryRun,
   startInvestmentDryRunLoop, createCloudInvestmentSecretProvider,
-  readInvestmentCloudWiring } = require("./investment-dry-run.js");
+  createSupabaseInvestmentChatReader, readInvestmentCloudWiring } = require("./investment-dry-run.js");
 const { readInvestmentCoreArtifact, runInvestmentParityCore } = require("./investment-core-artifact.js");
 
 const state = { uid: "owner-1", lifecycle: "in_review", deployment: "cloud", mode: "paper",
@@ -56,6 +56,32 @@ test("cloud secret adapter is tenant-scoped and returns no value in health readb
   assert.equal(await provider.get("owner-1", "secret://alpaca/api-key"), "secret-value");
   await assert.rejects(provider.get("owner-2", "secret://alpaca/api-key"), /tenant scope/);
   assert.equal(JSON.stringify(await provider.health()).includes("secret-value"), false);
+});
+
+test("cloud reads the exact tenant Telegram target from the Supabase user directory", async () => {
+  let request;
+  const readChatId = createSupabaseInvestmentChatReader({
+    env: { SUPABASE_URL: "https://directory.example/", SUPABASE_SERVICE_ROLE_KEY: "role-key" },
+    fetchImpl: async (url, options) => {
+      request = { url, options };
+      return { ok: true, json: async () => [{ uid: "owner-1", telegram_chat_id: "42" }] };
+    },
+  });
+  assert.equal(await readChatId("owner-1"), "42");
+  assert.match(request.url, /lm_users\?uid=eq\.owner-1&select=uid,telegram_chat_id&limit=2$/);
+  assert.equal(request.options.headers.apikey, "role-key");
+  assert.equal(request.options.headers.Authorization, "Bearer role-key");
+});
+
+test("cloud fails closed on an ambiguous or foreign Telegram directory row", async () => {
+  const make = (rows) => createSupabaseInvestmentChatReader({
+    env: { SUPABASE_URL: "https://directory.example", SUPABASE_SERVICE_ROLE_KEY: "role-key" },
+    fetchImpl: async () => ({ ok: true, json: async () => rows }),
+  });
+  await assert.rejects(make([])("owner-1"), /target unavailable/);
+  await assert.rejects(make([{ uid: "owner-2", telegram_chat_id: "42" }])("owner-1"), /target unavailable/);
+  await assert.rejects(make([{ uid: "owner-1", telegram_chat_id: "42" },
+    { uid: "owner-1", telegram_chat_id: "43" }])("owner-1"), /target unavailable/);
 });
 
 test("disabled cloud readback proves host wiring without broker or Telegram effects", async () => {
