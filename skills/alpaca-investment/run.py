@@ -224,7 +224,8 @@ def _closing_marker(ownership: dict, sealed: dict) -> dict:
 
 
 def main(*, attempt: int = 0, wake_id=None) -> int:
-    wake_id = wake_id or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    wake_id = (wake_id or os.environ.get("LIFE_MANAGER_INVESTMENT_WAKE_ID")
+               or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))
     mode = os.environ.get("LIFE_MANAGER_INVESTMENT_MODE")
     state = Path(os.environ.get("ALPACA_INVESTMENT_STATE_DIR",
                                "~/.local/state/life-manager/alpaca-investment")).expanduser()
@@ -432,7 +433,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         _atomic_json(state / "observation-latest.json", observation)
         _atomic_json(state / "campaign.json", campaign)
         stage = "telegram_deliver"
-        telegram = deliver(state, observation, campaign, decision, effect)
+        telegram = deliver(state, observation, campaign, decision, effect,
+                           event_key=wake_id if deployment == "cloud" else None)
         summary = {
             "account": observation["account"],
             "activities_count": observation["activities_count"],

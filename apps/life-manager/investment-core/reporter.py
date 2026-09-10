@@ -147,10 +147,18 @@ def _money_or_unknown(amount) -> str:
 
 
 def _deliver_message(state: Path, event_key: str, message: str,
-                     observed_at: str) -> dict[str, Any]:
+                     observed_at: str, reuse_delivered_conflict: bool = False) -> dict[str, Any]:
     outbox = _load_outbox()
     database = state / "telegram-outbox.sqlite3"
-    inserted = outbox.enqueue(database, event_key, message, observed_at)
+    try:
+        inserted = outbox.enqueue(database, event_key, message, observed_at)
+    except outbox.IdempotencyConflict:
+        item = next((row for row in outbox.list_items(database)
+                     if row.event_key == event_key), None)
+        if reuse_delivered_conflict and item and item.status == "delivered" \
+                and item.provider_message_id:
+            return {"message_id": item.provider_message_id, "status": "delivered"}
+        raise
     if not inserted:
         item = next((row for row in outbox.list_items(database)
                      if row.event_key == event_key), None)
@@ -183,13 +191,14 @@ def _deliver_message(state: Path, event_key: str, message: str,
 
 
 def deliver(state: Path, observation: dict[str, Any], campaign: dict[str, Any],
-            decision: dict[str, Any], effect: str) -> dict[str, Any]:
+            decision: dict[str, Any], effect: str, event_key: str | None = None) -> dict[str, Any]:
     observed_at = decision["observed_at"]
     return _deliver_message(
         state,
-        f"alpaca-wake:{observed_at}",
+        f"alpaca-wake:{event_key or observed_at}",
         render(observation, campaign, decision, effect),
         observed_at,
+        reuse_delivered_conflict=event_key is not None,
     )
 
 

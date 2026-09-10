@@ -66,7 +66,8 @@ function makeInvestmentCloudWake(deps) {
       throw new Error("investment cloud shadow claimed job invalid");
     }
     const telegramChatId = await deps.readChatId(owner.uid);
-    const result = await deps.executeInvestment({ tenantId: owner.uid, mode: owner.mode, sealed,
+    const result = await deps.executeInvestment({ tenantId: owner.uid, mode: owner.mode,
+      wakeId: claimedSlot, sealed,
       secretProvider: deps.secretProvider, telegramChatId,
       stateRoot: deps.stateRoot,
       persist: (uid, next) => deps.runtimeStore.upsert(uid, next.bundle) });
@@ -157,6 +158,7 @@ async function runInvestmentCloud(input) {
     fs.chmodSync(credentialsFile, 0o600);
     const env = { ...process.env,
       LIFE_MANAGER_INVESTMENT_MODE: mode, LIFE_MANAGER_INVESTMENT_DEPLOYMENT: "cloud",
+      LIFE_MANAGER_INVESTMENT_WAKE_ID: String(input.wakeId || ""),
       LIFE_MANAGER_INVESTMENT_AGENT_RUNNER: AGENT,
       ALPACA_CLI: alpacaCli,
       LM_TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,

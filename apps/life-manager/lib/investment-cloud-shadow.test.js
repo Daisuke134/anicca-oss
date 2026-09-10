@@ -143,8 +143,8 @@ test("one Cloud live wake owns a money-class job and persists the shared core re
       attempt: 1, input_refs: enqueued.inputRefs }],
       completeJob: async (value) => { completion = value; } },
     secretProvider: { assertTenant: () => true }, readChatId: async () => "chat",
-    stateRoot: "/durable/investment", executeInvestment: async ({ mode }) => ({
-      mode, deployment: "cloud", effect: "e".repeat(64),
+    stateRoot: "/durable/investment", executeInvestment: async ({ mode, wakeId }) => ({
+      mode, deployment: "cloud", effect: "e".repeat(64), observed_wake_id: wakeId,
       telegram_message_id: "live-message", decision: "position://BTCUSD" }) });
   const result = await wake(new Date("2026-09-10T12:07:00Z"));
   assert.equal(enqueued.capability, "investment.live");
@@ -152,6 +152,7 @@ test("one Cloud live wake owns a money-class job and persists the shared core re
   assert.equal(enqueued.effectKey, enqueued.jobId);
   assert.equal(result.receipt.effect_permission, "money");
   assert.equal(result.receipt.order_calls, 1);
+  assert.equal(result.receipt.observed_at, "2026-09-10T12:05:00.000Z");
   assert.equal(completion.receipt.telegram_message_id, "live-message");
 });
 
@@ -159,6 +160,7 @@ test("Cloud live executor passes only live state variables to the shared Python 
   const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "investment-live-volume-"));
   const saved = [];
   const result = await runInvestmentCloud({ tenantId: "tenant-1", mode: "live",
+    wakeId: "2026-09-10T12:05:00.000Z",
     sealed: seededBundle(), secretProvider: { get: async (_tenant, ref) => ({
       "secret://alpaca/api-key": "key", "secret://alpaca/api-secret": "secret",
       "secret://telegram/bot-token": "telegram" })[ref] }, telegramChatId: "chat",
@@ -166,6 +168,7 @@ test("Cloud live executor passes only live state variables to the shared Python 
     runCore: async ({ stateDir, env }) => {
       assert.equal(env.LIFE_MANAGER_INVESTMENT_MODE, "live");
       assert.equal(env.LIFE_MANAGER_INVESTMENT_DEPLOYMENT, "cloud");
+      assert.equal(env.LIFE_MANAGER_INVESTMENT_WAKE_ID, "2026-09-10T12:05:00.000Z");
       assert.equal(env.ALPACA_INVESTMENT_LIVE_STATE_DIR, stateDir);
       assert.equal(env.ALPACA_INVESTMENT_LIVE_CREDENTIALS_FILE.endsWith("credentials.json"), true);
       assert.equal(env.ALPACA_INVESTMENT_SHADOW_STATE_DIR, undefined);

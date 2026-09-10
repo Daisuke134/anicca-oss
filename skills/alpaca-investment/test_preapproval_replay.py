@@ -101,13 +101,15 @@ class PreapprovalReplayTest(unittest.TestCase):
                     fixture["campaign"],
                     fixture["no_trade"],
                     "none",
+                    event_key="2026-09-10T12:05:00.000Z",
                 )
                 replayed = reporter.deliver(
                     state,
                     fixture["observation"],
                     fixture["campaign"],
-                    fixture["no_trade"],
+                    {**fixture["no_trade"], "observed_at": "2026-09-10T12:05:59.000Z"},
                     "none",
+                    event_key="2026-09-10T12:05:00.000Z",
                 )
 
             self.assertEqual(delivered["message_id"], replayed["message_id"])
