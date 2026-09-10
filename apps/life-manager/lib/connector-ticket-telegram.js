@@ -152,11 +152,14 @@ async function sendTelegramMedia(targetValue, bytes, caption, options = {}) {
   const target = String(targetValue == null ? "" : targetValue).trim();
   if (!target || target.length > 200) throw new Error("Telegram target invalid");
   if (!Buffer.isBuffer(bytes) || bytes.length < 5_000) throw new Error("Telegram PNG invalid");
+  const token = telegramToken(options);
   try {
-    const response = await (options.sendPhoto || sendPhoto)(telegramToken(options), target, bytes, caption);
+    const response = await (options.sendPhoto || sendPhoto)(token, target, bytes, caption);
     return { messageId: parseTelegramMessageId(response) };
   } catch {
-    throw new Error("Telegram media delivery failed");
+    const error = new Error("Telegram media delivery failed");
+    error.unknownEffect = true;
+    throw error;
   }
 }
 
@@ -179,7 +182,9 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
   const response = await send(input.telegramTarget, bytes, caption);
   let messageId;
   try { messageId = parseTelegramMessageId(response); } catch {
-    throw new Error("Telegram delivery needs a positive message ID");
+    const error = new Error("Telegram delivery needs a positive message ID");
+    error.unknownEffect = true;
+    throw error;
   }
   const observedAt = new Date(Date.parse(
     (dependencies.observedAt || (() => new Date().toISOString()))(),

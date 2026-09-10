@@ -215,7 +215,11 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
   });
   let providerId;
   try { providerId = parseTelegramMessageId(response || {}); }
-  catch { throw new Error("Connector coverage Telegram needs a positive message ID"); }
+  catch {
+    const error = new Error("Connector coverage Telegram needs a positive message ID");
+    error.unknownEffect = true;
+    throw error;
+  }
   let photo = null;
   if (Array.isArray(input.newEvents) && input.newEvents.length > 0) {
     const evidence = input.registrationEvidence;
@@ -240,7 +244,11 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
     });
     let photoProviderId;
     try { photoProviderId = parseTelegramMessageId(photoResponse || {}); }
-    catch { throw new Error("Connector coverage Telegram photo needs a positive message ID"); }
+    catch {
+      const error = new Error("Connector coverage Telegram photo needs a positive message ID");
+      error.unknownEffect = true;
+      throw error;
+    }
     photo = { photo_provider_id: photoProviderId, artifact_sha256: digest };
   }
   const observedAt = new Date(Date.parse(

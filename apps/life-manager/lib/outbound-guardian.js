@@ -38,49 +38,57 @@ function telegramToken(options) {
   return token.trim();
 }
 
+function deliveryUnknown(message) {
+  const error = new Error(message);
+  error.unknownEffect = true;
+  return error;
+}
+
 async function notifyTelegram(message, options = {}) {
   const target = String(options.telegramTarget || "").trim();
   if (!target) throw new Error("Telegram target is required");
+  const token = telegramToken(options);
   try {
-    const response = await (options.sendMessage || sendMessage)(telegramToken(options), target, message);
+    const response = await (options.sendMessage || sendMessage)(token, target, message);
     return { messageId: parseTelegramMessageId(response) };
   } catch {
-    throw new Error("Telegram delivery failed");
+    throw deliveryUnknown("Telegram delivery failed");
   }
 }
 
 async function notifyTelegramReport(message, options = {}) {
+  const target = options.telegramTarget;
+  const idempotencyKey = options.idempotencyKey;
+  if (
+    typeof message !== "string" || !message || message.length > 4_096
+    || typeof target !== "string" || !REPORT_TARGET.test(target)
+    || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
+  ) throw new Error(REPORT_FAILURE);
+  const token = telegramToken(options);
   try {
-    const target = options.telegramTarget;
-    const idempotencyKey = options.idempotencyKey;
-    if (
-      typeof message !== "string" || !message || message.length > 4_096
-      || typeof target !== "string" || !REPORT_TARGET.test(target)
-      || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
-    ) throw new Error(REPORT_FAILURE);
-    const response = await (options.sendMessage || sendMessage)(telegramToken(options), target, message);
+    const response = await (options.sendMessage || sendMessage)(token, target, message);
     return { messageId: parseTelegramMessageId(response) };
   } catch {
-    throw new Error(REPORT_FAILURE);
+    throw deliveryUnknown(REPORT_FAILURE);
   }
 }
 
 async function notifyTelegramPhoto(bytes, options = {}) {
+  const target = options.telegramTarget;
+  const idempotencyKey = options.idempotencyKey;
+  if (
+    !Buffer.isBuffer(bytes)
+    || typeof target !== "string" || !REPORT_TARGET.test(target)
+    || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
+  ) throw new Error("Telegram photo delivery invalid");
+  const token = telegramToken(options);
   try {
-    const target = options.telegramTarget;
-    const idempotencyKey = options.idempotencyKey;
-    if (
-      !Buffer.isBuffer(bytes)
-      || typeof target !== "string" || !REPORT_TARGET.test(target)
-      || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
-    ) throw new Error("Telegram photo delivery invalid");
     const response = await (options.sendPhoto || sendPhoto)(
-      telegramToken(options), target, bytes, String(options.caption || ""),
+      token, target, bytes, String(options.caption || ""),
     );
     return { messageId: parseTelegramMessageId(response) };
-  } catch (error) {
-    if (error && error.message === "Telegram photo delivery invalid") throw error;
-    throw new Error(PHOTO_FAILURE);
+  } catch {
+    throw deliveryUnknown(PHOTO_FAILURE);
   }
 }
 

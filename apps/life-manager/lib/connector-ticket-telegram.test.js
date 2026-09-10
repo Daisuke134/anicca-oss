@@ -132,5 +132,9 @@ test("ticket media transportはTelegram sendPhotoを使いpositive message IDだ
   await assert.rejects(() => sendTelegramMedia("123456789", png(), "caption", {
     telegramToken: "fixture-token",
     async sendPhoto() { return { ok: true, result: { message_id: 0 } }; },
-  }), /Telegram media delivery failed/);
+  }), (error) => {
+    assert.equal(error.message, "Telegram media delivery failed");
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
 });

@@ -58,6 +58,7 @@ test("report text delivery validates wake inputs, uses sendMessage, and fails cl
     async sendMessage() { throw new Error("private provider failure"); },
   }), (error) => {
     assert.equal(error.message, "Telegram report delivery failed");
+    assert.equal(error.unknownEffect, true);
     assert.doesNotMatch(error.message, /private provider failure/);
     return true;
   });
@@ -90,5 +91,9 @@ test("photo delivery uses Telegram sendPhoto directly, validates before sending,
   await assert.rejects(() => notifyTelegramPhoto(bytes, {
     telegramTarget: "123456789", idempotencyKey: "connector-evidence:abc123", telegramToken: "fixture-token",
     async sendPhoto() { return { ok: true, result: { message_id: 0 } }; },
-  }), /Telegram photo delivery failed/);
+  }), (error) => {
+    assert.equal(error.message, "Telegram photo delivery failed");
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
 });

@@ -482,7 +482,10 @@ async function runNativeConnectorWrite(input = {}, deps = {}) {
       if (!ticketDelivery || !POSITIVE_REF.test(String(ticketDelivery.provider_id || ""))) {
         throw new Error("Luma ticket Telegram receipt invalid");
       }
-    } catch {
+    } catch (error) {
+      if (error && error.unknownEffect === true) {
+        return reconciliationResult({ ...context, job }, error);
+      }
       ticketFailureReason = "TICKET_TELEGRAM_FAILED";
       ticketDelivery = null;
     }
