@@ -10253,3 +10253,11 @@ sourceと既存回帰testを照合し、`consecutiveFailures`は`runMinimalConne
 同じ16:00 JST Luma-first slot内で別rotation sliceを走査するため、launchctl-safe preflightを再度全PASSし、対象Connectorだけをkickstartした。新wake `wake-befb554f18013e95bf5d588e`はCalendar readbackを14,595msで成功し、前回と異なるLuma inventory `20/6/2/1/0`を処理した。唯一のfree/open候補は既存Calendarと衝突したため、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、bundleは0。wakeは後続providerを実行中である。
 
 CG-44は候補依存で**NOT DONE**。次も固定順の先頭を維持し、別Luma sliceまたは次のLuma-first自然slotで、同一eventのofficial registration/pending、Calendar exact 1、Telegram message/photo、durable bundleが揃うまで継続する。KokuchPro Harness未接続は観測済みだが、Luma/Connpassの次wakeを永続停止せずCG-44の直接blockerではないため、TODO順を変えて前倒し修正しない。
+
+### O1B-25進捗546（追加2 slice終端・継続走査）
+
+`wake-befb554f18013e95bf5d588e`は補助provider巡回後、KokuchProのwake-local 3候補上限で`circuit_open / kokuchpro_direct_requires_harness / consecutive failures 3`、exit 1として07:25:29 UTCに終端した。Telegram ID `73414`、reconciliation store空、target lease空、owner lockなし、launchd idleを確認した。Luma/Connpassへの不確定effectは0である。
+
+16:30 JSTのpriority切替前にpreflightを再度全PASSし、対象Connectorだけをkickstartした。別rotation `wake-7ae70a1457ef78b1ec8ccbf1`はCalendar readbackを3,285msで成功し、Luma inventory `19/6/4/1/0`を処理した。唯一のfree/open候補は既存Calendarと衝突したため、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、bundleは0。これで同slotの別sliceを追加走査したが、CG-44を満たすCalendar-free候補は現れず、wakeは後続providerを実行中である。
+
+Connectorはscheduler、再kickstart、Calendar readback、Luma rotation、Telegram、cleanupが動作している。CG-44は**NOT DONE**のまま固定先頭を維持する。残順序は`CG-44 live Luma bundle → CG-45 replay-zero → CG-47 LT → CG-48 natural duplicate/cleanup → CG-51 Connector closure → Fundraiser natural effect/replay-zero → Telegram OSS fresh-clone E2E → Cloud`から変更しない。
