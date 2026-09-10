@@ -94,6 +94,8 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "ai.anicca.freelancer-bid-watch",
             "ai.anicca.freelancer-revenue-application",
             "ai.anicca.freelancer-revenue-work-sync",
+            "ai.anicca.x402-monitor",
+            "ai.anicca.x402-tunnel",
             "ai.anicca.job-search-observability",
             "ai.anicca.job-search-camofox",
             "ai.anicca.probe-rollback-1782857566-85245-proactive",
