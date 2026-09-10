@@ -2,6 +2,7 @@ import json
 import importlib.util
 import sys
 import tempfile
+import threading
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
@@ -226,6 +227,64 @@ class BrokerContextTest(unittest.TestCase):
                     state, Path("credentials"), Path("alpaca"), observation)
             self.assertEqual(ownership["status"], "open")
             MODULE._owned_live_position(ownership, observation)
+
+    def test_cloud_canary_symbol_is_normalized_before_regular_live_ownership_sync(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "c" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0.00002",
+                "owned_qty": "0.00001995", "status": "open", "symbol": "BTCUSD"})
+            observation = MODULE._normalize_live_position_symbols({"positions": [
+                {"symbol": "USDCUSD", "qty": "64"},
+                {"symbol": "BTCUSDC", "qty": "0.00001995"}]})
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "filled", "filled_qty": "0.00002"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), observation)
+            self.assertEqual(ownership["status"], "open")
+            self.assertEqual(observation["positions"][1]["symbol"], "BTCUSD")
+            MODULE._owned_live_position(ownership, observation)
+
+    def test_live_observation_and_sync_hold_fence_against_canary_open_writer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            pending = {"entry_client_order_id": "lm-ai-" + "c" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0",
+                "status": "entry_pending", "symbol": "BTCUSD"}
+            opened = {**pending, "entry_filled_qty": "0.00002",
+                      "owned_qty": "0.00001995", "status": "open"}
+            MODULE._atomic_json(state / "live-owned-position.json", pending)
+            observing, release = threading.Event(), threading.Event()
+
+            def slow_observe(**_kwargs):
+                observing.set()
+                release.wait(2)
+                return {"positions": []}
+
+            def regular_sync():
+                MODULE._observe_and_sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"))
+
+            def canary_open():
+                with MODULE.control_fence(state):
+                    MODULE._atomic_json(state / "live-owned-position.json", opened)
+
+            with patch.object(MODULE, "observe", side_effect=slow_observe), patch.object(
+                    MODULE, "find_order_by_client_id", return_value={"status": "absent"}):
+                regular = threading.Thread(target=regular_sync)
+                canary = threading.Thread(target=canary_open)
+                regular.start()
+                self.assertTrue(observing.wait(1))
+                canary.start()
+                self.assertTrue(canary.is_alive())
+                release.set()
+                regular.join(2)
+                canary.join(2)
+            self.assertFalse(regular.is_alive())
+            self.assertFalse(canary.is_alive())
+            marker = json.loads((state / "live-owned-position.json").read_text())
+            self.assertEqual(marker["status"], "open")
 
     def test_live_ownership_closes_when_position_disappears(self):
         with tempfile.TemporaryDirectory() as directory:

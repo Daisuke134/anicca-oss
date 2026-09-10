@@ -129,6 +129,18 @@ def _nonpaper_campaign(observation: dict) -> dict:
             "unrealized_pnl_usd": str(unrealized)}
 
 
+def _normalize_live_position_symbols(observation: dict) -> dict:
+    positions = observation.get("positions")
+    if not isinstance(positions, list):
+        raise ValueError("live_position_not_owned")
+    for row in positions:
+        if not isinstance(row, dict):
+            raise ValueError("live_position_not_owned")
+        if row.get("symbol") in {"BTCUSD", "BTCUSDC", "BTC/USDC"}:
+            row["symbol"] = "BTCUSD"
+    return observation
+
+
 def _sync_live_ownership(state: Path, credentials_path: Path, cli_path: Path,
                          observation: dict) -> dict | None:
     path = state / "live-owned-position.json"
@@ -197,6 +209,15 @@ def _owned_live_position(ownership: dict | None, observation: dict) -> None:
         raise ValueError("live_position_not_owned")
 
 
+def _observe_and_sync_live_ownership(
+        state: Path, credentials_path: Path, cli_path: Path) -> tuple[dict, dict | None]:
+    with control_fence(state):
+        observation = _normalize_live_position_symbols(observe(
+            credentials_path=credentials_path, cli_path=cli_path))
+        ownership = _sync_live_ownership(state, credentials_path, cli_path, observation)
+    return observation, ownership
+
+
 def _closing_marker(ownership: dict, sealed: dict) -> dict:
     return {**ownership, "close_client_order_id": sealed["client_order_id"],
             "close_effect_id": sealed["effect_id"], "status": "closing"}
@@ -239,12 +260,15 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
             }, separators=(",", ":")))
             return 0
         stage = "observe"
-        observation = observe(
-            credentials_path=credentials_path,
-            cli_path=cli_path,
-        )
-        ownership = (_sync_live_ownership(state, credentials_path, cli_path, observation)
-                     if mode == "live" else None)
+        if mode == "live":
+            observation, ownership = _observe_and_sync_live_ownership(
+                state, credentials_path, cli_path)
+        else:
+            observation = observe(
+                credentials_path=credentials_path,
+                cli_path=cli_path,
+            )
+            ownership = None
         stage = "campaign_read"
         campaign = (reconcile(read_campaign_snapshot(
             credentials_path=credentials_path, cli_path=cli_path, symbols=SYMBOLS))
@@ -297,6 +321,8 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                 effect = sealed["effect_id"]
                 stage = "campaign_exit_observe"
                 observation = observe(credentials_path=credentials_path, cli_path=cli_path)
+                if mode == "live":
+                    observation = _normalize_live_position_symbols(observation)
                 stage = "campaign_exit_campaign_read"
                 campaign = reconcile(read_campaign_snapshot(
                     credentials_path=credentials_path, cli_path=cli_path, symbols=SYMBOLS))
