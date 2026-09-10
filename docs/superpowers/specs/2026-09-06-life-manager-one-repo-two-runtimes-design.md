@@ -359,9 +359,13 @@ This checklist does not reorder the established implementation sequence below. T
   In progress on `feat/agent-economy-economic-receipts-20260911`: the TaskMarket x402 image purchase now retains
   a hash of the provider's terminal payment-response as its non-secret payment receipt ID. The shared Cloud wake
   projects only same-wake, positive, receipt-backed TaskMarket costs into the existing tenant FinancialRecord store;
-  missing-receipt cost claims remain excluded, and Postgres idempotency prevents replay duplication. Focused tests
-  pass 16/16. Remaining inside this atom: verified external revenue projection and receipt-backed compute, hosted
-  cloud, storage, network and API cost coverage for every actually supported Agent Economy provider.
+  missing-receipt cost claims remain excluded, and Postgres idempotency prevents replay duplication. The Cloud wake
+  also reuses the existing official TaskMarket award verifier: only a completed non-self-awarded task whose award is
+  present in provider readback and whose exact Base USDC transfer is finalized on-chain becomes tenant gross revenue
+  plus its separately classified marketplace fee. Owner/self wallets, pending awards and mismatched transfers remain
+  excluded. Focused TaskMarket, Cloud wake and economic-record tests pass 19/19. Remaining inside this atom:
+  receipt-backed compute, hosted cloud, storage, network and API cost coverage plus the non-TaskMarket earning
+  providers actually enabled for Agent Economy.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,

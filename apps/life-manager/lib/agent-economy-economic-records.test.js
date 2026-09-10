@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { persistWakeEconomicRecords } = require("./agent-economy-economic-records.js");
+const { persistWakeEconomicRecords, persistTaskMarketRevenue, taskMarketFinancialRecords } = require("./agent-economy-economic-records.js");
 
 test("persists only receipt-backed TaskMarket cost for the current wake", async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "lm-ae-economic-"));
@@ -36,4 +36,31 @@ test("ignores a missing ledger", async () => {
     recordedAt: "2026-09-11T05:00:00.000Z" });
   assert.deepEqual(records, []);
   assert.equal(calls, 0);
+});
+
+test("projects verified TaskMarket gross and fee without net double counting", () => {
+  const records = taskMarketFinancialRecords({ entry_key: "taskmarket:task:tx:1:income",
+    amount_atomic: "4750000", occurred_at: "2026-09-11T04:00:00.000Z", tx_hash: `0x${"a".repeat(64)}`,
+    meta: { gross_atomic: "5000000", platform_fee_atomic: "250000" } }, "tenant-a", "2026-09-11T05:00:00.000Z");
+  assert.deepEqual(records.map((row) => [row.kind, row.direction, row.amount_minor]), [
+    ["business_revenue", "credit", 5000000], ["fee", "debit", 250000],
+  ]);
+  assert.equal(new Set(records.map((row) => row.idempotency_key)).size, 2);
+});
+
+test("reuses the official TaskMarket verifier and writes its records to the shared store", async () => {
+  const appended = [];
+  const identity = { tenant_id: "tenant-a", wallet: { address: `0x${"b".repeat(40)}` } };
+  const result = await persistTaskMarketRevenue({ identity,
+    financialStore: { append: async (record) => { appended.push(record); return { created: true, record }; } },
+    recordedAt: "2026-09-11T05:00:00.000Z", selfWallets: [`0x${"c".repeat(40)}`],
+    recordTaskMarket: async (deps) => {
+      assert.deepEqual(deps.selfWallets, [`0x${"c".repeat(40)}`, identity.wallet.address]);
+      await deps.recordEntry({ entry_key: "taskmarket:task:tx:1:income", amount_atomic: "4750000",
+        occurred_at: "2026-09-11T04:00:00.000Z", tx_hash: `0x${"d".repeat(64)}`,
+        meta: { gross_atomic: "5000000", platform_fee_atomic: "250000" } });
+      return { recorded: 1 };
+    } });
+  assert.equal(result.recorded, 1);
+  assert.deepEqual(appended.map((row) => row.kind), ["business_revenue", "fee"]);
 });

@@ -6,7 +6,7 @@ const crypto = require("node:crypto");
 const os = require("node:os");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
-const { persistWakeEconomicRecords } = require("./agent-economy-economic-records.js");
+const { persistWakeEconomicRecords, persistTaskMarketRevenue } = require("./agent-economy-economic-records.js");
 
 const execFileAsync = promisify(execFile);
 const CLOUD_AGENT_ECONOMY_SLOTS = Object.freeze([
@@ -98,6 +98,10 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
       await persistWakeEconomicRecords({ instanceHome, wakeId: wake.wake_id,
         subjectId: identity.tenant_id, financialStore: options.financialStore,
         recordedAt: options.now ? options.now() : new Date().toISOString() });
+      await (options.persistTaskMarketRevenue || persistTaskMarketRevenue)({ identity,
+        financialStore: options.financialStore,
+        recordedAt: options.now ? options.now() : new Date().toISOString(),
+        fetchImpl: options.fetchImpl, selfWallets: options.selfWallets || [] });
       return wake;
     } catch {
       const error = new Error("Agent Economy shared wake failed");

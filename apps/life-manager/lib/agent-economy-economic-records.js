@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { financialRecordId } = require("./financial-record-contract.js");
+const { main: recordTaskMarketWork } = require("../scripts/record-taskmarket-work.js");
 
 function readJsonl(file) {
   try {
@@ -44,4 +45,55 @@ async function persistWakeEconomicRecords({ instanceHome, wakeId, subjectId, fin
   return records;
 }
 
-module.exports = { persistWakeEconomicRecords };
+function taskMarketFinancialRecords(row, subjectId, recordedAt) {
+  const gross = Number(row?.meta?.gross_atomic);
+  const fee = Number(row?.meta?.platform_fee_atomic);
+  if (!Number.isSafeInteger(gross) || gross <= 0 || !Number.isSafeInteger(fee) || fee < 0
+    || gross - fee !== Number(row?.amount_atomic)) throw new Error("TaskMarket financial amount invalid");
+  const base = {
+    schema_version: 1, record_type: "financial_record", subject_id: subjectId,
+    scope: "business", currency: "USDC", occurred_at: new Date(row.occurred_at).toISOString(),
+    recorded_at: new Date(recordedAt).toISOString(),
+    source: { provider: "taskmarket", source_type: "marketplace", external_ref: row.tx_hash },
+    verification: { status: "verified", observed_at: new Date(recordedAt).toISOString(),
+      evidence_refs: [`eip155://8453/tx/${String(row.tx_hash).slice(2)}`] },
+  };
+  const components = [["gross", "business_revenue", "credit", gross], ["fee", "fee", "debit", fee]];
+  return components.filter(([, , , amount]) => amount > 0).map(([component, kind, direction, amount_minor]) => {
+    const idempotency_key = `taskmarket-financial:v1:${row.entry_key}:${component}`;
+    return { ...base, record_id: financialRecordId(subjectId, idempotency_key), idempotency_key,
+      kind, direction, amount_minor };
+  });
+}
+
+async function persistTaskMarketRevenue({ identity, financialStore, recordedAt, fetchImpl = globalThis.fetch,
+  selfWallets = [], recordTaskMarket = recordTaskMarketWork }) {
+  if (!financialStore || typeof financialStore.append !== "function") return { recorded: 0 };
+  const configuredSelfWallets = selfWallets.length ? selfWallets
+    : (await import("../../../skills/earn/x402-sell/lib/self-wallets.mjs")).SELF_WALLETS;
+  let storeFailure = null;
+  try {
+    return await recordTaskMarket({
+      workerAddress: identity.wallet.address,
+      selfWallets: [...new Set([...configuredSelfWallets, identity.wallet.address])],
+      fetchImpl,
+      recordEntry: async (row) => {
+        try {
+          const records = taskMarketFinancialRecords(row, identity.tenant_id, recordedAt);
+          const writes = await Promise.all(records.map((record) => financialStore.append(record)));
+          return { ok: true, duplicate: writes.every((write) => write.created === false) };
+        } catch (error) {
+          storeFailure = error;
+          throw error;
+        }
+      },
+      now: () => new Date(recordedAt),
+      writeOutput: () => {},
+    }, []);
+  } catch (error) {
+    if (storeFailure) throw storeFailure;
+    return { recorded: 0, scan_error: true };
+  }
+}
+
+module.exports = { persistWakeEconomicRecords, persistTaskMarketRevenue, taskMarketFinancialRecords };

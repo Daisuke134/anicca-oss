@@ -35,6 +35,7 @@ test("Cloud runner invokes the shared loop for one wake and returns only its saf
       return { privateKey: PRIVATE_KEY };
     } },
     financialStore: { append: async (record) => financialRecords.push(record) },
+    persistTaskMarketRevenue: async () => ({ recorded: 0 }),
     now: () => "2026-09-11T05:00:00.000Z",
     execFile: async (executable, args, options) => {
       assert.equal(executable, process.execPath);
