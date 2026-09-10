@@ -144,7 +144,8 @@ def _skills_value(skills:Sequence[Mapping[str,Any]],*,public:bool=False)->str:
     values=[]
     for skill in skills:
         years=skill["years"] if public else _years_label(skill["years"])
-        values.append("|".join((str(skill["name"]),str(skill["level"]),str(years),str(skill["note"]))))
+        level=str(skill["level"]).split(":",1)[0] if public else str(skill["level"])
+        values.append("|".join((str(skill["name"]),level,str(years),str(skill["note"]))))
     return "\n".join(sorted(values,key=str.casefold))
 def _expected_components(config:Mapping[str,Any])->dict[str,dict[str,Any]]:
     detail=config["occupation_detail"]; values={"display_name":config["display_name"],"occupation":config["occupation"],"occupation_detail":f'{detail["id"]}:{detail["label"]}',"status":config["status"],"hours_limit":config["hours_limit"],"min_hourly_wage":str(config["min_hourly_wage"]),"max_hourly_wage":str(config["max_hourly_wage"]),"web_meeting":config["web_meeting"],"introduction":config["introduction"],"job_categories":"\n".join(sorted(config["job_categories"])),"skills":_skills_value(config["skills"])}
