@@ -2,12 +2,11 @@
   "benchmark_end_price_usd": "210",
   "benchmark_start_price_usd": "200",
   "completed_round_trips": 1,
-  "ending_nav_usd": "160",
+  "ending_nav_usd": "110",
   "fees_usd": "2",
   "gross_exposure_usd": "40",
   "observed_at": "2026-09-07T00:00:00Z",
   "owner_cash_flow_usd": "50",
-  "peak_adjusted_nav_usd": "120",
   "period_start": "2026-09-01T00:00:00Z",
   "schema_version": 1,
   "realized_pnl_usd": "8",
@@ -18,6 +17,6 @@
     "receipt-fees",
     "receipt-benchmark"
   ],
-  "starting_nav_usd": "100",
+  "starting_nav_usd": "50",
   "unrealized_pnl_usd": "2"
 }

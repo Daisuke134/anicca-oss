@@ -74,7 +74,8 @@ def main() -> int:
     _write(state / "performance-latest.json", result)
     print(json.dumps({key: result[key] for key in (
         "measurement_status", "net_pnl_usd", "realized_pnl_usd", "unrealized_pnl_usd",
-        "fees_usd", "slippage_usd", "max_drawdown_usd", "gross_exposure_usd",
+        "fees_usd", "slippage_usd", "observed_endpoint_drawdown_usd", "drawdown_scope",
+        "gross_exposure_usd",
         "benchmark_return", "alpha_pnl_usd", "completed_round_trips",
         "statistically_supported", "capital_cap_usd", "capital_expansion_allowed", "reason",
     )}, sort_keys=True, separators=(",", ":")))

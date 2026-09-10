@@ -29,10 +29,12 @@ class NetPerformanceTest(unittest.TestCase):
         self.assertEqual(result["gross_strategy_pnl_usd"], "13.00")
         self.assertEqual(result["fees_usd"], "2.00")
         self.assertEqual(result["slippage_usd"], "1.00")
-        self.assertEqual(result["max_drawdown_usd"], "10.00")
+        self.assertEqual(result["observed_endpoint_drawdown_usd"], "0.00")
+        self.assertEqual(result["drawdown_scope"], "official_period_endpoints")
+        self.assertEqual(result["drawdown_observation_count"], 2)
         self.assertEqual(result["gross_exposure_usd"], "40.00")
-        self.assertEqual(result["benchmark_pnl_usd"], "5.00")
-        self.assertEqual(result["alpha_pnl_usd"], "5.00")
+        self.assertEqual(result["benchmark_pnl_usd"], "2.50")
+        self.assertEqual(result["alpha_pnl_usd"], "7.50")
         self.assertFalse(result["capital_expansion_allowed"])
         self.assertFalse(result["statistically_supported"])
         self.assertEqual(result["capital_cap_usd"], "100.00")
@@ -110,6 +112,7 @@ class NetPerformanceTest(unittest.TestCase):
             [{"t": "2026-09-09T00:01:00Z", "bp": "9", "ap": "10"}],
             [{"t": "2026-09-09T00:02:00Z", "bp": "9", "ap": "10"}],
             {"t": "2026-09-09T23:59:59Z", "bp": "10", "ap": "12"},
+            {"timestamp": "2026-09-10T00:00:00Z"},
         ]
         with patch.object(alpaca_cli, "_context", return_value={}), patch.object(
                 alpaca_cli, "_run", side_effect=responses):
@@ -121,20 +124,23 @@ class NetPerformanceTest(unittest.TestCase):
         self.assertEqual(snapshot["realized_pnl_usd"], "-1")
         self.assertEqual(snapshot["slippage_usd"], "0")
         self.assertEqual(snapshot["fees_usd"], "0.20")
-        self.assertEqual(performance.project(snapshot)["net_pnl_usd"], "-1.00")
+        projected = performance.project(snapshot)
+        self.assertEqual(projected["net_pnl_usd"], "-1.00")
+        self.assertEqual(projected["observed_endpoint_drawdown_usd"], "1.00")
 
     def test_non_finite_negative_cost_and_impossible_peak_fail_closed(self):
         cases = (
             {"ending_nav_usd": "NaN"},
             {"fees_usd": "-0.01"},
             {"slippage_usd": "Infinity"},
-            {"peak_adjusted_nav_usd": "109.99"},
             {"benchmark_start_price_usd": "0"},
             {"observed_at": "not-a-time"},
             {"period_start": "2026-09-08T00:00:00Z"},
             {"completed_round_trips": -1},
             {"completed_round_trips": True},
             {"realized_pnl_usd": "7.98"},
+            {"owner_cash_flow_usd": "100.01"},
+            {"gross_exposure_usd": "100.01"},
         )
         for changes in cases:
             with self.subTest(changes=changes):

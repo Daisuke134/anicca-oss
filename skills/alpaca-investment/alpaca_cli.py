@@ -478,6 +478,8 @@ def read_live_performance_snapshot(
                        for moment in (buy_time, sell_time)]
         latest = _run(cli_path, ["data", "crypto", "latest-quotes", "--symbols", "BTC/USDC",
             "--quiet", "--jq", '.quotes["BTC/USDC"]|{t,bp,ap}'], env)
+        clock = _run(cli_path, ["clock", "get", "--quiet", "--jq", "{timestamp}"], env)
+        observed = parse_instant(clock["timestamp"])
         latest_age = observed - parse_instant(latest["t"]) if isinstance(latest, dict) else None
         if latest_age is None or not timedelta(0) <= latest_age <= timedelta(minutes=15):
             raise ValueError
@@ -521,8 +523,14 @@ def read_live_performance_snapshot(
         start_quote_time = parse_instant(start_quote["t"])
         if not start <= start_quote_time <= start + timedelta(seconds=30):
             raise ValueError
-        benchmark_start = (number(start_quote["bp"]) + number(start_quote["ap"])) / 2
-        benchmark_end = (number(latest["bp"]) + number(latest["ap"])) / 2
+
+        def midpoint(row: dict[str, Any]) -> Decimal:
+            bid, ask = number(row["bp"]), number(row["ap"])
+            if bid <= 0 or ask < bid:
+                raise ValueError
+            return (bid + ask) / 2
+
+        benchmark_start, benchmark_end = midpoint(start_quote), midpoint(latest)
         source_ids = [transfer["id"], buy_order["id"], sell_order["id"],
                       *(row["id"] for row in fills), *(row["id"] for row in fees),
                       f"BTC/USDC@{start_quote['t']}", f"BTC/USDC@{latest['t']}"]
@@ -539,7 +547,6 @@ def read_live_performance_snapshot(
         "gross_exposure_usd": str(buy_qty * buy_price),
         "observed_at": clock["timestamp"],
         "owner_cash_flow_usd": str(transfer_usd),
-        "peak_adjusted_nav_usd": "0",
         "period_start": period_start,
         "realized_pnl_usd": str(realised_usd),
         "schema_version": 1,
