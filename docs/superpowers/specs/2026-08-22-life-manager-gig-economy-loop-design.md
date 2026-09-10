@@ -86,11 +86,13 @@ public seller identity is blank or misclassified. The atomic order and current e
 
 Current official CrowdWorks public readback already presents the account as
 `AI-BPO（AI活用の業務改善） / AI関連サービス` and exposes software-engineering, AI-automation and training
-skills; the older `プロンプトエンジニア` screenshot is not current state. Its avatar is still the
-provider default. The existing shared avatar is therefore projected through the thin CrowdWorks
-adapter and verified independently from application receipts. A missing avatar is treated as a
-conversion-risk hypothesis until official outcome data proves its effect, never as the asserted sole
-cause of zero contracts.
+skills; the older `プロンプトエンジニア` screenshot is not current state. The thin CrowdWorks adapter
+has projected the shared avatar once, and authenticated official public readback exposes its unique
+`alt=userIcon` attachment. Profile acceptance remains independent from application receipts and
+requires a later natural zero-mutation readback. If shared browser-session restoration fails before
+that readback, the wake is not profile acceptance and the already-observed avatar effect is not
+repeated. A missing avatar remains only a conversion-risk hypothesis until official outcome data
+proves its effect, never the asserted sole cause of zero contracts.
 
 Current Paid status and order are therefore recorded only in that TODO. Coconala has the accepted
 reference receipt chain: its Paid owner completed the Ryu revision through a normal message with
