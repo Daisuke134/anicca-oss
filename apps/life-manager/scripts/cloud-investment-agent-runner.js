@@ -9,6 +9,14 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 
 function invalid() { throw new Error("cloud investment agent response invalid"); }
 
+function geminiSchema(value) {
+  if (Array.isArray(value)) return value.map(geminiSchema);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => key !== "additionalProperties")
+    .map(([key, item]) => [key, geminiSchema(item)]));
+}
+
 function validate(value, schema) {
   if (!schema || schema.type !== "object" || !value || typeof value !== "object" || Array.isArray(value)) invalid();
   const properties = schema.properties || {};
@@ -37,7 +45,7 @@ async function runCloudAgent(input, deps = {}) {
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        responseMimeType: "application/json", responseSchema: input.schema,
+        responseMimeType: "application/json", responseSchema: geminiSchema(input.schema),
         temperature: 0, maxOutputTokens: 512, thinkingConfig: { thinkingBudget: 0 },
       },
     }),

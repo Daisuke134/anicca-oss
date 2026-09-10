@@ -16,7 +16,7 @@ const schema = {
   required: ["candidate_ref", "probability_profit", "expected_gain_usd", "reason"],
 };
 
-test("cloud adapter sends the unchanged core prompt/schema to Gemini and persists a private result", async () => {
+test("cloud adapter sends the core prompt and Gemini-compatible schema, then persists a private result", async () => {
   const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), "investment-cloud-agent-"));
   const calls = [];
   const value = { candidate_ref: "NO_TRADE", probability_profit: 0, expected_gain_usd: 0, reason: "根拠不足" };
@@ -29,7 +29,9 @@ test("cloud adapter sends the unchanged core prompt/schema to Gemini and persist
   assert.equal(fs.statSync(result.result_path).mode & 0o777, 0o600);
   const body = JSON.parse(calls[0].request.body);
   assert.equal(body.contents[0].parts[0].text, "unchanged core allocation prompt");
-  assert.deepEqual(body.generationConfig.responseSchema, schema);
+  const { additionalProperties, ...supportedSchema } = schema;
+  assert.equal(additionalProperties, false);
+  assert.deepEqual(body.generationConfig.responseSchema, supportedSchema);
   assert.equal(calls[0].request.headers["x-goog-api-key"], "fixture-key");
   assert.equal(JSON.stringify(result).includes("fixture-key"), false);
 });
@@ -38,4 +40,14 @@ test("cloud adapter rejects provider/schema drift", async () => {
   const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), "investment-cloud-agent-bad-"));
   await assert.rejects(runCloudAgent({ prompt: "allocation prompt", schema, evidenceDir,
     apiKey: "key", fetchImpl: async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: '{"candidate_ref":"NO_TRADE"}' }] } }] }) }) }), /invalid/);
+});
+
+test("cloud adapter keeps strict local additional-property validation", async () => {
+  const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), "investment-cloud-agent-extra-"));
+  const value = { candidate_ref: "NO_TRADE", probability_profit: 0, expected_gain_usd: 0,
+    reason: "根拠不足", unexpected: true };
+  await assert.rejects(runCloudAgent({ prompt: "allocation prompt", schema, evidenceDir,
+    apiKey: "key", fetchImpl: async () => ({ ok: true, json: async () => ({
+      candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }],
+    }) }) }), /invalid/);
 });
