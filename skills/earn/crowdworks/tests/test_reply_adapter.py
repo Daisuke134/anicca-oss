@@ -342,3 +342,34 @@ def test_external_form_action_rejects_untrusted_or_ambiguous_links():
         "https://forms.gle/one", "https://docs.google.com/forms/d/e/two/viewform",
     ]}]}
     assert adapter._external_form_action("thread-1") is None
+
+
+def test_google_form_answers_bind_current_metadata_to_private_profiles(tmp_path):
+    candidate = tmp_path / "candidate.json"
+    provider = tmp_path / "provider.json"
+    candidate.write_text(__import__("json").dumps({
+        "candidate": {"application_email": "private@example.com",
+                      "name_romaji_parts": {"family": "Narita", "given": "Daisuke"}},
+        "facts": [{"claim": "Nara Institute graduate"},
+                  {"claim": "Mitsubishi UFJ employment"}],
+    }), encoding="utf-8")
+    provider.write_text(__import__("json").dumps({
+        "display_name": "Public Seller", "provider_employee_id": "7145638",
+    }), encoding="utf-8")
+    adapter = adapter_module.CrowdWorksReplyAdapter(
+        {}, candidate_profile=candidate, provider_profile=provider,
+    )
+    items = [
+        {"title": "①クラウドワークスのユーザー名を教えてください", "type": 0,
+         "entries": [{"id": 10, "choices": [], "required": True}]},
+        {"title": "③本名のイニシャルを教えてください", "type": 0,
+         "entries": [{"id": 11, "choices": [], "required": True}]},
+        {"title": "職務経歴【1】の開始（入社）した時期を教えてください", "type": 9,
+         "entries": [{"id": 12, "choices": [], "required": True}]},
+    ]
+
+    assert adapter._question_answers(items) == [
+        ("entry.10", "Public Seller"), ("entry.11", "ND"),
+        ("entry.12_year", "2025"), ("entry.12_month", "04"),
+        ("entry.12_day", "01"), ("emailAddress", "private@example.com"),
+    ]
