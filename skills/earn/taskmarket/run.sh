@@ -2,4 +2,4 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd -P)"
-exec /opt/homebrew/bin/node "$HERE/taskmarket-work.mjs"
+exec node "$HERE/taskmarket-work.mjs"
