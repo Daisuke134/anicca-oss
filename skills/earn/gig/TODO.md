@@ -2839,6 +2839,11 @@ from the chat, and two of them contradict what this cursor had previously report
     explicit official confirmation of answer receipt, after which the same owner sends completion
     once and the following wake must prove replay-zero.
 
+    The following natural terminal `18d4147c6b057ad8-36568` ended `pass` at
+    `2026-09-10T21:59:44Z` with the same 24-item inventory, failed `0`, pending `2`, effect `0`, and
+    readback `22`. Both same-form threads produced zero effect, proving the buyer confirmation
+    request replays at zero while explicit receipt confirmation remains external.
+
 32. [x] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
