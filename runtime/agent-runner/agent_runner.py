@@ -21,7 +21,7 @@ import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
@@ -36,15 +36,10 @@ from runtime.loop.runtime_event import (  # noqa: E402
     rotate_jsonl_locked,
 )
 from token_budget import TokenBudgetLedger, budget_day_for  # noqa: E402
-# These tools can perform the filesystem mutation required by a high-value
-# invocation.  Artifact truth is still decided by the deterministic domain
-# validator after the provider exits.
-OPENCLAW_WRITE_TOOLS = frozenset(("write", "file_write", "edit", "apply_patch", "exec"))
-OPENCLAW_THINKING_VALUES = frozenset(("off", "minimal", "low", "medium", "high", "xhigh", "adaptive", "max"))
 # Every effort above medium costs the same order of money as Sol does, so all of them take the
 # explicit escalation route. Naming only "high" here let "xhigh" and "max" past the gate.
 RESTRICTED_EFFORTS = frozenset(("high", "xhigh", "max"))
-OPENCLAW_JSON_FENCE = re.compile(r"\A```json\r?\n(?P<body>.*?)\r?\n```\Z", re.DOTALL)
+JSON_FENCE = re.compile(r"\A```json\r?\n(?P<body>.*?)\r?\n```\Z", re.DOTALL)
 DEFAULT_USAGE_LEDGER = Path.home() / ".local" / "state" / "life-manager" / "telemetry" / "agent-usage.jsonl"
 DEFAULT_USAGE_MAX_BYTES = 16 * 1024 * 1024
 DEFAULT_USAGE_ARCHIVES = 3
@@ -385,27 +380,6 @@ def extract_provider_usage(provider: str, stdout_text: str, model: str | None = 
                 "cost_basis": "api_equivalent_estimate" if isinstance(cost, (int, float)) and not isinstance(cost, bool) else "unavailable",
             })
             return usage
-        if provider == "openclaw":
-            agent_meta = wrapper.get("result", {}).get("meta", {}).get("agentMeta", {})
-            raw = agent_meta.get("lastCallUsage") if isinstance(agent_meta, dict) else None
-            if not isinstance(raw, dict):
-                return usage
-            input_tokens = _token(raw.get("input"))
-            output_tokens = _token(raw.get("output"))
-            if input_tokens is None or output_tokens is None:
-                return usage
-            usage.update({
-                "measurement": "provider_reported",
-                "input_tokens": input_tokens,
-                "cached_input_tokens": _token(raw.get("cacheRead")) or 0,
-                "cache_creation_input_tokens": _token(raw.get("cacheWrite")) or 0,
-                "output_tokens": output_tokens,
-                "reasoning_output_tokens": 0,
-                "total_tokens": _token(raw.get("total")) or input_tokens + output_tokens,
-                "upstream_provider": agent_meta.get("provider"),
-                "upstream_model": agent_meta.get("model"),
-            })
-            return usage
     except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return usage
     return usage
@@ -438,7 +412,7 @@ def claude_json_document(payload: str) -> str:
     first of several objects -- a truncated or multi-answer reply must fail loudly upstream.
     """
     text = payload.strip()
-    fenced = OPENCLAW_JSON_FENCE.fullmatch(text)
+    fenced = JSON_FENCE.fullmatch(text)
     if fenced and "```" not in fenced.group("body"):
         text = fenced.group("body").strip()
     start = min((i for i in (text.find("{"), text.find("[")) if i != -1), default=-1)
@@ -915,14 +889,6 @@ def codex_model_providers_toml(value: Any) -> str:
 def parse_contract_result(text: str, *, salvage: bool = True) -> Any:
     """Read the contract object out of a provider reply that may carry prose.
 
-    salvage=False keeps the openclaw wrapper path exactly as strict as it was.
-    That path already has its own deliberate unwrapper (normalize_openclaw_payload)
-    whose contract rejects prefix/suffix prose, a second fence, and a wallet warning
-    sitting above the object -- there, the reply IS chat text, so guessing which
-    object is "the result" can silently swallow a warning. Direct provider output
-    written to -o is a different situation: the file is the answer, and the only
-    question is whether the model fenced it.
-
     Providers under a schema contract sometimes answer conversationally: a sentence
     of preamble, then the object inside a ```json fence. Measured 2026-07-27 on
     gig-pass-1785123005 agent-LEARN -- the claude-direct fallback did the work
@@ -997,107 +963,6 @@ def validate_schema(value: Any, schema: dict[str, Any], at: str = "$") -> list[s
     return errors
 
 
-def openclaw_prompt(
-    prompt: str,
-    schema: dict[str, Any],
-    workdir: Path | str,
-    canonical_workdir: Path | None = None,
-) -> str:
-    compact_schema = json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
-    display_workdir = str(workdir.resolve()) if isinstance(workdir, Path) else workdir
-    sandbox_mapping = ""
-    if canonical_workdir is not None:
-        sandbox_mapping = (
-            f"- Sandbox tool project root: {display_workdir}\n"
-            f"- Host-canonical project root: {canonical_workdir.resolve()}\n"
-            "- Use the sandbox tool project root for every filesystem tool read/write.\n"
-            "- In delivery/paid-work-result.json, every path field MUST use the "
-            "host-canonical project root, never /workspace.\n"
-        )
-    return (
-        prompt.rstrip()
-        + "\n\nSTRICT OUTPUT CONTRACT (highest priority for this turn):\n"
-        + f"- Workdir: {display_workdir}\n"
-        + sandbox_mapping
-        + "- Complete the requested work using tools from that workdir.\n"
-        + "- Return exactly one JSON object matching this full JSON Schema:\n"
-        + compact_schema
-        + "\n- JSON only: no Markdown fence, prose, preamble, or trailing text.\n"
-        + "- Your entire final response becomes result.payloads[0].text; "
-        + "the runner extracts that text to a fresh result_path and validates it.\n"
-    )
-
-
-def openclaw_runtime_capabilities(wrapper: Any, required: list[str]) -> tuple[dict[str, Any], str]:
-    if "tool_write" not in required:
-        return {}, ""
-    runtime: dict[str, Any] = {"tool_write": False, "write_tools": []}
-    try:
-        summary = wrapper["result"]["meta"]["toolSummary"]
-    except (KeyError, TypeError):
-        return runtime, "missing result.meta.toolSummary"
-    runtime["tool_summary"] = summary
-    if not isinstance(summary, dict):
-        return runtime, "result.meta.toolSummary must be an object"
-    calls = summary.get("calls")
-    failures = summary.get("failures")
-    tools = summary.get("tools")
-    if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
-        return runtime, "result.meta.toolSummary.calls must be a positive integer"
-    if isinstance(failures, bool) or not isinstance(failures, int) or failures != 0:
-        return runtime, "result.meta.toolSummary.failures must equal zero"
-    if not isinstance(tools, list) or not all(isinstance(name, str) and name for name in tools):
-        return runtime, "result.meta.toolSummary.tools must be an array of non-empty strings"
-    write_tools = [name for name in tools if name in OPENCLAW_WRITE_TOOLS]
-    runtime["write_tools"] = write_tools
-    if not write_tools:
-        return runtime, "result.meta.toolSummary has no explicit write tool call"
-    runtime["tool_write"] = True
-    return runtime, ""
-
-
-def normalize_openclaw_payload(text: str, runtime_capabilities: dict[str, Any]) -> str:
-    """Unwrap only one whole-string json fence after proven runtime mutation."""
-    if runtime_capabilities.get("tool_write") is not True:
-        return text
-    match = OPENCLAW_JSON_FENCE.fullmatch(text)
-    if not match:
-        return text
-    body = match.group("body")
-    if "```" in body:
-        return text
-    return body
-
-
-def extract_openclaw_payload(stdout_path: Path, result_path: Path,
-                             required_capabilities: list[str]) -> tuple[str, dict[str, Any]]:
-    """Extract OpenClaw's first textual payload after runtime capability checks."""
-    runtime_capabilities: dict[str, Any] = {}
-    try:
-        wrapper = json.loads(stdout_path.read_text(encoding="utf-8"))
-        runtime_capabilities, capability_error = openclaw_runtime_capabilities(
-            wrapper, required_capabilities,
-        )
-        if capability_error:
-            result_path.unlink(missing_ok=True)
-            return f"openclaw runtime capability check failed: {capability_error}", runtime_capabilities
-        payloads = wrapper["result"]["payloads"]
-        if not isinstance(payloads, list) or not payloads:
-            raise ValueError("result.payloads must be a non-empty array")
-        payload = payloads[0]
-        if not isinstance(payload, dict):
-            raise ValueError("result.payloads[0] must be an object")
-        text = payload.get("text")
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError("result.payloads[0].text must be a non-empty string")
-        text = normalize_openclaw_payload(text, runtime_capabilities)
-        result_path.write_text(text, encoding="utf-8")
-        return "", runtime_capabilities
-    except Exception as error:
-        result_path.unlink(missing_ok=True)
-        return f"openclaw wrapper extraction failed: {error}", runtime_capabilities
-
-
 def candidate_capabilities(provider_config: dict[str, Any], candidate: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     required = candidate.get("required_capabilities", [])
     if not isinstance(required, list) or not all(isinstance(item, str) and item for item in required):
@@ -1114,145 +979,13 @@ def candidate_capabilities(provider_config: dict[str, Any], candidate: dict[str,
     return required, available
 
 
-def openclaw_sandbox_preflight(
-    executable: str,
-    agent: str,
-    required: dict[str, Any],
-    workdir: Path,
-) -> tuple[dict[str, Any], str]:
-    """Verify the dedicated paid agent's effective sandbox before launch.
-
-    OpenClaw's official docs say the workspace is only the default cwd, not a
-    security boundary, and host execution remains possible while sandboxing is
-    off. Paid OpenClaw work therefore requires a live-config proof first:
-    https://docs.openclaw.ai/concepts/agent-workspace
-    https://docs.openclaw.ai/tools/exec
-    https://docs.openclaw.ai/gateway/sandboxing
-    """
-    evidence: dict[str, Any] = {"required": required, "agent": agent, "verified": False}
-    safe_contract = {
-        "mode": "all", "workspaceAccess": "rw", "containerWorkspace": "/workspace",
-        "sessionIsSandboxed": True, "elevated": False, "execHost": "sandbox",
-    }
-    if any(required.get(key) != expected for key, expected in safe_contract.items()):
-        return evidence, "paid sandbox contract is not fail-closed"
-    try:
-        completed = subprocess.run(
-            [executable, "config", "get", "agents", "--json"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=10,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        return evidence, f"sandbox config query failed: {error}"
-    evidence["config_rc"] = completed.returncode
-    evidence["config_stdout_sha256"] = hashlib.sha256(completed.stdout).hexdigest()
-    evidence["config_stderr_sha256"] = hashlib.sha256(completed.stderr).hexdigest()
-    if completed.returncode != 0:
-        return evidence, "sandbox config query returned nonzero"
-    try:
-        config = json.loads(completed.stdout.decode("utf-8"))
-        agents = config.get("list", []) if isinstance(config, dict) else []
-        row = next(item for item in agents if isinstance(item, dict) and item.get("id") == agent)
-    except (UnicodeDecodeError, json.JSONDecodeError, StopIteration):
-        return evidence, f"dedicated agent not configured: {agent}"
-    expected_workspace = Path(str(required.get("workspace") or "")).expanduser().resolve()
-    actual_workspace = Path(str(row.get("workspace") or "")).expanduser().resolve()
-    sandbox = row.get("sandbox")
-    if actual_workspace != expected_workspace:
-        return evidence, "dedicated agent workspace mismatch"
-    try:
-        workdir.resolve().relative_to(expected_workspace)
-    except ValueError:
-        return evidence, "paid workdir outside dedicated agent workspace"
-    if not isinstance(sandbox, dict):
-        return evidence, "dedicated agent sandbox missing"
-    if sandbox.get("mode") != required.get("mode"):
-        return evidence, "dedicated agent configured sandbox mode mismatch"
-    if sandbox.get("workspaceAccess") != required.get("workspaceAccess"):
-        return evidence, "dedicated agent configured workspaceAccess mismatch"
-    tools = row.get("tools")
-    if not isinstance(tools, dict):
-        return evidence, "dedicated agent tool policy missing"
-    elevated = tools.get("elevated")
-    if not isinstance(elevated, dict) or elevated.get("enabled") is not required.get("elevated"):
-        return evidence, "dedicated agent elevated policy mismatch"
-    exec_policy = tools.get("exec")
-    if not isinstance(exec_policy, dict) or exec_policy.get("host") != required.get("execHost"):
-        return evidence, "dedicated agent exec host policy mismatch"
-
-    try:
-        explained = subprocess.run(
-            [executable, "sandbox", "explain", "--agent", agent, "--json"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=10,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        return evidence, f"sandbox explain query failed: {error}"
-    evidence["explain_rc"] = explained.returncode
-    evidence["explain_stdout_sha256"] = hashlib.sha256(explained.stdout).hexdigest()
-    evidence["explain_stderr_sha256"] = hashlib.sha256(explained.stderr).hexdigest()
-    if explained.returncode != 0:
-        return evidence, "sandbox explain query returned nonzero"
-    try:
-        effective = json.loads(explained.stdout.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return evidence, "sandbox explain returned invalid JSON"
-    effective_sandbox = effective.get("sandbox") if isinstance(effective, dict) else None
-    effective_elevated = effective.get("elevated") if isinstance(effective, dict) else None
-    if effective.get("agentId") != agent:
-        return evidence, "sandbox explain agent mismatch"
-    if not isinstance(effective_sandbox, dict):
-        return evidence, "effective sandbox missing"
-    if effective_sandbox.get("mode") != required.get("mode"):
-        return evidence, "effective sandbox mode mismatch"
-    if effective_sandbox.get("workspaceAccess") != required.get("workspaceAccess"):
-        return evidence, "effective sandbox workspaceAccess mismatch"
-    if effective_sandbox.get("sessionIsSandboxed") is not required.get("sessionIsSandboxed"):
-        return evidence, "effective sandbox session state mismatch"
-    if not isinstance(effective_elevated, dict):
-        return evidence, "effective elevated state missing"
-    # ``enabled`` may reflect the global feature switch.  Escape authority is
-    # the effective per-agent allow decision below; the config row above must
-    # still explicitly disable elevated tools for this dedicated agent.
-    if effective_elevated.get("allowedByConfig") is not False:
-        return evidence, "effective elevated allowedByConfig must be false"
-    if effective_elevated.get("alwaysAllowedByConfig") is not False:
-        return evidence, "effective elevated alwaysAllowedByConfig must be false"
-
-    container_workspace_value = required.get("containerWorkspace")
-    if not isinstance(container_workspace_value, str):
-        return evidence, "sandbox container workspace missing"
-    container_workspace = PurePosixPath(container_workspace_value)
-    if not container_workspace.is_absolute() or ".." in container_workspace.parts:
-        return evidence, "sandbox container workspace invalid"
-    relative_project = workdir.resolve().relative_to(expected_workspace)
-    sandbox_project_root = container_workspace.joinpath(*relative_project.parts)
-    evidence.update({
-        "verified": True,
-        "workspace": str(actual_workspace),
-        "mode": effective_sandbox.get("mode"),
-        "workspaceAccess": effective_sandbox.get("workspaceAccess"),
-        "sessionIsSandboxed": effective_sandbox.get("sessionIsSandboxed"),
-        "elevatedGlobalEnabled": effective_elevated.get("enabled"),
-        "elevatedAllowedByConfig": effective_elevated.get("allowedByConfig"),
-        "execHost": exec_policy.get("host"),
-        "sandbox_project_root": str(sandbox_project_root),
-    })
-    return evidence, ""
-
-
 def command_for(provider: str, executable: str, provider_config: dict[str, Any],
                 candidate: dict[str, Any], args: argparse.Namespace, prompt: str,
-                schema: dict[str, Any], result_path: Path, timeout_seconds: int,
-                session_id: str | None, openclaw_workdir: str | None = None,
+                schema: dict[str, Any], result_path: Path,
+                timeout_seconds: int | None = None, session_id: str | None = None,
                 *, prompt_via_stdin: bool = False,
                 rollout_budget_tokens: int | None = None) -> list[str]:
+    del timeout_seconds, session_id
     model = candidate["model"]
     effort = candidate.get("effort", "medium")
     if provider == "codex":
@@ -1345,33 +1078,6 @@ def command_for(provider: str, executable: str, provider_config: dict[str, Any],
         if not prompt_via_stdin:
             command.append(prompt)
         return command
-    if provider == "openclaw":
-        if prompt_via_stdin:
-            raise ValueError("openclaw does not support stdin-only prompt transport")
-        agent = candidate.get("agent", provider_config.get("agent"))
-        if not isinstance(agent, str) or not agent:
-            raise ValueError("openclaw provider requires a non-empty agent config")
-        if not session_id:
-            raise ValueError("openclaw provider requires a unique session id")
-        thinking = candidate.get("thinking", "off")
-        if not isinstance(thinking, str) or thinking not in OPENCLAW_THINKING_VALUES:
-            raise ValueError(
-                "invalid openclaw thinking; expected one of: "
-                + ", ".join(sorted(OPENCLAW_THINKING_VALUES))
-            )
-        return [
-            executable, "agent",
-            "--session-id", session_id,
-            "--agent", agent,
-            "--model", model,
-            "--thinking", thinking,
-            "--timeout", str(timeout_seconds),
-            "--message", openclaw_prompt(
-                prompt, schema, openclaw_workdir or args.workdir,
-                args.workdir if openclaw_workdir else None,
-            ),
-            "--json",
-        ]
     raise ValueError(f"unsupported provider adapter: {provider}")
 
 
@@ -1715,12 +1421,6 @@ def run() -> int:
         for key in ("profile_alias", "automation_home", "auth_file"):
             if key in effective_candidate:
                 provider_config[key] = effective_candidate[key]
-        profile_openclaw: dict[str, Any] = {}
-        if provider == "openclaw" and candidate_profile:
-            value = candidate_profile.get("openclaw", {})
-            profile_openclaw = value if isinstance(value, dict) else {}
-            if profile_openclaw.get("agent"):
-                effective_candidate["agent"] = profile_openclaw["agent"]
         executable = resolve_executable(provider_config, provider)
         stdout_path = evidence_dir / f"attempt-{index:02d}.stdout.log"
         stderr_path = evidence_dir / f"attempt-{index:02d}.stderr.log"
@@ -1745,15 +1445,12 @@ def run() -> int:
         attempt_started = utc_now()
         attempt_started_ns = time.time_ns()
         monotonic_start = time.monotonic()
-        session_id = f"agent-runner-{uuid.uuid4().hex}" if provider == "openclaw" else None
         rc = 127
         timed_out = False
         launch_error = ""
         adapter_error = ""
         required_capabilities: list[str] = []
         model_capabilities: dict[str, Any] = {}
-        runtime_capabilities: dict[str, Any] = {}
-        sandbox_preflight: dict[str, Any] = {}
         candidate_prompt = prompt
         if provider in CLAUDE_PROVIDERS:
             # Codex is handed the output schema through --output-schema, so it answers in the
@@ -1784,25 +1481,11 @@ def run() -> int:
                     if isinstance(required_top_level, list) and required_top_level else ""
                 )
             )
-        openclaw_workdir: str | None = None
         try:
             required_capabilities, model_capabilities = candidate_capabilities(provider_config, effective_candidate)
-            if provider == "openclaw" and profile_openclaw:
-                required_sandbox = profile_openclaw.get("sandbox")
-                agent = effective_candidate.get("agent", provider_config.get("agent"))
-                if not isinstance(agent, str) or not agent:
-                    raise ValueError("openclaw candidate profile requires agent")
-                if not isinstance(required_sandbox, dict):
-                    raise ValueError("openclaw candidate profile requires sandbox contract")
-                sandbox_preflight, sandbox_error = openclaw_sandbox_preflight(
-                    executable, agent, required_sandbox, parsed.workdir,
-                )
-                if sandbox_error:
-                    raise ValueError(f"openclaw paid sandbox preflight failed: {sandbox_error}")
-                openclaw_workdir = sandbox_preflight["sandbox_project_root"]
             command = command_for(
                 provider, executable, provider_config, effective_candidate, parsed, candidate_prompt,
-                schema, result_path, attempt_timeout_seconds, session_id, openclaw_workdir,
+                schema, result_path,
                 prompt_via_stdin=parsed.prompt_stdin,
                 rollout_budget_tokens=pass_token_budget if budget_enabled else None,
             )
@@ -1848,19 +1531,12 @@ def run() -> int:
 
         if rc == 0 and not timed_out and provider in CLAUDE_PROVIDERS and not result_path.exists():
             adapter_error = extract_claude_payload(stdout_path, result_path)
-        if rc == 0 and not timed_out and provider == "openclaw":
-            adapter_error, runtime_capabilities = extract_openclaw_payload(
-                stdout_path, result_path, required_capabilities,
-            )
         result_fresh = result_path.is_file() and result_path.stat().st_mtime_ns >= attempt_started_ns
         schema_valid = False
         schema_errors: list[str] = []
         if result_fresh and (rc == 0 or (provider == "codex" and timed_out)):
             try:
-                result = parse_contract_result(
-                    result_path.read_text(encoding="utf-8"),
-                    salvage=provider != "openclaw",
-                )
+                result = parse_contract_result(result_path.read_text(encoding="utf-8"))
                 schema_errors = validate_schema(result, schema)
                 schema_valid = not schema_errors
             except Exception as error:
@@ -1905,13 +1581,9 @@ def run() -> int:
             "budget": last_budget,
             "model": effective_candidate.get("model"),
             "effort": effective_candidate.get("effort"),
-            "thinking": effective_candidate.get("thinking", "off") if provider == "openclaw" else None,
             "required_capabilities": required_capabilities,
             "model_capabilities": model_capabilities,
-            "runtime_capabilities": runtime_capabilities,
-            "sandbox_preflight": sandbox_preflight,
             "executable": executable,
-            "session_id": session_id,
             "rc": rc,
             "timed_out": timed_out,
             "stdout_path": str(stdout_path),

@@ -38,6 +38,13 @@ from cta_instrumentation import (
 from runtime_guard import runtime_guard
 import x_profile_cli
 
+SHARED_MARKETPLACE_SCRIPTS = (
+    Path(__file__).resolve().parents[2] / "_shared" / "marketplace-core" / "scripts"
+)
+if str(SHARED_MARKETPLACE_SCRIPTS) not in sys.path:
+    sys.path.append(str(SHARED_MARKETPLACE_SCRIPTS))
+from telegram_delivery import send_via_shared_client  # noqa: E402
+
 
 SYSTEME_LOGIN = "https://systeme.io/en/login"
 ELEVENLABS_HOME = "https://elevenlabs.io/app/home"
@@ -3037,22 +3044,6 @@ def next_telegram_event(state, wake_event):
     return daily_summary_event(state, wake_event)
 
 
-def find_message_id(value):
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if key.replace("_", "").lower() == "messageid" and item is not None:
-                return str(item)
-            found = find_message_id(item)
-            if found:
-                return found
-    elif isinstance(value, list):
-        for item in value:
-            found = find_message_id(item)
-            if found:
-                return found
-    return None
-
-
 def telegram_dedupe_key(row):
     """Return a stable state key for owner reports whose measurements may drift."""
     if not isinstance(row, dict) or row.get("kind") != "BLOCKED":
@@ -3130,7 +3121,7 @@ def supersede_telegram_rows(state, outbox, sent_by_id):
     return superseded_ids
 
 
-def flush_telegram(state, event, runner=subprocess.run):
+def flush_telegram(state, event, sender=None):
     requested_event_uuid = event.get("event_uuid") if event else None
     if event:
         append_unique(state / "telegram-outbox.jsonl", event, ("event_uuid",))
@@ -3140,10 +3131,10 @@ def flush_telegram(state, event, runner=subprocess.run):
     sent_by_id = {row.get("event_uuid"): row for row in sent_rows}
     superseded_ids = supersede_telegram_rows(state, outbox, sent_by_id)
     # A transport timeout is an ambiguous external effect: Telegram may have
-    # accepted the message even though the CLI never returned its messageId.
+    # accepted the message even though the provider receipt never returned.
     # Retrying such a row under the same local identity is not replay safety;
-    # OpenClaw's message CLI has no provider idempotency key and real duplicates
-    # were observed in the sibling X owner. Quarantine it for readback instead.
+    # Telegram has no provider idempotency key and real duplicates were observed
+    # in the sibling X owner. Quarantine it for readback instead.
     ambiguous_ids = {
         row.get("telegram_event_uuid")
         for row in json_rows(state / "events.jsonl")
@@ -3173,12 +3164,6 @@ def flush_telegram(state, event, runner=subprocess.run):
                 if requested_event_uuid in sent_by_id or requested_ambiguous else None
             ),
         }
-    openclaw = shutil.which("openclaw")
-    if not openclaw:
-        return {
-            "state": "TRANSPORT_UNAVAILABLE", "sent": 0, "message_id": None,
-            "sent_event_uuid": pending[0]["event_uuid"],
-        }
     row = pending[0]
     try:
         job = resume_effect(state, "TELEGRAM_SEND", row["event_uuid"]) or start_effect(
@@ -3193,10 +3178,13 @@ def flush_telegram(state, event, runner=subprocess.run):
             "sent_event_uuid": row["event_uuid"],
         }
     try:
-        completed = runner(
-            [openclaw, "message", "send", "--channel", "telegram", "--target", "8547730585",
-             "--message", row["body"], "--json"],
-            check=False, capture_output=True, text=True, timeout=30,
+        send = sender or send_via_shared_client
+        result = send(
+            row["body"],
+            chat_id=os.environ.get("AFFILIATE_TELEGRAM_CHAT_ID", ""),
+            env_file=Path(os.environ.get(
+                "LIFE_MANAGER_ENV_FILE", Path.home() / ".local/state/life-manager/.env",
+            )),
         )
     except subprocess.TimeoutExpired:
         # The provider may have accepted the send before the CLI timed out.
@@ -3211,14 +3199,11 @@ def flush_telegram(state, event, runner=subprocess.run):
             "state": "TRANSPORT_UNAVAILABLE", "sent": 0, "message_id": None,
             "sent_event_uuid": row["event_uuid"],
         }
-    try:
-        response = json.loads(completed.stdout)
-    except ValueError:
-        response = None
-    message_id = find_message_id(response)
-    if completed.returncode or not message_id:
+    message_id = getattr(result, "provider_id", None)
+    if not message_id:
+        state_name = "SEND_TIMEOUT_UNKNOWN" if getattr(result, "started", False) else "SEND_FAILED"
         return {
-            "state": "SEND_FAILED", "sent": 0, "message_id": None,
+            "state": state_name, "sent": 0, "message_id": None,
             "sent_event_uuid": row["event_uuid"],
         }
     append_unique(state / "telegram-sent.jsonl", {

@@ -1837,14 +1837,13 @@ class LocalLoopTest(unittest.TestCase):
             event = {"event_uuid": "event-1", "kind": "REVENUE_RECONCILED", "body": "report", "created_at": 1}
             calls = []
 
-            def runner(command, **kwargs):
-                calls.append(command)
+            def sender(message, **kwargs):
+                calls.append((message, kwargs))
                 self.assertTrue((state / "telegram-outbox.jsonl").is_file())
-                return subprocess.CompletedProcess(command, 0, '{"result":{"messageId":"7640"}}', "")
+                return MODULE.SimpleNamespace(started=True, provider_id="7640", error=None)
 
-            with patch.object(MODULE.shutil, "which", return_value="/opt/homebrew/bin/openclaw"):
-                first = MODULE.flush_telegram(state, event, runner=runner)
-                second = MODULE.flush_telegram(state, event, runner=runner)
+            first = MODULE.flush_telegram(state, event, sender=sender)
+            second = MODULE.flush_telegram(state, event, sender=sender)
             self.assertEqual(first, {
                 "state": "SENT", "sent": 1, "message_id": "7640",
                 "sent_event_uuid": "event-1",
@@ -1862,21 +1861,19 @@ class LocalLoopTest(unittest.TestCase):
             }
             calls = []
 
-            def timeout_runner(command, **kwargs):
-                calls.append(command)
-                raise subprocess.TimeoutExpired(command, 30)
+            def timeout_sender(message, **kwargs):
+                calls.append((message, kwargs))
+                raise subprocess.TimeoutExpired(["telegram"], 30)
 
-            with patch.object(MODULE.shutil, "which", return_value="/opt/homebrew/bin/openclaw"):
-                first = MODULE.flush_telegram(state, event, runner=timeout_runner)
+            first = MODULE.flush_telegram(state, event, sender=timeout_sender)
             MODULE.append_telegram_delivery_receipt(
                 state, {"wake_event_uuid": "wake-1", "ts": 1}, event, first,
             )
 
-            def must_not_retry(command, **kwargs):
+            def must_not_retry(message, **kwargs):
                 raise AssertionError("ambiguous Telegram effect must not be retried")
 
-            with patch.object(MODULE.shutil, "which", return_value="/opt/homebrew/bin/openclaw"):
-                second = MODULE.flush_telegram(state, event, runner=must_not_retry)
+            second = MODULE.flush_telegram(state, event, sender=must_not_retry)
 
             self.assertEqual(first["state"], "SEND_TIMEOUT_UNKNOWN")
             self.assertEqual(second["state"], "AMBIGUOUS_NO_RETRY")
@@ -1890,11 +1887,10 @@ class LocalLoopTest(unittest.TestCase):
             current = {"event_uuid": "current-event", "kind": "REPOST_OBSERVED", "body": "current", "created_at": 2}
             MODULE.append(state / "telegram-outbox.jsonl", old)
 
-            def runner(command, **kwargs):
-                return subprocess.CompletedProcess(command, 0, '{"messageId":"7641"}', "")
+            def sender(message, **kwargs):
+                return MODULE.SimpleNamespace(started=True, provider_id="7641", error=None)
 
-            with patch.object(MODULE.shutil, "which", return_value="/opt/homebrew/bin/openclaw"):
-                delivery = MODULE.flush_telegram(state, current, runner=runner)
+            delivery = MODULE.flush_telegram(state, current, sender=sender)
             receipt = MODULE.append_telegram_delivery_receipt(
                 state, {"wake_event_uuid": "wake-1", "ts": 1}, current, delivery,
             )
@@ -1928,8 +1924,7 @@ class LocalLoopTest(unittest.TestCase):
                 calls.append(command)
                 raise AssertionError("equivalent pending blocker must not be sent again")
 
-            with patch.object(MODULE.shutil, "which", return_value="/opt/homebrew/bin/openclaw"):
-                result = MODULE.flush_telegram(state, None, runner=should_not_send)
+            result = MODULE.flush_telegram(state, None, sender=should_not_send)
 
             self.assertEqual(result["state"], "NO_PENDING")
             self.assertEqual(calls, [])
@@ -2132,29 +2127,27 @@ class LocalLoopTest(unittest.TestCase):
             event = {"event_uuid": "e" * 64, "kind": "SELF_HEALED", "body": "報告"}
             attempts = []
 
-            def failing(args, **kwargs):
-                attempts.append(args)
-                return subprocess.CompletedProcess(args, 1, "", "boom")
+            def failing(message, **kwargs):
+                attempts.append((message, kwargs))
+                return MODULE.SimpleNamespace(started=False, provider_id=None, error="unavailable")
 
-            first = MODULE.flush_telegram(state, event, runner=failing)
+            first = MODULE.flush_telegram(state, event, sender=failing)
             self.assertEqual(first["state"], "SEND_FAILED")
             # Previously the unresolved effect made every later wake report
             # RECONCILE_REQUIRED forever and the owner heard nothing again.
-            second = MODULE.flush_telegram(state, None, runner=failing)
+            second = MODULE.flush_telegram(state, None, sender=failing)
             self.assertEqual(second["state"], "SEND_FAILED")
             self.assertEqual(len(attempts), 2)
 
-            def succeeding(args, **kwargs):
-                attempts.append(args)
-                return subprocess.CompletedProcess(
-                    args, 0, json.dumps({"messageId": "4242"}), "",
-                )
+            def succeeding(message, **kwargs):
+                attempts.append((message, kwargs))
+                return MODULE.SimpleNamespace(started=True, provider_id="4242", error=None)
 
-            third = MODULE.flush_telegram(state, None, runner=succeeding)
+            third = MODULE.flush_telegram(state, None, sender=succeeding)
             self.assertEqual(third["state"], "SENT")
             self.assertEqual(third["message_id"], "4242")
             # A delivered message is never sent twice.
-            fourth = MODULE.flush_telegram(state, None, runner=succeeding)
+            fourth = MODULE.flush_telegram(state, None, sender=succeeding)
             self.assertEqual(fourth["state"], "NO_PENDING")
             self.assertEqual(len(attempts), 3)
 

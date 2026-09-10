@@ -1,12 +1,7 @@
 "use strict";
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-
-const { parseOpenClawMessageId } = require("./outbound-guardian.js");
-const { hashChatId } = require("./telegram.js");
+const { parseTelegramMessageId } = require("./outbound-guardian.js");
+const { hashChatId, sendPhoto } = require("./telegram.js");
 
 const TENANT = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
 const ARTIFACT_REF = /^object:\/\/sha256\/[0-9a-f]{64}$/;
@@ -146,44 +141,22 @@ function buildConnectorTicketCaption(input = {}) {
   return caption;
 }
 
-async function sendOpenClawMedia(targetValue, bytes, caption, options = {}) {
+function telegramToken(options) {
+  const token = options.telegramToken === undefined
+    ? process.env.LM_TELEGRAM_BOT_TOKEN : options.telegramToken;
+  if (typeof token !== "string" || !token.trim()) throw new Error("Telegram token is required");
+  return token.trim();
+}
+
+async function sendTelegramMedia(targetValue, bytes, caption, options = {}) {
   const target = String(targetValue == null ? "" : targetValue).trim();
   if (!target || target.length > 200) throw new Error("Telegram target invalid");
   if (!Buffer.isBuffer(bytes) || bytes.length < 5_000) throw new Error("Telegram PNG invalid");
-  const defaultMediaRoot = process.platform === "win32"
-    ? path.join(os.tmpdir(), `openclaw-${typeof process.getuid === "function" ? process.getuid() : "user"}`)
-    : "/tmp/openclaw";
-  const mediaRoot = path.resolve(String(options.mediaRoot || defaultMediaRoot));
-  if (mediaRoot === path.parse(mediaRoot).root) throw new Error("OpenClaw media root invalid");
-  fs.mkdirSync(mediaRoot, { recursive: true, mode: 0o700 });
-  const rootStat = fs.lstatSync(mediaRoot);
-  const currentUid = typeof process.getuid === "function" ? process.getuid() : null;
-  if (
-    !rootStat.isDirectory()
-    || rootStat.isSymbolicLink()
-    || (rootStat.mode & 0o077) !== 0
-    || (currentUid != null && rootStat.uid !== currentUid)
-  ) throw new Error("OpenClaw media root unsafe");
-  const temporaryRoot = fs.mkdtempSync(path.join(mediaRoot, "life-manager-telegram-"));
-  const temporaryFile = path.join(temporaryRoot, "ticket.png");
-  fs.writeFileSync(temporaryFile, bytes, { mode: 0o600, flag: "wx" });
   try {
-    const spawn = options.spawnSync || spawnSync;
-    const result = spawn("openclaw", [
-      "message", "send",
-      "--channel", "telegram",
-      "--target", target,
-      "--media", temporaryFile,
-      "--message", caption,
-      "--json",
-    ], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    if (!result || result.status !== 0) {
-      throw new Error(String(result && result.stderr || "Telegram media delivery failed").trim());
-    }
-    return { messageId: parseOpenClawMessageId(String(result.stdout || "")) };
-  } finally {
-    try { fs.unlinkSync(temporaryFile); } catch {}
-    try { fs.rmdirSync(temporaryRoot); } catch {}
+    const response = await (options.sendPhoto || sendPhoto)(telegramToken(options), target, bytes, caption);
+    return { messageId: parseTelegramMessageId(response) };
+  } catch {
+    throw new Error("Telegram media delivery failed");
   }
 }
 
@@ -202,10 +175,10 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
     || bytes.length < 5_000
     || !bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)
   ) throw new Error("Connector Telegram PNG invalid");
-  const send = dependencies.sendMedia || sendOpenClawMedia;
+  const send = dependencies.sendMedia || sendTelegramMedia;
   const response = await send(input.telegramTarget, bytes, caption);
   let messageId;
-  try { messageId = parseOpenClawMessageId(response); } catch {
+  try { messageId = parseTelegramMessageId(response); } catch {
     throw new Error("Telegram delivery needs a positive message ID");
   }
   const observedAt = new Date(Date.parse(
@@ -226,5 +199,5 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
 module.exports = {
   buildConnectorTicketCaption,
   deliverConnectorTicket,
-  sendOpenClawMedia,
+  sendTelegramMedia,
 };

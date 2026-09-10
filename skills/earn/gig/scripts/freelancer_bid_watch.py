@@ -16,7 +16,6 @@ import argparse
 import json
 import os
 import pathlib
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -24,6 +23,10 @@ from datetime import datetime, timezone
 
 API = "https://www.freelancer.com/api/projects/0.1/projects/{project_id}/?compact=true"
 STATE = pathlib.Path.home() / "gig/freelancer/bid-watch.jsonl"
+SHARED_SCRIPTS = pathlib.Path(__file__).resolve().parents[3] / "_shared/marketplace-core/scripts"
+if str(SHARED_SCRIPTS) not in sys.path:
+    sys.path.append(str(SHARED_SCRIPTS))
+from telegram_delivery import send_via_shared_client  # noqa: E402
 
 # bid id -> project id, from the 2026-08-02 live run recorded in
 # docs/loop-engineering/27-gig-multi-marketplace-adapter-design.md
@@ -78,15 +81,7 @@ def last_seen() -> dict[str, dict]:
 
 def notify(text: str, target: str) -> bool:
     """Diagnostic only. This channel never carries anything a buyer sees."""
-    try:
-        done = subprocess.run(
-            ["openclaw", "message", "send", "--channel", "telegram",
-             "--target", target, "--message", text],
-            capture_output=True, text=True, timeout=90, check=False,
-        )
-        return done.returncode == 0
-    except Exception:  # noqa: BLE001
-        return False
+    return bool(send_via_shared_client(text, chat_id=target).provider_id)
 
 
 WATCHED = ("status", "sub_status", "frontend_status")

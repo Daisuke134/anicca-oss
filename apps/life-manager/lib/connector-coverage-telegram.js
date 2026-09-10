@@ -7,9 +7,9 @@ const { isVerifiedEventProviderDateInventory } = require("./event-provider-date-
 const { isVerifiedConnectorCalendarSync } = require("./connector-calendar-sync.js");
 const { isVerifiedEventGoalSerendipity } = require("./event-goal-serendipity.js");
 const {
-  notifyOpenClawGateway,
-  notifyOpenClawPhoto,
-  parseOpenClawMessageId,
+  notifyTelegramReport,
+  notifyTelegramPhoto,
+  parseTelegramMessageId,
 } = require("./outbound-guardian.js");
 const { hashChatId } = require("./telegram.js");
 
@@ -208,13 +208,13 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
   const target = String(input.telegramTarget == null ? "" : input.telegramTarget).trim();
   if (!TENANT.test(tenant) || !target || input.coverage?.tenant_id !== tenant) invalid();
   const message = buildConnectorCoverageTelegramMessage(input);
-  const send = dependencies.send || notifyOpenClawGateway;
+  const send = dependencies.send || notifyTelegramReport;
   const response = await send(message, {
     telegramTarget: target,
     idempotencyKey: `connector-coverage:${input.coverage.coverage_snapshot_id}`,
   });
   let providerId;
-  try { providerId = parseOpenClawMessageId(JSON.stringify(response || {})); }
+  try { providerId = parseTelegramMessageId(response || {}); }
   catch { throw new Error("Connector coverage Telegram needs a positive message ID"); }
   let photo = null;
   if (Array.isArray(input.newEvents) && input.newEvents.length > 0) {
@@ -232,13 +232,14 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
       || evidence.artifact_sha256 !== digest
       || evidence.artifact_ref !== `object://sha256/${digest}`
     ) invalid();
-    const sendPhoto = dependencies.sendPhoto || notifyOpenClawPhoto;
+    const sendPhoto = dependencies.sendPhoto || notifyTelegramPhoto;
     const photoResponse = await sendPhoto(bytes, {
       telegramTarget: target,
       caption: `✅ 登録済み証拠: ${safeText(event.title, 160)}\n${event.canonical_url}`,
+      idempotencyKey: `connector-coverage-photo:${input.coverage.coverage_snapshot_id}`,
     });
     let photoProviderId;
-    try { photoProviderId = parseOpenClawMessageId(JSON.stringify(photoResponse || {})); }
+    try { photoProviderId = parseTelegramMessageId(photoResponse || {}); }
     catch { throw new Error("Connector coverage Telegram photo needs a positive message ID"); }
     photo = { photo_provider_id: photoProviderId, artifact_sha256: digest };
   }

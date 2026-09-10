@@ -27,8 +27,6 @@ class ClaudeEffectPermissionsTest(unittest.TestCase):
                 "fixture prompt",
                 {},
                 root / "result.json",
-                60,
-                None,
             )
 
     def test_effect_owner_bypasses_interactive_permission_prompts(self):

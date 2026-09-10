@@ -134,7 +134,7 @@ done
 #
 # A reviewer that cannot spawn fails CLOSED, so nothing unsafe merges — but the loop would then run
 # seven days and merge nothing, and nobody would know why until day seven. The same is true of gh
-# (no PR list), railway (no deploy check) and openclaw (no report). Refuse now, naming what is
+# (no PR list) and railway (no deploy check). Telegram uses the repository-owned client. Refuse now, naming what is
 # missing, rather than discovering it a week later.
 # ------------------------------------------------------------------------------------------------
 #
@@ -142,7 +142,7 @@ done
 # itself happens under the scrubbed PATH, so naming a program that has to be FOUND would conflate
 # "the binary is missing" with "the probe is missing".
 MISSING=""
-for binary in node openclaw gh railway; do
+for binary in node gh railway; do
   # shellcheck disable=SC2016  # "$1" is the INNER sh's positional; expanding it here defeats the point
   env -i PATH="$JOB_PATH" HOME="$HOME" /bin/sh -c 'command -v "$1" >/dev/null 2>&1' sh "$binary" \
     || MISSING="$MISSING $binary"

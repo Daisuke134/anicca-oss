@@ -1,22 +1,29 @@
 "use strict";
 
-const path = require("node:path");
-const fs = require("node:fs");
-const { spawnSync } = require("node:child_process");
-const { resolveDataRoot } = require("./runtime-paths.js");
+const { sendMessage, sendPhoto } = require("./telegram.js");
 
 const SAFE_WAKE_ID = /^[A-Za-z0-9][A-Za-z0-9:._-]{2,159}$/;
 const REPORT_TARGET = /^-?[0-9]{5,20}$/;
 const REPORT_FAILURE = "Telegram report delivery failed";
 const PHOTO_FAILURE = "Telegram photo delivery failed";
-const OPENCLAW_GATEWAY_TIMEOUT_MS = 65_000;
 
-function parseOpenClawMessageId(output) {
-  let value = output;
-  if (typeof output === "string") {
-    try { value = JSON.parse(output); } catch { value = null; }
+function parseTelegramMessageId(response) {
+  let value = response;
+  if (typeof response === "string") {
+    try { value = JSON.parse(response); } catch { value = null; }
   }
-  const raw = value && value.messageId;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Telegram delivery needs a positive message ID");
+  }
+  const apiResponse = value.ok === true && value.result && typeof value.result === "object"
+    && !Array.isArray(value.result);
+  if (Object.hasOwn(value, "ok") && !apiResponse) {
+    throw new Error("Telegram delivery needs a positive message ID");
+  }
+  const raw = apiResponse ? value.result.message_id : value.messageId;
+  if (apiResponse && !Number.isSafeInteger(raw)) {
+    throw new Error("Telegram delivery needs a positive message ID");
+  }
   const numeric = Number(raw);
   if (!Number.isSafeInteger(numeric) || numeric <= 0) {
     throw new Error("Telegram delivery needs a positive message ID");
@@ -24,21 +31,25 @@ function parseOpenClawMessageId(output) {
   return String(numeric);
 }
 
-async function notifyOpenClaw(message, options = {}) {
-  const target = String(options.telegramTarget || "").trim();
-  if (!target) throw new Error("Telegram target is required");
-  const spawn = options.spawnSync || spawnSync;
-  const result = spawn("openclaw", [
-    "message", "send", "--channel", "telegram", "--target", target,
-    "--message", message, "--json",
-  ], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  if (!result || result.status !== 0) {
-    throw new Error(String(result && result.stderr || "Telegram delivery failed").trim());
-  }
-  return { messageId: parseOpenClawMessageId(String(result.stdout || "")) };
+function telegramToken(options) {
+  const token = options.telegramToken === undefined
+    ? process.env.LM_TELEGRAM_BOT_TOKEN : options.telegramToken;
+  if (typeof token !== "string" || !token.trim()) throw new Error("Telegram token is required");
+  return token.trim();
 }
 
-async function notifyOpenClawGateway(message, options = {}) {
+async function notifyTelegram(message, options = {}) {
+  const target = String(options.telegramTarget || "").trim();
+  if (!target) throw new Error("Telegram target is required");
+  try {
+    const response = await (options.sendMessage || sendMessage)(telegramToken(options), target, message);
+    return { messageId: parseTelegramMessageId(response) };
+  } catch {
+    throw new Error("Telegram delivery failed");
+  }
+}
+
+async function notifyTelegramReport(message, options = {}) {
   try {
     const target = options.telegramTarget;
     const idempotencyKey = options.idempotencyKey;
@@ -47,67 +58,35 @@ async function notifyOpenClawGateway(message, options = {}) {
       || typeof target !== "string" || !REPORT_TARGET.test(target)
       || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
     ) throw new Error(REPORT_FAILURE);
-    const spawn = options.spawnSync || spawnSync;
-    const result = spawn("openclaw", [
-      "gateway", "call", "send", "--timeout", "60000", "--params",
-      JSON.stringify({ channel: "telegram", to: target, message, idempotencyKey }), "--json",
-    ], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: OPENCLAW_GATEWAY_TIMEOUT_MS });
-    if (!result || result.status !== 0) throw new Error(REPORT_FAILURE);
-    return { messageId: parseOpenClawMessageId(String(result.stdout || "")) };
+    const response = await (options.sendMessage || sendMessage)(telegramToken(options), target, message);
+    return { messageId: parseTelegramMessageId(response) };
   } catch {
     throw new Error(REPORT_FAILURE);
   }
 }
 
-async function notifyOpenClawPhoto(bytes, options = {}) {
-  const target = options.telegramTarget;
-  const idempotencyKey = options.idempotencyKey;
-  if (
-    !Buffer.isBuffer(bytes)
-    || typeof target !== "string" || !REPORT_TARGET.test(target)
-    || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
-  ) throw new Error("Telegram photo delivery invalid");
-  const spawn = options.spawnSync || spawnSync;
-  const remove = options.rmSync || fs.rmSync;
-  let directory;
+async function notifyTelegramPhoto(bytes, options = {}) {
   try {
-    const mediaRoot = path.join(resolveDataRoot(options.env || process.env), "media");
-    fs.mkdirSync(mediaRoot, { recursive: true, mode: 0o700 });
-    const rootStat = fs.lstatSync(mediaRoot);
+    const target = options.telegramTarget;
+    const idempotencyKey = options.idempotencyKey;
     if (
-      !rootStat.isDirectory() || rootStat.isSymbolicLink()
-      || (typeof process.getuid === "function" && rootStat.uid !== process.getuid())
-    ) throw new Error(PHOTO_FAILURE);
-    fs.chmodSync(mediaRoot, 0o700);
-    directory = fs.mkdtempSync(path.join(mediaRoot, "connector-telegram-photo-"));
-    fs.chmodSync(directory, 0o700);
-    const file = path.join(directory, "registered-page.png");
-    fs.writeFileSync(file, bytes, { mode: 0o600, flag: "wx" });
-    const result = spawn("openclaw", [
-      "gateway", "call", "send", "--timeout", "60000", "--params",
-      JSON.stringify({
-        channel: "telegram",
-        to: target,
-        message: String(options.caption || ""),
-        mediaUrl: file,
-        forceDocument: true,
-        idempotencyKey,
-      }), "--json",
-    ], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    if (!result || result.status !== 0) throw new Error(PHOTO_FAILURE);
-    return { messageId: parseOpenClawMessageId(String(result.stdout || "")) };
-  } catch {
+      !Buffer.isBuffer(bytes)
+      || typeof target !== "string" || !REPORT_TARGET.test(target)
+      || typeof idempotencyKey !== "string" || !SAFE_WAKE_ID.test(idempotencyKey)
+    ) throw new Error("Telegram photo delivery invalid");
+    const response = await (options.sendPhoto || sendPhoto)(
+      telegramToken(options), target, bytes, String(options.caption || ""),
+    );
+    return { messageId: parseTelegramMessageId(response) };
+  } catch (error) {
+    if (error && error.message === "Telegram photo delivery invalid") throw error;
     throw new Error(PHOTO_FAILURE);
-  } finally {
-    if (directory) {
-      try { remove(directory, { recursive: true, force: true }); }
-      catch { throw new Error(PHOTO_FAILURE); }
-    }
   }
 }
+
 module.exports = {
-  parseOpenClawMessageId,
-  notifyOpenClaw,
-  notifyOpenClawGateway,
-  notifyOpenClawPhoto,
+  parseTelegramMessageId,
+  notifyTelegram,
+  notifyTelegramReport,
+  notifyTelegramPhoto,
 };

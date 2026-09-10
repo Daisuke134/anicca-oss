@@ -423,14 +423,13 @@ def test_storefront_report_reuses_outbox_receipt_and_dedupes_noop(tmp_path, monk
     args.telegram_database = tmp_path / "telegram-outbox.sqlite3"
     args.telegram_receipt_dir = tmp_path / "telegram-delivery-receipts"
     args.telegram_target = "42"
-    args.openclaw = Path("/opt/homebrew/bin/openclaw")
     calls = []
 
-    def send(argv, **kwargs):
-        calls.append((argv, kwargs))
-        return direct.subprocess.CompletedProcess(argv, 0, '{"messageId":"provider-1"}', "")
+    def send(message, *, chat_id, env_file=None):
+        calls.append((message, chat_id, env_file))
+        return SimpleNamespace(started=True, provider_id="provider-1", error=None)
 
-    monkeypatch.setattr(direct.subprocess, "run", send)
+    monkeypatch.setattr(direct, "send_via_shared_client", send)
     row = direct._receipt(
         "scheduled-1", status="completed", decision="no_op", effect=0, readback=0,
         duplicate=0, actionable=0, official_services_read=11,
@@ -448,6 +447,14 @@ def test_storefront_report_reuses_outbox_receipt_and_dedupes_noop(tmp_path, monk
     receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
     assert receipt["event_key"] == first["event_key"]
     assert receipt["message_id"] == "provider-1"
+
+
+def test_storefront_source_has_no_openclaw_transport():
+    source = (SCRIPTS / "storefront_direct.py").read_text(encoding="utf-8")
+    assert "args.openclaw" not in source
+    assert '"message", "send"' not in source
+    assert "--openclaw" not in source
+    assert "send_via_shared_client" in source
 
 
 def test_persisted_wake_contains_transport_result_without_changing_effect(tmp_path, monkeypatch):
