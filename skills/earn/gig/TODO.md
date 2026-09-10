@@ -166,7 +166,11 @@ Page-wide/prior contract links and mismatched current terms fail closed. Product
 remains open.
 The pre-effect absence comparison also accepts the already persisted four-field intent shape by
 matching condition ID, full terms hash, title and amount; it then replans into the enriched intent.
-Post-effect verification remains strict. Focused and related tests pass 43/43 and 297/297.
+Post-effect verification remains strict.
+The shared kernel now permits replanning only when an `accept_contract` intent in
+`reconcile_unknown` receives that exact authoritative-absence proof; uncertain Reply/estimate
+effects remain fenced. The exact legacy-state-to-enriched-mutation-to-replay-zero regression passes.
+Focused and related tests pass 44/44 and 298/298.
 | Upwork | **Off; safe resume is not yet proven.** All historical Upwork labels are disabled/absent and CDP `9233` is not listening. The last official state retained 12 proposals, one active item, zero Connects/balance, zero contracts, zero offers and USD 0 earnings. The account showed Full Access but also one policy-violation/at-risk signal, identity unverified and API ineligible; therefore an invented three-hour cadence is not evidence that automation is permitted or safe. Resume only after official provider permission/scope is established. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** The historical Project Catalog surface returned forbidden/zero and no current listing receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
 **Current implementable Apply acceptance step — Lancers target isolation.** The shared browser owner

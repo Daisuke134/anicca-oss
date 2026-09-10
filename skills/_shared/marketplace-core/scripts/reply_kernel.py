@@ -273,7 +273,8 @@ def _run_locked(
             if notification is not None:
                 result["notification"] = notification
             return result
-        if state.get("status") == "reconcile_unknown":
+        if (state.get("status") == "reconcile_unknown"
+                and prior_intent.get("action") != "accept_contract"):
             return _pending(row, "reconcile_unknown")
         if official.get("authoritative_absent") is not True:
             return _pending(row, "reconcile_unknown")
