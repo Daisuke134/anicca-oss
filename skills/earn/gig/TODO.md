@@ -369,6 +369,24 @@ Fresh cross-owner handoff audit:
   Promote the existing Apply work and evidence instead of duplicating it; keep completed Reply/Paid
   extraction and stopped Storefront work recorded, monitored and available for their later turns.
 
+Current live Apply acceptance audit:
+
+- **Coconala:** five-minute cadence and one natural no-inventory PASS are accepted below; a later
+  installed release is currently running. The first eligible proposal plus official history
+  readback and following replay-zero remain the gate.
+- **Lancers:** the earlier dead-CDP diagnosis is stale. Official CDP `9227` responds and installed
+  Apply release `17047aaeebfc3afc16d85cfed53401b4ca5d55f4` ended natural PASS at
+  `2026-09-10T08:22:46Z`. Business acceptance still fails: current output is
+  `submitted=false`, `application_verified=false`, and proposal history repeatedly contains no
+  exact `/work/detail/5599976` row after a saved intent. The current blocker is therefore
+  `submission_uncertain` / `proposal_pipeline_incomplete`, not browser availability. Preserve the
+  intent and reconcile before retry; a process-level PASS is not an application receipt.
+- **CrowdWorks:** Apply is actively producing official receipts. It verified proposals
+  `305228508`, `305233859`, `305247114`, and `305251644` during current retained evidence. The
+  latest attempted project `13443190` instead ended `proposal_form_changed`, so the lane is working
+  generally but its newest form variant is not accepted. Do not reopen earlier verified effects;
+  diagnose only that exact form before retry.
+
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
    result as a normal message, reads the exact seller message back from the authenticated room,
