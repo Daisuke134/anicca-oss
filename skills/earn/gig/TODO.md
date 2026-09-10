@@ -2430,7 +2430,9 @@ from the chat, and two of them contradict what this cursor had previously report
     fails both because its route guard admits only `/proposals/{id}`. The next bounded change admits
     exact `/proposals/{id}` or `/contracts/{id}` routes and accepts a contract receipt only when the
     same message redirect's contract ID, page title, amount and available parties match the saved
-    offer. Related tests pass 304/304. Production receipt,
+    offer. Route acceptance requires the exact `https://crowdworks.jp` origin and a fully matched
+    `/proposals/{id}` or `/contracts/{id}` pathname; wrong origins, suffix paths and query-embedded
+    route strings fail closed. Related tests pass 305/305. Production receipt,
     Telegram-once and following replay-zero remain open.
 
 31b. [ ] `LANCERS-REPLY-ACTION-1` Complete the live scheduling request through the same shared

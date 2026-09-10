@@ -26,6 +26,16 @@ def test_only_officially_proposed_threads_reopen_old_no_effect_state():
     assert "decision_version" not in ordinary
 
 
+def test_provider_route_requires_exact_crowdworks_origin_and_path():
+    route = adapter_module.CrowdWorksReplyAdapter._provider_route
+    assert route("https://crowdworks.jp/contracts/63570481#scroll_to_message") == (
+        "contracts", "63570481"
+    )
+    assert route("https://evil.example/contracts/63570481") is None
+    assert route("https://crowdworks.jp/contracts/63570481/anything") is None
+    assert route("https://crowdworks.jp/messages/1?next=/contracts/63570481") is None
+
+
 def test_owner_enters_shared_reply_kernel():
     owner = MODULE.with_name("reply-owner").read_text(encoding="utf-8")
     assert "marketplace-core/scripts/reply_kernel.py" in owner
