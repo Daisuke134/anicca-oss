@@ -112,6 +112,7 @@ def _contract_adapter(*, status="proposed", amount="12円", trigger_count=1):
             text="発注者 » Kaito｜AI自動化 固定報酬: 12円"
         ),
     })
+    adapter._open_thread_page = lambda _thread_id: None
     adapter._detail = lambda _thread_id: []
     return adapter, trigger, checkbox, submit
 
@@ -238,3 +239,43 @@ def test_contract_readback_verifies_worker_acceptance_while_client_is_pending():
 
     assert receipt["verified"] is True
     assert receipt["provider_receipt_id"] == "condition-accepted:41879089"
+
+
+def test_contract_readback_does_not_require_reply_composer_after_agreement():
+    adapter, _, _, _ = _contract_adapter(status="proposed")
+    opened = []
+    adapter._open_thread_page = opened.append
+    adapter._detail = lambda _thread_id: (_ for _ in ()).throw(
+        AssertionError("contract readback must not require the reply composer")
+    )
+    adapter.page.mapping[
+        'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+    ] = _Locator(count=0)
+    adapter.page.mapping['div.progress_detail'] = _Locator(
+        count=1, text=("まだクライアントが契約に同意していません。"
+                       "クライアントが契約に同意すると契約成立となります。"),
+        nested=_Locator(count=0),
+    )
+    payload = {"condition_id": "41879089", "title": "対象案件", "amount": "12円",
+               "client": "発注者", "worker": "Kaito｜AI自動化"}
+
+    receipt = adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                                "payload": payload})
+
+    assert opened == ["thread-1"]
+    assert receipt["provider_receipt_id"] == "condition-accepted:41879089"
+
+
+def test_single_thread_observation_does_not_require_reply_composer():
+    adapter, _, _, _ = _contract_adapter(status="proposed")
+    opened = []
+    adapter._open_thread_page = opened.append
+    adapter._detail = lambda _thread_id: (_ for _ in ()).throw(
+        AssertionError("official thread observation must not require the reply composer")
+    )
+
+    observation = adapter.observe_one("thread-1")
+
+    assert opened == ["thread-1"]
+    assert observation["thread_id"] == "thread-1"
+    assert observation["decision_version"] == "official-actions-v1"
