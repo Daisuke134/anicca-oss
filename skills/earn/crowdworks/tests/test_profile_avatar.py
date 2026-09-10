@@ -276,13 +276,12 @@ def test_hidden_stale_occupation_checkbox_is_cleared_without_clicking() -> None:
         checked = True
         evaluated = False
 
-        def is_checked(self) -> bool:
-            return self.checked
-
-        def evaluate(self, script: str, checked: bool) -> None:
+        def evaluate(self, script: str, checked: bool) -> bool:
             assert "dispatchEvent" in script
+            assert "return e.checked" in script
             self.evaluated = True
             self.checked = checked
+            return self.checked
 
     checkbox = HiddenCheckbox()
     profile._set_checkbox(checkbox, False)
