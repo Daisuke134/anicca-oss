@@ -65,6 +65,12 @@ class MacosLoopRegistryTest(unittest.TestCase):
         self.assertNotIn("citizens-diff-monitor", registry["loops"])
         self.assertIn("ai.anicca.citizens-diff-monitor", registry["retired_labels"])
 
+    def test_unused_peer_api_and_legacy_watchdog_are_retired(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        self.assertNotIn("watchdog", registry["loops"])
+        self.assertIn("ai.anicca.watchdog", registry["retired_labels"])
+        self.assertIn("com.anicca.peer-api", registry["retired_labels"])
+
     def test_obsolete_phone_and_bridge_runtimes_are_retired(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         for loop_id, label in (
@@ -610,6 +616,15 @@ class MacosLoopRegistryTest(unittest.TestCase):
         value["external_labels"] = ["ai.anicca.example"]
         with self.assertRaisesRegex(ValueError, "overlap"):
             validate_registry(value)
+
+    def test_retired_labels_accept_safe_non_managed_namespaces(self):
+        value = {"schema_version": 2, "loops": {"example": entry()},
+                 "retired_labels": ["com.anicca.peer-api", "local.phone-cleanup"]}
+        self.assertEqual(validate_registry(value), value)
+        for invalid in ("bad label", "../bad", "/bad", ""):
+            value["retired_labels"] = [invalid]
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "valid launchd"):
+                validate_registry(value)
 
     def test_browser_owner_contract_accepts_unique_profile_and_port(self):
         value = {

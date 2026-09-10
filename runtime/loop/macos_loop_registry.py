@@ -17,6 +17,7 @@ FIELDS = {
 }
 OPTIONAL_FIELDS = {"adapter", "browser_owner", "command", "runtime_timeout_seconds"}
 SECRET_FIELD = re.compile(r"token|secret|password|credential|auth|api.?key", re.I)
+LAUNCHD_LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 def _fail(message: str) -> None:
@@ -128,8 +129,9 @@ def validate_registry(registry: dict) -> dict:
         _fail("external_labels overlap managed labels")
     retired = registry.get("retired_labels", [])
     if (not isinstance(retired, list) or len(retired) != len(set(retired))
-            or any(not isinstance(label, str) or not label.startswith("ai.anicca.") for label in retired)):
-        _fail("retired_labels must be unique ai.anicca labels")
+            or any(not isinstance(label, str) or not LAUNCHD_LABEL.fullmatch(label)
+                   for label in retired)):
+        _fail("retired_labels must be unique valid launchd labels")
     if labels.intersection(retired) or set(external).intersection(retired):
         _fail("retired_labels overlap managed or external labels")
     return registry
