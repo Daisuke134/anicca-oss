@@ -227,6 +227,24 @@ class BrokerContextTest(unittest.TestCase):
             self.assertEqual(ownership["status"], "open")
             MODULE._owned_live_position(ownership, observation)
 
+    def test_cloud_canary_symbol_is_normalized_before_regular_live_ownership_sync(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "c" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0.00002",
+                "owned_qty": "0.00001995", "status": "open", "symbol": "BTCUSD"})
+            observation = MODULE._normalize_live_position_symbols({"positions": [
+                {"symbol": "USDCUSD", "qty": "64"},
+                {"symbol": "BTCUSDC", "qty": "0.00001995"}]})
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "filled", "filled_qty": "0.00002"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), observation)
+            self.assertEqual(ownership["status"], "open")
+            self.assertEqual(observation["positions"][1]["symbol"], "BTCUSD")
+            MODULE._owned_live_position(ownership, observation)
+
     def test_live_ownership_closes_when_position_disappears(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
