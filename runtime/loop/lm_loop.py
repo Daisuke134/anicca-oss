@@ -477,10 +477,13 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                         "ANICCA_EVM_PRIVATE_KEY", "BASE_CHAIN_WALLET_KEY", "BLOCKRUN_WALLET_KEY",
                         "POLYGON_WALLET_PRIVATE_KEY",
                     ),
+                    "realtime-guide": (
+                        "ANICCA_HOME", "OPENCLAW_ENV_FILE", "REALTIME_GUIDE_STATE_DIR",
+                    ),
                 }.get(item["loop_id"], writer_retired_environment_keys)
                 retired_operational_keys = (
                     ("WorkingDirectory",)
-                    if item["loop_id"] == "life-manager-cfo-hourly" else ()
+                    if item["loop_id"] in {"life-manager-cfo-hourly", "realtime-guide"} else ()
                 )
                 desired_bytes = _preserve_operational_attributes(
                     item["plist_bytes"], existing_bytes,

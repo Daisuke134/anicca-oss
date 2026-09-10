@@ -98,6 +98,13 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         value["EnvironmentVariables"]["LIFE_MANAGER_ENV_FILE"] = str(
             Path.home() / ".local/state/life-manager/.env"
         )
+    if loop_id == "realtime-guide":
+        value["EnvironmentVariables"].update({
+            "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
+            "LIFE_MANAGER_PYTHON": str(
+                Path.home() / ".local/share/life-manager/venv/bin/python"
+            ),
+        })
     key, cadence = next(iter(entry["cadence"].items()))
     if key == "start_interval_seconds":
         value["StartInterval"] = cadence

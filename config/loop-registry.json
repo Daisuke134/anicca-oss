@@ -2373,70 +2373,6 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/x402-sell"
     },
-    "phone-conversation": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "message",
-      "entrypoint": "services/sutando-phone/start.sh",
-      "label": "ai.anicca.phone-conversation",
-      "log_root": "~/.local/state/life-manager/phone-conversation/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/phone-conversation"
-    },
-    "phone-tunnel": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "none",
-      "entrypoint": "services/sutando-phone/tunnel.sh",
-      "label": "ai.anicca.phone-tunnel",
-      "log_root": "~/.local/state/life-manager/phone-tunnel/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/phone-tunnel"
-    },
-    "phone-tunnel-watcher": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "none",
-      "entrypoint": "services/sutando-phone/tunnel-watcher.sh",
-      "label": "ai.anicca.phone-tunnel-watcher",
-      "log_root": "~/.local/state/life-manager/phone-tunnel-watcher/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/phone-tunnel-watcher"
-    },
-    "pipecat-phone": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "physical",
-      "effect_class": "message",
-      "entrypoint": "skills/anicca-phone/outbound/run.sh",
-      "label": "ai.anicca.pipecat-phone",
-      "log_root": "~/.local/state/life-manager/pipecat-phone/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/pipecat-phone"
-    },
     "pm-decision-loop": {
       "cadence": {
         "start_interval_seconds": 3600
@@ -2554,22 +2490,6 @@
       "log_root": "~/.local/state/life-manager/session-vault/logs",
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/session-vault"
-    },
-    "slack-bridge": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "system",
-      "effect_class": "message",
-      "entrypoint": "services/slack-bridge/slack-bridge.py",
-      "label": "ai.anicca.slack-bridge",
-      "log_root": "~/.local/state/life-manager/slack-bridge/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/slack-bridge"
     },
     "stripe-revenue-listener": {
       "cadence": {
@@ -3290,6 +3210,10 @@
     "ai.anicca.openclaw-conformity-monkey",
     "ai.anicca.openclaw-core-backup",
     "ai.anicca.openclaw-janitor-monkey",
+    "ai.anicca.pipecat-phone",
+    "ai.anicca.phone-conversation",
+    "ai.anicca.phone-tunnel",
+    "ai.anicca.phone-tunnel-watcher",
     "ai.anicca.reelclaw-en-card-1",
     "ai.anicca.reelclaw-en-card-2",
     "ai.anicca.reelclaw-en-card-3",
@@ -3303,6 +3227,7 @@
     "ai.anicca.reelclaw-ja-widget-1",
     "ai.anicca.reelclaw-ja-widget-2",
     "ai.anicca.runtime-loop-healthcheck",
+    "ai.anicca.slack-bridge",
     "ai.anicca.slack-metrics-poller",
     "ai.anicca.sol-trade-earning-healthcheck",
     "ai.anicca.sync-memory",
