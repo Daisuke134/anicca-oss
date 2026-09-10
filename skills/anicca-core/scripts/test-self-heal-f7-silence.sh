@@ -11,10 +11,11 @@
 # F7 therefore judges a loop by its OUTPUT, not by its exit code: each loop declares
 # the ledger that grows when it does real work, and how long silence is allowed.
 #
-# No mocks (HARD RULE 0.24): real files with real mtimes, in an isolated ANICCA_HOME
-# so no production ledger or cooldown is touched.
+# Real files with real mtimes; only Telegram transport is replaced by a receipt stub.
 set -uo pipefail
-CHECKER="${ANICCA_HOME:-$HOME/.openclaw}/skills/anicca-core/scripts/f7-silence-check.sh"
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
+CHECKER="$SCRIPT_DIR/f7-silence-check.sh"
 
 PASS=0; FAIL=0
 check() {
@@ -24,8 +25,16 @@ check() {
 
 WORK=$(mktemp -d /tmp/f7-silence.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
-ISO="$WORK/home"; mkdir -p "$ISO/state"
-LEDGER_JSON="$ISO/state/self-heal-ledger.jsonl"
+ISO="$WORK/state"; mkdir -p "$ISO"
+LEDGER_JSON="$ISO/self-heal-ledger.jsonl"
+TELEGRAM_LOG="$WORK/telegram.log"
+SENDER="$WORK/send-telegram.sh"
+cat > "$SENDER" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$F7_TEST_TELEGRAM_LOG"
+echo 'TELEGRAM_SENT=true MSGID=123'
+EOF
+chmod +x "$SENDER"
 
 FRESH="$WORK/fresh.jsonl"; printf '{"a":1}\n' > "$FRESH"
 STALE="$WORK/stale.jsonl"; printf '{"a":1}\n' > "$STALE"; touch -t 202607200000 "$STALE"
@@ -45,7 +54,7 @@ echo "=== F7 checker exists and runs ==="
 [ -x "$CHECKER" ] || [ -f "$CHECKER" ]
 check $? "f7-silence-check.sh exists" "present" "absent"
 
-OUT=$(ANICCA_HOME="$ISO" F7_MANIFEST="$MANIFEST" bash "$CHECKER" 2>"$WORK/err")
+OUT=$(LIFE_MANAGER_STATE_ROOT="$ISO" F7_MANIFEST="$MANIFEST" F7_TELEGRAM_SENDER="$SENDER" F7_TEST_TELEGRAM_LOG="$TELEGRAM_LOG" bash "$CHECKER" 2>"$WORK/err")
 RC=$?
 check $((RC==0?0:1)) "checker exits 0" 0 "$RC"
 
@@ -75,12 +84,21 @@ check $? "checker wrote nothing to stderr" "empty" "$(head -c 80 "$WORK/err" 2>/
 
 echo
 echo "=== silence is measured, not asserted ==="
-grep 'loop-silent' "$LEDGER_JSON" 2>/dev/null | grep -qE 'silent_hours=[0-9]+'
-check $? "the entry carries the measured silence in hours" "silent_hours=N" "absent"
+grep 'loop-silent' "$LEDGER_JSON" 2>/dev/null | grep -qE '"silent_hours": [0-9]+'
+check $? "the entry carries the measured silence in hours" '"silent_hours": N' "absent"
+
+grep -q '"status": "delivered"' "$LEDGER_JSON"
+check $? "the delivery receipt is recorded" "delivered" "absent"
+
+before=$(wc -l < "$TELEGRAM_LOG")
+LIFE_MANAGER_STATE_ROOT="$ISO" F7_MANIFEST="$MANIFEST" F7_TELEGRAM_SENDER="$SENDER" F7_TEST_TELEGRAM_LOG="$TELEGRAM_LOG" bash "$CHECKER" >/dev/null 2>"$WORK/err2"
+after=$(wc -l < "$TELEGRAM_LOG")
+[ "$before" -eq "$after" ]
+check $? "cooldown suppresses duplicate Telegram alerts" "$before" "$after"
 
 echo
 echo "=== the real production manifest is valid and points at real ledgers ==="
-REAL="${ANICCA_HOME:-$HOME/.openclaw}/state/f7-loop-manifest.json"
+REAL="$REPO_ROOT/config/f7-loop-manifest.json"
 [ -f "$REAL" ]
 check $? "production manifest exists" "present" "absent"
 python3 -c "
@@ -90,11 +108,14 @@ loops=m['loops']
 assert loops, 'no loops declared'
 for l in loops:
     assert l['label'] and l['ledgers'] and l['max_silence_hours'] > 0, l
-    # at least one declared ledger must exist on this machine, or the declaration is fiction
-    assert any(os.path.exists(os.path.expanduser(p)) for p in l['ledgers']), l['label']
+    assert all('openclaw' not in p for p in l['ledgers']), l['label']
 print(len(loops))
 " "$REAL" >/dev/null 2>&1
-check $? "every declared loop names at least one ledger that exists" "valid" "invalid"
+check $? "every declared loop has a portable non-OpenClaw ledger" "valid" "invalid"
+
+if rg -n 'openclaw|ANICCA_HOME|self-heal-lib' "$CHECKER" "$REAL" >/dev/null; then clean=no; else clean=yes; fi
+[ "$clean" = yes ]
+check $? "F7 source and manifest have no OpenClaw dependency" "yes" "$clean"
 
 echo
 echo "RESULT: PASS=$PASS FAIL=$FAIL"
