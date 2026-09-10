@@ -572,6 +572,12 @@ class MacosLoopRegistryTest(unittest.TestCase):
             row["entrypoint"],
             "skills/earn/marketing-engine/report/scheduled_runner.py",
         )
+        self.assertEqual(
+            row["state_root"], "~/.local/state/life-manager/self-improve-evolve",
+        )
+        self.assertEqual(
+            row["log_root"], "~/.local/state/life-manager/self-improve-evolve/logs",
+        )
 
     def test_clip_loop_uses_direct_python_adapter(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())

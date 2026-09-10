@@ -2469,9 +2469,9 @@
       "effect_class": "none",
       "entrypoint": "skills/earn/marketing-engine/report/scheduled_runner.py",
       "label": "ai.anicca.self-improve-evolve",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/self-improve-evolve/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/self-improve-evolve"
     },
     "session-vault": {
       "cadence": {
