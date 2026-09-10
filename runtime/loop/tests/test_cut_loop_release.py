@@ -17,6 +17,42 @@ DEPENDENCY_ROOTS = (
 
 
 class CutLoopReleaseTest(unittest.TestCase):
+    def test_release_can_be_built_without_changing_current(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            loops = root / "loops"
+            previous = loops / "releases" / "previous"
+            previous.mkdir(parents=True)
+            (previous / "RELEASE.json").write_text('{"sha":"old"}\n')
+            current = loops / "current"
+            current.symlink_to(previous)
+            npm = root / "npm"
+            npm.write_text("#!/bin/sh\nmkdir -p node_modules\n")
+            npm.chmod(0o755)
+
+            result = subprocess.run(
+                ["/bin/bash", str(ROOT / "bin/cut-loop-release.sh"), "origin/main"],
+                cwd=ROOT,
+                env={
+                    **os.environ,
+                    "LOOPS_ROOT": str(loops),
+                    "LOOPS_RELEASE_PATHS": "runtime/loop",
+                    "LOOPS_ACTIVATE_CURRENT": "0",
+                    "LIFE_MANAGER_DISK_PRESSURE_FILE": str(root / "no-pressure"),
+                    "NPM_BIN": str(npm),
+                },
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(current.resolve(), previous.resolve())
+            releases = [p for p in (loops / "releases").iterdir() if p != previous]
+            self.assertEqual(len(releases), 1)
+            self.assertTrue((releases[0] / "RELEASE.json").is_file())
+            self.assertIn("current unchanged", result.stdout)
+
     def test_release_reuses_matching_sealed_dependencies(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

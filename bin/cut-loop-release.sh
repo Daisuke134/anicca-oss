@@ -27,12 +27,18 @@ CURRENT="$LOOPS_ROOT/current"
 KEEP="${LOOPS_KEEP_RELEASES:-1}"
 REF="${1:-HEAD}"
 RELEASE_PATHS="${LOOPS_RELEASE_PATHS:-}"
+ACTIVATE_CURRENT="${LOOPS_ACTIVATE_CURRENT:-1}"
 NPM_BIN="${NPM_BIN:-$(command -v npm 2>/dev/null || true)}"
 NPM_NODE_BIN="${NPM_NODE_BIN:-}"
 CUT_LOCK="$LOOPS_ROOT/.release-cut.lock"
 DEST=""
 
 die() { echo "cut-loop-release: $*" >&2; exit 1; }
+
+case "$ACTIVATE_CURRENT" in
+  0|1) ;;
+  *) die "LOOPS_ACTIVATE_CURRENT must be 0 or 1" ;;
+esac
 
 SHA="$(git -C "$REPO_ROOT" rev-parse "$REF" 2>/dev/null)" || die "cannot resolve ref '$REF'"
 SHORT="${SHA:0:8}"
@@ -205,12 +211,15 @@ EOF
 
 chmod -R a-w "$DEST" 2>/dev/null || true
 
-# Use the same host-wide owner lock as `lm-loop apply` while replacing `current` atomically.
-PYTHONPATH="$SCRIPT_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-  python3 -c 'import sys; from pathlib import Path; from runtime.loop.lm_loop import activate_current; activate_current(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))' \
-  "$CURRENT" "$DEST" "$LOOPS_ROOT/.apply.lock" || die "could not activate current release"
+if [ "$ACTIVATE_CURRENT" = "1" ]; then
+  # Use the same host-wide owner lock as `lm-loop apply` while replacing `current` atomically.
+  PYTHONPATH="$SCRIPT_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -c 'import sys; from pathlib import Path; from runtime.loop.lm_loop import activate_current; activate_current(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))' \
+    "$CURRENT" "$DEST" "$LOOPS_ROOT/.apply.lock" || die "could not activate current release"
 
-# Keep a few older releases so rollback is a symlink move rather than a rebuild.
-prune_releases_after "$KEEP"
-
-echo "current -> $(readlink "$CURRENT")  ($PROVENANCE)"
+  # Keep a few older releases so rollback is a symlink move rather than a rebuild.
+  prune_releases_after "$KEEP"
+  echo "current -> $(readlink "$CURRENT")  ($PROVENANCE)"
+else
+  echo "release -> $DEST  ($PROVENANCE; current unchanged)"
+fi
