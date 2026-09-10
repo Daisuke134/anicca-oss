@@ -35,3 +35,11 @@ def test_collapsed_message_uses_full_body_not_visible_digest():
     source = MODULE.read_text(encoding="utf-8")
     assert "find(item => item.querySelector('p'))" in source
     assert "getComputedStyle(item).display" not in source
+
+
+def test_contract_acceptance_stays_in_provider_adapter():
+    source = MODULE.read_text(encoding="utf-8")
+    assert '"action": "accept_contract"' in source
+    assert 'a.intro-employer_proposed_project[href="#message-dialog-agreement"]' in source
+    assert 'input[name="check-terms"]' in source
+    assert 'input[value="同意して契約する"]' in source

@@ -26,6 +26,19 @@ def test_seller_last_and_explicit_no_reply_do_not_call_model():
     assert planner(row("buyer", False))["classification"] == "awaiting_buyer"
 
 
+def test_official_provider_action_precedes_message_composition():
+    value = row("seller", reply_required=False)
+    value["context"]["required_action"] = {
+        "action": "accept_contract",
+        "payload": {"condition_id": "41879089", "amount": "12円"},
+    }
+    planner = planner_module.ReplyPlanner(
+        lambda _context: (_ for _ in ()).throw(AssertionError("model called"))
+    )
+
+    assert planner(value) == value["context"]["required_action"]
+
+
 def test_buyer_last_uses_model_result():
     planner = planner_module.ReplyPlanner(lambda context: context["conversation"][0]["body"])
     assert planner(row()) == {"action": "reply", "payload": {"body": "hello"}}

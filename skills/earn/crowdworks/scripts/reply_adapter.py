@@ -6,7 +6,9 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
+import re
 import sys
 from typing import Any, Mapping
 
@@ -158,13 +160,66 @@ class CrowdWorksReplyAdapter:
     def context(self, thread_id: str) -> dict[str, Any]:
         row = self.rows[thread_id]
         conversation = self.conversations.get(thread_id) or self._detail(thread_id)
-        return {"board": {"title": row.get("title"), "proposal_status": row.get("proposal_status")},
+        result = {"board": {"title": row.get("title"), "proposal_status": row.get("proposal_status")},
                 "conversation": conversation[-20:],
                 "reply_required": conversation[-1]["role"] == "buyer",
                 "grounding": self.grounding,
                 "provider_rules": {"outside_contact_before_approval": "forbidden"}}
+        required_action = self._contract_action(thread_id)
+        if required_action is not None:
+            result["required_action"] = required_action
+        return result
+
+    def _contract_action(self, thread_id: str) -> dict[str, Any] | None:
+        row = self.rows.get(thread_id)
+        if row is None or row.get("proposal_status") != "proposed":
+            return None
+        trigger = self.page.locator(
+            'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+        )
+        form = self.page.locator(
+            'form[action^="/proposal_conditions/"][action$="/agree"]'
+        )
+        if trigger.count() != 1 or not trigger.is_visible() or form.count() != 1:
+            return None
+        action = str(form.get_attribute("action") or "")
+        match = re.fullmatch(r"/proposal_conditions/(\d+)/agree", action)
+        if match is None:
+            raise RuntimeError("crowdworks_contract_form_invalid")
+        terms = form.locator("table.agreement_condition tr").evaluate_all(
+            """rows => Object.fromEntries(rows.map(row => [
+              row.querySelector('th')?.innerText.trim() || '',
+              row.querySelector('td')?.innerText.trim() || ''
+            ]).filter(([key, value]) => key && value))"""
+        )
+        if not isinstance(terms, Mapping) or not terms:
+            raise RuntimeError("crowdworks_contract_terms_invalid")
+        canonical = json.dumps(dict(terms), ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"))
+        return {"action": "accept_contract", "payload": {
+            "condition_id": match.group(1),
+            "terms_sha256": hashlib.sha256(canonical.encode()).hexdigest(),
+            "title": _text(terms.get("タイトル（仕事名）")),
+            "amount": _text(terms.get("金額")),
+        }}
 
     def mutate(self, intent: dict[str, Any]) -> None:
+        if intent.get("action") == "accept_contract":
+            self._detail(intent["thread_id"])
+            expected = self._contract_action(intent["thread_id"])
+            if expected is None or expected.get("payload") != intent.get("payload"):
+                raise RuntimeError("crowdworks_contract_terms_changed")
+            self.page.locator(
+                'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+            ).click()
+            checkbox = self.page.locator('input[name="check-terms"]')
+            submit = self.page.locator('input[value="同意して契約する"]')
+            checkbox.check()
+            if submit.count() != 1 or not submit.is_visible() or submit.is_disabled():
+                raise RuntimeError("crowdworks_contract_submit_unavailable")
+            submit.click()
+            self.page.wait_for_load_state("domcontentloaded", timeout=20_000)
+            return
         if intent.get("action") != "reply":
             raise RuntimeError("crowdworks_estimate_unsupported")
         body = intent.get("payload", {}).get("body")
@@ -176,6 +231,22 @@ class CrowdWorksReplyAdapter:
         self.page.wait_for_timeout(2000)
 
     def readback(self, intent: dict[str, Any]) -> dict[str, Any]:
+        if intent.get("action") == "accept_contract":
+            self.observe_threads()
+            row = self.rows.get(intent["thread_id"])
+            if row is None:
+                return {"authoritative_absent": True}
+            status = str(row.get("proposal_status") or "").strip()
+            if status in {"contracted", "contract"}:
+                return {"verified": True,
+                        "provider_receipt_id": f"contract:{intent['thread_id']}:{row['id']}",
+                        "observed_at": _now()}
+            if status == "proposed":
+                self._detail(intent["thread_id"])
+                current = self._contract_action(intent["thread_id"])
+                if current is not None and current.get("payload") == intent.get("payload"):
+                    return {"authoritative_absent": True}
+            return {}
         body = intent.get("payload", {}).get("body")
         if not isinstance(body, str):
             return {"authoritative_absent": True}

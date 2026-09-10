@@ -22,7 +22,7 @@ import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
 
-MUTATIONS = frozenset({"reply", "estimate"})
+MUTATIONS = frozenset({"reply", "estimate", "accept_contract"})
 NO_EFFECT = frozenset({"awaiting_buyer", "closed", "no_reply", "noop"})
 
 
@@ -506,7 +506,9 @@ def _notifier(*, database: Path, chat_id: str, env_file: Path):
 
     def send(intent: dict[str, Any], receipt: dict[str, Any]) -> dict[str, Any]:
         provider = str(intent["provider"]).strip()
-        action = "見積り" if intent["action"] == "estimate" else "返信"
+        action = {"estimate": "見積り", "accept_contract": "契約承認"}.get(
+            intent["action"], "返信"
+        )
         message = (
             f"Life Manager::: {provider}で購入者へ{action}しました\n\n"
             f"状態\n公式送信履歴で確認済みです。\n\n"

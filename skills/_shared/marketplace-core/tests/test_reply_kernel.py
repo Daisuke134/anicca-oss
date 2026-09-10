@@ -59,6 +59,24 @@ def test_reply_effect_is_fenced_read_back_and_replay_zero(tmp_path):
     assert first["failed"] == 0
     assert len(adapter.effects) == 1
 
+
+def test_contract_acceptance_uses_same_fence_readback_and_replay_zero(tmp_path):
+    adapter = Adapter()
+    decide = lambda _context: {
+        "action": "accept_contract",
+        "payload": {"condition_id": "condition-1", "amount": "12円"},
+    }
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["effect"] == 1
+    assert first["readback"] == 1
+    assert adapter.effects[0]["action"] == "accept_contract"
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
     second = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
     assert second["effect"] == 0
     assert second["readback"] == 1
