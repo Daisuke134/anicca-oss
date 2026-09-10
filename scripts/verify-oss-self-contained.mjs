@@ -81,6 +81,7 @@ const LEGACY_LITERAL_FIXTURES = new Set([
   "apps/life-manager/scripts/inventory-legacy-jobs.test.js",
   "runtime/loop/tests/fixtures/macos-loop-jobs.json",
   "runtime/migrate-legacy-self-improve-state.py",
+  "runtime/migrate-legacy-lateness-state.py",
   "runtime/migrate-legacy-warmup-flip-state.py",
   "skills/earn/hl-trade/tests/test_reconcile.py",
 ]);

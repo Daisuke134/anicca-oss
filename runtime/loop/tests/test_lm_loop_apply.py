@@ -442,6 +442,50 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["REALTIME_GUIDE_OPERATOR_SETTING"], "kept")
         self.assertNotIn("WorkingDirectory", result_plist)
 
+    def test_lateness_apply_retires_openclaw_environment(self):
+        loop_id = "lateness-heartbeat"
+        release = self._release("release-lateness").resolve()
+        entrypoint = release / "skills/anicca-life-manager/scripts/run.sh"
+        entrypoint.parent.mkdir(parents=True, exist_ok=True)
+        entrypoint.write_text("#!/bin/sh\n")
+        entrypoint.chmod(0o755)
+        registry_value = registry("skills/anicca-life-manager/scripts/run.sh")
+        entry = registry_value["loops"].pop("example")
+        entry.update({"label": "ai.anicca.lateness-heartbeat"})
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-lateness"
+        current.symlink_to(release)
+        values = self._apply_kwargs(
+            current, self.root / "apply-lateness.lock",
+            [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+            label="ai.anicca.lateness-heartbeat",
+            agents_dir_name="LaunchAgents-lateness",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.lateness-heartbeat.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "ANICCA_HOME": "/legacy/.openclaw",
+            "OPENCLAW_ENV_FILE": "/legacy/.openclaw/.env",
+            "LATENESS_OPERATOR_SETTING": "kept",
+        })
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        apply_live(
+            release, values["agents_dir"], values["launchctl_safe"], target=loop_id,
+            current=current, lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
+        self.assertNotIn("ANICCA_HOME", environment)
+        self.assertNotIn("OPENCLAW_ENV_FILE", environment)
+        self.assertEqual(environment["LATENESS_OPERATOR_SETTING"], "kept")
+        self.assertEqual(
+            environment["LIFE_MANAGER_PYTHON"],
+            str(Path.home() / ".local/share/life-manager/venv/bin/python"),
+        )
+
     def test_generic_install_does_not_secure_launchd_log_files(self):
         log_root = self.root / ".local/state/test-log-root"
         log_root.mkdir(mode=0o755, parents=True)

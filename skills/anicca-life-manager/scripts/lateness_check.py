@@ -36,6 +36,10 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 LIFE_MANAGER_HOME = Path(os.environ.get(
     "LIFE_MANAGER_HOME", str(Path.home() / ".local" / "state" / "life-manager"),
 ))
+LIFE_MANAGER_STATE_ROOT = Path(os.environ.get(
+    "LIFE_MANAGER_STATE_ROOT", str(LIFE_MANAGER_HOME / "lateness-heartbeat"),
+))
+LOOP_STATE_DIR = LIFE_MANAGER_STATE_ROOT / "state"
 ANICCA_HOME = Path(os.environ.get("ANICCA_HOME", str(LIFE_MANAGER_HOME)))
 ENV_PATH = Path(os.environ.get(
     "LIFE_MANAGER_ENV_FILE",
@@ -665,7 +669,7 @@ def main():
     # slack-noisy. To audit: jq 'select(.n_events > 0)' on the jsonl,
     # cross-check against the same week's gcal export.
     try:
-        ledger = Path(__file__).resolve().parent.parent / "state" / "heartbeat_log.jsonl"
+        ledger = LOOP_STATE_DIR / "heartbeat_log.jsonl"
         ledger.parent.mkdir(parents=True, exist_ok=True)
         lock = ledger.with_name(f".{ledger.name}.lock")
         with lock.open("a") as lock_file:
@@ -694,7 +698,8 @@ def main():
     if d["action"] == "nudge":
         e = d["event"]
         depart = datetime.fromisoformat(e["departByIso"]).astimezone(JST).strftime("%H:%M")
-        once_path = Path(__file__).resolve().parent.parent / "state" / "nudge_sent.json"
+        once_path = LOOP_STATE_DIR / "nudge_sent.json"
+        once_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             done = json.loads(once_path.read_text())
         except Exception:
@@ -725,7 +730,7 @@ def main():
         # 06:50 still running when 06:55 fires) from double-ringing the phone.
         # We keep a per-event timestamp; entries older than RACE_LOCK_SEC are
         # treated as expired (= next tick can legitimately call again).
-        lock_path = Path(__file__).resolve().parent.parent / "state" / "active_call_loop.json"
+        lock_path = LOOP_STATE_DIR / "active_call_loop.json"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             locks = json.loads(lock_path.read_text())
@@ -914,7 +919,8 @@ def main():
         # how, per this specific schedule. Emit once per event/day (dedup).
         mins_to_depart = (depart_dt - now).total_seconds() / 60
         if mins_to_depart <= 0:
-            sent_path = Path(__file__).resolve().parent.parent / "state" / "renraku_sent.json"
+            sent_path = LOOP_STATE_DIR / "renraku_sent.json"
+            sent_path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 sent = json.loads(sent_path.read_text())
             except Exception:

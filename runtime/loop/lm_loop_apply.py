@@ -105,6 +105,13 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
                 Path.home() / ".local/share/life-manager/venv/bin/python"
             ),
         })
+    if loop_id == "lateness-heartbeat":
+        value["EnvironmentVariables"].update({
+            "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
+            "LIFE_MANAGER_PYTHON": str(
+                Path.home() / ".local/share/life-manager/venv/bin/python"
+            ),
+        })
     key, cadence = next(iter(entry["cadence"].items()))
     if key == "start_interval_seconds":
         value["StartInterval"] = cadence
