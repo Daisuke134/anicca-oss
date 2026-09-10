@@ -49,6 +49,7 @@ class OpenClawGatewayRetirementTests(unittest.TestCase):
     def test_clone_has_no_executable_openclaw_transport_or_provider(self):
         shared_transports = {
             "skills/earn/gig/scripts/freelancer_bid_watch.py": "send_via_shared_client",
+            "skills/earn/gig/scripts/paid_direct.py": "GigTelegramTransport",
             "apps/life-manager/scripts/personalized-action-e2e.js": "sendMessage",
             "apps/life-manager/lib/outbound-guardian.js": "./telegram.js",
             "apps/life-manager/lib/connector-ticket-telegram.js": "./telegram.js",
