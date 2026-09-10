@@ -9,3 +9,4 @@ cmds = ["bash scripts/install-alpaca-cli.sh .bin/alpaca"]
 
 [variables]
 ALPACA_CLI="/app/.bin/alpaca"
+LIFE_MANAGER_INVESTMENT_AGENT_RUNNER="/app/scripts/cloud-investment-agent-runner.js"
