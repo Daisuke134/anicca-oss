@@ -33,7 +33,7 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
     return values
 
 
-def _outbox(path: Path, start: datetime) -> list[dict[str, Any]]:
+def _outbox(path: Path, start: datetime, end: datetime | None = None) -> list[dict[str, Any]]:
     try:
         connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         rows = connection.execute(
@@ -48,7 +48,9 @@ def _outbox(path: Path, start: datetime) -> list[dict[str, Any]]:
             pass
     keys = ("event_key", "status", "attempt_count", "provider_message_id", "created_at",
             "delivered_at", "last_error_code")
-    return [dict(zip(keys, row)) for row in rows if parse_instant(row[4]) >= start]
+    return [dict(zip(keys, row)) for row in rows
+            if parse_instant(row[4]) >= start
+            and (end is None or parse_instant(row[4]) <= end)]
 
 
 def _consecutive_days(days: set[date]) -> bool:
@@ -76,20 +78,26 @@ def _official_orders(credentials: Path, cli: Path) -> dict[str, Any]:
 
 def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
              required_days: int, required_wakes: int,
-             credentials: Path, cli: Path) -> dict[str, Any]:
+             credentials: Path, cli: Path, shadow_end: datetime | None = None,
+             live_start: datetime | None = None) -> dict[str, Any]:
+    if (shadow_end is None) != (live_start is None) \
+            or (shadow_end is not None and (shadow_end < start or live_start <= shadow_end)):
+        raise ValueError("repeatability_transition_invalid")
+    live_begin = live_start or start
     shadow_events = [row for row in _jsonl(shadow_state / "events.jsonl")
                      if row.get("run_id") != "install"
                      and row.get("provider") == "shared-agent-runner"
-                     and parse_instant(row["timestamp"]) >= start]
+                     and parse_instant(row["timestamp"]) >= start
+                     and (shadow_end is None or parse_instant(row["timestamp"]) <= shadow_end)]
     live_events = [row for row in _jsonl(live_state / "events.jsonl")
                    if row.get("run_id") != "install"
                    and row.get("provider") == "shared-agent-runner"
-                   and parse_instant(row["timestamp"]) >= start]
+                   and parse_instant(row["timestamp"]) >= live_begin]
     events = [*shadow_events, *live_events]
     terminal = [row for row in events if row.get("phase") == "report"]
     source_windows = [
-        (shadow_events, _outbox(shadow_state / "telegram-outbox.sqlite3", start)),
-        (live_events, _outbox(live_state / "telegram-outbox.sqlite3", start)),
+        (shadow_events, _outbox(shadow_state / "telegram-outbox.sqlite3", start, shadow_end)),
+        (live_events, _outbox(live_state / "telegram-outbox.sqlite3", live_begin)),
     ]
     days = {parse_instant(row["timestamp"]).astimezone(NY).date() for row in terminal}
     event_ids = [row.get("event_id") for row in events]
@@ -141,6 +149,8 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
                        if name not in {"calendar_days", "natural_wakes", "weekend_observed"}}
     return {"status": "pass" if all(required_checks.values()) else "collecting", "checks": checks,
             "window_start": start.isoformat(),
+            "transition": {"shadow_end": shadow_end.isoformat() if shadow_end else None,
+                           "live_start": live_start.isoformat() if live_start else None},
             "observed": {"calendar_days": len(days), "natural_wakes": len(terminal),
                          "shadow_wakes": sum(row.get("phase") == "report"
                                              for row in shadow_events),
@@ -178,12 +188,16 @@ def main() -> int:
     parser.add_argument("--cli", type=Path, required=True)
     parser.add_argument("--required-days", type=int, default=30)
     parser.add_argument("--required-wakes", type=int, default=100)
+    parser.add_argument("--shadow-end")
+    parser.add_argument("--live-start")
     args = parser.parse_args()
     if args.required_days < 1 or args.required_wakes < 1:
         raise ValueError("repeatability_requirement_invalid")
     result = evaluate(shadow_state=args.shadow_state, live_state=args.live_state,
                       start=parse_instant(args.start), required_days=args.required_days,
-                      required_wakes=args.required_wakes, credentials=args.credentials, cli=args.cli)
+                      required_wakes=args.required_wakes, credentials=args.credentials, cli=args.cli,
+                      shadow_end=parse_instant(args.shadow_end) if args.shadow_end else None,
+                      live_start=parse_instant(args.live_start) if args.live_start else None)
     _write(args.live_state / "repeatability-latest.json", result)
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0 if result["status"] == "pass" else 75
