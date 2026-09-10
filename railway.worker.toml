@@ -1,6 +1,9 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci --ignore-scripts && npm ci --ignore-scripts --prefix apps/life-manager"
+buildCommand = "npm ci --ignore-scripts && npm ci --ignore-scripts --prefix apps/life-manager && npm ci --ignore-scripts --prefix skills/earn/x402-sell"
+
+[phases.setup]
+nixPkgs = ["...", "python3", "curl"]
 
 [deploy]
 startCommand = "node apps/life-manager/scripts/runtime-up.js internal-worker"
