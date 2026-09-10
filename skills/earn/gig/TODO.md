@@ -392,11 +392,14 @@ Current live Apply acceptance audit:
   In addition to the retained earlier receipts, current official logs verify proposals `305309712`,
   `305314740`, and `305321784`. Other wakes end `account_ensure_failed`,
   `profile_navigation_failed`, or `proposal_form_changed`, so “some applications succeed” must not
-  be reported as continuous health. Fresh public profile readback still shows the provider-default
-  avatar. Its current `AI-BPO（AI活用の業務改善） / AI関連サービス` occupation and software /
+  be reported as continuous health. The shared avatar was uploaded once and authenticated public
+  readback exposes attachment `59139511.jpg` as the unique `alt=userIcon` image. Its current
+  `AI-BPO（AI活用の業務改善） / AI関連サービス` occupation and software /
   AI-automation / training skills already match the shared commercial positioning; the older
-  prompt-engineer screenshot is stale. Avatar projection, profile replay-zero and consecutive natural
-  Apply acceptance remain open; existing verified proposal effects never reopen.
+  prompt-engineer screenshot is stale. Profile replay-zero and consecutive natural Apply acceptance
+  remain open; existing verified proposal effects never reopen. The first natural wake from release
+  `051d6f4a...` ended `vault_restore_failed` before avatar readback, so the current blocker is shared
+  browser-session restoration rather than the already-corrected public avatar.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -2463,11 +2466,14 @@ from the chat, and two of them contradict what this cursor had previously report
     only the provider's retired `/user_picture/` URL shape. PR `#4926`, merge
     `f7833519e7ae307ea571a38685ec7e6be07d19bd`, admits the current exact CrowdWorks attachment shape
     and DOM identity while retaining the legacy form; focused tests pass `16/16`. Production
-    replay-zero remains unproved. Do not cut another release while host free space is about 191 MiB:
-    central cleanup reports errors/protected deletions `0/0`, but all 33 evaluated releases are
-    protected and reclaimed bytes are zero. Wait for owner-safe disk recovery, then install this
-    merged SHA only on `crowdworks-revenue-application` and require a natural no-profile-mutation
-    terminal plus the same official avatar readback before checking this atom.
+    replay-zero remains unproved. Sparse immutable release `20260910T224959-051d6f4a` was installed
+    only on `crowdworks-revenue-application` with install receipt `d18d3c4af1909cf1dd21cb07`; loaded
+    arguments and installed SHA point to `051d6f4a46c93717811965438530527b0d2a1b97`, without changing
+    the global current release. Its first natural terminal ended at `2026-09-10T14:00:39Z` with the
+    same event/installed SHA and exit `1`: the owner reported `vault_restore_failed` before profile
+    readback. The earlier official avatar effect remains valid and must not be repeated. Restore the
+    shared browser-session attach path without restarting the browser, then require one natural
+    no-profile-mutation terminal, the same official avatar readback, and a following replay-zero.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
