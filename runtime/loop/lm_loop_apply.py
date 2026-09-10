@@ -60,9 +60,9 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "ALPACA_INVESTMENT_PAPER_CREDENTIALS_FILE": str(
                 Path.home() / ".local/share/anicca/credentials.json"
             ),
-            "ALPACA_INVESTMENT_PAPER_STATE_DIR": (str(
-                Path.home() / ".local/state/life-manager/alpaca-investment"
-            ) if mode == "shadow" else os.path.expanduser(entry["state_root"])),
+            "ALPACA_INVESTMENT_PAPER_STATE_DIR": (os.path.expanduser(entry["state_root"])
+                if mode == "paper" else str(
+                    Path.home() / ".local/state/life-manager/alpaca-investment")),
         })
         if mode == "shadow":
             value["EnvironmentVariables"].update({
