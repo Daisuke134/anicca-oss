@@ -17,7 +17,7 @@ const opt = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i
 function die(m) { console.error("record-earn: " + m); process.exit(1); }
 
 // Production follows the registry-owned per-loop root; only tests may use FOUNDER_DIR.
-const DEFAULT_FOUNDER_DIR = path.join(os.homedir(), ".local", "state", "life-manager", "founder-loop-cadence");
+const DEFAULT_FOUNDER_DIR = path.join(os.userInfo().homedir, ".local", "state", "life-manager", "founder-loop-cadence");
 const FOUNDER_DIR = TEST
   ? (process.env.FOUNDER_DIR || DEFAULT_FOUNDER_DIR)
   : (process.env.LIFE_MANAGER_STATE_ROOT || DEFAULT_FOUNDER_DIR);

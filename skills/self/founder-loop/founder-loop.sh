@@ -20,9 +20,10 @@ else
 fi
 [[ "$DIR" = /* ]] || { echo "founder-loop: LIFE_MANAGER_STATE_ROOT must be absolute" >&2; exit 2; }
 if [ "${FOUNDER_TEST:-}" != "1" ]; then
-  CANONICAL="$HOME/.local/state/life-manager/founder-loop-cadence"
+  REAL_HOME=$(python3 -c 'import os,pwd; print(pwd.getpwuid(os.getuid()).pw_dir)') || exit 2
+  CANONICAL="$REAL_HOME/.local/state/life-manager/founder-loop-cadence"
   [ "$DIR" = "$CANONICAL" ] || { echo "founder-loop: non-canonical state root rejected" >&2; exit 2; }
-  bash "$HERE/migrate-legacy-state.sh" "$HOME/.anicca-founder" "$DIR" >/dev/null
+  bash "$HERE/migrate-legacy-state.sh" "$REAL_HOME/.anicca-founder" "$DIR" >/dev/null || exit $?
 fi
 STATE_MD="$DIR/STATE.md"
 # FIND-901: FOUNDER_LEDGER is a TEST-only seam, mirroring record-earn. In prod the goal-check reads the env-INDEPENDENT
