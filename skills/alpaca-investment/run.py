@@ -315,7 +315,10 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         allocator_snapshot["unresolved_intents"] = unresolved
         candidates = build_candidates(allocator_snapshot)
         stage = "allocation_decide"
-        runner = Path(__file__).resolve().parents[2] / "runtime/agent-runner/agent_runner.py"
+        runner = Path(os.environ.get(
+            "LIFE_MANAGER_INVESTMENT_AGENT_RUNNER",
+            str(Path(__file__).resolve().parents[2] / "runtime/agent-runner/agent_runner.py"),
+        )).expanduser()
         workdir = Path(__file__).resolve().parents[2]
         live_positions = mode == "live" and allocator_snapshot.get("positions", 0) > 0
         if live_positions:
