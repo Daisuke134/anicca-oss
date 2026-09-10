@@ -99,6 +99,15 @@ def _private_env_value(name: str) -> str:
     raise work_sync.SourceFailure("calendar_credential_unavailable")
 
 
+def _same_instant(left: object, right: object) -> bool:
+    try:
+        return datetime.fromisoformat(str(left).replace("Z", "+00:00")) == datetime.fromisoformat(
+            str(right).replace("Z", "+00:00")
+        )
+    except ValueError:
+        return False
+
+
 class LancersReplyAdapter:
     def __init__(self, state_path: Path, grounding: Mapping[str, Any] | None = None,
                  candidate_profile: Path | None = None,
@@ -353,7 +362,7 @@ class LancersReplyAdapter:
             if local.hour < 10 or local.hour >= 19 or start < now + timedelta(minutes=30):
                 continue
             if not any(self._event_busy(event, start, end) for event in events):
-                return {"start": start.isoformat(), "end": end.isoformat()}
+                return {"start": str(slot["start"]), "end": str(slot["end"])}
         raise work_sync.SourceFailure("external_booking_no_free_slot")
 
     def _profile_fields(self) -> dict[str, str]:
@@ -394,14 +403,19 @@ class LancersReplyAdapter:
             url, slot, body = payload.get("url"), payload.get("slot"), payload.get("completion_body")
             if not isinstance(url, str) or not isinstance(slot, Mapping) or not isinstance(body, str):
                 raise work_sync.SourceFailure("external_booking_payload_invalid")
-            bookings, _slots = self._booking_snapshot(url)
-            booked = any(str(item.get("slot_start")) == str(slot.get("start"))
-                         and str(item.get("slot_end")) == str(slot.get("end")) for item in bookings)
+            bookings, slots = self._booking_snapshot(url)
+            booked = any(_same_instant(item.get("slot_start"), slot.get("start"))
+                         and _same_instant(item.get("slot_end"), slot.get("end")) for item in bookings)
             if not booked:
-                self._book(url, slot)
+                provider_slot = next((item for item in slots
+                                      if _same_instant(item.get("start"), slot.get("start"))
+                                      and _same_instant(item.get("end"), slot.get("end"))), None)
+                if provider_slot is None:
+                    raise work_sync.SourceFailure("external_booking_slot_unavailable")
+                self._book(url, provider_slot)
                 bookings, _slots = self._booking_snapshot(url)
-                booked = any(str(item.get("slot_start")) == str(slot.get("start"))
-                             and str(item.get("slot_end")) == str(slot.get("end")) for item in bookings)
+                booked = any(_same_instant(item.get("slot_start"), slot.get("start"))
+                             and _same_instant(item.get("slot_end"), slot.get("end")) for item in bookings)
             if not booked or not self._calendar_contains(slot):
                 raise work_sync.SourceFailure("external_booking_readback_unavailable")
             if not self._reply_exists(intent["thread_id"], body):
@@ -444,8 +458,8 @@ class LancersReplyAdapter:
             if not isinstance(url, str) or not isinstance(slot, Mapping) or not isinstance(body, str):
                 return {"authoritative_absent": False}
             bookings, _slots = self._booking_snapshot(url)
-            booked = any(str(item.get("slot_start")) == str(slot.get("start"))
-                         and str(item.get("slot_end")) == str(slot.get("end")) for item in bookings)
+            booked = any(_same_instant(item.get("slot_start"), slot.get("start"))
+                         and _same_instant(item.get("slot_end"), slot.get("end")) for item in bookings)
             calendar = booked and self._calendar_contains(slot)
             message_id = self._reply_exists(intent["thread_id"], body)
             if booked and calendar and message_id:
