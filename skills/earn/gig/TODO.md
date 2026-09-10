@@ -2655,7 +2655,7 @@ from the chat, and two of them contradict what this cursor had previously report
     natural wake proved zero profile/avatar/application effects, substeps (5) and (6) are complete.
     Advance to `APPLY-ACCEPTANCE-ALL-1`; do not reopen profile parity without new official drift.
 
-30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
+30b. [x] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
     another mutation; CrowdWorks must retain today's verified proposal IDs while closing
@@ -2664,6 +2664,48 @@ from the chat, and two of them contradict what this cursor had previously report
     following replay-zero. Mercor remains a separate application-shaped revenue provider and must
     maximize truthful resume fit; Upwork/Freelancer.com remain bounded by their official account and
     spend state. Do not manufacture applications merely to turn a counter nonzero.
+
+    Acceptance progress is now pinned instead of being left in chat. Coconala's installed release
+    `e23681d9` ended natural PASS at `2026-09-10T20:43:49Z`; each of the three latest natural wakes
+    read 80 official postings and classified every one closed or otherwise unsubmittable, with
+    actionable/effect/readback/failed/pending all zero. Telegram receipts `74833` and `74870` were
+    each delivered once. This is the required exact zero-eligible branch, not a manufactured apply.
+
+    Lancers browser ownership remained continuous; no browser, Aqua, loginwindow or Mac restart was
+    used. One stale unresponsive Google OAuth target was closed only after all Lancers business
+    owners were idle, leaving the responsive owned target and persistent profile intact. The next
+    natural wake submitted project `5600212`; its first result was `submission_uncertain`, and the
+    following natural wake reconciled the official proposal exactly once as provider proposal
+    `27913800` at `2026-09-10T21:00:10Z`. Telegram decision/application receipts `74900` and `74901`
+    each have one delivery attempt. The following natural deterministic terminal passed at
+    `2026-09-10T21:09:21Z` and did not resubmit `5600212`. Historical project `5599976` remains a
+    durable quarantined uncertain claim: repeated official proposal-history readback finds no such
+    proposal, so it is neither counted as revenue nor silently cleared. Lancers acceptance remains
+    open only until that exact quarantine is terminally classified and the current
+    `proposal_pipeline_incomplete` diagnostic is carried into the next fixed-order Reply acceptance;
+    it is work-sync output, not an unverified application effect. The quarantine was reconciled
+    before the later mutation and remains replay-safe, so it is not counted as an application or a
+    reason to hold every other eligible project forever. This closes Lancers Apply acceptance.
+
+    CrowdWorks acceptance is complete. The official append-only receipt store retains verified
+    proposal IDs `305338764`, `305342693`, `305346397` and the newer verified application
+    `305351407` for project `13442496`. The latter has one delivered Telegram application receipt
+    `74849`; subsequent natural wakes report no new eligible application/effect. The profile-parity
+    release briefly exposed `account_ensure_failed`, then recovered naturally without a browser
+    restart and ended deterministic PASS at `2026-09-10T21:13:53Z`, with the installed/event release
+    both `869476b4` and the official profile receipt still aligned. The previously named account,
+    profile-navigation and proposal-form failure classes therefore do not remain active blockers.
+
+    Mercor acceptance is complete for its application-shaped boundary. Authenticated official
+    readback verified `Public Sector / Legal / GTM Experts` as submitted with all four steps complete
+    and 100%, then Telegram receipt `74579` was delivered once. Later passes skipped already
+    incomplete/human-interview applications without stopping the queue, observed no action, and the
+    latest pass submitted `Study Domain Expert — Judge Calibration — Sales` with official pending-
+    review readback and Telegram receipt `74936`. The loop keeps resume-fit ranking separate from
+    truthfulness: weak fit lowers priority but is not invented as an eligibility prohibition.
+    Upwork remains officially published/profile-complete but bounded at zero Connects and zero free
+    applications; Freelancer.com remains retired with no repository-owned managed Apply owner. No
+    browser was started to manufacture acceptance for either zero-capacity provider.
 
 31. [x] `CROWDWORKS-REPLY-2` Recheck CrowdWorks Reply next through the same shared kernel. PASS = a
     fresh natural terminal observes every current official buyer event exactly once, with each event
