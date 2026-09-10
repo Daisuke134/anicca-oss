@@ -15,8 +15,8 @@ class CodexSchemaCompatibilityTest(unittest.TestCase):
             command = command_for(
                 "codex", "/opt/homebrew/bin/codex", {},
                 {"model": "gpt-5.6-terra", "effort": "medium"}, args,
-                "Return the requested JSON object.", {}, root / "result.json", 60,
-                None, prompt_via_stdin=True,
+                "Return the requested JSON object.", {}, root / "result.json",
+                prompt_via_stdin=True,
             )
             self.assertNotIn("--output-schema", command)
             self.assertIn("-o", command)
@@ -72,8 +72,6 @@ class CodexSchemaCompatibilityTest(unittest.TestCase):
                 "Process the bounded inbox candidates.",
                 original,
                 result_path,
-                60,
-                None,
                 prompt_via_stdin=True,
             )
 

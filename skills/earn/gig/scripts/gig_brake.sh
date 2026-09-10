@@ -49,7 +49,8 @@
 #   gig_brake.sh alarm           # re-announce a held brake / reap an expired one
 #
 # Test overrides: GIG_OPERATOR_BRAKE_FILE, GIG_BRAKE_LOG, GIG_BRAKE_NOTIFY_CMD,
-#                 GIG_BRAKE_ALARM_MINUTES, GIG_BRAKE_TELEGRAM.
+#                 GIG_BRAKE_ALARM_MINUTES, GIG_BRAKE_TELEGRAM,
+#                 GIG_BRAKE_TELEGRAM_SENDER.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/gig_paths.sh"
@@ -80,10 +81,14 @@ gig_brake_notify() {
     "$GIG_BRAKE_NOTIFY_CMD" "$message" >/dev/null 2>&1 || gig_brake_log "notify-failed: $message"
     return 0
   fi
-  local openclaw_bin="${GIG_BRAKE_OPENCLAW:-/opt/homebrew/bin/openclaw}"
-  if [ -x "$openclaw_bin" ]; then
-    "$openclaw_bin" message send --channel telegram --target "$GIG_BRAKE_TELEGRAM_TARGET" \
-      --message "$message" --json >/dev/null 2>&1 || gig_brake_log "notify-failed: $message"
+  local sender="${GIG_BRAKE_TELEGRAM_SENDER:-$SCRIPT_DIR/../../../_shared/send-telegram.sh}"
+  if [ -x "$sender" ]; then
+    if [ -n "$GIG_BRAKE_TELEGRAM_TARGET" ]; then
+      "$sender" "$message" "$GIG_BRAKE_TELEGRAM_TARGET" >/dev/null 2>&1 \
+        || gig_brake_log "notify-failed: $message"
+    else
+      "$sender" "$message" >/dev/null 2>&1 || gig_brake_log "notify-failed: $message"
+    fi
   else
     gig_brake_log "notify-unavailable: $message"
   fi

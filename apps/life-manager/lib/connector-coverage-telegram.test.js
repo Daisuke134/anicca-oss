@@ -247,7 +247,11 @@ test("clone coverage、不正Calendar URL、Telegram message ID欠落を成功�
   await assert.rejects(deliverConnectorCoverageTelegram({
     tenantId: "dais-local", telegramTarget: "fixture-target", coverage: openCoverage(), newEvents: [],
     calendarCoverageUrl: "https://calendar.google.com/calendar/u/0/r",
-  }, { send: async () => ({ ok: true }) }), /positive message ID/i);
+  }, { send: async () => ({ ok: true }) }), (error) => {
+    assert.match(error.message, /positive message ID/i);
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
 });
 
 test("verified reportは一通だけ送り、targetを返さずopaque delivery receiptにする", async () => {
@@ -305,6 +309,43 @@ test("verified新規予約は結果cardと登録済みpage画像のpositive ID�
     tenant_id: "dais-local",
     chat_id_sha256: "37da4c800042eb1a27e8081315efc08f7d546c5be1e47d2d026be17417a090b3",
     coverage_snapshot_id: input.coverage.coverage_snapshot_id,
+  });
+});
+
+test("text送信後のphoto不確定は通常失敗として再送せずreconciliationへ渡す", async () => {
+  const input = await verifiedNewEventReportInput();
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", ...input,
+  }, {
+    send: async () => ({ messageId: "321" }),
+    sendPhoto: async () => ({ ok: false, delivery_unknown: true }),
+  }), (error) => {
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
+});
+
+test("画像証拠とobservedAtはprovider送信より前に検証する", async () => {
+  const input = await verifiedNewEventReportInput();
+  let sends = 0;
+  const dependencies = { send: async () => { sends += 1; return { messageId: "321" }; } };
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", ...input,
+    registrationEvidence: { ...input.registrationEvidence, artifact_sha256: "0".repeat(64) },
+  }, dependencies), /invalid/i);
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", ...input,
+  }, { ...dependencies, observedAt: () => "not-an-instant" }), /invalid/i);
+  assert.equal(sends, 0);
+});
+
+test("注入senderの例外も送信後不確定としてquarantineへ渡す", async () => {
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", coverage: openCoverage(), newEvents: [],
+    calendarCoverageUrl: "https://calendar.google.com/calendar/u/0/r",
+  }, { send: async () => { throw new Error("adapter timeout"); } }), (error) => {
+    assert.equal(error.unknownEffect, true);
+    return true;
   });
 });
 

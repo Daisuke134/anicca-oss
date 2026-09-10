@@ -7,6 +7,7 @@ const {
   selectManagedAccount,
   hasCompletedAction,
 } = require("../lib/personalized-action");
+const { sendMessage } = require("../lib/telegram");
 
 const PROJECT = "f9c524cb-ba4a-43bb-9639-ff736afd9ec1";
 const SERVICE = "ca978c74-639a-4fa1-af22-9cdd53c3f615";
@@ -228,19 +229,16 @@ async function main() {
       return { provider_id: id };
     },
     sendTelegramReport: async ({ honestFailure }) => {
-      const output = command("openclaw", [
-        "message", "send",
-        "--channel", "telegram",
-        "--target", user.telegram_chat_id,
-        "--message", honestFailure
+      const sent = await sendMessage(
+        variables.LM_TELEGRAM_BOT_TOKEN,
+        user.telegram_chat_id,
+        honestFailure
           ? "📨 予定の準備メールは送れませんでした。カレンダーに確認枠を入れ、失敗を記録しました。"
           : "📨 次の予定に向けた準備メモをメールで送り、カレンダーにも確認枠を入れておきました。",
-        "--json",
-      ]);
-      const matches = [...output.matchAll(/"messageId"\s*:\s*"([^"]+)"/g)];
-      const id = matches.at(-1)?.[1];
+      );
+      const id = sent?.ok ? sent.result?.message_id : null;
       if (!id) throw new Error("telegram_provider_receipt_missing");
-      return { provider_id: id };
+      return { provider_id: String(id) };
     },
   });
   process.stdout.write(`${JSON.stringify(receipt)}\n`);

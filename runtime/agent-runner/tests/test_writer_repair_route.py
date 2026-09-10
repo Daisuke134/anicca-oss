@@ -20,7 +20,7 @@ class WriterRepairRouteTest(unittest.TestCase):
             command = command_for(
                 "codex", "codex", {},
                 {"provider": "codex", "model": "gpt-5.6-terra", "effort": "medium"},
-                args, "repair", {}, root / "result.json", 120, None,
+                args, "repair", {}, root / "result.json",
                 prompt_via_stdin=True,
             )
             self.assertNotIn("--ephemeral", command)

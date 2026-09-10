@@ -21,9 +21,9 @@ and do not add any consumer whose question reduces to "is this output good enoug
 NO CONSUMER SHIPS IN THIS SLICE. This file is the primitive only; the first real
 consumer must name which of the three classes above it belongs to, in its own review.
 
-Send reuses the EXACT production Telegram path this repo already runs daily
-(telegram_outbox.TelegramOutbox + telegram_report.OpenClawTelegramTransport, i.e.
-``openclaw message send --channel telegram``) -- no new bot token, no new send code.
+Send reuses the production Telegram path this repo already runs daily
+(telegram_outbox.TelegramOutbox + the repository-owned shared Bot API client) --
+no new bot token and no second send implementation.
 
 Reading is the harder half. Three read paths were tried by earlier work in this repo and
 each was a real wall, not a naming problem (see telegram_web_read.py's docstring):

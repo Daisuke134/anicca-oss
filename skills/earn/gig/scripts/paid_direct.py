@@ -20,7 +20,7 @@ import project_ledger  # noqa: E402
 import project_janitor  # noqa: E402
 from private_data_boundary import redact_prompt_text, restricted_attachment_paths  # noqa: E402
 from telegram_outbox import TelegramOutbox, dispatch_one  # noqa: E402
-from telegram_report import OpenClawTelegramTransport  # noqa: E402
+from telegram_report import GigTelegramTransport  # noqa: E402
 from gig_paths import BROWSER_DIR, REPO_ROOT, RUNNER_DIR  # noqa: E402
 from gig_disk_guard import disk_headroom_ok  # noqa: E402
 
@@ -5333,7 +5333,7 @@ def _report_paid_wake(args, result: dict[str, Any], run_id: str) -> dict[str, An
         return {"status": "delivery_unknown", "message_id": row.get("message_id")}
     delivered = dispatch_one(
         outbox, owner=f"gig-paid-direct:{run_id}", now=lambda: int(time.time()),
-        transport=OpenClawTelegramTransport(target=args.telegram_target, executable=args.openclaw,
+        transport=GigTelegramTransport(target=args.telegram_target,
                                             receipt_dir=args.telegram_receipt_dir),
         report_id=int(row["report_id"]),
     )
@@ -5766,7 +5766,6 @@ def _parser():
     parser.add_argument("--telegram-database", type=Path, default=DEFAULT_TELEGRAM_DATABASE)
     parser.add_argument("--telegram-receipt-dir", type=Path, default=DEFAULT_TELEGRAM_RECEIPTS)
     parser.add_argument("--telegram-target", default=os.environ.get("GIG_REPORT_CHAT", ""))
-    parser.add_argument("--openclaw", type=Path, default=Path("/opt/homebrew/bin/openclaw"))
     parser.add_argument("--operator-brake", type=Path,
                         default=Path(os.environ.get("GIG_OPERATOR_BRAKE_FILE", DEFAULT_BRAKE)))
     parser.add_argument("--today", default=date.today().isoformat()); parser.add_argument("--effect-item", type=Path); parser.add_argument("--write-item", type=Path); parser.add_argument("--decision-item", type=Path); return parser

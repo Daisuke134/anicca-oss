@@ -23,7 +23,13 @@ from urllib.parse import quote, urlsplit
 SCRIPTS = Path(__file__).resolve().parent
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
+SHARED_MARKETPLACE_SCRIPTS = (
+    Path(__file__).resolve().parents[3] / "_shared" / "marketplace-core" / "scripts"
+)
+if str(SHARED_MARKETPLACE_SCRIPTS) not in sys.path:
+    sys.path.append(str(SHARED_MARKETPLACE_SCRIPTS))
 from telegram_outbox import TelegramOutbox, dispatch_one  # noqa: E402
+from telegram_delivery import send_via_shared_client  # noqa: E402
 from owner_notify import send_email_if_configured  # noqa: E402
 from gig_paths import (  # noqa: E402
     BROWSER_DIR, GIG_DIR, HOST_STATE_DIR, LISTING_CATALOG, RUNNER_DIR, STATE_DIR,
@@ -485,22 +491,10 @@ def _report_identity(row: dict, message: str) -> tuple[str, str, bool]:
 def _send_telegram(args: argparse.Namespace, message: str, event_key: str) -> str:
     message_id = send_email_if_configured(message, event_key=event_key)
     if message_id is None:
-        completed = subprocess.run(
-            [str(args.openclaw), "message", "send", "--channel", "telegram",
-             "--target", str(args.telegram_target), "--message", message, "--json"],
-            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=180, check=False,
-        )
-        if completed.returncode != 0:
-            raise RuntimeError(f"Telegram transport failed rc={completed.returncode}")
-        result = json.loads(completed.stdout)
-        payload = result.get("payload") if isinstance(result, dict) else None
-        if isinstance(payload, dict) and payload.get("ok") is False:
-            raise RuntimeError("Telegram provider rejected message")
-        message_id = result.get("messageId") if isinstance(result, dict) else None
-        if not message_id and isinstance(payload, dict):
-            message_id = payload.get("messageId")
+        result = send_via_shared_client(message, chat_id=str(args.telegram_target))
+        message_id = result.provider_id
         if not message_id:
-            raise RuntimeError("Telegram ACK has no message ID")
+            raise RuntimeError(f"Telegram delivery unacknowledged: {result.error}")
     receipt_path = Path(args.telegram_receipt_dir) / (
         hashlib.sha256(event_key.encode()).hexdigest() + ".json"
     )
@@ -8410,7 +8404,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--telegram-database", type=Path, default=DEFAULT_TELEGRAM_DATABASE)
     parser.add_argument("--telegram-receipt-dir", type=Path, default=DEFAULT_TELEGRAM_RECEIPTS)
     parser.add_argument("--telegram-target", default=os.environ.get("GIG_REPORT_CHAT", ""))
-    parser.add_argument("--openclaw", type=Path, default=Path("/opt/homebrew/bin/openclaw"))
     return parser
 
 

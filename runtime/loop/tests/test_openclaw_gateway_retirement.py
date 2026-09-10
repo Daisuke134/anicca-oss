@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -36,15 +39,78 @@ class OpenClawGatewayRetirementTests(unittest.TestCase):
                 self.assertNotIn("openclaw_json", source)
                 self.assertNotIn("openclaw status", source)
 
-    def test_gateway_cannot_retire_while_protected_gig_dependencies_remain(self):
+    def test_affiliate_transitive_entrypoint_uses_shared_telegram(self):
+        source = (ROOT / "skills/affiliate/scripts/local_loop.py").read_text().lower()
+        self.assertNotIn("openclaw message send", source)
+        self.assertNotIn("shutil.which(\"openclaw\")", source)
+        self.assertNotIn("8547730585", source)
+        self.assertIn("send_via_shared_client", source)
+
+    def test_clone_has_no_executable_openclaw_transport_or_provider(self):
+        shared_transports = {
+            "skills/earn/gig/scripts/freelancer_bid_watch.py": "send_via_shared_client",
+            "skills/earn/gig/scripts/paid_direct.py": "GigTelegramTransport",
+            "apps/life-manager/scripts/personalized-action-e2e.js": "sendMessage",
+            "apps/life-manager/lib/outbound-guardian.js": "./telegram.js",
+            "apps/life-manager/lib/connector-ticket-telegram.js": "./telegram.js",
+            "apps/life-manager/lib/connector-coverage-telegram.js": "notifyTelegramReport",
+        }
+        forbidden = (
+            "openclaw message send", 'spawn("openclaw"', 'command("openclaw"',
+            '["openclaw", "message"', 'provider == "openclaw"',
+        )
+        for relative, expected in shared_transports.items():
+            source = (ROOT / relative).read_text()
+            with self.subTest(path=relative):
+                self.assertIn(expected, source)
+                for needle in forbidden:
+                    self.assertNotIn(needle, source.lower())
+
+        runner = (ROOT / "runtime/agent-runner/agent_runner.py").read_text().lower()
+        config = json.loads((ROOT / "runtime/agent-runner/config.json").read_text())
+        self.assertNotIn("openclaw", runner)
+        self.assertNotIn("openclaw", config["providers"])
+        self.assertFalse((ROOT / "apps/life-manager/skill-life-manager/openclaw").exists())
+        self.assertFalse((ROOT / "uninstall.sh").exists())
+
+    def test_gateway_retires_after_protected_gig_dependencies_are_removed(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         storefront = (ROOT / "skills/earn/gig/scripts/storefront_direct.py").read_text()
         brake = (ROOT / "skills/earn/gig/scripts/gig_brake.sh").read_text()
-        protected_dependency_exists = (
-            "args.openclaw" in storefront or "GIG_BRAKE_OPENCLAW" in brake
-        )
-        if protected_dependency_exists:
-            self.assertNotIn("ai.openclaw.gateway", registry["retired_labels"])
+        self.assertNotIn("args.openclaw", storefront)
+        self.assertNotIn("GIG_BRAKE_OPENCLAW", brake)
+        self.assertNotIn("openclaw message send", brake)
+        self.assertIn("send_via_shared_client", storefront)
+        self.assertIn("_shared/send-telegram.sh", brake)
+        self.assertIn("ai.openclaw.gateway", registry["retired_labels"])
+
+    def test_gig_brake_sends_through_configured_shared_sender(self):
+        brake = ROOT / "skills/earn/gig/scripts/gig_brake.sh"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = root / "telegram-argv.txt"
+            sender = root / "send-telegram.sh"
+            sender.write_text(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$GIG_BRAKE_TEST_CAPTURE\"\n"
+                "printf 'TELEGRAM_SENT=true MSGID=123\\n'\n"
+            )
+            sender.chmod(0o700)
+            env = {
+                **os.environ,
+                "GIG_OPERATOR_BRAKE_FILE": str(root / "operator.brake"),
+                "GIG_BRAKE_LOG": str(root / "brake.log"),
+                "GIG_BRAKE_TELEGRAM_SENDER": str(sender),
+                "GIG_BRAKE_TELEGRAM": "42",
+                "GIG_BRAKE_TEST_CAPTURE": str(capture),
+            }
+            completed = subprocess.run(
+                [str(brake), "raise", "--owner", "test", "--reason", "transport", "--ttl-minutes", "1"],
+                env=env, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            sent = capture.read_text().splitlines()
+            self.assertIn("GIG BRAKE RAISED", sent[0])
+            self.assertEqual(sent[-1], "42")
 
     def test_gig_outcome_watch_uses_canonical_state_and_shared_telegram(self):
         source = (ROOT / "tools/gig-outcome-watch/notify.sh").read_text()

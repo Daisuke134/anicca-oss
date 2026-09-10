@@ -1,13 +1,12 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const test = require("node:test");
 
 const {
   buildConnectorTicketCaption,
   deliverConnectorTicket,
-  sendOpenClawMedia,
+  sendTelegramMedia,
 } = require("./connector-ticket-telegram.js");
 
 const ARTIFACT_REF = `object://sha256/${"5".repeat(64)}`;
@@ -118,18 +117,50 @@ test("message ID欠落と壊れたPNGは成功にしない", async () => {
   }), /PNG/i);
 });
 
-test("OpenClaw media transportは0600 temporary PNGを使い送信後に削除する", async () => {
-  let temporary;
-  const result = await sendOpenClawMedia("123456789", png(), "caption", {
-    spawnSync(command, args) {
-      assert.equal(command, "openclaw");
-      const mediaIndex = args.indexOf("--media");
-      temporary = args[mediaIndex + 1];
-      assert.equal(fs.statSync(temporary).mode & 0o777, 0o600);
-      assert.deepEqual(fs.readFileSync(temporary), png());
-      return { status: 0, stdout: JSON.stringify({ messageId: "8008" }), stderr: "" };
+test("ticket media transportはTelegram sendPhotoを使いpositive message IDだけを返す", async () => {
+  const result = await sendTelegramMedia("123456789", png(), "caption", {
+    telegramToken: "fixture-token",
+    async sendPhoto(token, target, bytes, caption) {
+      assert.equal(token, "fixture-token");
+      assert.equal(target, "123456789");
+      assert.deepEqual(bytes, png());
+      assert.equal(caption, "caption");
+      return { ok: true, result: { message_id: 8008 } };
     },
   });
   assert.deepEqual(result, { messageId: "8008" });
-  assert.equal(fs.existsSync(temporary), false);
+  await assert.rejects(() => sendTelegramMedia("123456789", png(), "caption", {
+    telegramToken: "fixture-token",
+    async sendPhoto() { return { ok: true, result: { message_id: 0 } }; },
+  }), (error) => {
+    assert.equal(error.message, "Telegram media delivery failed");
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
+});
+
+test("ticket observedAtはprovider送信より前に検証する", async () => {
+  let sent = false;
+  await assert.rejects(deliverConnectorTicket(input(), {
+    observedAt: () => "not-an-instant",
+    readArtifact: async () => png(),
+    sendMedia: async () => { sent = true; return { messageId: "8008" }; },
+  }), /observed time invalid/);
+  assert.equal(sent, false);
+});
+
+test("ticket URL検証は送信前、注入sender例外は送信後不確定にする", async () => {
+  let sent = false;
+  await assert.rejects(deliverConnectorTicket({ ...input(), eventUrl: "https://example.com/not-luma" }, {
+    readArtifact: async () => png(),
+    sendMedia: async () => { sent = true; return { messageId: "8008" }; },
+  }), /event URL invalid/);
+  assert.equal(sent, false);
+  await assert.rejects(deliverConnectorTicket(input(), {
+    readArtifact: async () => png(),
+    sendMedia: async () => { throw new Error("adapter timeout"); },
+  }), (error) => {
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
 });
