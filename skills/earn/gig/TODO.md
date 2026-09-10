@@ -371,9 +371,11 @@ Fresh cross-owner handoff audit:
 
 Current live Apply acceptance audit:
 
-- **Coconala:** five-minute cadence and one natural no-inventory PASS are accepted below; a later
-  installed release is currently running. The first eligible proposal plus official history
-  readback and following replay-zero remain the gate.
+- **Coconala:** five-minute cadence and consecutive natural no-inventory PASS terminals are
+  accepted. Later installed release `f0d178849d2c2acaa1df9d43dbf70e29f5954e19` ended natural PASS
+  at `2026-09-10T08:29:35Z`; it officially observed 80 listings, all unavailable, with
+  actionable/effect/readback/failed/pending `0` and Telegram receipt `73565`. The first eligible
+  proposal plus official history readback and following replay-zero remain the gate.
 - **Lancers:** the earlier dead-CDP diagnosis is stale. Official CDP `9227` responds and installed
   Apply release `17047aaeebfc3afc16d85cfed53401b4ca5d55f4` ended natural PASS at
   `2026-09-10T08:22:46Z`. Business acceptance still fails: current output is
