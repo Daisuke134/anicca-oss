@@ -190,7 +190,7 @@ raw initData、OAuth token、電話、住所、座標、provider payloadを公�
 | CLOUD-02 | 出発・到着・通知時刻の整合性 | 同じ採用経路でCalendar/Telegram/電話を計算。1日3移動、出発順の逆転、予定変更/取消、同時刻の別event、replayを検証。出発T-5の予定と実送信時刻を照合。 |
 | CLOUD-03 | QR/リンクからの初回設定 | `/life-manager`と`/lm`を同じ開始導線へ。iPhone/Android・Instagram/LINE内からTelegram/Google consentを経てReadyへ戻れる。中断再開、電話skip、重複actorなし。 |
 | CLOUD-04 | Cloud単独稼働とtenant分離 | local credential/localhost/Macを使わない新規tenantで予定取得・通知。別tenantの設定/予定/送信先/課金にアクセス不可。restart後も設定とreceipt保持。 |
-| CLOUD-05 | 日常の設定・停止・復旧 | 通知ON/OFF、住所変更、明示位置共有、Calendar再接続、電話opt-in/skip、問い合わせ・接続解除/削除案内。認証切れ/route障害/送信失敗をsilent failureや連投にしない。 |
+| CLOUD-05 | 日常の設定・停止・復旧 | 通知ON/OFF、住所変更、明示位置共有、Calendar再接続、電話opt-in/skip、問い合わせ・接続解除/削除案内。Calendar同意リンクは短命のまま維持し、期限切れ時はTelegramの`/start`から新しいリンクを再発行できると案内する。Life Manager側stateはproviderの10分リンクより先に失効させない。認証切れ/route障害/送信失敗をsilent failureや連投にしない。 |
 | CLOUD-06 | 友達の実機E2Eと少人数beta | Dais以外が自分のCalendarで設定完了。実経路・移動block・Telegram ID、任意のcallを照合。複数移動とreplay追加effect 0。iPhone/Android、3日利用を記録。 |
 | CLOUD-07 | 既存Stripe/trialの最終確認 | trial一度だけ、期限境界、正式なpayment eventと利用権、失敗・重複・更新・解約を確認。追加の決済方式は作らない。実請求は別途許可。 |
 | CLOUD-08 | 公開ページ・README・説明を実物へ統一 | QRとタップリンク、実通知例、対応範囲、既存料金、privacy/support導線が一致。Cloud利用可能とself-host/将来機能を区別して一般公開。 |
