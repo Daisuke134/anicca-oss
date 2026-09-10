@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import sys
 from typing import Any, Mapping
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 HERE = Path(__file__).resolve().parent
@@ -60,7 +61,16 @@ class CrowdWorksReplyAdapter:
         self.page = self.browser.contexts[0].new_page()
         self.page.set_default_timeout(10_000)
 
-    def _inbox_page(self, number: int) -> Mapping[str, Any]:
+    def _reset_page(self) -> None:
+        if self.page is not None:
+            try:
+                self.page.close()
+            except Exception:
+                pass
+        self.page = self.browser.contexts[0].new_page()
+        self.page.set_default_timeout(10_000)
+
+    def _inbox_page_once(self, number: int) -> Mapping[str, Any]:
         self._open()
         with self.page.expect_response(
             lambda response: "/api/v3/message/list?" in response.url,
@@ -80,6 +90,13 @@ class CrowdWorksReplyAdapter:
         if not isinstance(data, Mapping):
             raise RuntimeError("crowdworks_inbox_unavailable")
         return data
+
+    def _inbox_page(self, number: int) -> Mapping[str, Any]:
+        try:
+            return self._inbox_page_once(number)
+        except PlaywrightTimeoutError:
+            self._reset_page()
+            return self._inbox_page_once(number)
 
     def observe_threads(self) -> list[dict[str, str]]:
         self.rows = {}
@@ -120,8 +137,12 @@ class CrowdWorksReplyAdapter:
         row = self.rows.get(thread_id)
         if row is None:
             raise RuntimeError("crowdworks_thread_unavailable")
-        self.page.goto(f"https://crowdworks.jp/messages/{row['id']}",
-                       wait_until="domcontentloaded", timeout=20_000)
+        url = f"https://crowdworks.jp/messages/{row['id']}"
+        try:
+            self.page.goto(url, wait_until="domcontentloaded", timeout=20_000)
+        except PlaywrightTimeoutError:
+            self._reset_page()
+            self.page.goto(url, wait_until="domcontentloaded", timeout=20_000)
         self.page.wait_for_timeout(1500)
         if "/proposals/" not in self.page.url or self.page.locator(
             'textarea[name="message[body]"]'
@@ -236,20 +257,20 @@ class CrowdWorksReplyAdapter:
 
     def readback(self, intent: dict[str, Any]) -> dict[str, Any]:
         if intent.get("action") == "accept_contract":
-            self.observe_threads()
-            row = self.rows.get(intent["thread_id"])
-            if row is None:
+            self._detail(intent["thread_id"])
+            current = self._contract_action(intent["thread_id"])
+            if current is not None and current.get("payload") == intent.get("payload"):
                 return {"authoritative_absent": True}
-            status = str(row.get("proposal_status") or "").strip()
-            if status in {"contracted", "contract"}:
-                return {"verified": True,
-                        "provider_receipt_id": f"contract:{intent['thread_id']}:{row['id']}",
-                        "observed_at": _now()}
-            if status == "proposed":
-                self._detail(intent["thread_id"])
-                current = self._contract_action(intent["thread_id"])
-                if current is not None and current.get("payload") == intent.get("payload"):
-                    return {"authoritative_absent": True}
+            links = self.page.locator('a[href^="/contracts/"]')
+            visible = [links.nth(index) for index in range(links.count())
+                       if links.nth(index).is_visible()]
+            if len(visible) == 1:
+                href = str(visible[0].get_attribute("href") or "")
+                match = re.fullmatch(r"/contracts/(\d+)", href)
+                if match is not None:
+                    return {"verified": True,
+                            "provider_receipt_id": f"contract:{match.group(1)}",
+                            "observed_at": _now()}
             return {}
         body = intent.get("payload", {}).get("body")
         if not isinstance(body, str):

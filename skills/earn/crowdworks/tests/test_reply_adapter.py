@@ -46,12 +46,14 @@ def test_contract_acceptance_stays_in_provider_adapter():
 
 
 class _Locator:
-    def __init__(self, *, count=1, visible=True, disabled=False, action=None, terms=None):
+    def __init__(self, *, count=1, visible=True, disabled=False, action=None, terms=None,
+                 children=None):
         self._count = count
         self._visible = visible
         self._disabled = disabled
         self._action = action
         self._terms = terms
+        self._children = children or []
         self.clicked = 0
         self.checked = 0
 
@@ -60,6 +62,7 @@ class _Locator:
     def is_disabled(self): return self._disabled
     def get_attribute(self, _name): return self._action
     def locator(self, _selector): return self
+    def nth(self, index): return self._children[index]
     def evaluate_all(self, _script): return dict(self._terms or {})
     def click(self): self.clicked += 1
     def check(self): self.checked += 1
@@ -89,6 +92,7 @@ def _contract_adapter(*, status="proposed", amount="12円", trigger_count=1):
         'form[action^="/proposal_conditions/"][action$="/agree"]': form,
         'input[name="check-terms"]': checkbox,
         'input[value="同意して契約する"]': submit,
+        'a[href^="/contracts/"]': _Locator(count=0),
     })
     adapter._detail = lambda _thread_id: []
     return adapter, trigger, checkbox, submit
@@ -138,13 +142,20 @@ def test_contract_mutation_checks_terms_and_submits_once():
     assert submit.clicked == 1
 
 
-def test_contract_readback_requires_official_contracted_status():
+def test_contract_readback_requires_one_visible_official_contract_link():
     adapter, _, _, _ = _contract_adapter(status="contracted")
-    adapter.observe_threads = lambda: []
+    adapter.page.mapping['a[href^="/contracts/"]'] = _Locator(
+        count=1, children=[_Locator(action="/contracts/987654")]
+    )
+    adapter.page.mapping[
+        'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+    ] = _Locator(count=0)
     receipt = adapter.readback({"action": "accept_contract", "thread_id": "thread-1"})
     assert receipt["verified"] is True
-    assert receipt["provider_receipt_id"] == "contract:thread-1:message-1"
+    assert receipt["provider_receipt_id"] == "contract:987654"
 
     uncertain, _, _, _ = _contract_adapter(status="unknown")
-    uncertain.observe_threads = lambda: []
+    uncertain.page.mapping[
+        'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+    ] = _Locator(count=0)
     assert uncertain.readback({"action": "accept_contract", "thread_id": "thread-1"}) == {}
