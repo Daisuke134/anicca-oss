@@ -918,7 +918,7 @@
     },
     "hf-gig-apply-direct": {
       "cadence": {
-        "start_interval_seconds": 1800
+        "start_interval_seconds": 300
       },
       "cleanup": {
         "max_age_days": 14,
