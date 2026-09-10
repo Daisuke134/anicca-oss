@@ -2628,8 +2628,17 @@ from the chat, and two of them contradict what this cursor had previously report
     that official star representation into the same exact level ID instead of weakening the public
     assertion. The full CrowdWorks suite passes `52/52`. Sparse immutable release
     `20260911T051854-869476b4-cw-profile` is installed only on the Apply owner with receipt
-    `5c541e14f31e68734f9cbf3a`; its natural terminal and following replay-zero remain the active
-    acceptance edge.
+    `5c541e14f31e68734f9cbf3a`. Its first natural terminal passed at
+    `2026-09-10T20:29:01Z` with matching installed/event SHA. The official profile receipt records
+    `changed_fields=[]`, profile/avatar effects `0/0`, ten job categories and seven skills; the exact
+    public skill hash is `0a0479ad...`. An independent official public observe then returned the same
+    avatar, occupation, detail occupation, biography, rate, availability, ten-category and seven-skill
+    hashes. The following natural terminal passed at `2026-09-10T20:39:05Z`, retained the same receipt
+    with profile/avatar effects `0/0`, ended `profile_complete_no_eligible_open_job`, and made
+    application effect `0`. CrowdWorks substep (2) is therefore accepted. Continue with fixed substep
+    (4): retain and officially read Mercor's factual candidate profile, retain Upwork's provider-
+    compliant profile and its zero-Connects blocker, then defer Freelancer.com projection until its
+    Apply owner is repository-owned.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
