@@ -9,6 +9,7 @@ import os
 import tempfile
 import time
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from allocator import build_candidates
@@ -20,6 +21,7 @@ from risk_policy import evaluate_entry
 
 
 CANARY_REF = "L09_LOCAL_CANARY_V1"
+CLOUD_CANARY_REF = "L15_CLOUD_CANARY_V1"
 ORDER = {"asset_class": "crypto", "notional_usd": "2.00", "side": "buy",
          "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
 DECISION = {"candidate_ref": "crypto://BTC/USDC", "canary_ref": CANARY_REF,
@@ -27,16 +29,24 @@ DECISION = {"candidate_ref": "crypto://BTC/USDC", "canary_ref": CANARY_REF,
             "reason": "最小実注文で一意注文・約定・照合経路を検証する。"}
 
 
-def _paths() -> tuple[Path, Path, Path]:
+def _paths() -> tuple[Path, Path, Path, str]:
+    deployment = os.environ.get("LIFE_MANAGER_INVESTMENT_DEPLOYMENT")
     if os.environ.get("LIFE_MANAGER_INVESTMENT_MODE") != "live" \
-            or os.environ.get("LIFE_MANAGER_INVESTMENT_DEPLOYMENT") != "local":
+            or deployment not in {"local", "cloud"}:
         raise ValueError("live_canary_context_invalid")
     credentials = os.environ.get("ALPACA_INVESTMENT_LIVE_CREDENTIALS_FILE")
     state = os.environ.get("ALPACA_INVESTMENT_LIVE_STATE_DIR")
     cli = os.environ.get("ALPACA_CLI", "~/.local/bin/alpaca")
     if not credentials or not state:
         raise ValueError("live_canary_context_invalid")
-    return Path(credentials).expanduser(), Path(state).expanduser(), Path(cli).expanduser()
+    return (Path(credentials).expanduser(), Path(state).expanduser(),
+            Path(cli).expanduser(), deployment)
+
+
+def _decision(deployment: str) -> dict:
+    if deployment == "local":
+        return DECISION
+    return {**DECISION, "canary_ref": CLOUD_CANARY_REF, "deployment": deployment}
 
 
 def _gate(snapshot: dict, state: Path) -> None:
@@ -76,8 +86,27 @@ def _write_result(path: Path, value: dict) -> None:
             pass
 
 
-def _output(sealed: dict[str, str], result: dict, submitted: bool) -> int:
-    value = {"canary_ref": CANARY_REF, "client_order_id": sealed["client_order_id"],
+def _write_cloud_ownership(state: Path, sealed: dict[str, str], result: dict | None = None) -> None:
+    marker = {"entry_client_order_id": sealed["client_order_id"],
+              "entry_effect_id": sealed["effect_id"], "entry_filled_qty": "0",
+              "status": "entry_pending", "symbol": "BTCUSD"}
+    if result and result.get("status") == "verified":
+        try:
+            filled = Decimal(str(result["order"]["filled_qty"]))
+            owned = Decimal(str(result["position"]["qty"]))
+            if (result["position"].get("symbol") != "BTCUSD" or not filled.is_finite()
+                    or not owned.is_finite() or filled <= 0 or owned <= 0 or owned > filled):
+                raise ValueError
+        except (InvalidOperation, KeyError, TypeError, ValueError) as error:
+            raise ValueError("live_canary_ownership_invalid") from error
+        marker.update({"entry_filled_qty": str(filled), "owned_qty": str(owned),
+                       "status": "open"})
+    _write_result(state / "live-owned-position.json", marker)
+
+
+def _output(sealed: dict[str, str], result: dict, submitted: bool, deployment: str) -> int:
+    value = {"canary_ref": CLOUD_CANARY_REF if deployment == "cloud" else CANARY_REF,
+             "deployment": deployment, "client_order_id": sealed["client_order_id"],
              "effect_id": sealed["effect_id"],
              "observed_at": datetime.now(timezone.utc).isoformat(),
              "status": result["status"], "submitted_this_run": submitted,
@@ -87,9 +116,9 @@ def _output(sealed: dict[str, str], result: dict, submitted: bool) -> int:
 
 
 def main() -> int:
-    credentials, state, cli = _paths()
+    credentials, state, cli, deployment = _paths()
     ledger = state / "receipts.jsonl"
-    sealed = seal(ledger, DECISION, ORDER)
+    sealed = seal(ledger, _decision(deployment), ORDER)
     existing = read_live_canary(
         credentials_path=credentials, cli_path=cli, client_order_id=sealed["client_order_id"])
     durable = effect_state(ledger, sealed["effect_id"])
@@ -97,12 +126,14 @@ def main() -> int:
         outcome = ("live_canary_verified" if existing["status"] == "verified"
                    else "live_canary_terminal_failure")
         record_terminal_outcome(ledger, sealed, existing, outcome)
+        if deployment == "cloud" and existing["status"] == "verified":
+            _write_cloud_ownership(state, sealed, existing)
         _write_result(state / "live-canary.json", existing)
-        return _output(sealed, existing, False)
+        return _output(sealed, existing, False, deployment)
     if durable == "outcome":
         raise ValueError("live_canary_outcome_readback_invalid")
     if durable == "started":
-        return _output(sealed, existing, False)
+        return _output(sealed, existing, False, deployment)
 
     snapshot = read_allocator_snapshot(
         credentials_path=credentials, cli_path=cli, risk_day_path=state / "risk-day.json")
@@ -115,6 +146,8 @@ def main() -> int:
                 raise ValueError("live_canary_control_rejected")
             if mark_started(ledger, sealed):
                 submitted = True
+                if deployment == "cloud":
+                    _write_cloud_ownership(state, sealed)
                 submit_live_canary(credentials_path=credentials, cli_path=cli,
                                    client_order_id=sealed["client_order_id"], order=ORDER)
     result = existing
@@ -128,8 +161,10 @@ def main() -> int:
         outcome = ("live_canary_verified" if result["status"] == "verified"
                    else "live_canary_terminal_failure")
         record_terminal_outcome(ledger, sealed, result, outcome)
+        if deployment == "cloud" and result["status"] == "verified":
+            _write_cloud_ownership(state, sealed, result)
         _write_result(state / "live-canary.json", result)
-    return _output(sealed, result, submitted)
+    return _output(sealed, result, submitted, deployment)
 
 
 if __name__ == "__main__":

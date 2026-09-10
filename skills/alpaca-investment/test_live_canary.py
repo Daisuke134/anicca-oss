@@ -26,10 +26,10 @@ def snapshot():
 
 
 class LiveCanaryTest(unittest.TestCase):
-    def env(self, root):
+    def env(self, root, deployment="local"):
         return patch.dict(os.environ, {
             "LIFE_MANAGER_INVESTMENT_MODE": "live",
-            "LIFE_MANAGER_INVESTMENT_DEPLOYMENT": "local",
+            "LIFE_MANAGER_INVESTMENT_DEPLOYMENT": deployment,
             "ALPACA_INVESTMENT_LIVE_CREDENTIALS_FILE": str(root / "credentials.json"),
             "ALPACA_INVESTMENT_LIVE_STATE_DIR": str(root / "state"),
             "ALPACA_CLI": str(root / "alpaca"),
@@ -102,6 +102,48 @@ class LiveCanaryTest(unittest.TestCase):
             for thread in threads: thread.start()
             for thread in threads: thread.join()
             self.assertEqual(sorted(results), [False, True])
+
+    def test_cloud_canary_has_distinct_identity_and_replays_without_a_second_submit(self):
+        verified = {"status": "verified", "verified": True,
+                    "order": {"id": "cloud-one", "filled_qty": "0.00002"},
+                    "position": {"symbol": "BTCUSD", "qty": "0.00001995"}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = effect_store.seal(root / "local.jsonl", live_canary.DECISION, live_canary.ORDER)
+            first = self.common([{"status": "absent", "verified": False}, verified], None)
+            with self.env(root, "cloud"), first[0], first[1], first[2], first[3], \
+                    first[4] as submit, first[5]:
+                self.assertEqual(live_canary.main(), 0)
+            self.assertEqual(submit.call_count, 1)
+            rows = [json.loads(line) for line in
+                    (root / "state/receipts.jsonl").read_text().splitlines()]
+            started = next(row for row in rows if row.get("status") == "started")
+            decision = next(row for row in rows if row.get("decision_id") == started["decision_id"]
+                            and row.get("receipt_type") == "decision")
+            self.assertEqual(decision["decision"]["canary_ref"], "L15_CLOUD_CANARY_V1")
+            self.assertNotEqual(started["client_order_id"], local["client_order_id"])
+            ownership = json.loads((root / "state/live-owned-position.json").read_text())
+            self.assertEqual(ownership, {
+                "entry_client_order_id": started["client_order_id"],
+                "entry_effect_id": started["effect_id"], "entry_filled_qty": "0.00002",
+                "owned_qty": "0.00001995", "status": "open", "symbol": "BTCUSD",
+            })
+            replay = self.common([verified], None)
+            with self.env(root, "cloud"), replay[0], replay[1], replay[2], replay[3], \
+                    replay[4] as second_submit, replay[5]:
+                self.assertEqual(live_canary.main(), 0)
+            second_submit.assert_not_called()
+
+    def test_cloud_submit_crash_leaves_pending_ownership_for_reconciliation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = self.common([{"status": "absent", "verified": False}], RuntimeError("ack_unknown"))
+            with self.env(root, "cloud"), first[0], first[1], first[2], first[3], first[4], first[5]:
+                with self.assertRaisesRegex(RuntimeError, "ack_unknown"):
+                    live_canary.main()
+            ownership = json.loads((root / "state/live-owned-position.json").read_text())
+            self.assertEqual(ownership["status"], "entry_pending")
+            self.assertEqual(ownership["symbol"], "BTCUSD")
 
     def test_submit_boundary_rejects_every_nonfrozen_shape(self):
         expected = dict(live_canary.ORDER)
