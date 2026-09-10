@@ -253,6 +253,23 @@ validation fields for definite `not_submitted` rows; then drain the remaining
 eligible queue before fresh discovery. Cadence remains 1,800 seconds and is not
 the completion claim.
 
+The next terminal evidence closes both Danaher rows as definite
+`not_submitted` at fence 2 with `rendered_validation_rejection`; neither has a
+Gmail confirmation. Wake `daily-20260831-235838` again queues the same two rows
+with zero fresh fit calls, but the browser command host times out during
+negotiation before Python starts, producing zero ATS actions. Its wake report
+incorrectly summarizes that blocked pass as `outcome=success`, so notification
+success is not application success. Wake `daily-20260901-003838` starts roughly
+40 minutes later, queues the same two rows, reports rolling count 5 and deficit
+43, and remains active. Therefore the scheduler is continuously loaded and
+running, but the product requirement "maximize verified applications 24/7" is
+not met: wake spacing can exceed 30 minutes while a prior pass occupies the
+owner, command-host launch can yield zero work, and no new Gmail-confirmed
+submission has been added. The unchanged next atom is to finish the active wake,
+then make a blocked browser launch truthful in `wake-report.json` and continue
+to the next eligible row instead of repeatedly consuming the wake on the same
+two validation-rejected rows.
+
 Main release `20260831T181958-70623b6a` is now loaded by the existing five owners,
 and the Cloudera tenant is durably `recovery_requested`. Natural wake
 `daily-20260831-182159` returns `queued_existing` with exactly four fresh runnable
