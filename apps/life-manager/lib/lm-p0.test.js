@@ -70,7 +70,8 @@ test("LM-23/LM-6: callback router dispatches ask/gmail and ignores removed/unkno
   assert.equal(await routeCallbackData("ask:yes:e:r", { ask: async (data) => { routed.push(data); return "ok"; } }), "ok");
   assert.deepEqual(routed, ["ask:yes:e:r"]);
   assert.equal(await routeCallbackData("gmail:skip", { gmail: async (data) => { routed.push(data); return "gmail"; } }), "gmail");
-  assert.deepEqual(routed, ["ask:yes:e:r", "gmail:skip"]);
+  assert.equal(await routeCallbackData("calendar:replace", { calendar: async (data) => { routed.push(data); return "calendar"; } }), "calendar");
+  assert.deepEqual(routed, ["ask:yes:e:r", "gmail:skip", "calendar:replace"]);
   assert.deepEqual(await routeCallbackData("retired:t", {}, (line) => logs.push(line)), { ignored: true });
   assert.deepEqual(await routeCallbackData("leave:no:e", {}, (line) => logs.push(line)), { ignored: true });
   assert.ok(logs.every((line) => /unknown callback prefix/.test(line)));

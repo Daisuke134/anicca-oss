@@ -29,6 +29,7 @@ function fixtureStore() {
     async patchPreferences(scope, patch) { mutations.push({ uid: scope.uid, patch: { ...patch } }); preferences.set(scope.uid, { ...preferences.get(scope.uid), ...patch }); return { ...preferences.get(scope.uid) }; },
     async patchUser(scope, patch) { mutations.push({ uid: scope.uid, patch: { ...patch } }); users.set(scope.uid, { ...users.get(scope.uid), ...patch }); return { ...users.get(scope.uid) }; },
     async createOAuthState(scope, state) { oauth.push({ uid: scope.uid, chatId: scope.chatId, ...state }); },
+    async attachOAuthAccount(scope, stateHash, connectedAccountId) { const state = oauth.find((item) => item.uid === scope.uid && item.chatId === scope.chatId && item.stateHash === stateHash); if (!state) return false; state.connectedAccountId = connectedAccountId; return true; },
     async claimOAuthState(scope, stateHash) { const state = oauth.find((item) => item.uid === scope.uid && item.chatId === scope.chatId && item.stateHash === stateHash && !item.used); if (!state) return false; state.used = true; return true; },
   };
 }
@@ -67,9 +68,10 @@ test("PANEL-0 isolates read, mutation target, OAuth state, and chat scope", asyn
     assert.deepEqual(scope, { uid: "u-b", chatId: "202" });
     assert.equal(stateToken, Buffer.alloc(32, 7).toString("base64url"));
     assert.deepEqual(store.oauth.map(({ uid, chatId }) => ({ uid, chatId })), [{ uid: "u-b", chatId: "202" }]);
-    return { redirectUrl: "https://provider.example/oauth" };
+    return { redirectUrl: "https://provider.example/oauth", connectedAccountId: "ca-current-link" };
   } });
   assert.equal(oauth.ok, true); assert.deepEqual(store.oauth.map(({ uid, chatId }) => ({ uid, chatId })), [{ uid: "u-b", chatId: "202" }]);
+  assert.equal(store.oauth[0].connectedAccountId, "ca-current-link");
   const token = Buffer.alloc(32, 7).toString("base64url");
   assert.equal(await claimCalendarOAuthState({ uid: "u-a", chatId: "101" }, token, { store }), false);
   assert.equal(await claimCalendarOAuthState({ uid: "u-b", chatId: "202" }, token, { store }), true);
@@ -84,6 +86,22 @@ test("PANEL-0 bilingual chat and panel commands converge", async () => {
   const panel = await executeUserCommand({ uid: "u-a", chatId: "101" }, command, { store: panelStore, idempotencyKey: "panel-key-1" });
   const chat = await executeUserCommand({ uid: "u-a", chatId: "101" }, command, { store: chatStore, idempotencyKey: "chat-key-1" });
   assert.deepEqual(panel.state, chat.state);
+});
+
+test("PANEL-0 reconnect is a fresh-account command, not ordinary connection resume", () => {
+  const command = { type: "connection.replace", provider: "calendar" };
+  assert.deepEqual(parseUserCommand("reconnect calendar"), { kind: "command", command });
+  assert.deepEqual(parseUserCommand("カレンダーを再接続"), { kind: "command", command });
+  assert.deepEqual(validateCommand(command), command);
+});
+
+test("PANEL-0 OAuth link is not returned unless its exact connected account is bound to state", async () => {
+  const store = fixtureStore();
+  store.attachOAuthAccount = async () => false;
+  await assert.rejects(executeUserCommand({ uid: "u-b", chatId: "202" }, { type: "connection.start", provider: "calendar" }, {
+    store, idempotencyKey: "oauth-bind-fail-1", randomBytes: () => Buffer.alloc(32, 8),
+    startCalendarOAuth: async () => ({ redirectUrl: "https://provider.example/oauth", connectedAccountId: "ca-unbound" }),
+  }), /oauth_account_bind_failed/);
 });
 
 test("PANEL-0 Calendar disconnect has deterministic EN/JA chat grammar and allowlist", () => {
@@ -149,12 +167,12 @@ test("PANEL-0 Composio disconnect fails closed on ambiguous ownership or ACTIVE 
 test("PANEL-0 Composio reconnect enables the scoped inactive account and requires ACTIVE readback", async () => {
   const requests = [], response = (items) => ({ ok: true, json: async () => ({ items }) });
   const sequence = [response([{ id: "ca-user-a", user_id: "u-a", toolkit: { slug: "googlecalendar" }, status: "INACTIVE", is_disabled: true, enabled: false }]), { ok: true, json: async () => ({}) }, response([{ id: "ca-user-a", user_id: "u-a", toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false, enabled: true }])];
-  const result = await composioCalendarStart({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", fetchImpl: async (url, init = {}) => { requests.push({ url: String(url), init }); return sequence.shift(); } });
+  const result = await composioCalendarStart({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", connectedAccountId: "ca-user-a", fetchImpl: async (url, init = {}) => { requests.push({ url: String(url), init }); const item = await sequence.shift().json(); return { ok: true, json: async () => item.items ? item.items[0] : item }; } });
   assert.deepEqual(result, { provider: "calendar", state: "connected" });
-  assert.match(requests[0].url, /user_ids=u-a/);
+  assert.match(requests[0].url, /connected_accounts\/ca-user-a$/);
   assert.equal(requests[1].init.method, "PATCH");
   assert.deepEqual(JSON.parse(requests[1].init.body), { enabled: true });
-  assert.match(requests[2].url, /user_ids=u-a/);
+  assert.match(requests[2].url, /connected_accounts\/ca-user-a$/);
 });
 
 test("PANEL-0 Calendar ACTIVE follows Composio status and disabled fields, not a legacy enabled field", async () => {
@@ -168,7 +186,7 @@ test("PANEL-0 Calendar ACTIVE follows Composio status and disabled fields, not a
   assert.equal(await composioCalendarStatus({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", fetchImpl: async () => response([{ ...base, is_disabled: true, enabled: true }]) }), "DISABLED");
   const calls = [];
   const sequence = [response([{ ...base, status: "INACTIVE", is_disabled: true, enabled: false }]), { ok: true, json: async () => ({}) }, response([{ ...base }])];
-  const result = await composioCalendarStart({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", fetchImpl: async (url, init = {}) => { calls.push({ url: String(url), init }); return sequence.shift(); } });
+  const result = await composioCalendarStart({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", connectedAccountId: "ca-user-a", fetchImpl: async (url, init = {}) => { calls.push({ url: String(url), init }); const item = await sequence.shift().json(); return { ok: true, json: async () => item.items ? item.items[0] : item }; } });
   assert.deepEqual(result, { provider: "calendar", state: "connected" });
   assert.equal(calls.filter((call) => call.init.method === "PATCH").length, 1);
 });
@@ -181,9 +199,10 @@ test("PANEL-0 expired Composio account starts a fresh auth link instead of enabl
   };
   const result = await composioCalendarStart({ uid: "u-a", chatId: "101" }, {
     composioKey: "test-key",
+    connectedAccountId: "ca-expired",
     fetchImpl: async (url, init = {}) => {
       calls.push({ url: String(url), init });
-      return { ok: true, json: async () => ({ items: [expired] }) };
+      return { ok: true, json: async () => expired };
     },
   });
   assert.equal(result, null, "caller must create a new hosted auth link");
@@ -202,9 +221,21 @@ test("PANEL-0 ignores an old expired account when one current Calendar account i
   };
   const fetchImpl = async () => ({ ok: true, json: async () => ({ items: [active, expired] }) });
   assert.equal(await composioCalendarStatus({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", fetchImpl }), "ACTIVE");
-  assert.deepEqual(await composioCalendarStart({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", fetchImpl }), {
+  assert.deepEqual(await composioCalendarStart({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", connectedAccountId: "ca-active", fetchImpl: async () => ({ ok: true, json: async () => active }) }), {
     provider: "calendar", state: "connected",
   });
+});
+
+test("PANEL-0 /start cannot resume an unbound or another tenant's Calendar account", async () => {
+  let reads = 0;
+  assert.equal(await composioCalendarStart({ uid: "u-a", chatId: "101" }, {
+    composioKey: "test-key", fetchImpl: async () => { reads++; throw new Error("must not read"); },
+  }), null);
+  assert.equal(reads, 0);
+  await assert.rejects(composioCalendarStart({ uid: "u-a", chatId: "101" }, {
+    composioKey: "test-key", connectedAccountId: "ca-other",
+    fetchImpl: async () => ({ ok: true, json: async () => ({ id: "ca-other", user_id: "u-b", toolkit: { slug: "googlecalendar" }, status: "ACTIVE" }) }),
+  }), /provider_ownership/);
 });
 
 test("PANEL-0 concurrent OAuth state claim failure blocks legacy control-center provider link", async () => {
@@ -232,13 +263,14 @@ test("Calendar OAuth state outlives Composio's ten-minute hosted connect link", 
     async finishReceipt() {},
     async assertCurrentScope() { return true; },
     async createOAuthState(_scope, state) { expiresAt = state.expiresAt; },
+    async attachOAuthAccount() { return true; },
   };
   const before = Date.now();
   await executeUserCommand({ uid: "u-a", chatId: "101" }, { type: "connection.start", provider: "calendar" }, {
     store,
     idempotencyKey: "oauth-expiry-01",
     randomBytes: () => Buffer.alloc(32, 5),
-    startCalendarOAuth: async () => ({ redirectUrl: "https://provider.example/consent" }),
+    startCalendarOAuth: async () => ({ redirectUrl: "https://provider.example/consent", connectedAccountId: "ca-current" }),
   });
   const ttlMs = Date.parse(expiresAt) - before;
   assert.ok(ttlMs >= 15 * 60 * 1000, `OAuth state TTL was only ${ttlMs}ms`);
@@ -256,7 +288,7 @@ test("PANEL-0 Composio managed OAuth uses the exact link contract and preserves 
   const providerRedirect = "https://provider.example/connect?state=provider-owned&prompt=consent&scope=calendar%20events#continue";
   const oauth = await startCalendarOAuth({ uid: "u-a", chatId: "101" }, stateToken, {
     composioKey: "test", composioAuthConfig: "auth-test", panelBaseUrl: "https://panel.example/",
-    fetchImpl: async (url, init) => { requests.push({ url: String(url), init }); return { ok: true, json: async () => ({ redirect_url: providerRedirect }) }; },
+    fetchImpl: async (url, init) => { requests.push({ url: String(url), init }); return { ok: true, json: async () => ({ redirect_url: providerRedirect, connected_account_id: "ca-current" }) }; },
   });
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, "https://backend.composio.dev/api/v3/connected_accounts/link");
@@ -270,6 +302,7 @@ test("PANEL-0 Composio managed OAuth uses the exact link contract and preserves 
   assert.equal(Object.hasOwn(requestBody, "auth_config"), false);
   assert.equal(Object.hasOwn(requestBody, "connection"), false);
   assert.equal(oauth.redirectUrl, providerRedirect);
+  assert.equal(oauth.connectedAccountId, "ca-current");
 });
 
 test("Telegram Calendar OAuth uses its cookie-free callback and carries language only as display metadata", async () => {
@@ -278,7 +311,7 @@ test("Telegram Calendar OAuth uses its cookie-free callback and carries language
   await startCalendarOAuth({ uid: "u-b", chatId: "202" }, stateToken, {
     composioKey: "test", composioAuthConfig: "auth-test", panelBaseUrl: "https://panel.example/",
     calendarCallbackPath: "/telegram/oauth/calendar", calendarCallbackParams: { lang: "ja-JP" },
-    fetchImpl: async (url, init) => { requests.push({ url: String(url), init }); return { ok: true, json: async () => ({ redirect_url: "https://connect.composio.dev/link/opaque" }) }; },
+    fetchImpl: async (url, init) => { requests.push({ url: String(url), init }); return { ok: true, json: async () => ({ redirect_url: "https://connect.composio.dev/link/opaque", connected_account_id: "ca-current" }) }; },
   });
   const callback = new URL(JSON.parse(requests[0].init.body).callback_url);
   assert.equal(callback.pathname, "/telegram/oauth/calendar");

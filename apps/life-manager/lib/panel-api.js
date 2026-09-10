@@ -680,7 +680,7 @@ function createSupabaseCommandStore(opts = {}) {
   }
   return {
     async assertCurrentScope(scope) { return Boolean((await rows("lm_users", new URLSearchParams({ uid: `eq.${scope.uid}`, telegram_chat_id: `eq.${scope.chatId}`, select: "uid", limit: "1" })))[0]); },
-    async readUser(scope) { return (await rows("lm_users", new URLSearchParams({ uid: `eq.${scope.uid}`, telegram_chat_id: `eq.${scope.chatId}`, select: "uid,name,telegram_chat_id,phone,call_language,wake_policy,calendar_provider,gmail_account_id,payout_destination", limit: "1" })))[0] || null; },
+    async readUser(scope) { return (await rows("lm_users", new URLSearchParams({ uid: `eq.${scope.uid}`, telegram_chat_id: `eq.${scope.chatId}`, select: "uid,name,telegram_chat_id,phone,call_language,wake_policy,calendar_provider,calendar_connected_account_id,gmail_account_id,payout_destination", limit: "1" })))[0] || null; },
     async readPreferences(scope) { return (await rows("lm_panel_preferences", new URLSearchParams({ uid: `eq.${scope.uid}`, select: "call_enabled,notifications_enabled,daily_automation_enabled,delegation_enabled,call_time_zone", limit: "1" })))[0] || {}; },
     async readLocation(scope) { return (await rows("lm_user_locations", new URLSearchParams({ uid: `eq.${scope.uid}`, select: "observed_at,expires_at", limit: "1" })))[0] || null; },
     async readReceipt(scope, key) { const row = (await rows("lm_panel_command_receipts", new URLSearchParams({ uid: `eq.${scope.uid}`, chat_id: `eq.${scope.chatId}`, idempotency_key: `eq.${key}`, select: "request_hash,status,result", limit: "1" })))[0]; return row ? { requestHash: row.request_hash, status: row.status, result: row.result } : null; },
@@ -696,8 +696,10 @@ function createSupabaseCommandStore(opts = {}) {
     async mutateOnboardingWithCalendar(scope, status, action, payload) { return onboardingRpc("lm_panel_onboarding_transition_with_calendar", { p_uid: scope.uid, p_chat_id: scope.chatId, p_status: status, p_action: action, p_payload: payload || {} }, opts); },
     async createOAuthState(scope, state) { const response = await fetchImpl(`${base}/rest/v1/rpc/create_lm_panel_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: state.stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_provider: state.provider, p_expires_at: state.expiresAt }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, false); const claimed = Array.isArray(value) ? value[0] === true : value === true; if (!claimed) { const error = new Error("oauth_state_in_progress"); error.status = 409; throw error; } return true; },
     async createTelegramOAuthState(scope, state) { const response = await fetchImpl(`${base}/rest/v1/rpc/create_lm_telegram_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: state.stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_expires_at: state.expiresAt }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, false); const created = Array.isArray(value) ? value[0] === true : value === true; if (!created) throw new Error("oauth_state_failed"); return true; },
+    async attachOAuthAccount(scope, stateHash, connectedAccountId) { const response = await fetchImpl(`${base}/rest/v1/rpc/attach_lm_panel_oauth_account`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_connected_account_id: connectedAccountId }) }); if (!response.ok) throw new Error("oauth_account_bind_failed"); const value = await jsonOr(response, false); return Array.isArray(value) ? value[0] === true : value === true; },
     async claimOAuthState(scope, stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_panel_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash, p_uid: scope.uid, p_chat_id: scope.chatId }) }); if (!response.ok) throw new Error("oauth_state_failed"); return jsonOr(response, false); },
     async claimTelegramOAuthState(stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_telegram_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, []); return Array.isArray(value) ? value[0] || null : value || null; },
+    async syncCalendarConnection(scope, status, connectedAccountId) { const response = await fetchImpl(`${base}/rest/v1/rpc/sync_lm_panel_calendar_connection`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_uid: scope.uid, p_chat_id: scope.chatId, p_status: status, p_connected_account_id: connectedAccountId }) }); if (!response.ok) throw new Error("scope_mismatch"); const value = await jsonOr(response, false); return Array.isArray(value) ? value[0] === true : value === true; },
   };
 }
 
@@ -709,16 +711,24 @@ async function handleTelegramOAuthCallback(req, res, opts = {}) {
   const store = opts.commandStore || createSupabaseCommandStore(opts);
   const claimed = await store.claimTelegramOAuthState(crypto.createHash("sha256").update(state).digest("hex"));
   const scope = claimed && { uid: String(claimed.uid || ""), chatId: String(claimed.chat_id || "") };
+  const connectedAccountId = String(claimed && claimed.connected_account_id || "");
   if (!scope || !scope.uid || !/^[1-9][0-9]{0,19}$/.test(scope.chatId) || !await store.assertCurrentScope(scope)) {
     res.writeHead(403, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }); res.end("connection expired"); return;
   }
-  const status = await (opts.composioCalendarStatusImpl || composioCalendarStatus)(scope, opts);
+  if (!/^[A-Za-z0-9_-]{3,128}$/.test(connectedAccountId)) { res.writeHead(403, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }); res.end("calendar connection not verified"); return; }
+  const status = await (opts.composioCalendarAccountStatusImpl || composioCalendarAccountStatus)(scope, connectedAccountId, opts);
   if (status !== "ACTIVE") { res.writeHead(403, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" }); res.end("calendar connection not verified"); return; }
-  await store.syncCalendarStatus(scope, status);
+  const eventCount = await (opts.composioCalendarEventCountImpl || composioCalendarEventCount)(scope, connectedAccountId, opts);
+  if (!await store.syncCalendarConnection(scope, status, connectedAccountId)) throw new Error("calendar_connection_sync_failed");
   const ja = /^ja(?:-|$)/i.test(String(url.searchParams.get("lang") || ""));
+  const zero = eventCount === 0;
   const sent = await opts.sendMessage(scope.chatId, ja
-    ? "Google Calendarを接続しました。\n\n自宅の住所を教えてください。"
-    : "Google Calendar is connected.\n\nWhat is your home address?");
+    ? `Google Calendarを接続しました。今後7日間の予定は${eventCount}件です。\n\n${zero ? "このカレンダーで合っていますか？" : "自宅の住所を教えてください。"}`
+    : `Google Calendar connected. I found ${eventCount} events in the next 7 days.\n\n${zero ? "Is this the right calendar?" : "What is your home address?"}`,
+  zero ? { reply_markup: { inline_keyboard: [[
+    { text: ja ? "このまま進む" : "Continue", callback_data: "calendar:continue" },
+    { text: ja ? "別のGoogleアカウント" : "Use another Google account", callback_data: "calendar:replace" },
+  ]] } } : undefined);
   if (!sent || sent.ok !== true) throw new Error("telegram_callback_send_failed");
   const returnUrl = new URL(String(opts.telegramReturnUrl || ""));
   if (returnUrl.protocol !== "https:" || returnUrl.hostname !== "t.me" || returnUrl.username || returnUrl.password
@@ -758,6 +768,34 @@ function exactCalendarAccount(scope, item) {
   const owner = item && (item.user_id || item.userId || item.connection?.user_id);
   const toolkit = item && (item.toolkit_slug || item.toolkit?.slug || item.toolkit?.slug_name);
   return Boolean(item && item.id && String(owner) === String(scope.uid) && toolkit === "googlecalendar");
+}
+
+async function composioCalendarAccountStatus(scope, connectedAccountId, opts = {}) {
+  if (!opts.composioKey || !/^[A-Za-z0-9_-]{3,128}$/.test(String(connectedAccountId || ""))) throw new Error("provider_unavailable");
+  const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3.1/connected_accounts/${encodeURIComponent(connectedAccountId)}`, { headers: { "x-api-key": opts.composioKey } });
+  if (!response.ok) throw new Error("provider_failed");
+  const item = await jsonOr(response, {});
+  if (!exactCalendarAccount(scope, item)) throw new Error("provider_ownership");
+  return sameEnabledCalendarAccount(item, connectedAccountId) ? "ACTIVE" : "DISABLED";
+}
+
+async function composioCalendarEventCount(scope, connectedAccountId, opts = {}) {
+  if (!opts.composioKey) throw new Error("provider_unavailable");
+  const now = opts.nowMs == null ? Date.now() : opts.nowMs;
+  const response = await (opts.fetchImpl || fetch)("https://backend.composio.dev/api/v3.1/tools/execute/GOOGLECALENDAR_EVENTS_LIST", {
+    method: "POST",
+    headers: { "x-api-key": opts.composioKey, "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: scope.uid,
+      connected_account_id: connectedAccountId,
+      arguments: { calendarId: "primary", singleEvents: true, orderBy: "startTime", timeMin: new Date(now).toISOString(), timeMax: new Date(now + 7 * 86400000).toISOString(), maxResults: 2500 },
+    }),
+  });
+  if (!response.ok) throw new Error("provider_failed");
+  const body = await jsonOr(response, {});
+  if (body.successful !== true) throw new Error("provider_failed");
+  const items = body.data && (body.data.items || body.data.events);
+  return Array.isArray(items) ? items.length : 0;
 }
 
 function sameEnabledCalendarAccount(item, id) {
@@ -820,21 +858,22 @@ async function composioCalendarDisconnect(scope, opts = {}) {
 }
 
 async function composioCalendarStart(scope, opts = {}) {
-  const accounts = await composioCalendarAccounts(scope, opts);
-  if (accounts.length === 0) return null;
-  if (accounts.length !== 1 || !accounts[0].id) throw new Error("provider_ambiguous");
-  const account = accounts[0];
+  const connectedAccountId = String(opts.connectedAccountId || "");
+  if (!connectedAccountId) return null;
+  const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3.1/connected_accounts/${encodeURIComponent(connectedAccountId)}`, { headers: { "x-api-key": opts.composioKey } });
+  if (!response.ok) throw new Error("provider_failed");
+  const account = await jsonOr(response, {});
+  if (!exactCalendarAccount(scope, account)) throw new Error("provider_ownership");
   if (account.status === "ACTIVE" && account.is_disabled !== true
     && (account.enabled === undefined || account.enabled === true)) return { provider: "calendar", state: "connected" };
   if (account.is_disabled !== true && account.enabled !== false) return null;
-  const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts/${encodeURIComponent(account.id)}/status`, {
+  const enabled = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts/${encodeURIComponent(connectedAccountId)}/status`, {
     method: "PATCH",
     headers: { "x-api-key": opts.composioKey, "content-type": "application/json" },
     body: JSON.stringify({ enabled: true }),
   });
-  if (!response.ok) throw new Error("provider_failed");
-  const readback = await composioCalendarAccounts(scope, opts);
-  if (readback.length !== 1 || !sameEnabledCalendarAccount(readback[0], account.id)) throw new Error("provider_readback_failed");
+  if (!enabled.ok) throw new Error("provider_failed");
+  if (await composioCalendarAccountStatus(scope, connectedAccountId, opts) !== "ACTIVE") throw new Error("provider_readback_failed");
   return { provider: "calendar", state: "connected" };
 }
 
@@ -1108,6 +1147,8 @@ module.exports = {
   todayBounds,
   aggregateCosts,
   createSupabaseCommandStore, readJson, composioCalendarStatus,
+  composioCalendarAccountStatus,
+  composioCalendarEventCount,
   composioCalendarDisconnect,
   composioCalendarStart,
   handleTelegramOAuthCallback,

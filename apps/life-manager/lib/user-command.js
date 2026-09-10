@@ -35,6 +35,10 @@ function validateCommand(input) {
     if (!exactKeys(input, ["type", "provider"]) || input.provider !== "calendar") invalid();
     return Object.freeze({ type: input.type, provider: input.provider });
   }
+  if (input.type === "connection.replace") {
+    if (!exactKeys(input, ["type", "provider"]) || input.provider !== "calendar") invalid();
+    return Object.freeze({ type: input.type, provider: input.provider });
+  }
   if (input.type === "connection.disconnect") {
     if (!exactKeys(input, ["type", "provider"]) || input.provider !== "calendar") invalid();
     return Object.freeze({ type: input.type, provider: input.provider });
@@ -83,7 +87,8 @@ function parseUserCommand(text) {
   if ((match = /^(?:set|change) (?:my )?phone(?: number)? (.+)$/i.exec(raw))) return profile("phone", match[1]);
   if ((match = /^電話番号を?(.+?)に(?:して|変更して)$/.exec(raw))) return profile("phone", match[1]);
   if (/^(?:remove|delete|clear) (?:my )?phone(?: number)?$/i.test(raw) || /^電話番号を?(?:削除|消して|解除)$/.test(raw)) return profile("phone", null);
-  if (/^(connect|reconnect) (my )?(google )?calendar$/.test(value) || /^(カレンダーを?(接続|つないで|繋いで|再接続))$/.test(value)) return { kind: "command", command: { type: "connection.start", provider: "calendar" } };
+  if (/^reconnect (my )?(google )?calendar$/.test(value) || /^カレンダーを?再接続$/.test(value)) return { kind: "command", command: { type: "connection.replace", provider: "calendar" } };
+  if (/^connect (my )?(google )?calendar$/.test(value) || /^(カレンダーを?(接続|つないで|繋いで))$/.test(value)) return { kind: "command", command: { type: "connection.start", provider: "calendar" } };
   if (/^disconnect (my )?(google )?calendar$/.test(value) || /^カレンダーを?(切断|解除して)$/.test(value)) return { kind: "command", command: { type: "connection.disconnect", provider: "calendar" } };
   if (/^(turn |disable |enable )?(calls?|call)( (on|off))?$/.test(value)) return setting("call_enabled", !/(off|disable)/.test(value));
   if (/^(電話|コール)を?(止めて|オフ)$/.test(value)) return setting("call_enabled", false);
@@ -171,14 +176,19 @@ async function executeUserCommand(scope, rawCommand, deps = {}) {
       else state = await (store.mutateUser || store.patchUser).call(store, scope, { [command.setting]: command.value });
     } else if (command.type === "profile.set") {
       state = await (store.mutateUser || store.patchUser).call(store, scope, { [command.field]: command.value });
-    } else if (command.type === "connection.start") {
-      const resumed = deps.startCalendarConnection ? await deps.startCalendarConnection(scope) : null;
+    } else if (command.type === "connection.start" || command.type === "connection.replace") {
+      const resumed = command.type === "connection.start" && deps.startCalendarConnection ? await deps.startCalendarConnection(scope) : null;
       if (resumed) {
         state = resumed;
       } else {
         const bytes = (deps.randomBytes || crypto.randomBytes)(32), stateToken = bytes.toString("base64url");
         await store.createOAuthState(scope, { stateHash: hash(stateToken), provider: "calendar", expiresAt: new Date(Date.now() + CALENDAR_OAUTH_STATE_TTL_MS).toISOString() });
         const oauth = await (deps.startCalendarOAuth || startCalendarOAuth)(scope, stateToken, deps);
+        if (!oauth || !/^[A-Za-z0-9_-]{3,128}$/.test(String(oauth.connectedAccountId || ""))
+          || typeof store.attachOAuthAccount !== "function"
+          || !await store.attachOAuthAccount(scope, hash(stateToken), oauth.connectedAccountId)) {
+          throw new Error("oauth_account_bind_failed");
+        }
         state = { provider: "calendar", state: "action_required", redirectUrl: oauth.redirectUrl };
       }
     } else {
@@ -228,7 +238,9 @@ async function startCalendarOAuth(scope, stateToken, deps = {}) {
     const url = new URL(redirect);
     if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("invalid_protocol");
   } catch { throw new Error("provider_failed"); }
-  return { redirectUrl: redirect };
+  const connectedAccountId = body.connected_account_id;
+  if (!/^[A-Za-z0-9_-]{3,128}$/.test(String(connectedAccountId || ""))) throw new Error("provider_failed");
+  return { redirectUrl: redirect, connectedAccountId };
 }
 
 async function claimCalendarOAuthState(scope, stateToken, deps = {}) {

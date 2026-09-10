@@ -393,12 +393,13 @@ test("Telegram OAuth callback needs no browser cookie and returns to the exact c
   const response = { status: 0, headers: {}, writeHead(status, headers = {}) { this.status = status; this.headers = headers; }, end() {} };
   await handleTelegramOAuthCallback({ method: "GET", url: `/telegram/oauth/calendar?state=${stateToken}&lang=ja-JP`, headers: {} }, response, {
     commandStore: {
-      claimTelegramOAuthState: async (stateHash) => { calls.push(["claim", stateHash]); return { uid: "u-tg", chat_id: "303" }; },
+      claimTelegramOAuthState: async (stateHash) => { calls.push(["claim", stateHash]); return { uid: "u-tg", chat_id: "303", connected_account_id: "ca-current" }; },
       assertCurrentScope: async (scope) => { calls.push(["scope", scope]); return true; },
-      syncCalendarStatus: async (scope, status) => { calls.push(["sync", scope, status]); return true; },
+      syncCalendarConnection: async (scope, status, id) => { calls.push(["sync", scope, status, id]); return true; },
     },
     composioKey: "provider-key",
-    composioCalendarStatusImpl: async (scope) => { calls.push(["provider", scope]); return "ACTIVE"; },
+    composioCalendarAccountStatusImpl: async (scope, id) => { calls.push(["provider", scope, id]); return "ACTIVE"; },
+    composioCalendarEventCountImpl: async (scope, id) => { calls.push(["events", scope, id]); return 2; },
     sendMessage: async (chatId, text) => { calls.push(["send", chatId, text]); return { ok: true, result: { message_id: 44 } }; },
     telegramReturnUrl: "https://t.me/LifeManagerBotbot",
   });
@@ -407,7 +408,7 @@ test("Telegram OAuth callback needs no browser cookie and returns to the exact c
   assert.equal(calls[0][0], "claim");
   assert.equal(calls[0][1], crypto.createHash("sha256").update(stateToken).digest("hex"));
   assert.deepEqual(calls.find(([kind]) => kind === "scope")[1], { uid: "u-tg", chatId: "303" });
-  assert.deepEqual(calls.find(([kind]) => kind === "sync").slice(1), [{ uid: "u-tg", chatId: "303" }, "ACTIVE"]);
+  assert.deepEqual(calls.find(([kind]) => kind === "sync").slice(1), [{ uid: "u-tg", chatId: "303" }, "ACTIVE", "ca-current"]);
   assert.deepEqual(calls.find(([kind]) => kind === "send").slice(1, 2), ["303"]);
   assert.match(calls.find(([kind]) => kind === "send")[2], /自宅の住所/);
 });

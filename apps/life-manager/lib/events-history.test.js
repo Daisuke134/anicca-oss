@@ -186,6 +186,23 @@ test("composio transport exposes listEventsPage: returns nextPageToken and forwa
   }
 });
 
+test("composio transport pins every Calendar execution to the tenant's selected account", async () => {
+  const { makeComposioCalendar } = require("./transport/calendar-composio.js");
+  const bodies = [];
+  const calendar = makeComposioCalendar({
+    apiKey: "k",
+    recordCall: () => false,
+    resolveConnectedAccountId: async (uid) => uid === "tenant-a" ? "ca-selected-a" : null,
+    fetchImpl: async (_url, init) => { bodies.push(JSON.parse(init.body)); return { json: async () => ({ successful: true, data: { items: [] } }) }; },
+  });
+  await calendar.listEventsRaw("tenant-a");
+  await calendar.createEvent("tenant-a", { summary: "fixture" });
+  await calendar.patchEvent("tenant-a", { event_id: "fixture" });
+  assert.equal(bodies.length, 3);
+  assert.ok(bodies.every((body) => body.connected_account_id === "ca-selected-a"));
+  assert.ok(bodies.every((body) => body.user_id === "tenant-a"));
+});
+
 // 🔴 Finding 1 (transport leg): the history path must distinguish failure from empty. The composio
 // wake path keeps its swallow-to-[] (load-bearing there); the history read passes strict and lets a
 // transport failure PROPAGATE instead of returning a fake empty calendar.

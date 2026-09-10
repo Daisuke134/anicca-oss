@@ -967,6 +967,31 @@ const server = http.createServer(async (req, res) => {
                   token: LM_TG_TOKEN, chatId: u.chatId, base: PUBLIC_BASE,
                   supaUrl: SUPA_URL, supaKey: SUPA_KEY,
                 });
+              }, calendar: async (data) => {
+                if (String(u.userId || "") !== String(u.chatId || "")) throw new Error("Calendar actor unavailable");
+                const row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+                if (!row || !row.uid) throw new Error("Calendar actor unavailable");
+                if (data === "calendar:continue") {
+                  const stage = await sendStage(LM_TG_TOKEN, u.chatId, row, PUBLIC_BASE, { languageCode: u.languageCode });
+                  if (!stage) throw new Error("Telegram onboarding send failed");
+                  return { handled: true, action: "continue", ok: true };
+                }
+                if (data !== "calendar:replace") return { ignored: true };
+                const store = createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+                store.createOAuthState = store.createTelegramOAuthState;
+                const result = await executeUserCommand({ uid: row.uid, chatId: u.chatId }, { type: "connection.replace", provider: "calendar" }, {
+                  store,
+                  idempotencyKey: `telegram-calendar-replace:${u.callbackQueryId}`,
+                  composioKey: COMPOSIO_KEY,
+                  composioAuthConfig: process.env.COMPOSIO_GCAL_AUTH_CONFIG,
+                  panelBaseUrl: LM_PANEL_BASE,
+                  calendarCallbackPath: "/telegram/oauth/calendar",
+                  calendarCallbackParams: { lang: u.languageCode },
+                });
+                const reply = startReply({ calendarUrl: result.state.redirectUrl, languageCode: u.languageCode });
+                const sent = await sendMessage(LM_TG_TOKEN, u.chatId, reply.text, reply.extra);
+                if (!sent || sent.ok !== true) throw new Error("Telegram onboarding send failed");
+                return { handled: true, action: "replace", ok: true };
               }, discovery: async (data) => {
                 // FIN-b: the payout branch needs the uid to know whether this person already told us
                 // where to send money, so the register button can be answered exactly once.
@@ -1113,7 +1138,7 @@ const server = http.createServer(async (req, res) => {
               panelBaseUrl: LM_PANEL_BASE,
               calendarCallbackPath: "/telegram/oauth/calendar",
               calendarCallbackParams: { lang: u.languageCode },
-              startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY }),
+              startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY, connectedAccountId: row.calendar_connected_account_id }),
             });
             if (result && result.state && result.state.state === "connected") {
               await commandStore.syncCalendarStatus(telegramScope, "ACTIVE");
@@ -1255,7 +1280,7 @@ const server = http.createServer(async (req, res) => {
                     composioKey: COMPOSIO_KEY,
                     composioAuthConfig: process.env.COMPOSIO_GCAL_AUTH_CONFIG,
                     panelBaseUrl: LM_PANEL_BASE,
-                    startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY }),
+                    startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY, connectedAccountId: row.calendar_connected_account_id }),
                     disconnectCalendar: (scope) => composioCalendarDisconnect(scope, { composioKey: COMPOSIO_KEY }),
                   } : null,
                 });
