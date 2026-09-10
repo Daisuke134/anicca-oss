@@ -128,10 +128,12 @@ class CrowdWorksReplyAdapter:
 
     @staticmethod
     def _observation(row: Mapping[str, Any]) -> dict[str, str]:
-        return {"provider": "crowdworks", "account_id": "7145638",
-                "thread_id": _text(row.get("thread_id")),
-                "latest_event_id": _text(row.get("id")), "observed_at": _now(),
-                "decision_version": "official-actions-v1"}
+        result = {"provider": "crowdworks", "account_id": "7145638",
+                  "thread_id": _text(row.get("thread_id")),
+                  "latest_event_id": _text(row.get("id")), "observed_at": _now()}
+        if row.get("proposal_status") == "proposed":
+            result["decision_version"] = "official-actions-v1"
+        return result
 
     def _detail(self, thread_id: str) -> list[dict[str, str]]:
         row = self.rows.get(thread_id)
