@@ -69,6 +69,39 @@ def _port_answers(port: int, timeout: float = 3.0) -> bool:
         return False
 
 
+def _wait_for_browser(
+    child: subprocess.Popen,
+    *,
+    port: int,
+    startup_grace_seconds: float = 60.0,
+    probe_interval_seconds: float = 10.0,
+    max_consecutive_failures: int = 3,
+) -> int:
+    """Wait for the browser, but return EX_TEMPFAIL when its CDP stays wedged."""
+    startup_deadline = time.monotonic() + startup_grace_seconds
+    consecutive_failures = 0
+    while True:
+        try:
+            return child.wait(timeout=probe_interval_seconds)
+        except subprocess.TimeoutExpired:
+            pass
+        if _port_answers(port):
+            consecutive_failures = 0
+            continue
+        if time.monotonic() < startup_deadline:
+            continue
+        consecutive_failures += 1
+        if consecutive_failures >= max_consecutive_failures:
+            print(json.dumps({
+                "ok": False,
+                "reason": "owned_browser_cdp_unhealthy",
+                "port": port,
+                "browser_root_pid": child.pid,
+                "consecutive_failures": consecutive_failures,
+            }, sort_keys=True), file=sys.stderr)
+            return 75
+
+
 def _reclaim_wedged_owner(receipt_path: Path, *, owner: str, port: int) -> bool:
     """Take the lock back from our own supervisor when it is alive but serving nothing.
 
@@ -216,7 +249,7 @@ def run(args: argparse.Namespace) -> int:
             for signum in (signal.SIGTERM, signal.SIGINT):
                 previous[signum] = signal.signal(signum, forward)
             try:
-                return child.wait()
+                return _wait_for_browser(child, port=args.port)
             finally:
                 _terminate_process_group(child.pid)
                 for signum, handler in previous.items():

@@ -216,6 +216,7 @@ test("Telegram /start stays in chat and exposes only Google consent", () => {
   assert.equal(url.hash, "");
   assert.match(reply.text, /^👋 <b>ライフマネージャー<\/b>/);
   assert.match(reply.text, /乗換案内/);
+  assert.match(reply.text, /期限が切れたら.*\/start/);
   assert.doesNotMatch(reply.text, /料金|カード|Stripe|trial|プラン/i);
 });
 

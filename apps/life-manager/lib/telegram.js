@@ -165,8 +165,8 @@ function startReply(options = {}) {
   const ja = /^ja(?:-|$)/i.test(String(options.languageCode || ""));
   return {
     text: ja
-      ? "👋 <b>ライフマネージャー</b>\n\n次の予定を確認して、移動時間を予定に入れ、出発前に乗換案内を送ります。\n\n最初にGoogle Calendarをつなぎます。"
-      : "👋 <b>Life Manager</b>\n\nI check your next event, reserve travel time, and send directions before you leave.\n\nFirst, connect Google Calendar.",
+      ? "👋 <b>ライフマネージャー</b>\n\n次の予定を確認して、移動時間を予定に入れ、出発前に乗換案内を送ります。\n\n最初にGoogle Calendarをつなぎます。期限が切れたら、/start で新しいリンクを出せます。"
+      : "👋 <b>Life Manager</b>\n\nI check your next event, reserve travel time, and send directions before you leave.\n\nFirst, connect Google Calendar. If the link expires, send /start for a new one.",
     extra: {
       reply_markup: {
         inline_keyboard: [[{ text: ja ? "Google Calendarをつなぐ" : "Connect Google Calendar", url: calendarUrl }]],
