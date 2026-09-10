@@ -9,7 +9,7 @@ const FILES = Object.freeze([
   "control.json", "risk-day.json", "receipts.jsonl", "live-owned-position.json",
   "telegram-outbox.sqlite3", "telegram-latest.json",
 ]);
-const REQUIRED = Object.freeze(["risk-day.json", "receipts.jsonl"]);
+const REQUIRED = Object.freeze(["risk-day.json", "receipts.jsonl", "telegram-outbox.sqlite3"]);
 
 function safeDirectory(directory) {
   const resolved = path.resolve(String(directory || ""));
@@ -18,7 +18,7 @@ function safeDirectory(directory) {
   return resolved;
 }
 
-function exportState({ stateDir, accountId, now = new Date().toISOString() }) {
+function exportState({ stateDir, accountId, cutover, now = new Date().toISOString() }) {
   const directory = safeDirectory(stateDir);
   const identifier = String(accountId || "").trim();
   if (!identifier || identifier.length > 500) throw new Error("official account id invalid");
@@ -33,8 +33,13 @@ function exportState({ stateDir, accountId, now = new Date().toISOString() }) {
     if (!info.isFile() || info.isSymbolicLink()) throw new Error("investment cutover file invalid");
     files[name] = fs.readFileSync(filename).toString("base64");
   }
+  if (!files["control.json"]) {
+    files["control.json"] = Buffer.from(`${JSON.stringify({ paused: false, killed: false,
+      revision: 1, updated_at: now, last_action: "resume" })}\n`).toString("base64");
+  }
   return sealRuntimeBundle({
     schema_version: 1, exported_at: now,
+    cutover,
     account_binding: {
       provider: "alpaca", endpoint: "live",
       account_id_hash: crypto.createHash("sha256").update(identifier).digest("hex"),

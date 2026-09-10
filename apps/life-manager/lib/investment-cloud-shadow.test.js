@@ -10,19 +10,26 @@ const { makeInvestmentCloudShadowWake, runInvestmentCloudShadow } = require("./i
 
 function seededBundle() {
   const state = fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-source-"));
-  fs.writeFileSync(path.join(state, "risk-day.json"), '{"ny_day":"2026-09-10"}\n');
+  fs.writeFileSync(path.join(state, "risk-day.json"), JSON.stringify({ ny_day: "2026-09-10", baseline_equity: "66",
+    baseline_observed_at: "2026-09-10T12:00:00Z", baseline_bank_cash_flow: "0", baseline_trade_activity_ids: [],
+    baseline_trades_clean: true, crypto_cash_flow: "0", transfers: {} }));
   fs.writeFileSync(path.join(state, "receipts.jsonl"), "");
-  return exportState({ stateDir: state, accountId: "account-1", now: "2026-09-10T12:00:00.000Z" });
+  fs.writeFileSync(path.join(state, "telegram-outbox.sqlite3"), Buffer.from("SQLite format 3\0fixture"));
+  return exportState({ stateDir: state, accountId: "account-1",
+    cutover: { status: "ready", local_stopped_at: "2026-09-10T11:57:00Z",
+      queues_drained_at: "2026-09-10T11:58:00Z", broker_reconciled_at: "2026-09-10T11:59:00Z",
+      source_release_sha: "a".repeat(40) }, now: "2026-09-10T12:00:00.000Z" });
 }
 
 test("one cloud shadow wake verifies account binding, invokes the same core, reports, and persists state", async () => {
   const saved = [];
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-volume-"));
   const result = await runInvestmentCloudShadow({
     tenantId: "tenant-1", sealed: seededBundle(), secretProvider: { get: async (_tenant, ref) => ({
       "secret://alpaca/api-key": "key", "secret://alpaca/api-secret": "secret",
       "secret://telegram/bot-token": "telegram",
     })[ref] }, telegramChatId: "chat-1", alpacaCli: "/app/.bin/alpaca",
-    readAccountId: async () => "account-1",
+    readAccountId: async () => "account-1", stateRoot,
     runCore: async ({ stateDir, credentialsFile, env }) => {
       assert.equal(fs.statSync(credentialsFile).mode & 0o777, 0o600);
       assert.equal(env.LIFE_MANAGER_INVESTMENT_MODE, "shadow");
@@ -45,9 +52,28 @@ test("account mismatch fails before core execution", async () => {
   let ran = false;
   await assert.rejects(runInvestmentCloudShadow({ tenantId: "tenant-1", sealed: seededBundle(),
     secretProvider: { get: async () => "value" }, telegramChatId: "chat",
+    stateRoot: fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-volume-")),
     readAccountId: async () => "other-account", runCore: async () => { ran = true; },
     persist: async () => {} }), /binding/);
   assert.equal(ran, false);
+});
+
+test("durable volume keeps outbox/receipt state across a send-window crash and rejects stale re-import", async () => {
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-crash-volume-"));
+  const input = { tenantId: "tenant-1", sealed: seededBundle(),
+    secretProvider: { get: async () => "value" }, telegramChatId: "chat", stateRoot,
+    readAccountId: async () => "account-1", persist: async () => {} };
+  await assert.rejects(runInvestmentCloudShadow({ ...input, runCore: async ({ stateDir }) => {
+    fs.appendFileSync(path.join(stateDir, "receipts.jsonl"), '{"status":"delivery_uncertain"}\n');
+    throw new Error("simulated process loss after send began");
+  } }), /simulated/);
+  let preserved = false;
+  const result = await runInvestmentCloudShadow({ ...input, runCore: async ({ stateDir }) => {
+    preserved = fs.readFileSync(path.join(stateDir, "receipts.jsonl"), "utf8").includes("delivery_uncertain");
+    return { status: "allocated", mode: "shadow", deployment: "cloud", effect: "none", telegram_message_id: "43" };
+  } });
+  assert.equal(preserved, true);
+  assert.equal(result.telegram_message_id, "43");
 });
 
 test("durable five-minute job makes restart replay produce zero extra shadow wakes", async () => {
@@ -67,6 +93,7 @@ test("durable five-minute job makes restart replay produce zero extra shadow wak
       completeJob: async (row) => completed.push(row),
     },
     secretProvider: { assertTenant: () => true }, readChatId: async () => "chat-1",
+    stateRoot: "/durable/investment",
     executeShadow: async () => (executions += 1, { status: "allocated", mode: "shadow",
       deployment: "cloud", effect: "none", telegram_message_id: "42", decision: "NO_TRADE" }),
   });
@@ -94,6 +121,7 @@ test("an older claimed shadow slot completes with its own immutable lineage", as
         runtime_state_ref: "investment-runtime-state://tenant-1", core_artifact_ref: artifact.ref,
         schedule_slot_ref: `schedule-slot://${oldSlot}` } }], completeJob: async (value) => { completion = value; } },
     secretProvider: { assertTenant: () => true }, readChatId: async () => "chat",
+    stateRoot: "/durable/investment",
     executeShadow: async () => ({ mode: "shadow", deployment: "cloud", effect: "none", telegram_message_id: "9" }),
   });
   assert.equal((await wake(new Date("2026-09-10T12:05:00Z"))).receipt.observed_at, oldSlot);

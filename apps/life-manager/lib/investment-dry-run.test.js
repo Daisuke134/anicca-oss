@@ -81,14 +81,25 @@ test("cloud readback never calls an enabled schedule disabled", async () => {
 
 test("cloud shadow readback reports real observation/reporting but no broker mutation", async () => {
   const result = await readInvestmentCloudWiring({
-    env: { LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_SHADOW_ENABLED: "true" },
+    env: { LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_SHADOW_ENABLED: "true",
+      LM_INVESTMENT_CLOUD_STATE_ROOT: "/data/investment" },
     secretProvider: cloudSecrets(),
   });
   assert.equal(result.status, "shadow_enabled");
   assert.equal(result.schedule_enabled, true);
   assert.equal(result.broker_mutation_enabled, false);
   assert.equal(result.telegram_transport_enabled, true);
+  assert.equal(result.durable_state_root_bound, true);
   assert.equal(result.secret_provider_ok, true);
+});
+
+test("cloud shadow flag fails readback without a durable volume path", async () => {
+  const result = await readInvestmentCloudWiring({
+    env: { LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_SHADOW_ENABLED: "true" },
+    secretProvider: cloudSecrets(),
+  });
+  assert.equal(result.status, "invalid_shadow_config");
+  assert.equal(result.durable_state_root_bound, false);
 });
 
 test("enabled worker rejects a foreign tenant before queue enqueue", async () => {
