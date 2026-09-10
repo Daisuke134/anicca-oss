@@ -3,8 +3,10 @@
 apps/*
 !apps/life-manager/
 !apps/life-manager/**
+!runtime/
+!runtime/**
 !skills/
-skills/*
+!skills/**
 !skills/video/
 !skills/video/**
 !skills/alpaca-investment/
@@ -21,6 +23,12 @@ skills/_shared/marketplace-core/scripts/*
 skills/earn/*
 !skills/earn/marketing-engine/
 !skills/earn/marketing-engine/**
+!services/
+services/*
+!services/x402-endpoint/
+services/x402-endpoint/*
+!services/x402-endpoint/prisma/
+!services/x402-endpoint/prisma/**
 **/.env
 **/node_modules
 **/__pycache__

@@ -109,6 +109,9 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   assert.doesNotMatch(config, /docker/i);
   assert.equal(fs.existsSync(path.join(ROOT, "runtime/loop/index.mjs")), true);
   assert.equal(fs.existsSync(path.join(ROOT, "skills/earn/run.sh")), true);
+  const buildIgnore = fs.readFileSync(path.join(ROOT, ".dockerignore"), "utf8");
+  assert.match(buildIgnore, /!runtime\/\*\*/);
+  assert.match(buildIgnore, /!skills\/\*\*/);
 });
 
 test("runtime worker entrypoint fails closed for every non-worker argv", () => {
