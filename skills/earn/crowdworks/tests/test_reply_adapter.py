@@ -210,3 +210,23 @@ def test_contract_readback_ignores_page_wide_or_mismatched_contract_links():
     assert adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
                              "payload": {"title": "対象案件", "amount": "12円",
                                          "client": "発注者"}}) == {}
+
+
+def test_contract_readback_verifies_worker_acceptance_while_client_is_pending():
+    adapter, _, _, _ = _contract_adapter(status="proposed")
+    adapter.page.mapping[
+        'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+    ] = _Locator(count=0)
+    adapter.page.mapping['div.progress_detail'] = _Locator(
+        count=1, text=("まだクライアントが契約に同意していません。"
+                       "クライアントが契約に同意すると契約成立となります。"),
+        nested=_Locator(count=0),
+    )
+    payload = {"condition_id": "41879089", "title": "対象案件", "amount": "12円",
+               "client": "発注者", "worker": "Kaito｜AI自動化"}
+
+    receipt = adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                                "payload": payload})
+
+    assert receipt["verified"] is True
+    assert receipt["provider_receipt_id"] == "condition-accepted:41879089"
