@@ -5,7 +5,7 @@ import argparse, hashlib, importlib.util, json, os, re, stat, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 PLATFORM="crowdworks"; PROVIDER_EMPLOYEE_ID="7145638"; PUBLIC_URL=f"https://crowdworks.jp/public/employees/{PROVIDER_EMPLOYEE_ID}"; PROFILE_URL="https://crowdworks.jp/profile?role=employee"; PROFILE_EDIT_URL="https://crowdworks.jp/profile/edit"; EMPLOYEE_URL="https://crowdworks.jp/employee/new"; SKILLS_URL="https://crowdworks.jp/user_skills"; DEFAULT_CONFIG_PATH=Path("~/.config/anicca/crowdworks/public-profile.json").expanduser(); DEFAULT_AVATAR_PATH=Path(__file__).resolve().parents[3]/"gig-work"/"profile"/"avatar.jpg"; _HOSTS={"crowdworks.jp","www.crowdworks.jp"}; _AVATAR_HOSTS=_HOSTS|{"cw-assets.crowdworks.jp"}
 _CONFIG_KEYS={"version","provider_employee_id","display_name","occupation","status","hours_limit","min_hourly_wage","max_hourly_wage","web_meeting","simple_introduction","introduction","job_categories","skills"}; _SKILL_KEYS={"name","level","years","note"}; _STATUS={"available","not_available","open","closed","active","inactive","public","private"}
 class ProfileError(ValueError):
@@ -68,7 +68,7 @@ def _validated_avatar(path:Path|str=DEFAULT_AVATAR_PATH)->Path:
     return value
 def _public_avatar(page:Any)->dict[str,Any]:
     try:
-        selector='img[alt="userIcon"], img[src*="/user_picture/"]'; page.locator(selector).first.wait_for(state="attached",timeout=20_000); source=_one(page,selector,"profile_avatar_readback_failed").get_attribute("src")
+        selector='img[alt="userIcon"], img[src*="/user_picture/"]'; page.locator(selector).first.wait_for(state="attached",timeout=20_000); raw=_one(page,selector,"profile_avatar_readback_failed").get_attribute("src"); source=urljoin(PUBLIC_URL,raw or "")
     except Exception: _fail("profile_avatar_readback_failed")
     return {"present":bool(source),"aligned":_avatar_aligned(source),"hash":_hash(source or "")}
 def _field(page:Any,selector:str,required:bool=False)->str:

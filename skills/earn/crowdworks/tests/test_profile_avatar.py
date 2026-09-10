@@ -58,6 +58,36 @@ def test_current_attachment_avatar_is_read_back() -> None:
     }
 
 
+def test_relative_current_attachment_avatar_is_resolved_before_readback() -> None:
+    source = "/attachments/59139971.jpg?width=200&height=200"
+    absolute = "https://crowdworks.jp/attachments/59139971.jpg?width=200&height=200"
+
+    class Locator:
+        first = None
+
+        def __init__(self) -> None:
+            self.first = self
+
+        def wait_for(self, **_kwargs: object) -> None:
+            return None
+
+        def count(self) -> int:
+            return 1
+
+        def get_attribute(self, name: str) -> str | None:
+            return source if name == "src" else None
+
+    class Page:
+        def locator(self, _selector: str) -> Locator:
+            return Locator()
+
+    assert profile._public_avatar(Page()) == {
+        "present": True,
+        "aligned": True,
+        "hash": profile._hash(absolute),
+    }
+
+
 def test_shared_avatar_is_the_existing_provider_neutral_asset() -> None:
     expected = Path(__file__).parents[3] / "gig-work" / "profile" / "avatar.jpg"
 
