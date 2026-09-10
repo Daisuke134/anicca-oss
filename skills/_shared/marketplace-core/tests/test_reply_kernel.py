@@ -127,6 +127,38 @@ def test_contract_intent_reconciles_after_provider_event_advances(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_authoritatively_absent_contract_replans_legacy_uncertain_intent(tmp_path):
+    adapter = Adapter()
+    row = event()
+    legacy = reply_kernel._intent(row, {
+        "action": "accept_contract",
+        "payload": {"condition_id": "41883371", "terms_sha256": "a" * 64,
+                    "title": "対象案件", "amount": "110円"},
+    })
+    path = reply_kernel._state_path(tmp_path, row)
+    reply_kernel._write(path, {
+        "version": 1, "inventory_event_id": row["latest_event_id"],
+        "observation": row, "intent": legacy, "status": "reconcile_unknown",
+    })
+    enriched = {
+        "action": "accept_contract",
+        "payload": {**legacy["payload"], "client": "発注者", "worker": "Kaito"},
+    }
+
+    first = reply_kernel.run_wake(
+        adapter=adapter, decide=lambda _context: enriched, state_root=tmp_path
+    )
+    replay = reply_kernel.run_wake(
+        adapter=adapter, decide=lambda _context: enriched, state_root=tmp_path
+    )
+
+    assert first["effect"] == 1
+    assert adapter.effects[0]["payload"] == enriched["payload"]
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
+
 def test_provider_source_gap_is_pending_without_model_or_effect(tmp_path):
     row = {**event(thread="source:gmail", latest="stale-1"),
            "pending_reason": "provider_source_stale"}
