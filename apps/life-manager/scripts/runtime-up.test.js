@@ -100,7 +100,11 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   const config = fs.readFileSync(path.join(ROOT, "railway.worker.toml"), "utf8");
   assert.match(config, /npm ci --ignore-scripts --prefix apps\/life-manager/);
   assert.match(config, /npm ci --ignore-scripts --prefix skills\/earn\/x402-sell/);
-  assert.match(config, /nixPkgs = \["\.\.\.", "python3", "curl"\]/);
+  assert.match(config, /npm ci --ignore-scripts --prefix skills\/earn\/taskmarket/);
+  assert.match(config, /nixpacksConfigPath = "nixpacks\.worker\.toml"/);
+  const nixpacks = fs.readFileSync(path.join(ROOT, "nixpacks.worker.toml"), "utf8");
+  assert.match(nixpacks, /nixPkgs = \["\.\.\.", "python3", "curl"\]/);
+  assert.doesNotMatch(fs.readFileSync(path.join(ROOT, "skills/earn/taskmarket/run.sh"), "utf8"), /homebrew/);
   assert.match(config, /node apps\/life-manager\/scripts\/runtime-up\.js internal-worker/);
   assert.doesNotMatch(config, /docker/i);
   assert.equal(fs.existsSync(path.join(ROOT, "runtime/loop/index.mjs")), true);
