@@ -122,6 +122,7 @@ ok "$([ $rc -eq 0 ] && [ "$(jq -r '.earn_usdc' "$T/state/earn-ledger.jsonl" 2>/d
 
 # 17. STATIC: scans the FINALIZED head, not eth_blockNumber (no reorg over/double-count) — FIND-601
 ok "$(grep -qF '["finalized", false]' <<<"$src" && echo 1 || echo 0)" "STATIC: scans the FINALIZED head (eth_getBlockByNumber finalized), not un-finalized latest — FIND-601"
+ok "$(grep -q 'const MAX_SPAN = 2000' <<<"$src" && echo 1 || echo 0)" "STATIC: Base RPC scan chunks stay within the provider's 2,000-block limit"
 
 # ----- blockNow REAL path via a mock JSON-RPC (FIND-705: no FOUNDER_BLOCK_NOW — exercise eth_getBlockByNumber finalized) -----
 MOCKJS="$(dirname "$M")/mock-rpc.mjs"; PORT=8731
