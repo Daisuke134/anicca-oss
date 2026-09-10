@@ -13,7 +13,8 @@ from pathlib import Path
 
 from allocator import build_candidates, choose, gate as allocation_gate, order_for
 from alpaca_cli import (CLI_OPERATIONS, SAFE_ERROR_CODES, find_order_by_client_id, observe,
-                        read_allocator_snapshot, read_campaign_snapshot, submit_order)
+                        read_allocator_snapshot, read_campaign_snapshot, read_crypto_history,
+                        submit_order)
 from campaign import CANDIDATE_REF, SYMBOLS, exit_order, reconcile
 from control import control_fence, read_control
 from effect_store import (mark_started, reconcile_started, record_no_trade, seal,
@@ -303,6 +304,11 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         allocator_snapshot = read_allocator_snapshot(
             credentials_path=credentials_path, cli_path=cli_path,
             risk_day_path=state / "risk-day.json")
+        if mode == "live":
+            stage = "market_history_read"
+            allocator_snapshot["crypto_history"] = read_crypto_history(
+                credentials_path=credentials_path, cli_path=cli_path,
+                observed_at=allocator_snapshot["clock"]["timestamp"])
         unresolved = reconciliation.get("unresolved")
         if isinstance(unresolved, bool) or not isinstance(unresolved, int) or unresolved != 0:
             raise ValueError("investment_unresolved_intent")

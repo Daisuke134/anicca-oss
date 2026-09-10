@@ -31,6 +31,7 @@ CLI_OPERATIONS = frozenset({
 })
 SAFE_ERROR_CODES = frozenset({
     "alpaca_allocator_risk_invalid", "alpaca_allocator_shape_invalid",
+    "alpaca_crypto_history_invalid",
     "alpaca_cli_json_invalid", "alpaca_cli_output_too_large", "alpaca_cli_unavailable",
     "alpaca_cli_version_unpinned", "alpaca_credential_record_invalid",
     "alpaca_live_credentials_unavailable", "alpaca_paper_credentials_unavailable",
@@ -349,6 +350,42 @@ def read_allocator_snapshot(
             "clock": clock, "crypto": crypto,
             "open_orders": orders, "option_quotes": options, "positions": len(risk_positions), "risk": risk,
             "qqq_asset": qqq_asset, "qqq_quote": qqq_quote, "spy": spy}
+
+
+def read_crypto_history(*, credentials_path: Path, cli_path: Path,
+                        observed_at: str) -> dict[str, list[dict[str, Any]]]:
+    """Read a bounded four-hour OHLC window for model judgment."""
+    observed = parse_instant(observed_at)
+    start = (observed - timedelta(hours=4)).isoformat().replace("+00:00", "Z")
+    end = observed.isoformat().replace("+00:00", "Z")
+    env = _context(credentials_path, cli_path)
+    rows = _run(cli_path, ["data", "crypto", "bars", "--symbols",
+        "BTC/USDC,ETH/USDC", "--start", start, "--end", end,
+        "--timeframe", "5Min", "--limit", "1000", "--sort", "asc", "--quiet",
+        "--jq", ".bars|to_entries|map({symbol:.key,bars:(.value|map({t,o,h,l,c}))})"], env)
+    if not isinstance(rows, list):
+        raise ValueError("alpaca_crypto_history_invalid")
+    result: dict[str, list[dict[str, Any]]] = {}
+    try:
+        for row in rows:
+            symbol, bars = row["symbol"], row["bars"]
+            if symbol not in {"BTC/USDC", "ETH/USDC"} or symbol in result \
+                    or not isinstance(bars, list) or len(bars) > 48:
+                raise ValueError
+            normalized = []
+            for bar in bars:
+                timestamp = parse_instant(bar["t"])
+                values = [Decimal(str(bar[key])) for key in ("o", "h", "l", "c")]
+                if (timestamp > observed or any(not value.is_finite() or value <= 0 for value in values)
+                        or values[1] < max(values[0], values[2], values[3])
+                        or values[2] > min(values[0], values[1], values[3])):
+                    raise ValueError
+                normalized.append({"t": bar["t"], "o": str(values[0]), "h": str(values[1]),
+                                   "l": str(values[2]), "c": str(values[3])})
+            result[symbol] = normalized
+    except (InvalidOperation, KeyError, TypeError, ValueError) as error:
+        raise ValueError("alpaca_crypto_history_invalid") from error
+    return result
 
 
 def submit_order(
