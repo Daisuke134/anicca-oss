@@ -356,6 +356,12 @@ This checklist does not reorder the established implementation sequence below. T
   production Agent Economy remains running.
 - [ ] `AE-UX-06` Join every supported earning provider to verified revenue receipts and every compute, cloud,
   storage, network and API charge to cost/payment receipts; reject self-pay, owner seed and unverified candidates.
+  In progress on `feat/agent-economy-economic-receipts-20260911`: the TaskMarket x402 image purchase now retains
+  a hash of the provider's terminal payment-response as its non-secret payment receipt ID. The shared Cloud wake
+  projects only same-wake, positive, receipt-backed TaskMarket costs into the existing tenant FinancialRecord store;
+  missing-receipt cost claims remain excluded, and Postgres idempotency prevents replay duplication. Focused tests
+  pass 16/16. Remaining inside this atom: verified external revenue projection and receipt-backed compute, hosted
+  cloud, storage, network and API cost coverage for every actually supported Agent Economy provider.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,

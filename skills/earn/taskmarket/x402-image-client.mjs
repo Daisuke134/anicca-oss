@@ -1,4 +1,5 @@
 import { privateKeyToAccount } from 'viem/accounts';
+import { createHash } from 'node:crypto';
 import {
   createPaymentPayload,
   extractPaymentDetails,
@@ -43,7 +44,13 @@ async function defaultCreateSignature({ walletKey, details, required }) {
   );
 }
 
-function imageBodyResult(body, costUsd) {
+function paymentReceiptId(response) {
+  const value = response?.headers?.get?.('payment-response')
+    || response?.headers?.get?.('x-payment-response');
+  return value ? `blockrun:${createHash('sha256').update(value).digest('hex')}` : null;
+}
+
+function imageBodyResult(body, costUsd, receiptId = null) {
   const url = body?.data?.[0]?.url;
   if (typeof url !== 'string' || !/^https:\/\//i.test(url) || body.data.length !== 1) {
     throw new Error('image response must contain one HTTPS image URL');
@@ -52,6 +59,7 @@ function imageBodyResult(body, costUsd) {
     url,
     model: GPT_IMAGE_MODEL,
     costUsd,
+    paymentReceiptId: receiptId,
     created: body.created ?? null,
   };
 }
@@ -65,7 +73,7 @@ async function responseJson(response) {
 }
 
 async function imageResult(response, costUsd) {
-  return imageBodyResult(await responseJson(response), costUsd);
+  return imageBodyResult(await responseJson(response), costUsd, paymentReceiptId(response));
 }
 
 function blockrunPollUrl(raw) {
@@ -85,6 +93,7 @@ async function pollImageJob({
   pollUrl,
   signature,
   costUsd,
+  receiptId,
   fetchImpl,
   sleepImpl,
   pollIntervalMs,
@@ -107,7 +116,7 @@ async function pollImageJob({
     if (body?.status === 'failed') {
       throw new Error(`image generation failed: ${String(body.error || 'unknown error')}`);
     }
-    if (Array.isArray(body?.data)) return imageBodyResult(body, costUsd);
+    if (Array.isArray(body?.data)) return imageBodyResult(body, costUsd, paymentReceiptId(response) || receiptId);
     if (body?.status === 'queued' || body?.status === 'in_progress') continue;
     throw new Error('image poll returned no terminal result');
   }
@@ -185,6 +194,7 @@ export async function generateImage({
       pollUrl: accepted?.poll_url,
       signature,
       costUsd: quote.amountUsd,
+      receiptId: paymentReceiptId(paid),
       fetchImpl,
       sleepImpl,
       pollIntervalMs,

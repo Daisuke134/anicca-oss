@@ -22,6 +22,7 @@ test("Cloud runner invokes the shared loop for one wake and returns only its saf
   const signerTmpRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "lm-ae-signers-"));
   let signerReads = 0;
   let ephemeralWalletPath;
+  const financialRecords = [];
   const run = createAgentEconomyCloudWakeRunner({
     dataDir,
     signerTmpRoot,
@@ -30,9 +31,11 @@ test("Cloud runner invokes the shared loop for one wake and returns only its saf
       SUPABASE_SERVICE_ROLE_KEY: "database-secret", LM_RUNTIME_DATABASE_URL: "postgres-secret" },
     citizenStore: { readSigner: async (input) => {
       signerReads += 1;
-      assert.equal(input.tenant_id, "tenant/a");
+      assert.equal(input.tenant_id, "tenant-a");
       return { privateKey: PRIVATE_KEY };
     } },
+    financialStore: { append: async (record) => financialRecords.push(record) },
+    now: () => "2026-09-11T05:00:00.000Z",
     execFile: async (executable, args, options) => {
       assert.equal(executable, process.execPath);
       assert.equal(args[0], path.resolve(__dirname, "../../../runtime/loop/index.mjs"));
@@ -52,12 +55,19 @@ test("Cloud runner invokes the shared loop for one wake and returns only its saf
       assert.equal(ephemeralWalletPath.startsWith(signerTmpRoot), true);
       const ledger = path.join(options.env.ANICCA_HOME, "state", "ledger.jsonl");
       await fs.promises.writeFile(ledger, `${JSON.stringify({ wake_id: "wake-1", kind: "acted", slot: "earn", profitable: true, secret: PRIVATE_KEY })}\n`);
+      const earnLedger = path.join(options.env.ANICCA_HOME, "state", "skills", "earn", "earn-ledger.jsonl");
+      await fs.promises.mkdir(path.dirname(earnLedger), { recursive: true });
+      await fs.promises.writeFile(earnLedger, `${JSON.stringify({ ts: 1789100000, wake: "wake-1",
+        source: "taskmarket_work_attempt", cost_usdc: 0.065, payment_receipt_id: "blockrun:paid-1" })}\n`);
     },
   });
-  const result = await run(identity());
+  const result = await run({ ...identity(), tenant_id: "tenant-a" });
   assert.equal(signerReads, 1);
   assert.deepEqual(result, { wake_id: "wake-1", kind: "acted", slot: "earn", profitable: true });
   assert.doesNotMatch(JSON.stringify(result), new RegExp(PRIVATE_KEY));
+  assert.equal(financialRecords.length, 1);
+  assert.deepEqual([financialRecords[0].subject_id, financialRecords[0].kind,
+    financialRecords[0].amount_minor], ["tenant-a", "business_cost", 65000]);
   await assert.rejects(() => fs.promises.lstat(ephemeralWalletPath), /ENOENT/);
   assert.match(dataDir, /lm-ae-wake-/);
 });

@@ -188,6 +188,7 @@ function createWorkerHandlers(env, capabilities, dependencies = {}) {
     });
     const { createAgentEconomyControlStore } = require("../lib/agent-economy-control.js");
     const economyControl = createAgentEconomyControlStore({ query: dependencies.query });
+    const { createPostgresFinancialRecordStore } = require("../lib/financial-record-store.js");
     servicesByAdapter["agent-economy-cloud"] = {
       citizenStore,
       isPaused: (tenantId) => economyControl.isPaused(tenantId),
@@ -195,6 +196,8 @@ function createWorkerHandlers(env, capabilities, dependencies = {}) {
         citizenStore,
         dataDir: requiredEnv(env, "LM_DATA_DIR"),
         repoRoot: String(env.LM_REPO_ROOT || "").trim() || path.resolve(__dirname, "../../.."),
+        financialStore: createPostgresFinancialRecordStore({ query: dependencies.query }),
+        now: dependencies.now,
       }),
       now: dependencies.now,
     };

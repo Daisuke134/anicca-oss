@@ -48,7 +48,7 @@ test('generateImage buys exactly one 1024 square GPT Image 2 output under the qu
     return new Response(JSON.stringify({
       created: 1785230000,
       data: [{ url: 'https://cdn.blockrun.example/generated.png' }],
-    }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }), { status: 200, headers: { 'content-type': 'application/json', 'payment-response': 'settled-payment-1' } });
   };
 
   const result = await generateImage({
@@ -67,6 +67,7 @@ test('generateImage buys exactly one 1024 square GPT Image 2 output under the qu
     url: 'https://cdn.blockrun.example/generated.png',
     model: GPT_IMAGE_MODEL,
     costUsd: 0.065,
+    paymentReceiptId: 'blockrun:9b93b489aad905b26ea0a009b6852dea62eacd0ac3dcbac51617a5e6ae5e2b0d',
     created: 1785230000,
   });
   assert.equal(calls.length, 2);
