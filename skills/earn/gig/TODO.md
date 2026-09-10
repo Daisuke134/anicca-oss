@@ -2601,6 +2601,24 @@ from the chat, and two of them contradict what this cursor had previously report
     Focused/full tests pass `54/54`. Merge, replacement immutable release, natural official mutation
     readback and replay-zero remain.
 
+    The hidden-checkbox fix merged through PR `#4968` as
+    `d2eee60194fe383b6a0faa1ca912d9252790efd6`; its natural production wake still failed because the
+    provider rerendered the occupation-detail DOM after the change event and the adapter queried the
+    stale locator again. PR `#4970`, merge
+    `24b2f80ce51d8eb7762428d9b4d2764a6635cef3`, makes mutation plus readback one atomic DOM
+    evaluation. The next natural wake successfully changed the official CrowdWorks group/detail to
+    `ITエンジニア` / `システムエンジニア（SE）`, changed the biography to the shared projection and
+    rebuilt all seven skills to the exact projected attributes. Official component hashes for the
+    occupation, detail and biography are `675e60a5...`, `f92094bb...` and `0e64339d...`; the avatar
+    remains aligned. That wake correctly refused to pass because CrowdWorks now appends a fifth
+    edit/delete action cell to every skill row while the exact-data parser required four cells total.
+    PR `#4971`, merge `8c4922d6c8e3d5ffa4a0be5e810d27a3e45b826f`, retains exact comparison of
+    the first four data cells and ignores provider action cells; the full CrowdWorks suite passes
+    `51/51`. Sparse immutable release `20260911T045449-8c4922d6-cw-profile` is installed only on
+    `crowdworks-revenue-application` with receipt `a61799754303352ed439a980`. Its natural terminal,
+    exact official skill hash and following replay-zero are the current acceptance boundary; do not
+    reopen the already-proven occupation, biography or avatar effects.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
