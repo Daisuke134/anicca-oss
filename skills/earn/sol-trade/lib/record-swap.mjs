@@ -16,28 +16,35 @@ import { alreadyRecordedSig } from "../../../_shared/lib/ledger.mjs";
 import { record } from "../../lib/record.mjs";
 
 export async function recordSwap(
-  { sig, wallet, ledger, task = "jupiter swap round-trip", wake },
+  { sig, sigs, wallet, ledger, task = "jupiter swap round-trip", wake },
   opts = {},
 ) {
+  const signatures = Array.isArray(sigs) && sigs.length ? [...new Set(sigs)] : (sig ? [sig] : []);
+  sig = signatures.at(-1);
   if (!sig || !wallet || !ledger) return { status: "bad-args", sig: sig || null };
-  if (await alreadyRecordedSig(ledger, sig)) return { status: "duplicate", sig };
-
-  let confirmed;
-  try {
-    ({ confirmed } = await sigStatus(sig, opts));
-  } catch (e) {
-    return { status: "verify-error", sig, error: e.message };
+  for (const signature of signatures) {
+    if (await alreadyRecordedSig(ledger, signature)) return { status: "duplicate", sig: signature };
   }
-  if (!confirmed) return { status: "unconfirmed", sig };
 
-  let delta;
-  try {
-    delta = await usdcDeltaForSig(sig, wallet, opts);
-  } catch (e) {
-    return { status: "verify-error", sig, error: e.message };
-  }
-  if (delta === null || delta === undefined || Number.isNaN(delta)) {
-    return { status: "no-delta", sig };
+  let delta = 0;
+  for (const signature of signatures) {
+    let confirmed;
+    try {
+      ({ confirmed } = await sigStatus(signature, opts));
+    } catch (e) {
+      return { status: "verify-error", sig: signature, error: e.message };
+    }
+    if (!confirmed) return { status: "unconfirmed", sig: signature };
+    let part;
+    try {
+      part = await usdcDeltaForSig(signature, wallet, opts);
+    } catch (e) {
+      return { status: "verify-error", sig: signature, error: e.message };
+    }
+    if (part === null || part === undefined || Number.isNaN(part)) {
+      return { status: "no-delta", sig: signature };
+    }
+    delta = Math.round((delta + part) * 1e6) / 1e6;
   }
 
   // net_usdc = earn - cost = delta, keeping earn_usdc/cost_usdc non-negative for both win and loss.
@@ -52,7 +59,7 @@ export async function recordSwap(
     wake,
   });
   const { profitable } = await record(json, ledger);
-  return { status: "recorded", sig, net_usdc: delta, earn_usdc, cost_usdc, profitable };
+  return { status: "recorded", sig, signatures, net_usdc: delta, earn_usdc, cost_usdc, profitable };
 }
 
 // CLI: run.sh calls `env -i PATH HOME SOLANA_RPC_URL SIG WALLET EARN_LEDGER WAKE_ID node record-swap.mjs`.
@@ -60,6 +67,7 @@ export async function recordSwap(
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) {
   const r = await recordSwap({
     sig: process.env.SIG,
+    sigs: process.env.SIGS_JSON ? JSON.parse(process.env.SIGS_JSON) : undefined,
     wallet: process.env.WALLET,
     ledger: process.env.EARN_LEDGER,
     wake: process.env.WAKE_ID,

@@ -109,14 +109,16 @@ MAX_SPEND=$(bash "$SKILL_DIR/lib/resolve-max-spend.sh")
 OUT=$(timeout 600 franklin-trading start --trust -m "$FT_MODEL" --max-spend "$MAX_SPEND" -p "$PROMPT" 2>&1); RC=$?
 echo "$OUT" | tail -30
 
-# P&L RECORD (REQ-002): if this pass did a REAL Jupiter swap, extract its signature (the LAST one,
-# for a multi-step swap chain -- FIND-002/003) and record the on-chain USDC delta (win OR loss) so
+# P&L RECORD (REQ-002): if this pass did REAL Jupiter swaps, extract every signature in the pass
+# and record their summed on-chain USDC delta (win OR loss) so a multi-step round trip records net
+# profit rather than incorrectly treating the terminal sale proceeds as profit.
 # isProfitable / self-eval finally see Franklin's OWN realized results (until now sol-trade never
 # wrote to earn-ledger, so profitable was permanently false). Fail-soft: never brick the pass.
 # parse-pass.mjs strips ANSI codes and returns the LAST "Signature: <sig>" occurrence (or nothing).
-SIG=$(printf '%s' "$OUT" | node "$SKILL_DIR/lib/parse-pass.mjs")
-if [ -n "$SIG" ]; then
-  REC=$(env -i PATH="$PATH" HOME="$HOME" SOLANA_RPC_URL="${SOLANA_RPC_URL:-}" SIG="$SIG" WALLET="$OWN_WALLET" EARN_LEDGER="$LEDGER" WAKE_ID="${WAKE_ID:-$(date -u +%s)}" node "$SKILL_DIR/lib/record-swap.mjs" 2>/dev/null || true)
+SIGS_JSON=$(printf '%s' "$OUT" | node "$SKILL_DIR/lib/parse-pass.mjs")
+if [ -n "$SIGS_JSON" ]; then
+  SIG=$(printf '%s' "$SIGS_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const a=JSON.parse(s);process.stdout.write(a.at(-1)||"")}catch{}})')
+  REC=$(env -i PATH="$PATH" HOME="$HOME" SOLANA_RPC_URL="${SOLANA_RPC_URL:-}" SIGS_JSON="$SIGS_JSON" WALLET="$OWN_WALLET" EARN_LEDGER="$LEDGER" WAKE_ID="${WAKE_ID:-$(date -u +%s)}" node "$SKILL_DIR/lib/record-swap.mjs" 2>/dev/null || true)
   echo "[sol-trade] record-swap -> ${REC:-noop}"
   # FIND-007: parse record-swap's own status and degrade to a narrate-only trace line for
   # anything that isn't an actual ledger append (recorded/duplicate) -- never brick the pass,

@@ -15,6 +15,7 @@ import { readLedger, isProfitable } from "../../../../_shared/lib/ledger.mjs";
 const WALLET = "8FpqdcCHqjqkVXR58eVJa53neXbJf9emXhvHhgeUPCV9";
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const SIG = "52RZBMCUqGWrWPZCJo82xDaYusUhGNFNCEzW51nyJNhFN9AECae9dWyp8TQQZMP731LpP2Xu8JDpJDRxp3xCRD7m";
+const SIG_2 = "62RZBMCUqGWrWPZCJo82xDaYusUhGNFNCEzW51nyJNhFN9AECae9dWyp8TQQZMP731LpP2Xu8JDpJDRxp3xCRD7m";
 
 async function tmpFile() {
   const d = await fs.mkdtemp(path.join(os.tmpdir(), "sol-trade-record-"));
@@ -119,4 +120,26 @@ test("recordSwap never sets external:true (P&L VISIBILITY only -- this is not a 
   const rows = await readLedger(ledger);
   assert.notEqual(rows[0].external, true);
   assert.equal(isProfitable(rows[0]), false, "sol-trade lines never claim GATE-0 (no external:true)");
+});
+
+test("multi-transaction round trip records the sum, not only the sale proceeds", async () => {
+  const ledger = await tmpFile();
+  const deltas = new Map([[SIG, -1], [SIG_2, 1.2]]);
+  const fetchImpl = async (_rpc, init) => {
+    const body = JSON.parse(init.body);
+    const signature = Array.isArray(body.params[0]) ? body.params[0][0] : body.params[0];
+    if (body.method === "getSignatureStatuses") {
+      return { ok: true, json: async () => ({ result: { value: [{ confirmationStatus: "finalized", err: null }] } }) };
+    }
+    const delta = deltas.get(signature);
+    const pre = 2;
+    return { ok: true, json: async () => ({ result: { meta: {
+      preTokenBalances: [{ accountIndex: 3, uiTokenAmount: { uiAmount: pre } }],
+      postTokenBalances: [{ accountIndex: 3, owner: WALLET, mint: USDC, uiTokenAmount: { uiAmount: pre + delta } }],
+    } } }) };
+  };
+  const result = await recordSwap({ sigs: [SIG, SIG_2], wallet: WALLET, ledger }, { fetchImpl });
+  assert.equal(result.net_usdc, 0.2);
+  assert.deepEqual(result.signatures, [SIG, SIG_2]);
+  assert.equal((await readLedger(ledger))[0].net_usdc, 0.2);
 });

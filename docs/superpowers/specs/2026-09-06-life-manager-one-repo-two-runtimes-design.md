@@ -371,9 +371,12 @@ This checklist does not reorder the established implementation sequence below. T
   The existing Polymarket cycle recorder now writes realized gain, realized loss and fees into that same common
   FinancialRecord store only after both the trade and redeem transaction receipts succeed and match on Polygon;
   principal recovery is still excluded from revenue, replay remains idempotent, and the focused projection,
-  accounting and command suite passes 17/17. Remaining inside this atom: receipt-backed compute, hosted cloud,
-  storage, network and API cost coverage plus realized Yield and Solana Trade results actually enabled for Agent
-  Economy.
+  accounting and command suite passes 17/17. Solana Trade's prerequisite accounting repair is also complete: a
+  multi-transaction Jupiter round trip now verifies every signature and sums every transaction's USDC delta instead
+  of misclassifying the final sale proceeds as profit; the focused parser/recorder suite passes 14/14 and the shell
+  entrypoint parses. Its wider integration harness stops safely because an isolated worktree deliberately lacks the
+  production state directory. Remaining inside this atom: project that exact Solana round-trip result into the
+  common store, add realized Yield, and cover receipt-backed compute, hosted cloud, storage, network and API costs.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
