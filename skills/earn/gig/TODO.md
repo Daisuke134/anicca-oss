@@ -153,6 +153,17 @@ routes. Its ownership regression proves normal job/dashboard targets survive; al
 `ok=true`. This is code/test evidence only. Lancers Apply remains open until the change is merged,
 installed from a pushed-main immutable release, and a natural wake records exact official proposal
 history plus Telegram receipt and replay-zero.
+PR `#4850` merged the fix as pushed-main SHA `17047aae`; immutable release
+`20260910T134408-17047aae` was applied only to `lancers-revenue-application` without restarting the
+browser, Mac, Aqua, loginwindow or a sibling lane. The first natural wake progressed past the false
+account failure, reconciled project `5599830` as official proposal `27910839` at JPY 70,000, and
+left three uncertain submissions fenced instead of retrying them. The following natural PASS
+reconciled project `5599803` as proposal `27910952` at JPY 2,500 with Telegram decision/summary
+receipts `73153`/`73154`. A third natural PASS reconciled project `5599879` as proposal `27910943`
+at JPY 1,000 with Telegram receipts `73159`/`73160`; it did not repeat project `5599803`. Installed
+and event SHA both equal `17047aae`, blocker is null, and Lancers Reply/Paid/Telegram owners also
+continued natural PASS while Apply ran. This closes the sibling-target isolation defect and its
+replay-zero gate; any separately fenced proposal remains owned by normal reconciliation.
 
 **Host-wide runtime incident — recovered, keep as regression evidence.** The Data volume recovered
 to about 25–27 GiB free on 2026-09-10 without restarting the Mac, loginwindow, Aqua or any browser;
