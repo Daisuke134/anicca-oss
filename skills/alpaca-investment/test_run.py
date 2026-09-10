@@ -291,6 +291,8 @@ class BrokerContextTest(unittest.TestCase):
 class BrokerSnapshotTest(unittest.TestCase):
     def test_crypto_history_accepts_bounded_official_ohlc(self):
         rows = [{"symbol": "BTC/USDC", "bars": [
+            {"t": f"2026-09-10T07:{minute:02d}:00Z", "o": 100, "h": 102, "l": 99, "c": 101}
+            for minute in (35, 40, 45, 50, 55)] + [
             {"t": "2026-09-10T08:00:00Z", "o": 100, "h": 102, "l": 99, "c": 101}]}]
         with patch.object(CLI, "_context", return_value={}), patch.object(
                 CLI, "_run", return_value=rows):
@@ -311,6 +313,41 @@ class BrokerSnapshotTest(unittest.TestCase):
                         ValueError, "^alpaca_crypto_history_invalid$"):
                 CLI.read_crypto_history(credentials_path=Path("credentials"),
                     cli_path=Path("alpaca"), observed_at="2026-09-10T08:05:00Z")
+
+    def test_crypto_history_rejects_unusable_btc_timeline(self):
+        valid = [{"t": f"2026-09-10T07:{minute:02d}:00Z",
+                  "o": 100, "h": 102, "l": 99, "c": 101}
+                 for minute in (35, 40, 45, 50, 55)] + [
+                 {"t": "2026-09-10T08:00:00Z", "o": 100, "h": 102, "l": 99, "c": 101}]
+        cases = [
+            [],
+            [{"symbol": "ETH/USDC", "bars": valid}],
+            [{"symbol": "BTC/USDC", "bars": valid[:5]}],
+            [{"symbol": "BTC/USDC", "bars": [{**valid[0], "t": "2026-09-10T04:00:00Z"}, *valid[1:]]}],
+            [{"symbol": "BTC/USDC", "bars": [valid[1], valid[0], *valid[2:]]}],
+            [{"symbol": "BTC/USDC", "bars": [valid[0], valid[0], *valid[2:]]}],
+            [{"symbol": "BTC/USDC", "bars": [valid[0], {**valid[1], "t": "2026-09-10T07:41:00Z"}, *valid[2:]]}],
+            [{"symbol": "BTC/USDC", "bars": [
+                {**valid[index], "t": f"2026-09-10T06:{minute:02d}:00Z"}
+                for index, minute in enumerate((0, 5, 10, 15, 20, 25))]}],
+        ]
+        for rows in cases:
+            with self.subTest(rows=rows), patch.object(CLI, "_context", return_value={}), \
+                    patch.object(CLI, "_run", return_value=rows), self.assertRaisesRegex(
+                        ValueError, "^alpaca_crypto_history_invalid$"):
+                CLI.read_crypto_history(credentials_path=Path("credentials"),
+                    cli_path=Path("alpaca"), observed_at="2026-09-10T08:05:00Z")
+
+    def test_crypto_history_accepts_missing_five_minute_bars(self):
+        rows = [{"symbol": "BTC/USDC", "bars": [
+            {"t": f"2026-09-10T07:{minute:02d}:00Z", "o": 100, "h": 102, "l": 99, "c": 101}
+            for minute in (25, 30, 40, 45, 55)] + [
+            {"t": "2026-09-10T08:00:00Z", "o": 100, "h": 102, "l": 99, "c": 101}]}]
+        with patch.object(CLI, "_context", return_value={}), patch.object(
+                CLI, "_run", return_value=rows):
+            result = CLI.read_crypto_history(credentials_path=Path("credentials"),
+                cli_path=Path("alpaca"), observed_at="2026-09-10T08:05:00Z")
+        self.assertEqual(len(result["BTC/USDC"]), 6)
 
     def test_shadow_and_live_snapshots_are_nonpaper(self):
         for mode in ("shadow", "live"):

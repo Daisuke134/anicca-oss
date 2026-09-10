@@ -356,7 +356,8 @@ def read_crypto_history(*, credentials_path: Path, cli_path: Path,
                         observed_at: str) -> dict[str, list[dict[str, Any]]]:
     """Read a bounded four-hour OHLC window for model judgment."""
     observed = parse_instant(observed_at)
-    start = (observed - timedelta(hours=4)).isoformat().replace("+00:00", "Z")
+    window_start = observed - timedelta(hours=4)
+    start = window_start.isoformat().replace("+00:00", "Z")
     end = observed.isoformat().replace("+00:00", "Z")
     env = _context(credentials_path, cli_path)
     rows = _run(cli_path, ["data", "crypto", "bars", "--symbols",
@@ -373,16 +374,25 @@ def read_crypto_history(*, credentials_path: Path, cli_path: Path,
                     or not isinstance(bars, list) or len(bars) > 48:
                 raise ValueError
             normalized = []
+            previous_timestamp = None
             for bar in bars:
                 timestamp = parse_instant(bar["t"])
                 values = [Decimal(str(bar[key])) for key in ("o", "h", "l", "c")]
-                if (timestamp > observed or any(not value.is_finite() or value <= 0 for value in values)
+                if (timestamp < window_start or timestamp > observed
+                        or (previous_timestamp is not None
+                            and (timestamp <= previous_timestamp
+                                 or (timestamp - previous_timestamp).total_seconds() % 300 != 0))
+                        or any(not value.is_finite() or value <= 0 for value in values)
                         or values[1] < max(values[0], values[2], values[3])
                         or values[2] > min(values[0], values[1], values[3])):
                     raise ValueError
                 normalized.append({"t": bar["t"], "o": str(values[0]), "h": str(values[1]),
                                    "l": str(values[2]), "c": str(values[3])})
+                previous_timestamp = timestamp
             result[symbol] = normalized
+        btc = result.get("BTC/USDC")
+        if not btc or len(btc) < 6 or observed - parse_instant(btc[-1]["t"]) > timedelta(minutes=15):
+            raise ValueError
     except (InvalidOperation, KeyError, TypeError, ValueError) as error:
         raise ValueError("alpaca_crypto_history_invalid") from error
     return result
