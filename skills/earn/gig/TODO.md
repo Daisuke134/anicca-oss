@@ -2574,15 +2574,19 @@ from the chat, and two of them contradict what this cursor had previously report
     zero-Connects acquisition blocker, and defer Freelancer profile projection until its Apply owner is
     repo-owned. Do not call those three a uniform profile mutation.
 
-    Pre-implementation audit limits the next repository change to three files: one small structured
-    `skills/gig-work/profile/commercial-profile.json`, the existing CrowdWorks `profile.py` adapter,
-    and its existing focused profile test. The shared document owns factual positioning, role family,
-    proof/avatar references and approved public persona aliases. `Kaito` and `Kosuke` are public trade
-    aliases rather than legal identity; preserve the approved provider projection instead of forcing
-    every provider to render one literal name. The adapter owns only the CrowdWorks group/detail IDs
-    and DOM ceremony. The regression must fail when detail occupation `142` remains buyer-visible even
-    if the edit form reports group `AI関連サービス`, and pass only when public `/occupations` reads the
-    mapped SE role. No new profile framework, provider duplicate, or separate test file is required.
+    Implementation is now PR `#4965` on branch `fix/shared-commercial-profile-20260911`. It adds one
+    structured `skills/gig-work/profile/commercial-profile.json`; the existing CrowdWorks `profile.py`
+    maps its provider-neutral software-engineering role to `ITエンジニア` plus exact public detail
+    `システムエンジニア（SE）` (`1`) and reads the public occupation and every skill's name, level,
+    experience band and note back. The shared Reply grounding accepts the same projected Mapping, so
+    CrowdWorks Reply and its external-form answers cannot keep reading the stale provider duplicate.
+    The shared document owns factual positioning, role family, proof/avatar references and approved
+    public aliases. `Kaito` and `Kosuke` remain public trade aliases rather than legal identity.
+    A fresh review found and the branch fixes two convergence defects: unsupported shared year bands
+    now fail at load, and any stale same-name skill attribute or extra old skill causes exact replacement
+    before the official public hash can pass. Focused profile/Reply tests pass `39/39`; full CrowdWorks
+    suite, CI, merge, immutable release, official mutation readback and replay-zero remain required
+    before checking this atom complete. No production profile mutation has occurred from this branch.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
