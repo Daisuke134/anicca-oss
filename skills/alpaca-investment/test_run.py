@@ -166,10 +166,10 @@ class BrokerContextTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 CLI._context(paper, cli, mode="live")
 
-    def test_submit_rejects_shadow_and_live_before_cli_or_order(self):
+    def test_submit_rejects_shadow_before_cli_or_order(self):
         with patch.object(CLI, "_context") as context, patch.object(CLI, "_run") as run, \
                 patch.object(CLI.subprocess, "run") as process:
-            for mode in ("shadow", "live"):
+            for mode in ("shadow",):
                 with self.subTest(mode=mode), self.assertRaisesRegex(
                     ValueError, "^investment_mode_effect_forbidden$"):
                     CLI.submit_order(
@@ -181,6 +181,34 @@ class BrokerContextTest(unittest.TestCase):
         context.assert_not_called()
         run.assert_not_called()
         process.assert_not_called()
+
+    def test_live_submit_accepts_only_bounded_btc_usdc(self):
+        acknowledgement = {"client_order_id": "lm-ai-" + "a" * 24, "symbol": "BTC/USDC"}
+        valid = {"asset_class": "crypto", "notional_usd": "10.00", "side": "buy",
+                 "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+        with patch.object(CLI, "_context", return_value={}), patch.object(
+                CLI, "_run", return_value=acknowledgement) as run:
+            self.assertEqual(CLI.submit_order(credentials_path=Path("credentials"),
+                cli_path=Path("alpaca"), client_order_id=acknowledgement["client_order_id"],
+                order=valid, mode="live"), acknowledgement)
+        self.assertIn("--notional", run.call_args.args[1])
+        for invalid in ({**valid, "notional_usd": "10.01"},
+                        {**valid, "symbol": "ETH/USDC"},
+                        {**valid, "side": "sell"}):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                    ValueError, "^unsupported_live_order_shape$"):
+                CLI.submit_order(credentials_path=Path("credentials"), cli_path=Path("alpaca"),
+                    client_order_id=acknowledgement["client_order_id"], order=invalid, mode="live")
+
+    def test_live_submit_accepts_exact_btc_exit_qty(self):
+        client_id = "lm-ai-" + "b" * 24
+        order = {"asset_class": "crypto", "qty": "0.000123456", "side": "sell",
+                 "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+        with patch.object(CLI, "_context", return_value={}), patch.object(
+                CLI, "_run", return_value={"client_order_id": client_id}) as run:
+            CLI.submit_order(credentials_path=Path("credentials"), cli_path=Path("alpaca"),
+                             client_order_id=client_id, order=order, mode="live")
+        self.assertIn("--qty", run.call_args.args[1])
 
 
 class BrokerSnapshotTest(unittest.TestCase):

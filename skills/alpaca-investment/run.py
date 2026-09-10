@@ -16,6 +16,7 @@ from campaign import CANDIDATE_REF, SYMBOLS, exit_order, reconcile
 from control import control_fence, read_control
 from effect_store import mark_started, reconcile_started, record_no_trade, seal
 from reporter import deliver, deliver_control, deliver_failure
+from position_manager import choose as choose_position, exit_order as live_exit_order
 from review_status import read_receipt as read_application_status
 from review_status import refresh as refresh_application_status
 
@@ -229,44 +230,52 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         allocator_snapshot["unresolved_intents"] = unresolved
         candidates = build_candidates(allocator_snapshot)
         stage = "allocation_decide"
-        decision = choose(
-            allocator_snapshot, candidates, state,
-            Path(__file__).resolve().parents[2] / "runtime/agent-runner/agent_runner.py",
-            Path(__file__).resolve().parents[2],
-        )
+        runner = Path(__file__).resolve().parents[2] / "runtime/agent-runner/agent_runner.py"
+        workdir = Path(__file__).resolve().parents[2]
+        live_positions = mode == "live" and allocator_snapshot.get("positions", 0) > 0
+        if live_positions:
+            position = choose_position(allocator_snapshot, observation, state, runner, workdir)
+            decision = {"approved": position["action"] == "EXIT",
+                        "candidate_ref": "position://BTCUSD", "gate": "position_exit" if position["action"] == "EXIT" else "position_hold",
+                        "reason": position["reason"], "position_action": position["action"],
+                        "position_qty": position["qty"], "observed_at": allocator_snapshot["clock"]["timestamp"]}
+        else:
+            decision = choose(allocator_snapshot, candidates, state, runner, workdir)
         decision["deployment"] = deployment
         decision["mode"] = mode
         decision["risk"] = allocator_snapshot["risk"]
         if effect != "none" and decision["approved"]:
             decision["approved"] = False
             decision["gate"] = "campaign_exit_used_effect_limit"
-        if decision["approved"] and mode == "paper":
+        if decision["approved"] and mode in {"paper", "live"}:
             stage = "allocation_order_build"
-            order = order_for(decision)
-            stage = "allocation_submit"
-            with control_fence(state) as current_control:
-                if current_control["paused"] or current_control["killed"]:
-                    telegram = deliver_control(
-                        state, control=current_control, wake_id=wake_id, mode=mode)
-                    print(json.dumps({
-                        "effect": "none", "loop_id": "alpaca-investment", "mode": mode,
-                        "reconciliation": reconciliation,
-                        "status": "killed" if current_control["killed"] else "paused",
-                        "telegram_message_id": telegram["message_id"],
-                    }, separators=(",", ":")))
-                    return 0
-                sealed = seal(state / "receipts.jsonl", decision, order)
-                mark_started(state / "receipts.jsonl", sealed)
-                effect_attempted = True
-                submit_order(credentials_path=credentials_path, cli_path=cli_path,
-                             client_order_id=sealed["client_order_id"], order=order)
-            stage = "allocation_reconcile"
-            reconcile_started(
-                state / "receipts.jsonl",
-                lambda value: find_order_by_client_id(
-                    credentials_path=credentials_path, cli_path=cli_path, client_order_id=value),
-            )
-            effect = sealed["effect_id"]
+            order = (live_exit_order({"qty": decision["position_qty"]})
+                     if live_positions else order_for(decision))
+            if mode == "live" and not live_positions:
+                if order.get("asset_class") != "crypto" or order.get("symbol") != "BTC/USDC":
+                    decision.update({"approved": False, "gate": "live_asset_rejected"})
+                    record_no_trade(state / "receipts.jsonl", decision)
+                    order = None
+            if order is None:
+                effect = "none"
+            else:
+                stage = "allocation_submit"
+                with control_fence(state) as current_control:
+                    if current_control["paused"] or current_control["killed"]:
+                        telegram = deliver_control(state, control=current_control, wake_id=wake_id, mode=mode)
+                        print(json.dumps({"effect":"none","loop_id":"alpaca-investment","mode":mode,
+                            "reconciliation":reconciliation,"status":"killed" if current_control["killed"] else "paused",
+                            "telegram_message_id":telegram["message_id"]}, separators=(",", ":")))
+                        return 0
+                    sealed = seal(state / "receipts.jsonl", decision, order)
+                    mark_started(state / "receipts.jsonl", sealed)
+                    effect_attempted = True
+                    submit_order(credentials_path=credentials_path, cli_path=cli_path,
+                                 client_order_id=sealed["client_order_id"], order=order, mode=mode)
+                stage = "allocation_reconcile"
+                reconcile_started(state / "receipts.jsonl", lambda value: find_order_by_client_id(
+                    credentials_path=credentials_path, cli_path=cli_path, client_order_id=value))
+                effect = sealed["effect_id"]
         else:
             if decision["approved"]:
                 decision.update({"approved": False, "gate": f"{mode}_read_only"})
