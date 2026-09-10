@@ -606,6 +606,23 @@ Current live Apply acceptance audit:
    Paid owner under apply receipt `2ed176d67addebd77ae86fef`; its first natural wake ended `pass`
    at `2026-09-07T02:52:05Z` with the persisted aggregate observed `0`, actionable `0`, effect `0`,
    readback `0`, failed `0`, pending `0`. Production monitoring is therefore live and safely idle.
+   The official active-contract surface is no longer empty. Read-only authenticated evidence now
+   exposes contract `63570481` as funded/in progress with milestone `13798056` and one buyer-required
+   Google Form before CrowdWorks delivery, while contract `63568785` remains explicitly awaiting
+   escrow and must not start. The thin Paid adapter implementation now normalizes funded,
+   awaiting-escrow and delivered states, delegates provider-local Google Form transport shared with
+   CrowdWorks Reply, binds prepared/confirmed receipts to account + contract + milestone + form
+   revision + submission payload, and requires positive official delivered-state readback before
+   replay-zero. Each kernel worker now owns its own Playwright runtime and CDP connection from create
+   through close without using the account module's global browser or starting/restarting Chromium.
+   The buyer's application-date field uses an official proposal label first; when that surface is
+   unavailable it accepts only one verified Apply receipt whose exact proposal ID and contract title
+   match, converting its official readback timestamp to the provider's Japan date. Missing or
+   ambiguous evidence waits without submitting. The real contract maps uniquely to proposal
+   `305139864` and official Apply receipt date `2026-09-09`. Focused Paid/Reply tests pass 41/41,
+   diff/compile checks pass, and fresh read-only review returned `ship`; no production mutation has
+   occurred. Merge, target only
+   `crowdworks-revenue-paid`, and obtain the real form + delivery readback and following replay-zero.
 7. [x] `MERCOR-APPLY-1` Restore Mercor as an independent revenue-marketplace Apply owner, not as a
    Job Hunter subfeature. PASS = one bounded owner observes current official opportunities, lets the
    model judge truthful fit, submits only through an identity-bound effect fence, reads the official
