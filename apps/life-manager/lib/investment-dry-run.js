@@ -122,6 +122,7 @@ function productionDependencies() {
       enqueueJob: (job) => runtimeJobs.enqueueJob(job, { query }),
       claimJobs: (input) => runtimeJobs.claimJobs(input, { query }),
       completeJob: (input) => runtimeJobs.completeJob(input, { query }),
+      failJob: (input) => runtimeJobs.failJob(input, { query }),
     },
     readChatId,
   };

@@ -84,6 +84,38 @@ test("durable volume keeps outbox/receipt state across a send-window crash and r
   assert.equal(result.telegram_message_id, "43");
 });
 
+test("credential directory is removed even when durable persistence fails", async () => {
+  let privateDir;
+  await assert.rejects(runInvestmentCloudShadow({ tenantId: "tenant-1", sealed: seededBundle(),
+    wakeId: WAKE_ID, eventKey: EVENT_KEY,
+    secretProvider: { get: async () => "value" }, telegramChatId: "chat",
+    stateRoot: fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-volume-")),
+    readAccountId: async () => "account-1", runCore: async ({ credentialsFile }) => {
+      privateDir = path.dirname(credentialsFile);
+      return { mode: "shadow", deployment: "cloud", effect: "none", telegram_message_id: "1" };
+    }, persist: async () => { throw new Error("persist failed"); } }), /persist failed/);
+  assert.equal(fs.existsSync(privateDir), false);
+});
+
+test("execution failure durably fails the claimed job for bounded retry", async () => {
+  const owner = { uid: "tenant-1", deployment: "cloud", mode: "live" };
+  let enqueued;
+  let failed;
+  const wake = makeInvestmentCloudWake({ expectedMode: "live",
+    stateStore: { listRunnableForMode: async () => [owner] }, runtimeStore: { read: async () => seededBundle() },
+    jobs: { enqueueJob: async (job) => { enqueued = job; }, claimJobs: async () => [{
+      job_id: enqueued.jobId, tenant_id: "tenant-1", loop_id: "investment.cloud",
+      capability: "investment.live", effect_class: "money", effect_key: enqueued.jobId,
+      attempt: 1, input_refs: enqueued.inputRefs }], completeJob: async () => {},
+      failJob: async (value) => { failed = value; } },
+    secretProvider: { assertTenant: () => true }, readChatId: async () => "chat",
+    stateRoot: "/durable/investment", executeInvestment: async () => { throw new Error("core failed"); } });
+  await assert.rejects(wake(new Date("2026-09-10T12:07:00Z")), /core failed/);
+  assert.equal(failed.jobId, enqueued.jobId);
+  assert.equal(failed.errorCode, "INVESTMENT_EXECUTION_FAILED");
+  assert.equal(failed.unknownEffect, false);
+});
+
 test("durable five-minute job makes restart replay produce zero extra shadow wakes", async () => {
   const owner = { uid: "tenant-1", deployment: "cloud", mode: "shadow", paused: false, killed: false };
   let enqueued;
@@ -104,6 +136,7 @@ test("durable five-minute job makes restart replay produce zero extra shadow wak
     stateRoot: "/durable/investment",
     executeShadow: async () => (executions += 1, { status: "allocated", mode: "shadow",
       deployment: "cloud", effect: "none", telegram_message_id: "42", decision: "NO_TRADE",
+      input_runtime_state_digest: "c".repeat(64),
       runtime_state_digest: "d".repeat(64) }),
   });
   const now = new Date("2026-09-10T12:07:00Z");
@@ -132,7 +165,8 @@ test("an older claimed shadow slot completes with its own immutable lineage", as
     secretProvider: { assertTenant: () => true }, readChatId: async () => "chat",
     stateRoot: "/durable/investment",
     executeShadow: async () => ({ mode: "shadow", deployment: "cloud", effect: "none",
-      telegram_message_id: "9", runtime_state_digest: "d".repeat(64) }),
+      telegram_message_id: "9", input_runtime_state_digest: "c".repeat(64),
+      runtime_state_digest: "d".repeat(64) }),
   });
   assert.equal((await wake(new Date("2026-09-10T12:05:00Z"))).receipt.observed_at, oldSlot);
   assert.equal(completion.jobId, oldId);
@@ -154,6 +188,7 @@ test("one Cloud live wake owns a money-class job and persists the shared core re
     stateRoot: "/durable/investment", executeInvestment: async ({ mode, wakeId }) => ({
       mode, deployment: "cloud", effect: "e".repeat(64), observed_wake_id: wakeId,
       telegram_message_id: "live-message", decision: "position://BTCUSD",
+      input_runtime_state_digest: "c".repeat(64),
       runtime_state_digest: "d".repeat(64) }) });
   const result = await wake(new Date("2026-09-10T12:07:00Z"));
   assert.equal(enqueued.capability, "investment.live");

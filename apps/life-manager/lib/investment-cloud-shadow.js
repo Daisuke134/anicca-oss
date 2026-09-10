@@ -68,23 +68,30 @@ function makeInvestmentCloudWake(deps) {
       throw new Error("investment cloud shadow claimed job invalid");
     }
     const telegramChatId = await deps.readChatId(owner.uid);
-    const result = await deps.executeInvestment({ tenantId: owner.uid, mode: owner.mode,
-      wakeId: claimedSlot, eventKey: job.job_id, sealed,
-      secretProvider: deps.secretProvider, telegramChatId,
-      stateRoot: deps.stateRoot,
-      persist: (uid, next) => deps.runtimeStore.upsert(uid, next.bundle) });
-    if (!result || !/^[a-f0-9]{64}$/.test(String(result.runtime_state_digest || ""))) {
-      throw new Error("investment cloud persisted state invalid");
+    try {
+      const result = await deps.executeInvestment({ tenantId: owner.uid, mode: owner.mode,
+        wakeId: claimedSlot, eventKey: job.job_id, sealed,
+        secretProvider: deps.secretProvider, telegramChatId,
+        stateRoot: deps.stateRoot,
+        persist: (uid, next) => deps.runtimeStore.upsert(uid, next.bundle) });
+      if (!result || !/^[a-f0-9]{64}$/.test(String(result.input_runtime_state_digest || ""))
+        || !/^[a-f0-9]{64}$/.test(String(result.runtime_state_digest || ""))) {
+        throw new Error("investment cloud persisted state invalid");
+      }
+      const receipt = { deployment: "cloud", mode: owner.mode,
+        effect_permission: owner.mode === "live" ? "money" : "none",
+        broker_effect: result.effect, order_calls: result.effect === "none" ? 0 : 1,
+        message_calls: 1, decision: result.decision || null,
+        telegram_message_id: String(result.telegram_message_id), observed_at: claimedSlot,
+        core_artifact_ref: artifact.ref, input_runtime_state_digest: result.input_runtime_state_digest,
+        runtime_state_digest: result.runtime_state_digest };
+      await deps.jobs.completeJob({ tenantId: owner.uid, jobId: job.job_id, attempt: job.attempt, workerId, receipt });
+      return { status: "completed", receipt };
+    } catch (error) {
+      await deps.jobs.failJob({ tenantId: owner.uid, jobId: job.job_id, attempt: job.attempt,
+        workerId, errorCode: "INVESTMENT_EXECUTION_FAILED", unknownEffect: false });
+      throw error;
     }
-    const receipt = { deployment: "cloud", mode: owner.mode,
-      effect_permission: owner.mode === "live" ? "money" : "none",
-      broker_effect: result.effect, order_calls: result.effect === "none" ? 0 : 1,
-      message_calls: 1, decision: result.decision || null,
-      telegram_message_id: String(result.telegram_message_id), observed_at: claimedSlot,
-      core_artifact_ref: artifact.ref, input_runtime_state_digest: sealed.digest,
-      runtime_state_digest: result.runtime_state_digest };
-    await deps.jobs.completeJob({ tenantId: owner.uid, jobId: job.job_id, attempt: job.attempt, workerId, receipt });
-    return { status: "completed", receipt };
   };
 }
 
@@ -144,6 +151,7 @@ async function runInvestmentCloud(input) {
   let accountId;
   let coreResult;
   let persisted;
+  let inputRuntimeStateDigest;
   try {
     const alpacaCli = input.alpacaCli || process.env.ALPACA_CLI || "/app/.bin/alpaca";
     accountId = await (input.readAccountId || defaultReadAccountId)({ alpacaCli, apiKey, apiSecret });
@@ -163,6 +171,8 @@ async function runInvestmentCloud(input) {
         source_release_sha: input.sealed.bundle.cutover.source_release_sha,
       })}\n`, { mode: 0o600, flag: "wx" });
     }
+    inputRuntimeStateDigest = exportState({ stateDir, accountId,
+      cutover: input.sealed.bundle.cutover }).digest;
     const credentials = { credentials: [{ service: "app.alpaca.markets",
       live_endpoint: "https://api.alpaca.markets/v2", live_api_key: apiKey, live_api_secret: apiSecret }] };
     fs.writeFileSync(credentialsFile, `${JSON.stringify(credentials)}\n`, { mode: 0o600 });
@@ -188,16 +198,20 @@ async function runInvestmentCloud(input) {
       throw new Error("investment cloud result invalid");
     }
   } finally {
-    if (accountId && accountHash(accountId) === input.sealed.bundle.account_binding.account_id_hash) {
-      const next = exportState({ stateDir, accountId, cutover: input.sealed.bundle.cutover });
-      persisted = await input.persist(tenantId, next);
+    try {
+      if (accountId && accountHash(accountId) === input.sealed.bundle.account_binding.account_id_hash) {
+        const next = exportState({ stateDir, accountId, cutover: input.sealed.bundle.cutover });
+        persisted = await input.persist(tenantId, next);
+      }
+    } finally {
+      fs.rmSync(privateDir, { recursive: true, force: true });
     }
-    fs.rmSync(privateDir, { recursive: true, force: true });
   }
   if (!persisted || !/^[a-f0-9]{64}$/.test(String(persisted.digest || ""))) {
     throw new Error("investment cloud persisted state invalid");
   }
-  return { ...coreResult, runtime_state_digest: persisted.digest };
+  return { ...coreResult, input_runtime_state_digest: inputRuntimeStateDigest,
+    runtime_state_digest: persisted.digest };
 }
 
 async function runInvestmentCloudShadow(input) {
