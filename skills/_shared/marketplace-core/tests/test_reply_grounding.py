@@ -49,6 +49,26 @@ def test_reply_grounding_combines_private_ssot_and_public_provider_facts(tmp_pat
     assert "evidence" not in json.dumps(result, ensure_ascii=False)
 
 
+def test_projected_provider_profile_mapping_is_the_reply_source(tmp_path):
+    private = tmp_path / "profile.json"
+    private.write_text(json.dumps({
+        "candidate": {},
+        "facts": [{"id": "x", "claim": "verified", "evidence": "source"}],
+    }), encoding="utf-8")
+
+    result = grounding.build_reply_grounding(
+        candidate_profile_path=private,
+        provider_profile={
+            "display_name": "Kaito｜AI自動化",
+            "occupation": "ITエンジニア",
+            "skills": [{"name": "Python", "years": 3, "note": "業務自動化"}],
+        },
+    )
+
+    assert result["provider_public_facts"]["occupation"] == "ITエンジニア"
+    assert any(row["claim"] == "職種: ITエンジニア" for row in result["prompt_facts"])
+
+
 def test_missing_gender_stays_visibly_missing_instead_of_being_inferred(tmp_path):
     private = tmp_path / "profile.json"
     private.write_text(json.dumps({
