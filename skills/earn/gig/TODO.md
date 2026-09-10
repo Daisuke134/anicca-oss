@@ -146,8 +146,11 @@ as `proposed`, and the proposal page exposes condition `41879089` with a visible
 The existing shared Reply kernel supports only reply/estimate effects and therefore records this row
 as seller-last `awaiting_buyer` replay-zero instead of advancing it. The active fix adds the universal
 `accept_contract` effect to the same intent fence, official readback, notification and replay-zero
-lifecycle; only CrowdWorks condition/DOM validation and mutation remain in its thin adapter. Source
-tests pass 289/289. This checkpoint is not complete until a main-derived immutable release performs
+lifecycle; only CrowdWorks condition/DOM validation and mutation remain in its thin adapter. A
+provider decision version reopens the previously saved `awaiting_buyer` result exactly once, and a
+saved contract intent is reconciled even when acceptance advances the provider event ID. Exact
+condition/terms changes fail closed. Source tests pass 295/295. This checkpoint is not complete until
+a main-derived immutable release performs
 the action once, CrowdWorks officially leaves `proposed`, Telegram delivers once, Paid observes the
 same contract identity, and the following natural wake proves replay-zero.
 | Upwork | **Off; safe resume is not yet proven.** All historical Upwork labels are disabled/absent and CDP `9233` is not listening. The last official state retained 12 proposals, one active item, zero Connects/balance, zero contracts, zero offers and USD 0 earnings. The account showed Full Access but also one policy-violation/at-risk signal, identity unverified and API ineligible; therefore an invented three-hour cadence is not evidence that automation is permitted or safe. Resume only after official provider permission/scope is established. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** The historical Project Catalog surface returned forbidden/zero and no current listing receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |

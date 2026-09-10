@@ -113,7 +113,8 @@ class CrowdWorksReplyAdapter:
     def _observation(row: Mapping[str, Any]) -> dict[str, str]:
         return {"provider": "crowdworks", "account_id": "7145638",
                 "thread_id": _text(row.get("thread_id")),
-                "latest_event_id": _text(row.get("id")), "observed_at": _now()}
+                "latest_event_id": _text(row.get("id")), "observed_at": _now(),
+                "decision_version": "official-actions-v1"}
 
     def _detail(self, thread_id: str) -> list[dict[str, str]]:
         row = self.rows.get(thread_id)
@@ -164,7 +165,10 @@ class CrowdWorksReplyAdapter:
                 "conversation": conversation[-20:],
                 "reply_required": conversation[-1]["role"] == "buyer",
                 "grounding": self.grounding,
-                "provider_rules": {"outside_contact_before_approval": "forbidden"}}
+                "provider_rules": {
+                    "outside_contact_before_approval": "forbidden",
+                    "auto_accept_official_proposals": True,
+                }}
         required_action = self._contract_action(thread_id)
         if required_action is not None:
             result["required_action"] = required_action

@@ -52,6 +52,10 @@ def _observation(value: Mapping[str, Any]) -> dict[str, str]:
     result = {field: _text(value.get(field), field) for field in fields}
     if value.get("pending_reason") is not None:
         result["pending_reason"] = _text(value.get("pending_reason"), "pending_reason")
+    if value.get("decision_version") is not None:
+        result["decision_version"] = _text(
+            value.get("decision_version"), "decision_version"
+        )
     return result
 
 
@@ -229,7 +233,8 @@ def _run_locked(
     prior_observation = state.get("observation")
     same_source_event = state.get("inventory_event_id") == inventory_event_id
     prior_status = state.get("status")
-    if same_source_event and prior_status in NO_EFFECT:
+    same_decision_version = state.get("decision_version") == row.get("decision_version")
+    if same_source_event and same_decision_version and prior_status in NO_EFFECT:
         return {"thread_id": row["thread_id"], "status": prior_status,
                 "reason": "replay_zero", "effect": 0, "readback": 1, "failed": 0}
     if isinstance(retry_at, str) and same_source_event:
@@ -250,7 +255,9 @@ def _run_locked(
         isinstance(prior_observation, Mapping)
         and prior_observation.get("latest_event_id") == row["latest_event_id"]
     )
-    if isinstance(prior_intent, Mapping) and same_event:
+    if isinstance(prior_intent, Mapping) and (
+        same_event or prior_intent.get("action") == "accept_contract"
+    ):
         official = adapter.readback(dict(prior_intent))
         if official.get("verified") is True:
             receipt = _receipt(prior_intent, official)
@@ -284,6 +291,7 @@ def _run_locked(
         if classification not in NO_EFFECT:
             raise ValueError("reply_noop_classification_invalid")
         _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                      "decision_version": row.get("decision_version"),
                       "observation": row, "status": classification})
         return {"thread_id": row["thread_id"], "status": classification,
                 "reason": "no_effect_required", "effect": 0, "readback": 1, "failed": 0}
