@@ -149,6 +149,35 @@ def test_adapter_opens_injected_thread_owned_cdp_connection_not_account_browser(
     assert calls == [("timeout", 15_000), ("page_close",), ("runtime_stop",)]
 
 
+def test_active_contract_timeout_has_bounded_stage_specific_name():
+    module = load()
+
+    class Page:
+        def set_default_timeout(self, timeout):
+            pass
+
+        def goto(self, *args, **kwargs):
+            raise module.PlaywrightTimeoutError("untrusted provider text is never diagnostic state")
+
+    class Context:
+        def new_page(self):
+            return Page()
+
+    class Browser:
+        contexts = [Context()]
+
+    class Runtime:
+        def stop(self):
+            pass
+
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638",
+        connection_factory=lambda: (Runtime(), Browser()))
+    with pytest.raises(module.CrowdWorksPaidActiveContractsTimeout) as error:
+        adapter._list_contracts()
+    assert str(error.value) == ""
+    adapter.close()
+
+
 def test_observation_keeps_adapter_account_identity():
     module = load()
     adapter = module.CrowdWorksPaidAdapter(account_id="different-account")
@@ -181,15 +210,14 @@ def test_kernel_concurrency_keeps_paid_adapter_thread_state_isolated(tmp_path):
 
     def observe_one(work_id):
         item = next(row for row in rows if row["work_id"] == work_id)
-        adapter._items = {work_id: item}
         return adapter._observation(item)
 
     def context(work_id):
-        return {"contract": adapter._items[work_id]}
+        return {"contract": next(row for row in rows if row["work_id"] == work_id)}
 
     def mutate(intent):
         barrier.wait(timeout=3)
-        seen.append((threading.get_ident(), id(adapter._items), intent["work_id"]))
+        seen.append((threading.get_ident(), intent["work_id"]))
         mutated.add(intent["work_id"])
 
     adapter.observe_one, adapter.context, adapter.mutate = observe_one, context, mutate
@@ -197,7 +225,7 @@ def test_kernel_concurrency_keeps_paid_adapter_thread_state_isolated(tmp_path):
                                       if intent["work_id"] in mutated else {"authoritative_absent": True})
     result = kernel.run_wake(adapter=adapter, decide=module.decide, state_root=tmp_path, max_workers=2)
     assert result["effect"] == 2 and result["failed"] == 0
-    assert len({thread for thread, _, _ in seen}) == len({items for _, items, _ in seen}) == 2
+    assert len({thread for thread, _ in seen}) == 2
 
 
 def test_real_kernel_paths_close_every_thread_owned_runtime(tmp_path):
@@ -267,7 +295,45 @@ def test_real_kernel_paths_close_every_thread_owned_runtime(tmp_path):
     assert events.count("page") == events.count("runtime")
     # All four kernel paths perform multiple independent public calls; no
     # browser/page/runtime can survive ThreadPoolExecutor worker teardown.
-    assert events.count("runtime") >= 19
+    assert events.count("runtime") >= 15
+
+
+def test_kernel_does_not_repeat_full_inventory_for_each_worker_call(tmp_path):
+    module, kernel = load(), load_kernel()
+    rows, list_calls, details = [escrow(), delivered()], [], []
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
+    adapter._list_contracts = lambda: (list_calls.append("full"), rows)[1]
+    adapter._detail = lambda row: (details.append(row["work_id"]), dict(row))[1]
+
+    result = kernel.run_wake(adapter=adapter, decide=module.decide, state_root=tmp_path, max_workers=2)
+
+    assert result["failed"] == 0
+    assert list_calls == ["full"]
+    # Initial observation details both contracts once; each worker then refreshes
+    # exactly its own contract.  context consumes the fresh pure-data cache.
+    assert details[:2] == ["63568785", "63570481"]
+    assert sorted(details[2:]) == ["63568785", "63570481"]
+
+
+def test_mutation_targeted_refresh_rejects_changed_contract_before_submit(tmp_path):
+    module, kernel = load(), load_kernel()
+    original = funded()
+    changed = {**funded(), "milestone_id": "13798057", "form_url": "https://forms.gle/changed"}
+    reads, sent = [], []
+
+    def inventory():
+        reads.append(1)
+        current = original if len(reads) < 4 else changed
+        return {"ok": True, "source_complete": True, "contract_candidates": [current]}
+
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638", inventory_reader=inventory)
+    adapter.readback = lambda intent: {"authoritative_absent": True}
+    adapter._submit_form_once = lambda item: sent.append(item)
+    result = kernel.run_wake(adapter=adapter, decide=module.decide, state_root=tmp_path, max_workers=1)
+
+    assert result["failed"] == 1
+    assert reads == [1, 1, 1, 1]
+    assert sent == []
 
 
 def test_prepared_form_receipt_fences_replay_before_any_second_post(tmp_path):

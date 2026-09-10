@@ -16,7 +16,7 @@ import time
 from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 
 HERE = Path(__file__).resolve().parent
@@ -79,6 +79,30 @@ class CrowdWorksPaidWait(RuntimeError):
         self.paid_remaining_work = remaining_work
 
 
+class CrowdWorksPaidActiveContractsTimeout(RuntimeError):
+    pass
+
+
+class CrowdWorksPaidContractTimeout(RuntimeError):
+    pass
+
+
+class CrowdWorksPaidProposalTimeout(RuntimeError):
+    pass
+
+
+class CrowdWorksPaidMilestoneTimeout(RuntimeError):
+    pass
+
+
+_TIMEOUTS = {
+    "active_contracts": CrowdWorksPaidActiveContractsTimeout,
+    "contract": CrowdWorksPaidContractTimeout,
+    "proposal": CrowdWorksPaidProposalTimeout,
+    "milestone": CrowdWorksPaidMilestoneTimeout,
+}
+
+
 class CrowdWorksPaidAdapter:
     """CrowdWorks-only observation and effects; kernel owns durable lifecycle."""
 
@@ -97,6 +121,9 @@ class CrowdWorksPaidAdapter:
         self.connection_factory = connection_factory or _connect_existing_cdp
         self.application_receipts_path = Path(application_receipts_path).expanduser()
         self._local = threading.local()
+        self._cache_lock = threading.Lock()
+        # Contract facts only: never a Playwright runtime, browser, context, or page.
+        self._contract_cache: dict[str, dict[str, Any]] = {}
 
     @property
     def browser(self):
@@ -122,14 +149,6 @@ class CrowdWorksPaidAdapter:
     def runtime(self, value) -> None:
         self._local.runtime = value
 
-    @property
-    def _items(self) -> dict[str, dict[str, Any]]:
-        return getattr(self._local, "items", {})
-
-    @_items.setter
-    def _items(self, value: dict[str, dict[str, Any]]) -> None:
-        self._local.items = value
-
     def _open(self) -> None:
         if self.page is not None:
             return
@@ -142,11 +161,18 @@ class CrowdWorksPaidAdapter:
         self.page = contexts[0].new_page()
         self.page.set_default_timeout(15_000)
 
+    @staticmethod
+    def _goto(page: Any, url: str, stage: str) -> None:
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=20_000)
+        except PlaywrightTimeoutError:
+            raise _TIMEOUTS[stage]() from None
+
     def _goto_contract(self, work_id: str) -> None:
         self._open()
         if not re.fullmatch(r"\d+", work_id):
             raise RuntimeError("crowdworks_paid_work_invalid")
-        self.page.goto(f"https://crowdworks.jp/contracts/{work_id}", wait_until="domcontentloaded", timeout=20_000)
+        self._goto(self.page, f"https://crowdworks.jp/contracts/{work_id}", "contract")
         parsed = urlsplit(str(self.page.url))
         if (parsed.scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment) != (
                 "https", "crowdworks.jp", f"/contracts/{work_id}", "", ""):
@@ -168,7 +194,7 @@ class CrowdWorksPaidAdapter:
 
     def _list_contracts(self) -> list[dict[str, str]]:
         self._open()
-        self.page.goto(ACTIVE_CONTRACTS_URL, wait_until="domcontentloaded", timeout=20_000)
+        self._goto(self.page, ACTIVE_CONTRACTS_URL, "active_contracts")
         parsed = urlsplit(str(self.page.url))
         if ((parsed.scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment)
                 != ("https", "crowdworks.jp", "/e/contracts", "status=active", "")):
@@ -203,34 +229,37 @@ class CrowdWorksPaidAdapter:
         work_id = _text(basic.get("work_id"))
         self._goto_contract(work_id)
         body = _text(self.page.locator("body").inner_text(), "crowdworks_paid_contract_unavailable")
-        title, client, state = (_text(basic.get(key)) for key in ("title", "client", "provider_state"))
+        title, client = (_text(basic.get(key)) for key in ("title", "client"))
         if title not in body or client not in body:
             raise RuntimeError("crowdworks_paid_contract_context_invalid")
-        proposal_ids = sorted({match.group(1) for href in self.page.locator('a[href]').evaluate_all(
-            "nodes => nodes.map(a => a.getAttribute('href')).filter(Boolean)") if isinstance(href, str)
-                               for match in [re.match(r"^/proposals/(\d+)(?:/|$)", href)] if match})
-        proposal_id = proposal_ids[0] if len(proposal_ids) == 1 else None
-        application_date = self._proposal_application_date(proposal_id) if proposal_id else None
-        if application_date is None and proposal_id is not None:
-            application_date = self._receipt_application_date(title, proposal_id)
+        state = ("funded" if "業務を開始しています" in body else
+                 "awaiting_escrow" if "仮払いを行っています" in body and "業務を開始しない" in body else
+                 "delivered" if any(token in body for token in ("検収", "納品済み", "納品完了")) else "")
+        if not state:
+            raise RuntimeError("crowdworks_paid_contract_state_changed")
         if state == "awaiting_escrow":
-            if "仮払いを行っています" not in body or "業務を開始しない" not in body:
-                raise RuntimeError("crowdworks_paid_contract_state_changed")
             return {"work_id": work_id, "title": title, "client": client, "provider_state": state,
-                    "milestone_id": None, "form_url": None, "proposal_id": proposal_id,
-                    "application_date": application_date}
+                    "milestone_id": None, "form_url": None, "proposal_id": None,
+                    "application_date": None}
         if state == "delivered":
             forms = self.page.locator('form[action^="/milestones/"][action$="/complete"]')
             if forms.count() or not any(token in body for token in ("検収", "納品済み", "納品完了")):
                 raise RuntimeError("crowdworks_paid_contract_state_changed")
             return {"work_id": work_id, "title": title, "client": client, "provider_state": state,
-                    "milestone_id": None, "form_url": None, "proposal_id": proposal_id,
-                    "application_date": application_date}
-        if state != "funded" or "業務を開始しています" not in body:
-            raise RuntimeError("crowdworks_paid_contract_state_changed")
+                    "milestone_id": None, "form_url": None, "proposal_id": None,
+                    "application_date": None}
         forms = self.page.locator('form[action^="/milestones/"][action$="/complete"]')
         actions = {str(forms.nth(i).get_attribute("action") or "") for i in range(forms.count())}
         match = re.fullmatch(r"/milestones/(\d+)/complete", actions.pop()) if len(actions) == 1 else None
+        proposal_ids = sorted({found.group(1) for href in self.page.locator('a[href]').evaluate_all(
+            "nodes => nodes.map(a => a.getAttribute('href')).filter(Boolean)") if isinstance(href, str)
+                               for found in [re.match(r"^/proposals/(\d+)(?:/|$)", href)] if found})
+        proposal_id = proposal_ids[0] if len(proposal_ids) == 1 else None
+        application_date = basic.get("application_date") if basic.get("proposal_id") == proposal_id else None
+        if application_date is None and proposal_id is not None:
+            application_date = self._proposal_application_date(proposal_id)
+        if application_date is None and proposal_id is not None:
+            application_date = self._receipt_application_date(title, proposal_id)
         links = self.page.locator('a[href]').evaluate_all("nodes => nodes.map(a => a.href).filter(Boolean)")
         form_urls = sorted({link for link in links if isinstance(link, str) and _google_form_url(link)})
         if match is None or len(form_urls) != 1:
@@ -242,7 +271,7 @@ class CrowdWorksPaidAdapter:
     def _proposal_application_date(self, proposal_id: str) -> str | None:
         proposal = self.browser.contexts[0].new_page()
         try:
-            proposal.goto(f"https://crowdworks.jp/proposals/{proposal_id}", wait_until="domcontentloaded", timeout=20_000)
+            self._goto(proposal, f"https://crowdworks.jp/proposals/{proposal_id}", "proposal")
             route = urlsplit(str(proposal.url))
             if (route.scheme, route.netloc, route.path, route.query, route.fragment) != (
                     "https", "crowdworks.jp", f"/proposals/{proposal_id}", "", ""):
@@ -299,20 +328,55 @@ class CrowdWorksPaidAdapter:
                 "work_id": _text(item.get("work_id")), "latest_event_id": _digest(stable),
                 "provider_state": _text(item.get("provider_state")), "observed_at": _now()}
 
+    def _cache_replace(self, items: list[Mapping[str, Any]]) -> None:
+        snapshot = { _text(item.get("work_id")): dict(item) for item in items }
+        with self._cache_lock:
+            self._contract_cache = snapshot
+
+    def _cache_update(self, item: Mapping[str, Any]) -> dict[str, Any]:
+        normalized = dict(item); work_id = _text(normalized.get("work_id"))
+        with self._cache_lock:
+            self._contract_cache[work_id] = normalized
+        return dict(normalized)
+
+    def _cached_item(self, work_id: str) -> dict[str, Any] | None:
+        with self._cache_lock:
+            value = self._contract_cache.get(work_id)
+            return dict(value) if value is not None else None
+
+    def _inventory_rows(self) -> list[dict[str, Any]]:
+        if self.inventory_reader is None:
+            return self._list_contracts()
+        snapshot = self.inventory_reader()
+        if (not isinstance(snapshot, Mapping) or snapshot.get("ok") is not True
+                or snapshot.get("source_complete") is not True
+                or not isinstance(snapshot.get("contract_candidates"), list)):
+            raise RuntimeError("crowdworks_paid_inventory_unavailable")
+        details = [self._row_from_list(row) for row in snapshot["contract_candidates"] if isinstance(row, Mapping)]
+        if len(details) != len(snapshot["contract_candidates"]):
+            raise RuntimeError("crowdworks_paid_inventory_unavailable")
+        return details
+
     def _inventory(self) -> list[dict[str, Any]]:
-        if self.inventory_reader is not None:
-            snapshot = self.inventory_reader()
-            if (not isinstance(snapshot, Mapping) or snapshot.get("ok") is not True
-                    or snapshot.get("source_complete") is not True
-                    or not isinstance(snapshot.get("contract_candidates"), list)):
-                raise RuntimeError("crowdworks_paid_inventory_unavailable")
-            details = [self._row_from_list(row) for row in snapshot["contract_candidates"] if isinstance(row, Mapping)]
-            if len(details) != len(snapshot["contract_candidates"]):
-                raise RuntimeError("crowdworks_paid_inventory_unavailable")
-        else:
-            details = [self._detail(row) for row in self._list_contracts()]
-        self._items = {item["work_id"]: item for item in details}
+        rows = self._inventory_rows()
+        details = rows if self.inventory_reader is not None else [self._detail(row) for row in rows]
+        self._cache_replace(details)
         return [self._observation(item) for item in details]
+
+    def _targeted_detail(self, work_id: str) -> dict[str, Any]:
+        """Refresh exactly one contract, reusing only immutable pure data as a hint."""
+        basic = self._cached_item(work_id)
+        if self.inventory_reader is not None:
+            matches = [item for item in self._inventory_rows() if item["work_id"] == work_id]
+            if len(matches) != 1:
+                raise RuntimeError("crowdworks_paid_work_unavailable")
+            return self._cache_update(matches[0])
+        if basic is None:
+            matches = [item for item in self._list_contracts() if item["work_id"] == work_id]
+            if len(matches) != 1:
+                raise RuntimeError("crowdworks_paid_work_unavailable")
+            basic = matches[0]
+        return self._cache_update(self._detail(basic))
 
     def observe_active(self) -> list[dict[str, Any]]:
         try:
@@ -324,19 +388,13 @@ class CrowdWorksPaidAdapter:
 
     def observe_one(self, work_id: str) -> dict[str, Any]:
         try:
-            matches = [row for row in self._inventory() if row["work_id"] == work_id]
-            if len(matches) != 1:
-                raise RuntimeError("crowdworks_paid_work_unavailable")
-            return matches[0]
+            return self._observation(self._targeted_detail(work_id))
         finally:
             self.close()
 
     def context(self, work_id: str) -> dict[str, Any]:
         try:
-            self._inventory()
-            if work_id not in self._items:
-                raise RuntimeError("crowdworks_paid_work_unavailable")
-            item = self._items[work_id]
+            item = self._cached_item(work_id) or self._targeted_detail(work_id)
             return {"contract": dict(item), "delivery": {
                 "formal_delivery_authorized": item["provider_state"] == "funded",
                 "form_required": bool(item.get("form_url")),
@@ -442,7 +500,11 @@ class CrowdWorksPaidAdapter:
         submit = form.locator('input[name="commit"][type="submit"][value="納品完了報告をする"]')
         if submit.count() != 1 or submit.is_disabled():
             raise RuntimeError("crowdworks_paid_milestone_submit_unavailable")
-        submit.click(); self.page.wait_for_load_state("domcontentloaded", timeout=20_000)
+        try:
+            submit.click()
+            self.page.wait_for_load_state("domcontentloaded", timeout=20_000)
+        except PlaywrightTimeoutError:
+            raise CrowdWorksPaidMilestoneTimeout() from None
 
     def mutate(self, intent: dict[str, Any]) -> None:
         try:
@@ -450,11 +512,7 @@ class CrowdWorksPaidAdapter:
                 raise RuntimeError("crowdworks_paid_effect_unsupported")
             payload = intent["payload"]
             work_id = _text(intent.get("work_id"))
-            self._inventory()
-            try:
-                current = self._items[work_id]
-            except KeyError:
-                raise RuntimeError("crowdworks_paid_work_unavailable") from None
+            current = self._targeted_detail(work_id)
             url = current.get("form_url")
             if (current.get("provider_state") != "funded" or payload.get("milestone_id") != current.get("milestone_id")
                     or payload.get("form_url") != url or payload.get("form_sha256") != hashlib.sha256(str(url).encode()).hexdigest()):
@@ -497,7 +555,6 @@ class CrowdWorksPaidAdapter:
             try: self.runtime.stop()
             except Exception: pass
         self.runtime = None
-        self._items = {}
 
 
 def read_only_inventory() -> dict[str, Any]:
