@@ -1,16 +1,72 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const runtimeJobs = require("./runtime-job-store.js");
 const { createInvestmentStateStore } = require("./investment-state-store.js");
-const { runParityCore, assertLocalCloudParity } = require("./investment-parity-core.js");
+const { createSecretProvider } = require("./secret-provider.js");
+const { sendMessage } = require("./telegram.js");
+const { readInvestmentCoreArtifact, runInvestmentParityCore } = require("./investment-core-artifact.js");
 
 const FIXTURE_PATH = path.resolve(__dirname, "fixtures/investment-preapproval-replay.json");
 const PARITY_PATH = path.resolve(__dirname, "fixtures/investment-parity-expected.json");
 const CAPABILITY = "investment.dry-run";
 let pool;
+
+function createCloudInvestmentSecretProvider(env = process.env) {
+  const tenantId = String(env.LM_RUNTIME_TENANT_ID || "").trim();
+  const bindings = new Map([
+    ["secret://alpaca/api-key", "LM_ALPACA_API_KEY"],
+    ["secret://alpaca/api-secret", "LM_ALPACA_API_SECRET"],
+    ["secret://telegram/bot-token", "LM_TELEGRAM_BOT_TOKEN"],
+  ]);
+  const provider = createSecretProvider({ mode: "cloud", vault: {
+    async get(requestTenantId, ref) {
+      if (!tenantId || requestTenantId !== tenantId) throw new Error("investment cloud secret tenant scope mismatch");
+      const name = bindings.get(ref);
+      const value = name && String(env[name] || "").trim();
+      if (!value) throw new Error("investment cloud secret unavailable");
+      return value;
+    },
+    async health() {
+      return { ok: Boolean(tenantId && [...bindings.values()].every((name) => String(env[name] || "").trim())) };
+    },
+  } });
+  return Object.freeze({
+    get: provider.get,
+    health: provider.health,
+    assertTenant(requestTenantId) {
+      if (!tenantId || requestTenantId !== tenantId) throw new Error("investment cloud secret tenant scope mismatch");
+      return true;
+    },
+  });
+}
+
+async function readInvestmentCloudWiring(opts = {}) {
+  const env = opts.env || process.env;
+  const artifact = (opts.readCoreArtifact || readInvestmentCoreArtifact)();
+  const secretProvider = opts.secretProvider || createCloudInvestmentSecretProvider(env);
+  const health = await secretProvider.health();
+  const parity = JSON.parse(fs.readFileSync(PARITY_PATH, "utf8"));
+  return Object.freeze({
+    status: env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED === "true" ? "invalid_schedule_enabled" : "wired_disabled",
+    deployment: "cloud",
+    schedule_enabled: env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED === "true",
+    broker_mutation_enabled: false,
+    core_digest: parity.core_digest,
+    core_artifact_digest: artifact.digest,
+    core_artifact_ref: artifact.ref,
+    queue: "life-manager-runtime-jobs",
+    durable_receipts: true,
+    secret_provider: health.provider,
+    secret_provider_ok: health.ok,
+    telegram_transport: "life-manager-telegram",
+    telegram_transport_wired: typeof (opts.telegramTransport || sendMessage) === "function",
+    telegram_transport_enabled: false,
+  });
+}
 
 function fiveMinuteSlot(value = new Date()) {
   const milliseconds = value instanceof Date ? value.getTime() : Date.parse(value);
@@ -25,6 +81,8 @@ function productionDependencies() {
   const query = pool.query.bind(pool);
   return {
     stateStore: createInvestmentStateStore({ query }),
+    secretProvider: createCloudInvestmentSecretProvider(),
+    telegramTransport: sendMessage,
     jobs: {
       enqueueJob: (job) => runtimeJobs.enqueueJob(job, { query }),
       claimJobs: (input) => runtimeJobs.claimJobs(input, { query }),
@@ -44,14 +102,24 @@ function makeInvestmentDryRun(stateStore, jobs, opts = {}) {
     if (!states.length) return { status: "no_tenant", effect_permission: "none" };
     const owner = states[0];
     const slot = fiveMinuteSlot(now);
+    const artifact = (opts.readCoreArtifact || readInvestmentCoreArtifact)();
+    if (!opts.secretProvider || typeof opts.secretProvider.health !== "function"
+      || typeof opts.secretProvider.assertTenant !== "function") {
+      throw new Error("investment cloud secret provider unavailable");
+    }
+    opts.secretProvider.assertTenant(owner.uid);
+    const secretHealth = await opts.secretProvider.health();
+    const secretRefsBound = owner.alpaca_api_key_ref === "secret://alpaca/api-key"
+      && owner.alpaca_api_secret_ref === "secret://alpaca/api-secret";
     const fixtureText = opts.fixture ? JSON.stringify(opts.fixture) : fs.readFileSync(FIXTURE_PATH, "utf8");
     const fixture = opts.fixture || JSON.parse(fixtureText);
     const fixtureDigest = opts.fixtureDigest || crypto.createHash("sha256").update(fixtureText).digest("hex");
-    const jobId = crypto.createHash("sha256").update(`${owner.uid}\n${slot}\n${fixtureDigest}`).digest("hex");
+    const jobId = crypto.createHash("sha256").update(`${owner.uid}\n${slot}\n${fixtureDigest}\n${artifact.digest}`).digest("hex");
     await jobs.enqueueJob({ jobId, tenantId: owner.uid, loopId: "investment.cloud",
       capability: CAPABILITY, effectClass: "none", effectKey: null, maxAttempts: 3,
       inputRefs: { investment_state_ref: `investment-state://${owner.uid}`,
         fixture_ref: `fixture://alpaca/preapproval-replay/${fixtureDigest}`,
+        core_artifact_ref: artifact.ref,
         schedule_slot_ref: `schedule-slot://${slot}` } });
     const claimed = await jobs.claimJobs({ workerId, capabilities: [CAPABILITY], tenantId: owner.uid,
       limit: 1, leaseSeconds: 180 });
@@ -62,22 +130,32 @@ function makeInvestmentDryRun(stateStore, jobs, opts = {}) {
     const claimedSlot = refs && typeof refs.schedule_slot_ref === "string"
       ? refs.schedule_slot_ref.replace(/^schedule-slot:\/\//, "") : "";
     const expectedJobId = crypto.createHash("sha256")
-      .update(`${owner.uid}\n${claimedSlot}\n${fixtureDigest}`).digest("hex");
+      .update(`${owner.uid}\n${claimedSlot}\n${fixtureDigest}\n${artifact.digest}`).digest("hex");
     if (!refs || refs.fixture_ref !== fixtureRef
       || refs.investment_state_ref !== `investment-state://${owner.uid}`
+      || refs.core_artifact_ref !== artifact.ref
       || fiveMinuteSlot(claimedSlot) !== claimedSlot || job.job_id !== expectedJobId
       || job.tenant_id !== owner.uid || job.loop_id !== "investment.cloud"
       || job.capability !== CAPABILITY || job.effect_class !== "none" || job.effect_key !== null) {
       throw new Error("investment dry-run claimed job invalid");
     }
-    const parity = runParityCore(fixture);
+    const parity = await (opts.runCore || runInvestmentParityCore)(fixture);
     const expectedParity = opts.expectedParity || (opts.fixture ? parity
       : JSON.parse(fs.readFileSync(PARITY_PATH, "utf8")));
-    assertLocalCloudParity(parity, expectedParity);
+    try { assert.deepStrictEqual(parity, expectedParity); }
+    catch { throw new Error("investment local/cloud parity mismatch"); }
+    if (owner.core_digest !== null && owner.core_digest !== parity.core_digest) {
+      throw new Error("investment cloud core digest mismatch");
+    }
     const receipt = Object.freeze({ effect_permission: "none", broker_calls: 0, message_calls: 0,
       deployment: "cloud", mode: owner.mode, decision: parity.decision, gate: parity.risk.gate,
       reason: parity.report.reason, cash: parity.report.cash, equity: parity.report.equity,
-      core_digest: parity.core_digest, idempotency_key: parity.idempotency_key, fixture_ref: fixtureRef,
+      core_digest: parity.core_digest, core_artifact_digest: artifact.digest,
+      core_artifact_ref: artifact.ref, idempotency_key: parity.idempotency_key,
+      secret_provider: secretHealth.provider, secret_provider_ok: secretHealth.ok,
+      secret_refs_bound: secretRefsBound, telegram_transport: "life-manager-telegram",
+      telegram_transport_wired: typeof opts.telegramTransport === "function",
+      telegram_transport_enabled: false, fixture_ref: fixtureRef,
       observed_at: claimedSlot });
     await jobs.completeJob({ tenantId: owner.uid, jobId: job.job_id, attempt: job.attempt,
       workerId, receipt });
@@ -89,8 +167,8 @@ async function runInvestmentDryRun(now) {
   if (process.env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED !== "true") {
     return { status: "disabled", effect_permission: "none" };
   }
-  const { stateStore, jobs } = productionDependencies();
-  return makeInvestmentDryRun(stateStore, jobs)(now);
+  const { stateStore, jobs, secretProvider, telegramTransport } = productionDependencies();
+  return makeInvestmentDryRun(stateStore, jobs, { secretProvider, telegramTransport })(now);
 }
 
 function startInvestmentDryRunLoop(opts = {}) {
@@ -103,4 +181,5 @@ function startInvestmentDryRunLoop(opts = {}) {
 }
 
 module.exports = { CAPABILITY, fiveMinuteSlot, makeInvestmentDryRun,
+  createCloudInvestmentSecretProvider, readInvestmentCloudWiring,
   runInvestmentDryRun, startInvestmentDryRunLoop };

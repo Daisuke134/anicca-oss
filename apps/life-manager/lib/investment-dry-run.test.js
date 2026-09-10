@@ -6,16 +6,84 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { makeInvestmentDryRun, fiveMinuteSlot, runInvestmentDryRun,
-  startInvestmentDryRunLoop } = require("./investment-dry-run.js");
+  startInvestmentDryRunLoop, createCloudInvestmentSecretProvider,
+  readInvestmentCloudWiring } = require("./investment-dry-run.js");
+const { readInvestmentCoreArtifact, runInvestmentParityCore } = require("./investment-core-artifact.js");
 
 const state = { uid: "owner-1", lifecycle: "in_review", deployment: "cloud", mode: "paper",
   paused: false, killed: false, core_digest: null, receipt_refs: [],
   alpaca_api_key_ref: null, alpaca_api_secret_ref: null };
+const cloudSecrets = () => createCloudInvestmentSecretProvider({
+  LM_RUNTIME_TENANT_ID: "owner-1", LM_ALPACA_API_KEY: "key",
+  LM_ALPACA_API_SECRET: "secret", LM_TELEGRAM_BOT_TOKEN: "telegram",
+});
 
 test("production fixture is packaged inside the Railway app root with the sealed digest", () => {
   const bytes = fs.readFileSync(path.join(__dirname, "fixtures/investment-preapproval-replay.json"));
   assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"),
     "a123789d7306f1551dc8e8637fc15e2af732f756b57170fe2a1928aeb2375592");
+});
+
+test("cloud invokes the committed Python core and reports its content-addressed artifact", async () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/investment-preapproval-replay.json")));
+  const artifact = readInvestmentCoreArtifact();
+  const result = await runInvestmentParityCore(fixture);
+  assert.match(artifact.digest, /^[a-f0-9]{64}$/);
+  assert.equal(artifact.ref, `investment-core://sha256/${artifact.digest}`);
+  assert.equal(result.core_digest, "85ac90e0027acd0c57ac0a81ef01db1a02c8a2b5b59ae50774fe2a40ec89f259");
+});
+
+test("Railway app-root artifact is byte-identical to every committed core source", () => {
+  const sourceRoot = path.resolve(__dirname, "../../../skills/alpaca-investment");
+  const appRoot = path.resolve(__dirname, "../investment-core");
+  for (const file of readInvestmentCoreArtifact().files) {
+    assert.deepEqual(fs.readFileSync(path.join(appRoot, file.name)),
+      fs.readFileSync(path.join(sourceRoot, file.name)), file.name);
+  }
+});
+
+test("cloud secret adapter is tenant-scoped and returns no value in health readback", async () => {
+  const provider = createCloudInvestmentSecretProvider({
+    LM_RUNTIME_TENANT_ID: "owner-1", LM_ALPACA_API_KEY: "secret-value",
+    LM_ALPACA_API_SECRET: "api-secret", LM_TELEGRAM_BOT_TOKEN: "telegram",
+  });
+  assert.deepEqual(await provider.health(), { ok: true, mode: "cloud", provider: "vault" });
+  assert.equal(await provider.get("owner-1", "secret://alpaca/api-key"), "secret-value");
+  await assert.rejects(provider.get("owner-2", "secret://alpaca/api-key"), /tenant scope/);
+  assert.equal(JSON.stringify(await provider.health()).includes("secret-value"), false);
+});
+
+test("disabled cloud readback proves host wiring without broker or Telegram effects", async () => {
+  const result = await readInvestmentCloudWiring({ env: { LM_RUNTIME_TENANT_ID: "owner-1" } });
+  assert.equal(result.status, "wired_disabled");
+  assert.equal(result.schedule_enabled, false);
+  assert.equal(result.broker_mutation_enabled, false);
+  assert.equal(result.telegram_transport_enabled, false);
+  assert.equal(result.telegram_transport_wired, true);
+  assert.equal(result.durable_receipts, true);
+  assert.equal(result.core_digest, "85ac90e0027acd0c57ac0a81ef01db1a02c8a2b5b59ae50774fe2a40ec89f259");
+  assert.match(result.core_artifact_digest, /^[a-f0-9]{64}$/);
+  assert.equal(result.secret_provider_ok, false);
+});
+
+test("cloud readback never calls an enabled schedule disabled", async () => {
+  const result = await readInvestmentCloudWiring({
+    env: { LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED: "true" },
+  });
+  assert.equal(result.status, "invalid_schedule_enabled");
+  assert.equal(result.schedule_enabled, true);
+});
+
+test("enabled worker rejects a foreign tenant before queue enqueue", async () => {
+  let enqueued = false;
+  const run = makeInvestmentDryRun({ listRunnable: async () => [{ ...state, uid: "owner-2" }] }, {
+    enqueueJob: async () => { enqueued = true; },
+  }, {
+    getEnv: () => ({ LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED: "true" }),
+    secretProvider: cloudSecrets(),
+  });
+  await assert.rejects(run(new Date("2026-09-06T12:00:00Z")), /tenant scope/);
+  assert.equal(enqueued, false);
 });
 
 test("a Local/Cloud parity mismatch fails closed before the durable receipt", async () => {
@@ -31,7 +99,8 @@ test("a Local/Cloud parity mismatch fails closed before the durable receipt", as
     observation: { account: { cash: "100000.00", equity: "100000.00" } } };
   const run = makeInvestmentDryRun({ listRunnable: async () => [state] }, jobs, {
     getEnv: () => ({ LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED: "true" }), fixture,
-    fixtureDigest: "d".repeat(64), expectedParity: {}, workerId: "worker-1" });
+    fixtureDigest: "d".repeat(64), expectedParity: {}, workerId: "worker-1",
+    secretProvider: cloudSecrets() });
   await assert.rejects(() => run(new Date("2026-09-06T12:00:00Z")), /parity mismatch/);
   assert.equal(completed, false);
 });
@@ -84,6 +153,8 @@ test("enabled dry-run writes one effect-none receipt and replay creates no dupli
     fixture: { no_trade: { approved: false, candidate_ref: "NO_TRADE", gate: "model_no_trade", reason: "No edge", observed_at: "2026-09-06T00:00:00Z" },
       observation: { account: { cash: "100000.00", equity: "100000.00" } } },
     fixtureDigest: "a".repeat(64), workerId: "worker-1",
+    secretProvider: cloudSecrets(),
+    telegramTransport: async () => { throw new Error("disabled transport must not send"); },
   });
   const now = new Date("2026-09-06T12:07:59Z");
   const first = await run(now);
@@ -93,6 +164,15 @@ test("enabled dry-run writes one effect-none receipt and replay creates no dupli
   assert.equal(first.receipt.message_calls, 0);
   assert.equal(first.receipt.decision, "NO_TRADE");
   assert.match(first.receipt.core_digest, /^[a-f0-9]{64}$/);
+  assert.match(first.receipt.core_digest, /^[a-f0-9]{64}$/);
+  assert.equal(first.receipt.core_artifact_ref,
+    `investment-core://sha256/${first.receipt.core_artifact_digest}`);
+  assert.equal(first.receipt.secret_provider, "vault");
+  assert.equal(first.receipt.secret_provider_ok, true);
+  assert.equal(first.receipt.secret_refs_bound, false);
+  assert.equal(first.receipt.telegram_transport, "life-manager-telegram");
+  assert.equal(first.receipt.telegram_transport_wired, true);
+  assert.equal(first.receipt.telegram_transport_enabled, false);
   assert.equal(completed.length, 1);
   assert.deepEqual(replay, { status: "already_processed", effect_permission: "none" });
 });
@@ -103,8 +183,9 @@ test("five-minute slot is stable", () => {
 
 test("an older claimed slot completes with its own immutable lineage", async () => {
   const digest = "b".repeat(64);
+  const artifact = readInvestmentCoreArtifact();
   const oldSlot = "2026-09-06T12:00:00.000Z";
-  const oldId = crypto.createHash("sha256").update(`owner-1\n${oldSlot}\n${digest}`).digest("hex");
+  const oldId = crypto.createHash("sha256").update(`owner-1\n${oldSlot}\n${digest}\n${artifact.digest}`).digest("hex");
   let completion;
   const jobs = {
     enqueueJob: async (job) => ({ created: true, job }),
@@ -112,6 +193,7 @@ test("an older claimed slot completes with its own immutable lineage", async () 
       capability: "investment.dry-run", effect_class: "none", effect_key: null, attempt: 1,
       input_refs: { investment_state_ref: "investment-state://owner-1",
         fixture_ref: `fixture://alpaca/preapproval-replay/${digest}`,
+        core_artifact_ref: artifact.ref,
         schedule_slot_ref: `schedule-slot://${oldSlot}` } }],
     completeJob: async (value) => { completion = value; },
   };
@@ -119,6 +201,7 @@ test("an older claimed slot completes with its own immutable lineage", async () 
     getEnv: () => ({ LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED: "true" }), fixtureDigest: digest,
     fixture: { no_trade: { approved: false, candidate_ref: "NO_TRADE", gate: "model_no_trade", reason: "No edge", observed_at: "2026-09-06T00:00:00Z" },
       observation: { account: { cash: "1.00", equity: "1.00" } } }, workerId: "worker-1",
+    secretProvider: cloudSecrets(),
   });
   const result = await run(new Date("2026-09-06T12:05:00Z"));
   assert.equal(result.receipt.observed_at, oldSlot);
@@ -143,6 +226,7 @@ test("claimed job with foreign state lineage fails closed before completion", as
     getEnv: () => ({ LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED: "true" }), fixtureDigest: digest,
     fixture: { no_trade: { approved: false, candidate_ref: "NO_TRADE", gate: "model_no_trade", reason: "No edge", observed_at: "2026-09-06T00:00:00Z" },
       observation: { account: { cash: "1.00", equity: "1.00" } } }, workerId: "worker-1",
+    secretProvider: cloudSecrets(),
   });
   await assert.rejects(() => run(new Date("2026-09-06T12:05:00Z")), /claimed job invalid/);
   assert.equal(completed, false);
