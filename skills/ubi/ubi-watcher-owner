@@ -1,0 +1,47 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO="${LIFE_MANAGER_REPO:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)}"
+[ -n "$REPO" ] || { echo "LIFE_MANAGER_REPO could not be resolved" >&2; exit 2; }
+
+ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+if [ -r "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+fi
+
+NODE="${LIFE_MANAGER_NODE:-$(command -v node || true)}"
+PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+export LIFE_MANAGER_PYTHON="$PYTHON"
+export ANICCA_HOME="${LIFE_MANAGER_WALLET_HOME:-${ANICCA_HOME:-$HOME/.local/state/life-manager/agent-economy}}"
+
+if [ -z "${BLOCKRUN_WALLET_KEY:-}" ] && [ -x "$NODE" ]; then
+  BLOCKRUN_WALLET_KEY="$("$NODE" "$REPO/skills/earn/lib/resolve-identity.mjs" evm 2>/dev/null || true)"
+  export BLOCKRUN_WALLET_KEY
+fi
+DERIVED_TREASURY_ADDRESS=""
+if [ -n "${BLOCKRUN_WALLET_KEY:-}" ] && [ -x "$NODE" ]; then
+  DERIVED_TREASURY_ADDRESS="$(ANICCA_EVM_PRIVATE_KEY="$BLOCKRUN_WALLET_KEY" "$NODE" "$REPO/skills/earn/lib/resolve-identity.mjs" evm-address 2>/dev/null || true)"
+fi
+CONFIGURED_TREASURY_LOWER="$(printf '%s' "${UBI_TREASURY_ADDRESS:-}" | tr '[:upper:]' '[:lower:]')"
+DERIVED_TREASURY_LOWER="$(printf '%s' "$DERIVED_TREASURY_ADDRESS" | tr '[:upper:]' '[:lower:]')"
+if [ -n "${UBI_TREASURY_ADDRESS:-}" ] && [ "$CONFIGURED_TREASURY_LOWER" != "$DERIVED_TREASURY_LOWER" ]; then
+  echo "configured UBI_TREASURY_ADDRESS does not match signer" >&2
+  exit 2
+fi
+UBI_TREASURY_ADDRESS="$DERIVED_TREASURY_ADDRESS"
+export UBI_TREASURY_ADDRESS
+
+if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || \
+   [ -z "${BLOCKRUN_WALLET_KEY:-}" ] || [[ ! "${UBI_TREASURY_ADDRESS:-}" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
+  echo "ubi watcher not configured; skipping"
+  exit 0
+fi
+[ -x "$NODE" ] || { echo "managed LIFE_MANAGER_NODE is not executable" >&2; exit 2; }
+[ -x "$PYTHON" ] || { echo "managed LIFE_MANAGER_PYTHON is not executable" >&2; exit 2; }
+
+export UBI_STIPEND_BASE="${UBI_STIPEND_BASE:-250000}"
+export UBI_PERTX_CAP_BASE="${UBI_PERTX_CAP_BASE:-$UBI_STIPEND_BASE}"
+exec "$NODE" "$REPO/skills/ubi/ubi-payout-watcher.mjs"
