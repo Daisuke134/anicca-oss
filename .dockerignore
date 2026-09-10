@@ -4,7 +4,11 @@ apps/*
 !apps/life-manager/
 !apps/life-manager/**
 !runtime/
-!runtime/**
+!runtime/loop/
+!runtime/loop/**
+!runtime/contracts/
+!runtime/contracts/citizen-identity.cjs
+!runtime/wallet-address-solana.mjs
 runtime/**/__tests__/**
 runtime/**/tests/**
 runtime/**/test/**

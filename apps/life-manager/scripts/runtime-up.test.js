@@ -110,7 +110,8 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   assert.equal(fs.existsSync(path.join(ROOT, "runtime/loop/index.mjs")), true);
   assert.equal(fs.existsSync(path.join(ROOT, "skills/earn/run.sh")), true);
   const buildIgnore = fs.readFileSync(path.join(ROOT, ".dockerignore"), "utf8");
-  assert.match(buildIgnore, /!runtime\/\*\*/);
+  assert.match(buildIgnore, /!runtime\/loop\/\*\*/);
+  assert.doesNotMatch(buildIgnore, /^!runtime\/\*\*$/m);
   assert.match(buildIgnore, /!skills\/registry\.json/);
   assert.doesNotMatch(buildIgnore, /^!skills\/\*\*$/m);
   const ignoreProbe = fs.mkdtempSync(path.join(os.tmpdir(), "lm-worker-ignore-"));
