@@ -257,8 +257,12 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
         )
         if mode == "live":
             observation = _normalize_live_position_symbols(observation)
-        ownership = (_sync_live_ownership(state, credentials_path, cli_path, observation)
-                     if mode == "live" else None)
+        if mode == "live":
+            with control_fence(state):
+                ownership = _sync_live_ownership(
+                    state, credentials_path, cli_path, observation)
+        else:
+            ownership = None
         stage = "campaign_read"
         campaign = (reconcile(read_campaign_snapshot(
             credentials_path=credentials_path, cli_path=cli_path, symbols=SYMBOLS))

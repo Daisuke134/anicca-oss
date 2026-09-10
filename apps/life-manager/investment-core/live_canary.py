@@ -122,6 +122,12 @@ def _write_cloud_ownership(state: Path, sealed: dict[str, str], result: dict | N
     _write_result(path, marker)
 
 
+def _write_cloud_ownership_fenced(
+        state: Path, sealed: dict[str, str], result: dict | None = None) -> None:
+    with control_fence(state):
+        _write_cloud_ownership(state, sealed, result)
+
+
 def _output(sealed: dict[str, str], result: dict, submitted: bool, deployment: str) -> int:
     value = {"canary_ref": CLOUD_CANARY_REF if deployment == "cloud" else CANARY_REF,
              "client_order_id": sealed["client_order_id"],
@@ -147,7 +153,7 @@ def main() -> int:
                    else "live_canary_terminal_failure")
         record_terminal_outcome(ledger, sealed, existing, outcome)
         if deployment == "cloud" and existing["status"] == "verified":
-            _write_cloud_ownership(state, sealed, existing)
+            _write_cloud_ownership_fenced(state, sealed, existing)
         _write_result(state / "live-canary.json", existing)
         return _output(sealed, existing, False, deployment)
     if durable == "outcome":
@@ -187,7 +193,7 @@ def main() -> int:
                    else "live_canary_terminal_failure")
         record_terminal_outcome(ledger, sealed, result, outcome)
         if deployment == "cloud" and result["status"] == "verified":
-            _write_cloud_ownership(state, sealed, result)
+            _write_cloud_ownership_fenced(state, sealed, result)
         _write_result(state / "live-canary.json", result)
     return _output(sealed, result, submitted, deployment)
 

@@ -202,6 +202,51 @@ class LiveCanaryTest(unittest.TestCase):
             self.assertEqual(json.loads(
                 (root / "state/live-owned-position.json").read_text()), closing)
 
+    def test_verified_write_and_regular_close_share_one_ownership_fence(self):
+        verified = {"status": "verified", "verified": True,
+                    "order": {"filled_qty": "0.00002"},
+                    "position": {"symbol": "BTCUSDC", "qty": "0.00001995"}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            sealed = effect_store.seal(state / "receipts.jsonl",
+                live_canary._decision("cloud"), live_canary.ORDER)
+            live_canary._write_cloud_ownership(state, sealed)
+            closing = {"entry_client_order_id": sealed["client_order_id"],
+                "entry_effect_id": sealed["effect_id"], "entry_filled_qty": "0.00002",
+                "owned_qty": "0.00001995", "close_client_order_id": "close-one",
+                "close_effect_id": "close-effect", "status": "closing", "symbol": "BTCUSD"}
+            entered, release = threading.Event(), threading.Event()
+            original_write = live_canary._write_result
+
+            def delayed_write(path, value):
+                if threading.current_thread().name == "canary-writer":
+                    entered.set()
+                    release.wait(2)
+                original_write(path, value)
+
+            def canary_writer():
+                live_canary._write_cloud_ownership_fenced(state, sealed, verified)
+
+            def regular_writer():
+                with live_canary.control_fence(state):
+                    original_write(state / "live-owned-position.json", closing)
+
+            with patch.object(live_canary, "_write_result", side_effect=delayed_write):
+                canary = threading.Thread(target=canary_writer, name="canary-writer")
+                regular = threading.Thread(target=regular_writer, name="regular-writer")
+                canary.start()
+                self.assertTrue(entered.wait(1))
+                regular.start()
+                self.assertTrue(regular.is_alive())
+                release.set()
+                canary.join(2)
+                regular.join(2)
+            self.assertFalse(canary.is_alive())
+            self.assertFalse(regular.is_alive())
+            self.assertEqual(json.loads(
+                (state / "live-owned-position.json").read_text()), closing)
+
     def test_submit_boundary_rejects_every_nonfrozen_shape(self):
         expected = dict(live_canary.ORDER)
         changes = {"asset_class": "us_equity", "notional_usd": "2.01", "side": "sell",
