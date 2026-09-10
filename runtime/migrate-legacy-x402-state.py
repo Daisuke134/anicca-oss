@@ -67,6 +67,19 @@ def sqlite_logical_digest(path: Path) -> str:
     return value.hexdigest()
 
 
+def sqlite_logical_statements(path: Path) -> frozenset[str]:
+    with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as database:
+        if database.execute("PRAGMA integrity_check").fetchone() != ("ok",):
+            raise RuntimeError(f"SQLite integrity check failed: {path.name}")
+        return frozenset(database.iterdump())
+
+
+def cleanup_sqlite_artifacts(path: Path) -> None:
+    path.unlink(missing_ok=True)
+    Path(f"{path}-wal").unlink(missing_ok=True)
+    Path(f"{path}-shm").unlink(missing_ok=True)
+
+
 def copy_flat_state(source_root: Path, target_root: Path, *, sealed: bool) -> tuple[int, int]:
     if not source_root.exists():
         return 0, 0
@@ -86,6 +99,19 @@ def copy_flat_state(source_root: Path, target_root: Path, *, sealed: bool) -> tu
                 continue
             if not sealed:
                 raise RuntimeError(f"target differs during precopy: {target.name}")
+            if source.suffix == ".jsonl":
+                source_bytes = source.read_bytes()
+                target_bytes = target.read_bytes()
+                if target_bytes.startswith(source_bytes):
+                    target.chmod(0o600)
+                    skipped += 1
+                    continue
+                if not source_bytes.startswith(target_bytes):
+                    raise RuntimeError(f"append-only histories diverge: {target.name}")
+            elif target.stat().st_mtime_ns >= source.stat().st_mtime_ns:
+                target.chmod(0o600)
+                skipped += 1
+                continue
         atomic_copy(source, target)
         copied += 1
     return copied, skipped
@@ -97,6 +123,9 @@ def backup_sqlite(source: Path, target: Path, *, sealed: bool) -> tuple[int, int
     require_plain_file(source)
     require_plain_dir(target.parent, create=True)
     target_exists = target.exists() or target.is_symlink()
+    target_sidecars = (Path(f"{target}-wal"), Path(f"{target}-shm"))
+    if not target_exists and any(path.exists() or path.is_symlink() for path in target_sidecars):
+        raise RuntimeError(f"orphan target SQLite sidecars present: {target.name}")
     if target_exists:
         require_plain_file(target)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
@@ -109,15 +138,26 @@ def backup_sqlite(source: Path, target: Path, *, sealed: bool) -> tuple[int, int
                 result = new_database.execute("PRAGMA integrity_check").fetchone()
                 if result != ("ok",):
                     raise RuntimeError("SQLite backup integrity check failed")
-        if target_exists and not sealed:
-            if sqlite_logical_digest(temporary) != sqlite_logical_digest(target):
+        if target_exists:
+            same_content = sqlite_logical_digest(temporary) == sqlite_logical_digest(target)
+            if not sealed and not same_content:
                 raise RuntimeError(f"target differs during precopy: {target.name}")
-            target.chmod(0o600)
-            return 0, 1
+            if same_content:
+                target.chmod(0o600)
+                return 0, 1
+            source_statements = sqlite_logical_statements(temporary)
+            target_statements = sqlite_logical_statements(target)
+            if source_statements < target_statements:
+                target.chmod(0o600)
+                return 0, 1
+            if not target_statements < source_statements:
+                raise RuntimeError(f"SQLite histories diverge: {target.name}")
+            if any(path.exists() or path.is_symlink() for path in target_sidecars):
+                raise RuntimeError(f"target SQLite sidecars present: {target.name}")
         temporary.chmod(0o600)
         os.replace(temporary, target)
     finally:
-        temporary.unlink(missing_ok=True)
+        cleanup_sqlite_artifacts(temporary)
     return 1, 0
 
 

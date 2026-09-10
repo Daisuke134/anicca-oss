@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -91,7 +92,8 @@ class MigrateLegacyX402StateTests(unittest.TestCase):
             root = Path(directory)
             self.prepare(root)
             MODULE.migrate(args(root))
-            (root / "old-x402/sales-wallet.jsonl").write_text('{"sale":1}\n{"sale":2}\n')
+            with (root / "old-x402/sales-wallet.jsonl").open("a") as history:
+                history.write('{"sale": 2}\n')
             with closing(sqlite3.connect(root / "old-inbox.sqlite")) as database:
                 database.execute("INSERT INTO jobs VALUES ('job-2')")
                 database.commit()
@@ -99,9 +101,96 @@ class MigrateLegacyX402StateTests(unittest.TestCase):
                 MODULE.migrate(args(root, mode="converge"))
             result = MODULE.migrate(args(root, mode="converge", sealed=True))
             self.assertEqual(result["files_copied"], 1)
-            self.assertEqual((root / "new-x402/sales-wallet.jsonl").read_text(), '{"sale":1}\n{"sale":2}\n')
+            self.assertEqual((root / "new-x402/sales-wallet.jsonl").read_text(), '{"sale": 1}\n{"sale": 2}\n')
             with closing(sqlite3.connect(root / "new-x402/the402-inbox.sqlite")) as database:
                 self.assertEqual(database.execute("SELECT count(*) FROM jobs").fetchone(), (2,))
+
+    def test_converge_preserves_newer_canonical_history_snapshots_and_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare(root)
+            MODULE.migrate(args(root))
+            target_root = root / "new-x402"
+            target_history = target_root / "sales-wallet.jsonl"
+            target_history.write_text('{"sale": 1}\n{"sale": 2}\n')
+            target_snapshot = target_root / "market-scout.json"
+            target_snapshot.write_text(json.dumps({"offers": 3}))
+            with closing(sqlite3.connect(target_root / "the402-inbox.sqlite")) as database:
+                database.execute("INSERT INTO jobs VALUES ('job-2')")
+                database.commit()
+            newer = max(path.stat().st_mtime_ns for path in target_root.iterdir()) + 1_000_000_000
+            os.utime(target_snapshot, ns=(newer, newer))
+            os.utime(target_root / "the402-inbox.sqlite", ns=(newer, newer))
+
+            result = MODULE.migrate(args(root, mode="converge", sealed=True))
+
+            self.assertEqual(result, {"mode": "converge", "files_copied": 0, "files_skipped": 2, "sqlite_copied": 0, "sqlite_skipped": 1})
+            self.assertEqual(target_history.read_text(), '{"sale": 1}\n{"sale": 2}\n')
+            self.assertEqual(json.loads(target_snapshot.read_text()), {"offers": 3})
+            with closing(sqlite3.connect(target_root / "the402-inbox.sqlite")) as database:
+                self.assertEqual(database.execute("SELECT count(*) FROM jobs").fetchone(), (2,))
+
+    def test_converge_rejects_divergent_append_only_histories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare(root)
+            MODULE.migrate(args(root))
+            (root / "new-x402/sales-wallet.jsonl").write_text('{"different": true}\n')
+
+            with self.assertRaisesRegex(RuntimeError, "append-only histories diverge"):
+                MODULE.migrate(args(root, mode="converge", sealed=True))
+
+    def test_converge_rejects_divergent_sqlite_histories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare(root)
+            MODULE.migrate(args(root))
+            with closing(sqlite3.connect(root / "old-inbox.sqlite")) as database:
+                database.execute("INSERT INTO jobs VALUES ('source-only')")
+                database.commit()
+            with closing(sqlite3.connect(root / "new-x402/the402-inbox.sqlite")) as database:
+                database.execute("INSERT INTO jobs VALUES ('target-only')")
+                database.commit()
+
+            with self.assertRaisesRegex(RuntimeError, "SQLite histories diverge"):
+                MODULE.migrate(args(root, mode="converge", sealed=True))
+
+    def test_sqlite_temporary_database_cleanup_removes_wal_and_shm(self):
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory) / ".the402-inbox.sqlite.test"
+            temporary.write_bytes(b"db")
+            Path(f"{temporary}-wal").write_bytes(b"wal")
+            Path(f"{temporary}-shm").write_bytes(b"shm")
+
+            MODULE.cleanup_sqlite_artifacts(temporary)
+
+            self.assertFalse(temporary.exists())
+            self.assertFalse(Path(f"{temporary}-wal").exists())
+            self.assertFalse(Path(f"{temporary}-shm").exists())
+
+    def test_converge_refuses_to_replace_target_with_sqlite_sidecars(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare(root)
+            MODULE.migrate(args(root))
+            with closing(sqlite3.connect(root / "old-inbox.sqlite")) as database:
+                database.execute("INSERT INTO jobs VALUES ('job-2')")
+                database.commit()
+            Path(f"{root / 'new-x402/the402-inbox.sqlite'}-wal").write_bytes(b"live")
+
+            with self.assertRaisesRegex(RuntimeError, "target SQLite sidecars present"):
+                MODULE.migrate(args(root, mode="converge", sealed=True))
+
+    def test_converge_refuses_orphan_target_sqlite_sidecars(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare(root)
+            target_root = root / "new-x402"
+            target_root.mkdir()
+            Path(f"{target_root / 'the402-inbox.sqlite'}-shm").write_bytes(b"orphan")
+
+            with self.assertRaisesRegex(RuntimeError, "orphan target SQLite sidecars present"):
+                MODULE.migrate(args(root, mode="converge", sealed=True))
 
     def test_symlinked_source_or_target_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
