@@ -10237,3 +10237,11 @@ provider順序は`Math.floor(nowMs / 1_800_000) % 2`で30分ごとにLuma-first�
 15:00 JSTのLuma-first slotでpreflightとowner idleを確認し、対象Connectorだけをkickstartした。wake `wake-a6202715458c597e2f421e2e`はGoogle Calendar readbackを17,598msで成功し、Luma inventory `20/5/4/1/0`を処理した。無料受付中1件は既存Calendarと衝突したためLuma Submit、official registered/pending、Calendar write、Telegram event/photo、bundleは0。後続Connpassは`292/292/292/253/19`、Peatixは`20/20/7/4/2`まで継続した。
 
 wakeは`completed_no_effect / fallback_deferred_for_wake_budget`、exit 0、consecutive failures 0、Telegram ID `73263`で終了し、reconciliation store空、owner lockなし、loaded-idleを確認した。Luma discovery・Calendar conflict skip・provider continuation・Telegram・cleanupは正常だがlive bundle候補は成立していないため、CG-44は**NOT DONE**のまま次の別sliceへ継続する。
+
+### O1B-25進捗544（16:00 wake安全停止と次wake回復の実測）
+
+16:00 JSTのLuma-first wake `wake-9acf8042aad2d3836cd70f8c`はGoogle Calendar readbackを成功し、Luma inventory `19/6/2/1/0`を処理した。無料受付中1件は既存Calendarと衝突したため、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、bundleは0だった。後続providerを巡回し、最後のKokuchPro候補3件が`kokuchpro_direct_requires_harness / agent_observe_failed`となったため、既存の一wake内3連続失敗上限どおり`circuit_open`、exit 1、Telegram ID `73368`で安全停止した。
+
+sourceと既存回帰testを照合し、`consecutiveFailures`は`runMinimalConnectorWake`開始時に0へ初期化されるwake-local stateで、永続回路ではないことを確認した。launchctl-safe preflightでUID 501、Directory Services、Aqua manager、GUI domainを全PASS後、対象Connectorだけを再kickstartした。新wake `wake-1c7682301a3147f7da8c0ade`は前wakeの回路を持ち越さず、Calendar readbackとLuma discoveryを再実行し、`19/6/6/5/0`まで到達した。無料受付中5件はすべて既存Calendarと衝突したためlive effectは0だが、「3失敗後も次wakeがゼロから復帰し、Luma探索を再開する」本番証拠としてacceptする。コード変更は不要である。
+
+現状はConnector **実用動作中 / Connpass live chain accepted / CG-44 Luma NOT DONE**、Fundraiser **NOT DONE**、shared OSS components **PARTIAL / NOT DONE**。固定順序は変更せず、残TODOは`CG-44 live Luma bundle → CG-45 replay-zero → CG-47 LT → CG-48 natural duplicate/cleanup → CG-51 Connector closure → Fundraiser natural effect/replay-zero → Telegram OSS fresh-clone E2E → Cloud`。現在の未完理由はscheduler停止や永続circuitではなく、走査済みLuma候補にCalendar-freeな登録対象が無いことである。
