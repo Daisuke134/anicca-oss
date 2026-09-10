@@ -118,6 +118,43 @@ class RepeatabilityTest(unittest.TestCase):
 
     @patch.object(repeatability, "_official_orders", return_value={
         "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_explicit_transition_freezes_shadow_then_counts_live(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 3, 1, live_wakes=2)
+            shadow_end = start + timedelta(seconds=3)
+            live_start = start + timedelta(seconds=6)
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, shadow_end=shadow_end,
+                live_start=live_start, required_days=30, required_wakes=4,
+                credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["observed"]["shadow_wakes"], 2)
+        self.assertEqual(result["observed"]["live_wakes"], 2)
+        self.assertEqual(result["observed"]["unreported_wakes"], 0)
+        self.assertEqual(result["transition"], {
+            "shadow_end": shadow_end.isoformat(), "live_start": live_start.isoformat()})
+
+    @patch.object(repeatability, "_official_orders")
+    def test_incomplete_or_overlapping_transition_is_rejected(self, official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 1, 1)
+            cases = [
+                {"shadow_end": start + timedelta(seconds=1)},
+                {"live_start": start + timedelta(seconds=2)},
+                {"shadow_end": start + timedelta(seconds=2),
+                 "live_start": start + timedelta(seconds=1)},
+            ]
+            for transition in cases:
+                with self.subTest(transition=transition), self.assertRaisesRegex(
+                        ValueError, "^repeatability_transition_invalid$"):
+                    repeatability.evaluate(
+                        shadow_state=shadow, live_state=live, start=start,
+                        required_days=30, required_wakes=100,
+                        credentials=Path("c"), cli=Path("a"), **transition)
+        official.assert_not_called()
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
     def test_thirty_days_with_weekend_pass_without_one_hundred_wakes(self, _official):
         with tempfile.TemporaryDirectory() as directory:
             shadow, live, start = self.fixture(Path(directory), 30, 30)
