@@ -28,6 +28,18 @@ def validate(value):
 
 
 class CommonContractTests(unittest.TestCase):
+    def test_citizen_identity_matches_the_shared_schema(self):
+        script = (
+            "const c=require('./runtime/contracts/common-record.cjs');"
+            "process.stdout.write(JSON.stringify(c.createCitizenIdentity({"
+            "tenantId:'tenant-1',citizenId:'citizen-1',instanceId:'instance-1',"
+            "walletAddress:'0x'+'a'.repeat(40)})));"
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, text=True, capture_output=True, check=True,
+        )
+        validate(json.loads(result.stdout))
+
     def test_sqlite_outbox_adapter_output_matches_the_common_schema(self):
         path = ROOT / "skills/_shared/marketplace-core/scripts/telegram_outbox.py"
         spec = importlib.util.spec_from_file_location("contract_test_telegram_outbox", path)
