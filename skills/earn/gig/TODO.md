@@ -2536,6 +2536,17 @@ from the chat, and two of them contradict what this cursor had previously report
     adapter map it to a supported occupation, and add exact public `/occupations` readback before the
     receipt can say aligned. No production profile mutation was performed during this audit.
 
+    Read-only authenticated form inspection identifies the exact provider split. The selected top-level
+    group is already `AI関連サービス` (`ai_service`), while a separate unchecked-by-the-adapter field
+    `user[occupation_ids][]` retains detail occupation `142`, which is the buyer-visible
+    `プロンプトエンジニア`. Switching the unsaved form locally to the official `ITエンジニア` group
+    exposes supported detail occupations including `システムエンジニア（SE）` (`1`), `AIエンジニア`
+    (`98`) and `ITコンサルタント` (`48`). The narrow default mapping is the truthful general software
+    role `システムエンジニア（SE）`; do not add multiple titles merely for keyword coverage. Before
+    mutation, represent this provider-neutral role in the structured shared source, map it to provider
+    group plus detail occupation in the adapter, and test that a stale detail ID fails public readback.
+    The inspection tab was closed without submitting the form.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
