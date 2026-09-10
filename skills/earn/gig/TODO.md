@@ -142,6 +142,18 @@ acceptance receipt changes a cell.
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 | Upwork | **Off; safe resume is not yet proven.** All historical Upwork labels are disabled/absent and CDP `9233` is not listening. The last official state retained 12 proposals, one active item, zero Connects/balance, zero contracts, zero offers and USD 0 earnings. The account showed Full Access but also one policy-violation/at-risk signal, identity unverified and API ineligible; therefore an invented three-hour cadence is not evidence that automation is permitted or safe. Resume only after official provider permission/scope is established. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** The historical Project Catalog surface returned forbidden/zero and no current listing receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
+**Current implementable Apply acceptance step — Lancers target isolation.** The shared browser owner
+now self-recovers its CDP service without restarting the Mac, Aqua or loginwindow, but the following
+natural Apply wake exposed a separate adapter defect: after one Playwright attach timeout,
+`application_tick._cleanup_stale_targets()` closed every ordinary `www.lancers.jp` page, including
+sibling job and dashboard pages, and the logged-in account was then mislabeled
+`account_unavailable`. The focused branch fix closes only measured Lancers/Google authentication
+routes. Its ownership regression proves normal job/dashboard targets survive; all Lancers tests pass
+`161/161`, loop-control unit checks pass, registry checks pass `15/15`, and `lm-loop doctor` reports
+`ok=true`. This is code/test evidence only. Lancers Apply remains open until the change is merged,
+installed from a pushed-main immutable release, and a natural wake records exact official proposal
+history plus Telegram receipt and replay-zero.
+
 **Host-wide runtime incident — recovered, keep as regression evidence.** The Data volume recovered
 to about 25–27 GiB free on 2026-09-10 without restarting the Mac, loginwindow, Aqua or any browser;
 encrypted swap fell from about 37 GiB to about 13.3 GiB. The earlier temporary recovery to about
