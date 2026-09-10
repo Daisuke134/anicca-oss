@@ -96,6 +96,15 @@ test("Railway start command routes the worker role to internal-worker", () => {
   );
 });
 
+test("Agent Economy Cloud worker packages the shared monorepo runtime without Docker", () => {
+  const config = fs.readFileSync(path.join(ROOT, "railway.worker.toml"), "utf8");
+  assert.match(config, /npm ci --ignore-scripts --prefix apps\/life-manager/);
+  assert.match(config, /node apps\/life-manager\/scripts\/runtime-up\.js internal-worker/);
+  assert.doesNotMatch(config, /docker/i);
+  assert.equal(fs.existsSync(path.join(ROOT, "runtime/loop/index.mjs")), true);
+  assert.equal(fs.existsSync(path.join(ROOT, "skills/earn/run.sh")), true);
+});
+
 test("runtime worker entrypoint fails closed for every non-worker argv", () => {
   const script = path.join(ROOT, "apps/life-manager/scripts/runtime-up.js");
   for (const argv of [[], ["internal-scheduler"], ["internal-liveness"], ["runtime", "up"]]) {

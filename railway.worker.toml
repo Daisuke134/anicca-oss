@@ -1,0 +1,8 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci --ignore-scripts && npm ci --ignore-scripts --prefix apps/life-manager"
+
+[deploy]
+startCommand = "node apps/life-manager/scripts/runtime-up.js internal-worker"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
