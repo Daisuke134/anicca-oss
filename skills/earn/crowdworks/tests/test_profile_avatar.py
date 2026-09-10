@@ -331,3 +331,16 @@ def test_skill_readback_ignores_provider_action_column() -> None:
     assert profile._skills_value(profile._public_skills(Page()), public=True) == profile._skills_value(
         [{"name": "Python", "level": "4", "years": 3, "note": "業務自動化"}]
     )
+
+
+def test_public_skill_star_width_is_level_id() -> None:
+    class PublicLevel:
+        def inner_text(self) -> str:
+            return ""
+
+        def evaluate(self, script: str) -> str:
+            assert "stars-active" in script
+            assert "stars-inactive" in script
+            return "4"
+
+    assert profile._skill_level(PublicLevel()) == "4"
