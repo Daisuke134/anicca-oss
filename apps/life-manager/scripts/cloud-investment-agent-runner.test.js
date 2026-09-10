@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { runCloudAgent } = require("./cloud-investment-agent-runner.js");
+const { TASK_LABELS, runCloudAgent } = require("./cloud-investment-agent-runner.js");
 
 const schema = {
   type: "object", additionalProperties: false,
@@ -15,6 +15,10 @@ const schema = {
   },
   required: ["candidate_ref", "probability_profit", "expected_gain_usd", "reason"],
 };
+
+test("cloud adapter accepts only allocation and live-position decision labels", () => {
+  assert.deepEqual([...TASK_LABELS].sort(), ["alpaca-allocation", "alpaca-position"]);
+});
 
 test("cloud adapter sends the core prompt and Gemini-compatible schema, then persists a private result", async () => {
   const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), "investment-cloud-agent-"));
