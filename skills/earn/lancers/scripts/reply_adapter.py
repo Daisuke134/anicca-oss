@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 from typing import Any, Mapping
@@ -68,6 +69,34 @@ def _gog_bin() -> str:
     if not binary:
         raise work_sync.SourceFailure("calendar_read_unavailable")
     return binary
+
+
+def _private_env_value(name: str) -> str:
+    present = os.environ.get(name)
+    if present:
+        return present
+    path = Path(os.environ.get(
+        "LIFE_MANAGER_PRIVATE_ENV",
+        Path.home() / ".local/state/life-manager/.env",
+    )).expanduser()
+    try:
+        if path.is_symlink() or path.stat().st_uid != os.getuid():
+            raise OSError
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[7:].lstrip()
+            key, separator, encoded = line.partition("=")
+            if separator and key.strip() == name:
+                values = shlex.split(encoded, comments=True, posix=True)
+                if len(values) == 1 and values[0]:
+                    return values[0]
+                break
+    except (OSError, ValueError):
+        pass
+    raise work_sync.SourceFailure("calendar_credential_unavailable")
 
 
 class LancersReplyAdapter:
@@ -249,6 +278,8 @@ class LancersReplyAdapter:
              "--from", start.astimezone(JST).isoformat(), "--to", end.astimezone(JST).isoformat(),
              "--max", "250", "--all-pages"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120, check=False,
+            env={**os.environ, "GOG_ACCOUNT": account,
+                 "GOG_KEYRING_PASSWORD": _private_env_value("GOG_KEYRING_PASSWORD")},
         )
         if completed.returncode != 0:
             raise work_sync.SourceFailure("calendar_read_unavailable")
