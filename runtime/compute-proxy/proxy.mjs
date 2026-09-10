@@ -4,14 +4,29 @@
 // id (e.g. anthropic/claude-sonnet-4-6 for frontier). ClawRouter profile auto-routing (premium/auto)
 // needs the full routing config and is wired separately; for now the loop pins a model id.
 import http from "http";
-import fs from "fs";
+import os from "node:os";
+import path from "node:path";
 import { BlockrunClient } from "@blockrun/llm";
 import { loadEvmKey } from "../../skills/earn/lib/resolve-identity.mjs";
 import { normalizeRequestBody } from "./model-map.mjs";
+import financialStoreModule from "../../apps/life-manager/lib/financial-record-store.js";
+import costObserverModule from "../../apps/life-manager/lib/x402-cost-observer.js";
 // #28: compute-pay with THIS instance's own gated per-instance key — never a borrowed legacy key.
 const pk = loadEvmKey();
 if (pk) process.env.BASE_CHAIN_WALLET_KEY = pk;
 const br = new BlockrunClient();
+const financialDirectory = process.env.LM_FINANCIAL_RECORDS_DIR
+  || path.join(process.env.CFO_STATE_DIR || path.join(os.homedir(), ".local", "state", "life-manager", "life-manager-cfo-hourly"), "financial-records");
+const costObserver = costObserverModule.createX402CostObserver({
+  store: financialStoreModule.createJsonlFinancialRecordStore({ directoryPath: financialDirectory }),
+  subjectId: process.env.LM_CFO_SUBJECT_ID || process.env.LM_UID || "local",
+});
+const providerFetch = br.fetchWithTimeout.bind(br);
+br.fetchWithTimeout = async (url, options) => {
+  const response = await providerFetch(url, options);
+  await costObserver.observe(url, options, response);
+  return response;
+};
 const PORT = process.env.COMPUTE_PROXY_PORT || 18402;
 const HOST = "127.0.0.1";
 // Strip any ClawRouter profile prefix/word the caller might send; map to a concrete frontier id.

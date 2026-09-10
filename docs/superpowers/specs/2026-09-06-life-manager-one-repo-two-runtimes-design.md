@@ -382,8 +382,14 @@ This checklist does not reorder the established implementation sequence below. T
   known pre-withdraw cost basis: positive realized yield becomes business revenue, principal loss becomes business
   cost, while deposits, holds, failed receipts, unknown basis and flat returns remain excluded. The legacy reinvest
   entrypoint delegates to the same canonical `skills/earn` implementation instead of retaining a second copy. The
-  focused Yield/accounting/reinvest suite passes 27/27 and both shell entrypoints parse. Remaining inside this atom:
-  cover receipt-backed compute, hosted cloud, storage, network and API costs.
+  focused Yield/accounting/reinvest suite passes 27/27 and both shell entrypoints parse. The self-pay compute proxy
+  now joins the provider's exact Base-USDC 402 requirement to its terminal `payment-response`, including the SDK's
+  header and body requirement forms and cached pre-authorization path, and appends only that joined payment as a
+  verified common business cost. The SDK's amount-only `cost_log.jsonl`, failed responses, missing terminal receipts,
+  non-Base rails and unsupported assets remain estimates and are excluded. Focused compute receipt/model/identity
+  tests pass 13/13; one separate fresh-install proxy fixture still lacks its pre-existing `viem` dependency in the
+  isolated worktree. Remaining inside this atom: cover receipt-backed hosted cloud, storage, network and other API
+  costs, while explicitly excluding human-paid or amount-only estimates from citizen self-funded accounting.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
