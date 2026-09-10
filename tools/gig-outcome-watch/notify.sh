@@ -8,11 +8,12 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PY="${PY:-/opt/homebrew/bin/python3}"
-STATE="$HOME/.local/state/anicca/gig-outcome-watch"
+STATE="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/gig-outcome-watch}"
+SENDER="$HERE/../../skills/_shared/send-telegram.sh"
 mkdir -p "$STATE"
 
-set -a; . "$HOME/.openclaw/.env" 2>/dev/null; set +a
-CHAT_ID="${GIG_WATCH_CHAT_ID:-8547730585}"
+set -a; . "$HOME/.local/state/life-manager/.env" 2>/dev/null; set +a
+CHAT_ID="${GIG_WATCH_CHAT_ID:-${TELEGRAM_ALERT_CHAT_ID:-}}"
 
 json="$("$PY" "$HERE/outcome_watch.py" --window-hours "${WINDOW_HOURS:-24}" --json 2>/dev/null)"
 text="$("$PY" "$HERE/outcome_watch.py" --window-hours "${WINDOW_HOURS:-24}" 2>/dev/null)"
@@ -63,15 +64,13 @@ fi
 # an HTTP 502 with a body, and on 2026-08-05 api.telegram.org returned 502 three times in a
 # row to this machine — so the old code could mark an undelivered alert as sent and then
 # suppress it for the rest of the day. A detector that cannot prove delivery is not a
-# detector. Send through openclaw (the transport fleet-daily uses, verified messageId=6716)
-# and only record last-sent when a message id comes back.
-OPENCLAW=/opt/homebrew/bin/openclaw
+# detector. Send through Life Manager's repository-owned client and only record
+# last-sent when its provider receipt contains a message id.
 attempt=1
 while [ "$attempt" -le 3 ]; do
   errf="$(mktemp -t gigwatch)"
-  resp="$("$OPENCLAW" message send --channel telegram --target "$CHAT_ID" \
-    --message "$text" --json 2>"$errf")"
-  mid="$(printf '%s' "$resp" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("messageId") or (d.get("payload") or {}).get("messageId") or "")' 2>/dev/null)"
+  resp="$(PYTHON="$PY" "$SENDER" "$text" "$CHAT_ID" 2>"$errf")"
+  mid="$(printf '%s' "$resp" | sed -n 's/^TELEGRAM_SENT=true MSGID=//p' | tail -1)"
   if [ -n "$mid" ]; then
     rm -f "$errf"
     printf '%s' "$stamp" > "$STATE/last-sent"
