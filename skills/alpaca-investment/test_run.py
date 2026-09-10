@@ -307,6 +307,42 @@ class ShadowReadOnlyTest(unittest.TestCase):
         submit.assert_not_called()
 
 
+class LiveRunTest(unittest.TestCase):
+    def test_live_entry_submits_once_and_durably_marks_pending_ownership(self):
+        observation = {"account": {"cash": "0", "equity": "66"}, "activities_count": 0,
+            "clock": {"observed_at": "2026-09-10T08:00:00Z"},
+            "open_and_closed_orders_count": 0,
+            "positions": [{"symbol": "USDCUSD", "qty": "66", "unrealized_pl": "0"}]}
+        snapshot = {"account": {"cash": "0", "equity": "66"},
+            "available_cash_usd": "66", "clock": {"timestamp": "2026-09-10T08:00:00Z"},
+            "crypto": [], "open_orders": 0, "option_quotes": [], "positions": 0,
+            "risk": {}, "qqq_asset": {}, "qqq_quote": {}, "spy": {}}
+        decision = {"approved": True, "candidate_ref": "crypto://BTC/USDC",
+            "candidate": {"asset_class": "crypto"}, "gate": "approved",
+            "observed_at": "2026-09-10T08:00:00Z"}
+        order = {"asset_class": "crypto", "notional_usd": "10.00", "side": "buy",
+            "symbol": "BTC/USDC", "time_in_force": "gtc", "type": "market"}
+        with tempfile.TemporaryDirectory() as directory, patch.dict(MODULE.os.environ, {
+            "LIFE_MANAGER_INVESTMENT_MODE": "live", "LIFE_MANAGER_INVESTMENT_DEPLOYMENT": "local",
+            "ALPACA_INVESTMENT_LIVE_CREDENTIALS_FILE": str(Path(directory) / "credentials.json"),
+            "ALPACA_INVESTMENT_LIVE_STATE_DIR": str(Path(directory) / "state")}, clear=True), \
+            patch.object(MODULE, "reconcile_started", return_value={"pending": 0, "reconciled": 0, "unresolved": 0}), \
+            patch.object(MODULE, "observe", return_value=observation), \
+            patch.object(MODULE, "read_allocator_snapshot", return_value=snapshot), \
+            patch.object(MODULE, "build_candidates", return_value=[]), \
+            patch.object(MODULE, "choose", return_value=decision), \
+            patch.object(MODULE, "order_for", return_value=order), \
+            patch.object(MODULE, "evaluate_entry", return_value={"approved": True}), \
+            patch.object(MODULE, "allocation_gate", return_value={"approved": True}), \
+            patch.object(MODULE, "submit_order", return_value={"submitted_at": "now"}) as submit, \
+            patch.object(MODULE, "deliver", return_value={"message_id": "live"}):
+            self.assertEqual(MODULE.main(wake_id="live-entry"), 0)
+            marker = json.loads((Path(directory) / "state/live-owned-position.json").read_text())
+        submit.assert_called_once()
+        self.assertEqual(marker["status"], "entry_pending")
+        self.assertEqual(marker["symbol"], "BTCUSD")
+
+
 class PortablePassTest(unittest.TestCase):
     @patch.object(MODULE, "reconcile_started", return_value={"pending": 0, "reconciled": 0, "unresolved": 0})
     @patch.object(MODULE, "observe")
