@@ -171,6 +171,15 @@ The shared kernel now permits replanning only when an `accept_contract` intent i
 `reconcile_unknown` receives that exact authoritative-absence proof; uncertain Reply/estimate
 effects remain fenced. The exact legacy-state-to-enriched-mutation-to-replay-zero regression passes.
 Focused and related tests pass 44/44 and 298/298.
+
+The next production mutation reaches Effect thread `304340335`. The submit click times out after the
+control becomes visible/enabled, so the kernel correctly persists `reconcile_unknown` and does not
+retry. Independent official proposal readback then shows no acceptance control and states that the
+worker has agreed while the client has not yet agreed. This proves the required Reply-side action,
+but not mutual contract formation or Paid inventory. The adapter therefore recognizes this exact
+title/current-terms-bound official state as `condition-accepted:{condition_id}`; a contract link is
+still required before Paid handoff. Focused and related tests pass 45/45 and 299/299. Production
+receipt convergence, Telegram-once and following replay-zero remain open.
 | Upwork | **Off; safe resume is not yet proven.** All historical Upwork labels are disabled/absent and CDP `9233` is not listening. The last official state retained 12 proposals, one active item, zero Connects/balance, zero contracts, zero offers and USD 0 earnings. The account showed Full Access but also one policy-violation/at-risk signal, identity unverified and API ineligible; therefore an invented three-hour cadence is not evidence that automation is permitted or safe. Resume only after official provider permission/scope is established. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** The historical Project Catalog surface returned forbidden/zero and no current listing receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
 **Current implementable Apply acceptance step — Lancers target isolation.** The shared browser owner

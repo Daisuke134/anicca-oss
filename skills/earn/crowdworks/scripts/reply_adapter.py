@@ -273,21 +273,32 @@ class CrowdWorksReplyAdapter:
             progress = self.page.locator("div.progress_detail")
             if progress.count() != 1:
                 return {}
+            current_terms = self.page.locator("table.conditions.recent_condition")
+            current_text = current_terms.inner_text() if current_terms.count() == 1 else ""
+            title = str(intent.get("payload", {}).get("title") or "")
+            amount = str(intent.get("payload", {}).get("amount") or "")
+            client = str(intent.get("payload", {}).get("client") or "")
+            worker = str(intent.get("payload", {}).get("worker") or "")
+            expected = [value for value in (amount, client, worker) if value]
+            terms_match = (title and title in self.page.title() and expected
+                           and all(value in current_text for value in expected))
+            progress_text = progress.inner_text()
+            awaiting_client = (
+                "まだクライアントが契約に同意していません" in progress_text
+                and "クライアントが契約に同意すると契約成立" in progress_text
+            )
+            if terms_match and awaiting_client:
+                condition_id = _text(intent.get("payload", {}).get("condition_id"))
+                return {"verified": True,
+                        "provider_receipt_id": f"condition-accepted:{condition_id}",
+                        "observed_at": _now()}
             links = progress.locator('a[href^="/contracts/"]')
             visible = [links.nth(index) for index in range(links.count())
                        if links.nth(index).is_visible()]
             if len(visible) == 1:
                 href = str(visible[0].get_attribute("href") or "")
                 match = re.fullmatch(r"/contracts/(\d+)", href)
-                current_terms = self.page.locator("table.conditions.recent_condition")
-                current_text = current_terms.inner_text() if current_terms.count() == 1 else ""
-                title = str(intent.get("payload", {}).get("title") or "")
-                amount = str(intent.get("payload", {}).get("amount") or "")
-                client = str(intent.get("payload", {}).get("client") or "")
-                worker = str(intent.get("payload", {}).get("worker") or "")
-                expected = [value for value in (amount, client, worker) if value]
-                if (match is not None and title and title in self.page.title()
-                        and expected and all(value in current_text for value in expected)):
+                if match is not None and terms_match:
                     return {"verified": True,
                             "provider_receipt_id": f"contract:{match.group(1)}",
                             "observed_at": _now()}
