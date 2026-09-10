@@ -38,6 +38,12 @@ def browser_entry(label: str, profile: str, port: int):
 
 
 class MacosLoopRegistryTest(unittest.TestCase):
+    def test_legacy_paper_investment_is_retired_after_live_shadow_cutover(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        self.assertNotIn("alpaca-investment", registry["loops"])
+        self.assertIn("alpaca-investment-shadow", registry["loops"])
+        self.assertIn("ai.anicca.alpaca-investment", registry["retired_labels"])
+
     def test_migrated_system_loops_keep_runtime_metadata_out_of_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         for loop_id in {

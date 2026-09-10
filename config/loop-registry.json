@@ -19,17 +19,6 @@
     "ai.anicca.tsbridge"
   ],
   "loops": {
-    "alpaca-investment": {
-      "cadence": {"start_interval_seconds": 300},
-      "cleanup": {"max_age_days": 14, "max_runs": 100},
-      "domain": "financial",
-      "effect_class": "trade",
-      "entrypoint": "skills/alpaca-investment/run.py",
-      "label": "ai.anicca.alpaca-investment",
-      "log_root": "~/.local/state/life-manager/alpaca-investment/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/alpaca-investment"
-    },
     "alpaca-investment-shadow": {
       "cadence": {
         "start_interval_seconds": 300
@@ -3169,6 +3158,7 @@
   },
   "retired_labels": [
     "ai.anicca.agents-skills-sync",
+    "ai.anicca.alpaca-investment",
     "ai.anicca.autohedge",
     "ai.anicca.bounty-proactive",
     "ai.anicca.cfo-daily",
