@@ -22,6 +22,9 @@ const FOUNDER_DIR = TEST
   ? (process.env.FOUNDER_DIR || DEFAULT_FOUNDER_DIR)
   : (process.env.LIFE_MANAGER_STATE_ROOT || DEFAULT_FOUNDER_DIR);
 if (!path.isAbsolute(FOUNDER_DIR)) die("LIFE_MANAGER_STATE_ROOT must be absolute");
+if (!TEST && path.resolve(FOUNDER_DIR) !== path.resolve(DEFAULT_FOUNDER_DIR)) {
+  die("LIFE_MANAGER_STATE_ROOT must equal the canonical founder-loop-cadence root");
+}
 const STATE = path.join(FOUNDER_DIR, "state");
 const WALLET_JSON = path.join(FOUNDER_DIR, "wallet.json");
 const CURSOR_FILE = path.join(STATE, "block-cursor.txt");

@@ -9,6 +9,9 @@ TARGET="${2:-$HOME/.local/state/life-manager/founder-loop-cadence}"
 }
 case "$TARGET/" in "$SOURCE/"*) echo "target must not be inside source" >&2; exit 2;; esac
 [ -d "$SOURCE" ] || { echo '{"status":"skipped","reason":"no_legacy_source"}'; exit 0; }
+for root_file in "$SOURCE/wallet.json" "$SOURCE/STATE.md"; do
+  [ ! -L "$root_file" ] || { echo "legacy root file is a symlink" >&2; exit 2; }
+done
 if find "$SOURCE/state" -type l -print -quit 2>/dev/null | grep -q .; then
   echo "legacy state contains a symlink" >&2; exit 2
 fi

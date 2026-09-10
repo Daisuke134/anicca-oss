@@ -21,4 +21,8 @@ test "$(stat -f%Lp "$DST/wallet.json")" = 600
 test "$(stat -f%Lp "$DST/state")" = 700
 ln -s "$WORK/outside" "$SRC/state/escape"
 if bash "$HERE/migrate-legacy-state.sh" "$SRC" "$WORK/rejected" >/dev/null 2>&1; then exit 1; fi
+rm "$SRC/state/escape"
+mv "$SRC/wallet.json" "$SRC/wallet.real"
+ln -s "$SRC/wallet.real" "$SRC/wallet.json"
+if bash "$HERE/migrate-legacy-state.sh" "$SRC" "$WORK/rejected-root" >/dev/null 2>&1; then exit 1; fi
 echo 'PASS: founder legacy state copies once, preserves target, rejects symlinks, keeps private modes'

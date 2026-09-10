@@ -26,6 +26,7 @@ ok "$(grep -q 'const FOUNDER_DIR = TEST' <<<"$src" && echo 1 || echo 0)" "STATIC
 ok "$(grep -q "renameSync" <<<"$src" && echo 1 || echo 0)" "STATIC: cursor written atomically (renameSync)"
 ok "$(grep -q 'realpathSync(FOUNDER_DIR)' <<<"$src" && echo 1 || echo 0)" "STATIC: ledger realpath symlink-deref — INV-3"
 ok "$(grep -q 'LIFE_MANAGER_STATE_ROOT' <<<"$src" && grep -q 'founder-loop-cadence' <<<"$src" && echo 1 || echo 0)" "STATIC: prod root follows the canonical registry-owned state contract"
+ok "$(grep -q 'must equal the canonical' <<<"$src" && echo 1 || echo 0)" "STATIC: production rejects a redirected state root"
 ok "$(grep -q 'MY_WALLETS' <<<"$src" && echo 1 || echo 0)" "STATIC: external-payer check (MY_WALLETS) present — INV-7"
 
 # ---------- BEHAVIORAL ----------
