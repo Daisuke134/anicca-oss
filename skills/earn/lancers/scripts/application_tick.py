@@ -314,7 +314,7 @@ def _stale_auth_target(value: str) -> bool:
 
 def _cleanup_stale_targets(cdp_url: str) -> bool:
     targets = _cdp_inventory(cdp_url)
-    stale = [target_id for target_id, url in targets if _safe_lancers_url(url) or _stale_auth_target(url)]
+    stale = [target_id for target_id, url in targets if _stale_auth_target(url)]
     return bool(stale) and all(_cdp_request(f"{cdp_url}/json/close/{quote(target_id, safe='')}") for target_id in stale)
 
 
