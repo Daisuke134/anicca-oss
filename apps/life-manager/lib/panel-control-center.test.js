@@ -189,6 +189,28 @@ test("PANEL-0 concurrent OAuth state claim failure blocks legacy control-center 
   assert.equal(providerLinks, 0);
 });
 
+test("Calendar OAuth state outlives Composio's ten-minute hosted connect link", async () => {
+  let expiresAt = null;
+  const store = {
+    async readUser() { return { uid: "u-a", telegram_chat_id: "101", calendar_provider: null }; },
+    async readReceipt() { return null; },
+    async claimReceipt() { return true; },
+    async finishReceipt() {},
+    async assertCurrentScope() { return true; },
+    async createOAuthState(_scope, state) { expiresAt = state.expiresAt; },
+  };
+  const before = Date.now();
+  await executeUserCommand({ uid: "u-a", chatId: "101" }, { type: "connection.start", provider: "calendar" }, {
+    store,
+    idempotencyKey: "oauth-expiry-01",
+    randomBytes: () => Buffer.alloc(32, 5),
+    startCalendarOAuth: async () => ({ redirectUrl: "https://provider.example/consent" }),
+  });
+  const ttlMs = Date.parse(expiresAt) - before;
+  assert.ok(ttlMs >= 15 * 60 * 1000, `OAuth state TTL was only ${ttlMs}ms`);
+  assert.ok(ttlMs <= 15 * 60 * 1000 + 1000);
+});
+
 test("PANEL-0 provider disconnect helper contracts are explicit and fail closed", async () => {
   await assert.rejects(disconnectCalendar({ uid: "u-a", chatId: "101" }, {}), /provider_unavailable/);
   assert.deepEqual(await disconnectCalendar({ uid: "u-a", chatId: "101" }, { composioKey: "test", calendarAccount: { disable: async (scope) => ({ scope }) } }), { scope: { uid: "u-a", chatId: "101" } });

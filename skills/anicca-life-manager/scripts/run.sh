@@ -10,9 +10,8 @@ set -uo pipefail
 SKILL="$LIFE_MANAGER_REPO/skills/anicca-life-manager"
 LOG="$SKILL/state/run.log"
 mkdir -p "$SKILL/state"
-# Load env: GOOGLE_API_KEY, TWILIO_*, ANICCA_PHONE_DIALOUT_URL, GOG_*
+# Load env: GOOGLE_API_KEY, TWILIO_*, GOG_*
 set -a; source "$HOME/.local/state/life-manager/.env" 2>/dev/null; set +a
-export ANICCA_PHONE_DIALOUT_URL="${ANICCA_PHONE_DIALOUT_URL:-http://127.0.0.1:3100}"  # sutando phone-conversation (was 7860 dead pipecat)
 echo "=== lateness run $(date '+%Y-%m-%d %H:%M:%S %Z') ===" >> "$LOG"
 /opt/homebrew/bin/timeout --kill-after=10 110 /opt/homebrew/bin/python3 \
   "$SKILL/scripts/lateness_check.py" "$@" >> "$LOG" 2>&1

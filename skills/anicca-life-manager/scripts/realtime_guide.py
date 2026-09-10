@@ -43,16 +43,16 @@ from typing import Any
 JST = timezone(timedelta(hours=9))
 
 LIFE_MANAGER_HOME = Path(os.environ.get(
-    "LIFE_MANAGER_HOME", str(Path.home() / ".local" / "state" / "life-manager"),
+    "LIFE_MANAGER_STATE_ROOT",
+    os.environ.get("LIFE_MANAGER_HOME", str(Path.home() / ".local" / "state" / "life-manager")),
 ))
-ANICCA_HOME = Path(os.environ.get("ANICCA_HOME", str(LIFE_MANAGER_HOME)))
-STATE_DIR = ANICCA_HOME / "state" / "location"   # GPS only (<uid>.json) — never write guide files here
+STATE_DIR = LIFE_MANAGER_HOME / "state" / "location"   # GPS only (<uid>.json) — never write guide files here
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 # itinerary_*.json + guide_state_*.json live in a SEPARATE dir so they never
 # poison get_location()'s glob over state/location/ (regression 2026-06-08).
-GUIDE_DIR = ANICCA_HOME / "state" / "guide"
+GUIDE_DIR = LIFE_MANAGER_HOME / "state" / "guide"
 GUIDE_DIR.mkdir(parents=True, exist_ok=True)
-ENV_PATH = ANICCA_HOME / ".env"
+ENV_PATH = Path(os.environ.get("LIFE_MANAGER_ENV_FILE", LIFE_MANAGER_HOME / ".env"))
 
 # Load env
 if ENV_PATH.exists():

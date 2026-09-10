@@ -33,6 +33,7 @@ import application_effect_fence as fence
 import gig_disk_guard
 import application_snapshot as snapshot_contract
 from application_planner import validate_decisions
+from listing_inventory import _cdp_connect
 from market_snapshot import MARKET_FIELDS, parse_market
 
 try:
@@ -948,9 +949,7 @@ class CdpParentEffects:
         return f"{ascii_stem}-{digest}" if ascii_stem else f"source-{digest}"
 
     async def _source_async(self, source_id: str, url: str) -> tuple[dict[str, object], bytes]:
-        async with websockets.connect(
-            self.ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024
-        ) as ws:
+        async with await _cdp_connect(self.ws_url) as ws:
             call_id = 1
             await self._call(ws, "Page.enable", {}, call_id)
             call_id = await self._navigate_retry_once(ws, url, call_id + 1)
@@ -1062,9 +1061,7 @@ class CdpParentEffects:
 
     async def _detail_async(self, request_id: str) -> dict[str, object]:
         request_url = f"https://coconala.com/requests/{request_id}"
-        async with websockets.connect(
-            self.ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024
-        ) as ws:
+        async with await _cdp_connect(self.ws_url) as ws:
             call_id = 1
             await self._call(ws, "Page.enable", {}, call_id)
             call_id = await self._navigate(ws, request_url, call_id + 1)
@@ -1195,9 +1192,7 @@ class CdpParentEffects:
         self, request_id: str, *, navigate: bool
     ) -> dict[str, object]:
         expected_url = f"https://coconala.com/offers/add/{request_id}"
-        async with websockets.connect(
-            self.ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024
-        ) as ws:
+        async with await _cdp_connect(self.ws_url) as ws:
             call_id = 1
             await self._call(ws, "Page.enable", {}, call_id)
             if navigate:
@@ -1315,9 +1310,7 @@ class CdpParentEffects:
           set(content,{proposal_json}); set(price,{price_json}); set(date,{date_json});
           return {{ok:true,url:location.href,proposal_text:content.value,price:price.value,deliver_date:date.value}};
         }})())"""
-        async with websockets.connect(
-            self.ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024
-        ) as ws:
+        async with await _cdp_connect(self.ws_url) as ws:
             call_id = 1
             await self._call(ws, "Page.enable", {}, call_id)
             state, _ = await self._eval_json(ws, expression, call_id + 1)
@@ -1415,9 +1408,7 @@ class CdpParentEffects:
         self, request_id: str, label: str, settle_predicate=None, confirm_modal: bool = False
     ) -> tuple[dict[str, object], bytes]:
         expected_url = f"https://coconala.com/offers/add/{request_id}"
-        async with websockets.connect(
-            self.ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024
-        ) as ws:
+        async with await _cdp_connect(self.ws_url) as ws:
             call_id = 1
             await self._call(ws, "Page.enable", {}, call_id)
             call_id += 1
@@ -1540,9 +1531,7 @@ class CdpParentEffects:
         # history (~450 applications > 10 pages); the live per-candidate default stays put.
         if max_pages is None:
             max_pages = _APPLIED_OFFERS_MAX_PAGES if expected_ids else 1
-        async with websockets.connect(
-            self.ws_url, ping_interval=None, open_timeout=10, max_size=40 * 1024 * 1024
-        ) as ws:
+        async with await _cdp_connect(self.ws_url) as ws:
             call_id = 1
             await self._call(ws, "Page.enable", {}, call_id)
             # This first navigate and the first list eval keep plain error semantics on

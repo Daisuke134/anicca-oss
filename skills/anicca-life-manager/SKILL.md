@@ -3,12 +3,12 @@ name: anicca-life-manager
 description: |
   Push-type AI 電話 エージェント。Google Calendar + 位置情報 + Bland.ai/Twilio + AgentMail で、user (Dais / OSS buyer) の人生を 全管理。出発時刻に電話 (RELENTLESS until 動く)、遅刻時に 謝罪 mail 自動 送信、wake/sleep/meditation/run/work/LT/comedy 全 event に 個別 buffer (15分前到着 + 空港 60-180min) を 適用。Conway-Research/automaton の Buddhist edition。
 metadata:
-  tags: [voice, calendar, reminder, twilio, bland-ai, pipecat, gemini-live, openclaw, hard-rule-19]
+  tags: [voice, calendar, reminder, twilio, bland-ai, gemini-live, hard-rule-19]
   type: life-manager
   requires:
     bins: [python3, gog, curl, jq]
     env: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, GEMINI_API_KEY, GOOGLE_API_KEY, GOG_ACCOUNT, GOG_KEYRING_PASSWORD, OWNTRACKS_USER, OWNTRACKS_PASS]
-    services: [pipecat-phone (ai.anicca.pipecat-phone launchd), loco (anicca-alarm/loco/server.js)]
+    services: [loco (anicca-alarm/loco/server.js)]
   spec: ~/.local/state/life-manager/docs/ANICCA_LIFE_MANAGER_SPEC.md
 ---
 

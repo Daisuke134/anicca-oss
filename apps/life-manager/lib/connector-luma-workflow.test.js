@@ -367,6 +367,41 @@ test("Luma direct action forwards bounded agentic form assistance to the retaine
   assert.equal(typeof calls[0].dependencies.readLumaFormProfile, "function");
 });
 
+test("Luma direct action preserves an unknown effect after the first provider click", async () => {
+  const selected = event("unknown-after-click");
+  const workflow = createLumaScriptFirstWorkflow({
+    async discoverOnPage() { return [selected]; },
+    isCalendarFree() { return true; },
+    async submitOnPage() { return { status: "unknown", effect_started: true }; },
+    async readProviderStateOnPage() { return { status: "absent" }; },
+  });
+
+  assert.deepEqual(await workflow.runDirectAction({ page: {}, candidate: selected }), {
+    status: "failed",
+    safe_reason: "effect_unknown",
+  });
+});
+
+test("Luma direct action preserves an unknown effect from a post-click exception", async () => {
+  const selected = event("exception-after-click");
+  const workflow = createLumaScriptFirstWorkflow({
+    async discoverOnPage() { return [selected]; },
+    isCalendarFree() { return true; },
+    async submitOnPage() {
+      const error = new Error("private provider detail");
+      error.code = "LUMA_BROWSER_ACTION_FAILED";
+      error.unknownEffect = true;
+      throw error;
+    },
+    async readProviderStateOnPage() { return { status: "absent" }; },
+  });
+
+  assert.deepEqual(await workflow.runDirectAction({ page: {}, candidate: selected }), {
+    status: "failed",
+    safe_reason: "effect_unknown",
+  });
+});
+
 test("Luma direct action reports a login-wall candidate as a session problem without attempting the submit", async () => {
   const selected = event("login-walled", { auth_status: "login_required" });
   let submitCalls = 0;
