@@ -171,10 +171,9 @@ def _categories(page:Any,names:Sequence[str])->None:
         if not loc.is_checked(): loc.evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}")
         if not loc.is_checked(): _fail("category_ambiguous")
 def _set_checkbox(locator:Any,checked:bool)->None:
-    if bool(locator.is_checked())==checked:return
-    try: locator.evaluate("(e,checked)=>{e.checked=checked;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}",checked)
+    try: actual=locator.evaluate("(e,checked)=>{if(e.checked===checked)return e.checked;e.checked=checked;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return e.checked}",checked)
     except Exception:_fail("occupation_detail_invalid")
-    if bool(locator.is_checked())!=checked:_fail("occupation_detail_invalid")
+    if bool(actual)!=checked:_fail("occupation_detail_invalid")
 def _skill_names(page:Any)->list[str]:
     try:
         rows=page.locator('tr[id^="user_skills_"]'); names=[rows.nth(i).locator("td").first.inner_text().strip() for i in range(rows.count())]
