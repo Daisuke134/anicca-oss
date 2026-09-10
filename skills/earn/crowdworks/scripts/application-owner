@@ -3,8 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+LOCK_PYTHON="${LIFE_MANAGER_LOCK_PYTHON:-/usr/bin/python3}"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/anicca/crowdworks}"
 if [[ ! -x "$PYTHON" ]]; then
   echo "Life Manager runtime Python is missing; run scripts/bootstrap.sh first" >&2
   exit 69
 fi
-exec "$PYTHON" "$ROOT/skills/earn/crowdworks/scripts/application_owner.py" "$@"
+exec "$LOCK_PYTHON" "$ROOT/skills/browser/scripts/run_with_file_lock.py" \
+  "$STATE_ROOT/provider-browser.lock" -- \
+  "$PYTHON" "$ROOT/skills/earn/crowdworks/scripts/application_owner.py" "$@"

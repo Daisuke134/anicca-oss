@@ -340,13 +340,18 @@ class CleanUserInstallTest(unittest.TestCase):
     def test_crowdworks_wrapper_uses_the_managed_python_and_preserves_argv(self):
         wrapper = ROOT / "skills/earn/crowdworks/scripts/application-owner"
         self.assertTrue(os.access(wrapper, os.X_OK))
-        result = subprocess.run(
-            [str(wrapper), "marker"],
-            env={**os.environ, "LIFE_MANAGER_PYTHON": "/bin/echo"},
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [str(wrapper), "marker"],
+                env={
+                    **os.environ,
+                    "LIFE_MANAGER_PYTHON": "/bin/echo",
+                    "LIFE_MANAGER_STATE_ROOT": directory,
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
         self.assertEqual(
             result.stdout.strip(),
             f"{ROOT}/skills/earn/crowdworks/scripts/application_owner.py marker",
