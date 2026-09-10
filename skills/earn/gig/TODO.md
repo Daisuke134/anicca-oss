@@ -2434,7 +2434,7 @@ from the chat, and two of them contradict what this cursor had previously report
     owned, while both fresh wakes performed no duplicate effect. No code or production mutation was
     needed.
 
-30a. [ ] `APPLY-PROFILE-PARITY-1` Project one factual, conversion-ready commercial persona across
+30a. [x] `APPLY-PROFILE-PARITY-1` Project one factual, conversion-ready commercial persona across
     every active marketplace before judging Apply yield. The shared source owns the truthful headline,
     software-engineering / AI-automation / training positioning, biography, skills, work history,
     portfolio/proofs and approved avatar asset. Each provider adapter owns only its supported fields,
@@ -2639,6 +2639,21 @@ from the chat, and two of them contradict what this cursor had previously report
     (4): retain and officially read Mercor's factual candidate profile, retain Upwork's provider-
     compliant profile and its zero-Connects blocker, then defer Freelancer.com projection until its
     Apply owner is repository-owned.
+
+    Fixed substep (4) is also accepted without a provider mutation. With the Mercor Apply owner idle,
+    its authenticated official `/profile?tab=resume` route matched the private factual profile's name,
+    application email, LinkedIn and GitHub fields and exposed one resume, two education entries, two
+    work entries and two project entries; the read-only check made profile effect `0`. This deliberately
+    retains Mercor's candidate/resume identity instead of projecting the marketplace seller alias.
+    Upwork remains on its recorded official published/100%-complete provider-compliant profile with an
+    authentic owner photo and no validation error; its acquisition capacity remains exactly zero
+    Connects and zero free applications. CDP `9233` is not listening and all former Upwork labels are
+    retired, so this atom neither invents a fresh readback nor restarts that browser. Freelancer.com's
+    former bid/application/work-sync labels are likewise retired and no repository-owned managed Apply
+    owner exists, so its projection remains explicitly deferred to that owner rather than creating a
+    second profile implementation. Because CrowdWorks was the only changed provider and its following
+    natural wake proved zero profile/avatar/application effects, substeps (5) and (6) are complete.
+    Advance to `APPLY-ACCEPTANCE-ALL-1`; do not reopen profile parity without new official drift.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
