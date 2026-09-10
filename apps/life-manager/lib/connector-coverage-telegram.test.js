@@ -339,6 +339,16 @@ test("画像証拠とobservedAtはprovider送信より前に検証する", async
   assert.equal(sends, 0);
 });
 
+test("注入senderの例外も送信後不確定としてquarantineへ渡す", async () => {
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", coverage: openCoverage(), newEvents: [],
+    calendarCoverageUrl: "https://calendar.google.com/calendar/u/0/r",
+  }, { send: async () => { throw new Error("adapter timeout"); } }), (error) => {
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
+});
+
 test("coverage telegramの文面はhorizon_daysの実値から組み立て、travel/buffer文言を再導入しない", () => {
   const source = fs.readFileSync(path.join(__dirname, "connector-coverage-telegram.js"), "utf8");
   assert.doesNotMatch(source, /移動時間|travel_minutes|routeMinutes|homeLocation|buffer_minutes/i);

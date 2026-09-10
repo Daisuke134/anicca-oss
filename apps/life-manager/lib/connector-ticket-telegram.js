@@ -166,6 +166,10 @@ async function sendTelegramMedia(targetValue, bytes, caption, options = {}) {
 async function deliverConnectorTicket(input = {}, dependencies = {}) {
   const tenant = String(input.tenantId == null ? "" : input.tenantId).trim();
   if (!TENANT.test(tenant)) throw new Error("Connector Telegram tenant invalid");
+  const target = String(input.telegramTarget == null ? "" : input.telegramTarget).trim();
+  if (!target || target.length > 200) throw new Error("Telegram target invalid");
+  const chatIdSha256 = hashChatId(target);
+  const verifiedEventUrl = eventUrl(input.eventUrl);
   const artifactRef = String(input.artifactRef == null ? "" : input.artifactRef).trim();
   if (!ARTIFACT_REF.test(artifactRef)) throw new Error("Connector Telegram artifact ref invalid");
   if (typeof dependencies.readArtifact !== "function") {
@@ -182,7 +186,15 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
     || !bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)
   ) throw new Error("Connector Telegram PNG invalid");
   const send = dependencies.sendMedia || sendTelegramMedia;
-  const response = await send(input.telegramTarget, bytes, caption);
+  let response;
+  try {
+    response = await send(target, bytes, caption);
+  } catch (error) {
+    if (error && error.unknownEffect === true) throw error;
+    const uncertain = new Error("Telegram delivery uncertain");
+    uncertain.unknownEffect = true;
+    throw uncertain;
+  }
   let messageId;
   try { messageId = parseTelegramMessageId(response); } catch {
     const error = new Error("Telegram delivery needs a positive message ID");
@@ -194,9 +206,9 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
     provider_id: messageId,
     observed_at: observedAt,
     tenant_id: tenant,
-    chat_id_sha256: hashChatId(input.telegramTarget),
+    chat_id_sha256: chatIdSha256,
     artifact_ref: artifactRef,
-    event_url: eventUrl(input.eventUrl),
+    event_url: verifiedEventUrl,
   });
 }
 

@@ -148,3 +148,19 @@ test("ticket observedAtはprovider送信より前に検証する", async () => {
   }), /observed time invalid/);
   assert.equal(sent, false);
 });
+
+test("ticket URL検証は送信前、注入sender例外は送信後不確定にする", async () => {
+  let sent = false;
+  await assert.rejects(deliverConnectorTicket({ ...input(), eventUrl: "https://example.com/not-luma" }, {
+    readArtifact: async () => png(),
+    sendMedia: async () => { sent = true; return { messageId: "8008" }; },
+  }), /event URL invalid/);
+  assert.equal(sent, false);
+  await assert.rejects(deliverConnectorTicket(input(), {
+    readArtifact: async () => png(),
+    sendMedia: async () => { throw new Error("adapter timeout"); },
+  }), (error) => {
+    assert.equal(error.unknownEffect, true);
+    return true;
+  });
+});

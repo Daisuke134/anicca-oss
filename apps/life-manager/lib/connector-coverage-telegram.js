@@ -22,6 +22,12 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 
 function invalid() { throw new Error("Connector coverage Telegram invalid"); }
 
+function uncertain(message) {
+  const error = new Error(message);
+  error.unknownEffect = true;
+  return error;
+}
+
 function displayText(value) {
   return String(value).replace(/[<>]/g, "");
 }
@@ -230,10 +236,16 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
     photoInput = { bytes, digest, caption: `✅ 登録済み証拠: ${safeText(event.title, 160)}\n${event.canonical_url}` };
   }
   const send = dependencies.send || notifyTelegramReport;
-  const response = await send(message, {
-    telegramTarget: target,
-    idempotencyKey: `connector-coverage:${input.coverage.coverage_snapshot_id}`,
-  });
+  let response;
+  try {
+    response = await send(message, {
+      telegramTarget: target,
+      idempotencyKey: `connector-coverage:${input.coverage.coverage_snapshot_id}`,
+    });
+  } catch (error) {
+    if (error && error.unknownEffect === true) throw error;
+    throw uncertain("Connector coverage Telegram delivery uncertain");
+  }
   let providerId;
   try { providerId = parseTelegramMessageId(response || {}); }
   catch {
@@ -244,11 +256,17 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
   let photo = null;
   if (photoInput) {
     const sendPhoto = dependencies.sendPhoto || notifyTelegramPhoto;
-    const photoResponse = await sendPhoto(photoInput.bytes, {
-      telegramTarget: target,
-      caption: photoInput.caption,
-      idempotencyKey: `connector-coverage-photo:${input.coverage.coverage_snapshot_id}`,
-    });
+    let photoResponse;
+    try {
+      photoResponse = await sendPhoto(photoInput.bytes, {
+        telegramTarget: target,
+        caption: photoInput.caption,
+        idempotencyKey: `connector-coverage-photo:${input.coverage.coverage_snapshot_id}`,
+      });
+    } catch (error) {
+      if (error && error.unknownEffect === true) throw error;
+      throw uncertain("Connector coverage Telegram photo delivery uncertain");
+    }
     let photoProviderId;
     try { photoProviderId = parseTelegramMessageId(photoResponse || {}); }
     catch {
