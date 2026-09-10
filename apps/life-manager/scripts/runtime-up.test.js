@@ -139,11 +139,18 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     assert.equal(checkIgnored(requiredPath), false, `${requiredPath} must be in the Railway build context`);
   }
   for (const excludedPath of [
+    "runtime/loop/__tests__/wake.test.mjs",
+    "runtime/loop/test/wake.test.mjs",
+    "runtime/loop/state/probe.jsonl",
+    "runtime/README.md",
     "skills/earn/lib/__tests__/net-worth.test.mjs",
+    "skills/earn/test/fixture.js",
     "skills/earn/README.md",
+    "skills/earn/references/provider.md",
     "skills/earn/state/earn-ledger.jsonl",
     "skills/earn/x402-sell/node_modules/example.js",
     "skills/earn/.env",
+    "skills/earn/.env.production",
   ]) {
     assert.equal(checkIgnored(excludedPath), true, `${excludedPath} must stay out of the Railway build context`);
   }
