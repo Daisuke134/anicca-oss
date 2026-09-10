@@ -432,4 +432,78 @@ def test_google_form_readback_proves_absence_only_before_prepared_marker(tmp_pat
     receipt.write_text(__import__("json").dumps({
         "status": "prepared", "url_sha256": url_hash,
     }), encoding="utf-8")
+    adapter._detail = lambda _thread: []
+    assert adapter.readback(intent) == {"resume_required": True}
+
+
+def test_prepared_google_form_requests_confirmation_once_and_accepts_buyer_receipt(tmp_path):
+    state = tmp_path / "reply" / "state.json"
+    adapter = adapter_module.CrowdWorksReplyAdapter({}, state_path=state)
+    url_hash = "a" * 64
+    receipt = adapter._form_receipt_path(url_hash)
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(__import__("json").dumps({
+        "status": "prepared", "url_sha256": url_hash,
+    }), encoding="utf-8")
+    intent = {"action": "external_action", "thread_id": "thread-1", "payload": {
+        "kind": "submit_google_form", "url_sha256": url_hash,
+        "completion_body": "Googleフォームへの回答を完了しました。",
+    }}
+    sent = []
+    adapter._open = lambda: None
+    adapter._send_reply_once = lambda thread, body: sent.append((thread, body))
+
+    adapter.mutate(intent)
+    assert sent == [("thread-1", adapter.FORM_CONFIRMATION_BODY)]
+    persisted = __import__("json").loads(receipt.read_text(encoding="utf-8"))
+    assert persisted["status"] == "confirmation_requested"
+    assert persisted["confirmation_thread_id"] == "thread-1"
+    sent.clear()
+    adapter.mutate(intent)
+    assert sent == [("thread-1", adapter.FORM_CONFIRMATION_BODY)]
+    sent.clear()
+    adapter.mutate({**intent, "thread_id": "thread-2"})
+    assert sent == []
+
+    adapter._detail = lambda _thread: [{
+        "event_id": "seller-1", "role": "seller", "body": adapter.FORM_CONFIRMATION_BODY,
+    }]
     assert adapter.readback(intent) == {}
+    adapter._detail = lambda _thread: [{
+        "event_id": "seller-1", "role": "seller", "body": adapter.FORM_CONFIRMATION_BODY,
+    }, {
+        "event_id": "buyer-2", "role": "buyer", "body": "回答を確認しました。",
+    }]
+    verified = adapter.readback(intent)
+    assert verified["verified"] is True
+    assert verified["provider_receipt_id"] == "google-form-buyer-confirmed:buyer-2"
+
+    other = {**intent, "thread_id": "thread-2"}
+    adapter._detail = lambda _thread: (_ for _ in ()).throw(
+        AssertionError("the shared form confirmation belongs to one thread")
+    )
+    assert adapter.readback(other) == {}
+
+
+def test_google_form_confirmation_rejects_unrelated_and_negated_buyer_messages(tmp_path):
+    state = tmp_path / "reply" / "state.json"
+    adapter = adapter_module.CrowdWorksReplyAdapter({}, state_path=state)
+    url_hash = "a" * 64
+    receipt = adapter._form_receipt_path(url_hash)
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(__import__("json").dumps({
+        "status": "confirmation_requested", "url_sha256": url_hash,
+        "confirmation_thread_id": "thread-1",
+    }), encoding="utf-8")
+    intent = {"action": "external_action", "thread_id": "thread-1", "payload": {
+        "kind": "submit_google_form", "url_sha256": url_hash,
+        "completion_body": "Googleフォームへの回答を完了しました。",
+    }}
+    prefix = [{"event_id": "seller-1", "role": "seller",
+               "body": adapter.FORM_CONFIRMATION_BODY}]
+    for body in ("日程を確認しました。", "フォームを確認しました。", "回答方法を確認しました。",
+                 "確認しましたが、回答は届いていません。"):
+        adapter._detail = lambda _thread, body=body: prefix + [{
+            "event_id": "buyer-2", "role": "buyer", "body": body,
+        }]
+        assert adapter.readback(intent) == {}
