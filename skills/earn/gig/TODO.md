@@ -2497,6 +2497,12 @@ from the chat, and two of them contradict what this cursor had previously report
     selectors and Google session transport stay adapter-specific; intent, resumability, receipt,
     official readback, Telegram delivery and replay-zero stay in the shared Reply kernel.
 
+    Current measured state is incomplete. The installed shared Reply kernel declares only `reply`,
+    `estimate` and `accept_contract` mutations; it has no `submit_external_form` effect. Neither the
+    CrowdWorks Reply state nor its production logs contain a Google Form submission receipt for this
+    thread. Therefore the loop has not completed the questionnaire and must not tell the buyer that
+    it has. This atom remains after `LANCERS-REPLY-ACTION-1`; do not skip that fixed cursor order.
+
 32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
