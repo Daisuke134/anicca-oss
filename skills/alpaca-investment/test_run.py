@@ -210,6 +210,50 @@ class BrokerContextTest(unittest.TestCase):
                              client_order_id=client_id, order=order, mode="live")
         self.assertIn("--qty", run.call_args.args[1])
 
+    def test_live_ownership_selects_btc_not_usdc_and_opens_from_fill(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "c" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0",
+                "status": "entry_pending", "symbol": "BTCUSD"})
+            observation = {"positions": [
+                {"symbol": "USDCUSD", "qty": "60"},
+                {"symbol": "BTCUSD", "qty": "0.0001"}]}
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "filled", "filled_qty": "0.00011"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), observation)
+            self.assertEqual(ownership["status"], "open")
+            MODULE._owned_live_position(ownership, observation)
+
+    def test_live_ownership_closes_when_position_disappears(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "d" * 24,
+                "entry_effect_id": "effect", "entry_filled_qty": "0.0001",
+                "status": "open", "symbol": "BTCUSD"})
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "filled", "filled_qty": "0.0001"}):
+                ownership = MODULE._sync_live_ownership(
+                    state, Path("credentials"), Path("alpaca"), {"positions": []})
+            self.assertEqual(ownership["status"], "closed")
+
+    def test_rejected_close_restores_owned_position(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            MODULE._atomic_json(state / "live-owned-position.json", {
+                "entry_client_order_id": "lm-ai-" + "e" * 24,
+                "entry_effect_id": "entry", "entry_filled_qty": "0.0001",
+                "close_client_order_id": "lm-ai-" + "f" * 24,
+                "close_effect_id": "close", "status": "closing", "symbol": "BTCUSD"})
+            with patch.object(MODULE, "find_order_by_client_id", return_value={
+                    "status": "rejected", "filled_qty": "0"}):
+                ownership = MODULE._sync_live_ownership(state, Path("credentials"),
+                    Path("alpaca"), {"positions": [{"symbol": "BTCUSD", "qty": "0.0001"}]})
+            self.assertEqual(ownership["status"], "open")
+
 
 class BrokerSnapshotTest(unittest.TestCase):
     def test_shadow_and_live_snapshots_are_nonpaper(self):
