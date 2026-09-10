@@ -78,3 +78,24 @@ test("durable five-minute job makes restart replay produce zero extra shadow wak
   assert.equal(completed[0].receipt.order_calls, 0);
   assert.equal(completed[0].receipt.message_calls, 1);
 });
+
+test("an older claimed shadow slot completes with its own immutable lineage", async () => {
+  const owner = { uid: "tenant-1", deployment: "cloud", mode: "shadow" };
+  const artifact = require("./investment-core-artifact.js").readInvestmentCoreArtifact();
+  const oldSlot = "2026-09-10T12:00:00.000Z";
+  const oldId = require("node:crypto").createHash("sha256").update(`tenant-1\n${oldSlot}\n${artifact.digest}`).digest("hex");
+  let completion;
+  const wake = makeInvestmentCloudShadowWake({ stateStore: { listRunnable: async () => [owner] },
+    runtimeStore: { read: async () => seededBundle(), upsert: async () => {} },
+    jobs: { enqueueJob: async () => {}, claimJobs: async () => [{ job_id: oldId,
+      tenant_id: "tenant-1", loop_id: "investment.cloud", capability: "investment.shadow",
+      effect_class: "none", effect_key: null, attempt: 1,
+      input_refs: { investment_state_ref: "investment-state://tenant-1",
+        runtime_state_ref: "investment-runtime-state://tenant-1", core_artifact_ref: artifact.ref,
+        schedule_slot_ref: `schedule-slot://${oldSlot}` } }], completeJob: async (value) => { completion = value; } },
+    secretProvider: { assertTenant: () => true }, readChatId: async () => "chat",
+    executeShadow: async () => ({ mode: "shadow", deployment: "cloud", effect: "none", telegram_message_id: "9" }),
+  });
+  assert.equal((await wake(new Date("2026-09-10T12:05:00Z"))).receipt.observed_at, oldSlot);
+  assert.equal(completion.jobId, oldId);
+});
