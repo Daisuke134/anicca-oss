@@ -15,4 +15,5 @@ blockrun-llm==1.4.7
 polymarket-client==0.1.0b13
 eth-account==0.13.7
 requests==2.34.2
+solders==0.27.1
 web3==7.16.0
