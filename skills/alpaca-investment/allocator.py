@@ -100,7 +100,11 @@ def choose(snapshot: dict[str, Any], candidates: list[dict[str, Any]], state: Pa
         "probability_profit must be 0..1 and expected_gain_usd must be the upside conditional on profit. "
         "Write reason as one concise natural Japanese sentence. "
         "Choose NO_TRADE with both numbers 0 when evidence is inadequate.\n"
-        + json.dumps({"account": snapshot["account"], "candidates": candidates}, separators=(",", ":"))
+        + json.dumps({
+            "account": snapshot["account"],
+            "available_cash_usd": snapshot.get("available_cash_usd", snapshot["account"]["cash"]),
+            "candidates": candidates,
+        }, separators=(",", ":"))
     )
     result = subprocess.run([
         str(runner), "--task-class", "diagnostic-agent", "--prompt-stdin",
