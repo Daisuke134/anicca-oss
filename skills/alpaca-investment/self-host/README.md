@@ -101,8 +101,8 @@ instead of making the report inaccurate.
 ## Stop and recover
 
 ```bash
-docker compose exec investment-loop python3 /opt/life-manager/skills/alpaca-investment/control.py --state-root /data/investment --action pause
-docker compose exec investment-loop python3 /opt/life-manager/skills/alpaca-investment/control.py --state-root /data/investment --action resume
+docker compose exec investment-loop python3 /app/skills/alpaca-investment/control.py --state-root /data/investment --action pause
+docker compose exec investment-loop python3 /app/skills/alpaca-investment/control.py --state-root /data/investment --action resume
 docker compose stop
 docker compose start
 docker compose down                 # keeps the named state volume

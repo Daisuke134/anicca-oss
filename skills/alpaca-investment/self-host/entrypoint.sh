@@ -2,13 +2,13 @@
 set -euo pipefail
 umask 077
 
-core=/opt/life-manager/skills/alpaca-investment/run.py
+core=/app/skills/alpaca-investment/run.py
 credentials=/run/investment/credentials.json
 mode="${INVESTMENT_MODE:-shadow}"
 interval="${INVESTMENT_INTERVAL_SECONDS:-300}"
 
 if [[ "${INVESTMENT_VERIFY_ONLY:-false}" == "true" ]]; then
-  cd /opt/life-manager/skills/alpaca-investment
+  cd /app/skills/alpaca-investment
   python3 -m unittest test_prelive_replay.py test_risk_policy.py test_reporter.py
   exit 0
 fi
