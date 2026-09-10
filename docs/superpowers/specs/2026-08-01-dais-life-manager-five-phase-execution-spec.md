@@ -10323,3 +10323,13 @@ wake `wake-01f71a9ff8a0d8582df73497`はTokyo Luma `24/6/2/1/0`を取得した。
 空きは約234〜377MiBの間で推移し、512MiB producer floorを回復しなかった。一般cache、Homebrew dry-run、Docker、local snapshot、loop stdout/stderrを調べたが、CG-44を安全に再開できる回収量は無かった。`/private/tmp`の約80MiB級worktree群はGit registry上でlocked/managed leaseまたはowner不明であり、CG-44自身の旧worktreeもcaller-owner一致を証明できないため、worktree lifecycle contractどおり保全した。
 
 `lsof +L1`により、削除済みHyperFrames Chrome binary（約166MiB）とCodex cache（約38MiB）がopen handleで保持されていることを確認した。主な25〜29個の`chrome-headless-shell`は`capafy-ig-marketing-daily`のprofileを使用し、親processがPPID 1、約4〜5時間継続している別loop owner資源である。Connectorからこれらをstop/killする権限はなく、running siblingを破壊して容量を作らない。Connector ownerはidle、最新Luma結果は`24/6/2/1/0`、Telegram `74232`のまま。CG-44は**NOT DONE / capacity admission blocked + calendar-free Tokyo Luma candidate 0**として固定先頭を維持する。解除条件は、別ownerの正常cleanupまたは安全なhost容量回復により512MiB以上となり、次のLuma wakeで同一eventのofficial registered/pending、Calendar exact 1、Telegram message/photo、durable bundleを成立させることである。
+
+### O1B-25進捗555（Connector sparse release欠落修復 / 30分wake復帰）
+
+host空きは11GiBへ回復したが、Connectorの新production release `eba5e6ad…`は5回の30分wakeすべてが4〜19秒でexit 1となり、Luma auditを更新していなかった。shared stderrから直接原因を`Cannot find module '../../../runtime/browser/target-lease.cjs'`と確定した。release manifestはsparse pathsに`apps/life-manager`と`skills/connector`を含む一方、Connector target leaseがrequireする`runtime/browser`を含まず、entrypointがprovider処理前に落ちていた。
+
+RED release testで同じ欠落を再現し、sparse releaseに`apps/life-manager`または`skills/connector`を含む場合は`runtime/browser`を依存閉包へ自動追加する最小修正を行った。release builder 7/7、Connector native 16/16、runtime loop 386/386、registry 15/15、shell syntax、全GitHub CIをPASS。PR #4962をmain merge `d58f0b3ac9909d1a3a86cfe576e49a14a9ca8851`とした。
+
+main由来immutable release `/Users/anicca/loops/releases/20260911T031819-d58f0b3a`を作成し、欠落file存在とConnector importをPASS後、Connector labelだけをreconcileした。対象限定wake `wake-8922ef52ed1bf5efb7dcdf40`は以前の即時crash地点を越え、Luma reconciliation候補`e8n2j8p3`をofficial absentとしてSubmit 0でqueueから削除し、Tokyo Luma `24/6/6/0/0`を処理した。wakeは`completed_no_effect / provider_discovery_failed`、Telegram ID `74649`、exit 0で終端。readbackはloaded-idle、runs 1、installed/event SHA一致、blocker null、StartInterval 1800である。
+
+したがって**Connectorの30分実行障害は修復済み**。ただし今回のLuma inventoryにfree/open candidateが無く、new Luma registration、Calendar exact 1、Telegram event/photo、durable bundleは0のため、CG-44自体は**NOT DONE**のまま固定先頭を維持する。
