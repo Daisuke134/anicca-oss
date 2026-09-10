@@ -2578,22 +2578,6 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/x402-sell"
     },
-    "tier2-agent-diagnose": {
-      "cadence": {
-        "start_interval_seconds": 3600
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "system",
-      "effect_class": "none",
-      "entrypoint": "skills/anicca-core/scripts/tier2-agent-diagnose.sh",
-      "label": "ai.anicca.tier2-agent-diagnose",
-      "log_root": "~/.local/state/life-manager/tier2-agent-diagnose/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/tier2-agent-diagnose"
-    },
     "token-daily-report": {
       "cadence": {
         "calendar_interval": {
@@ -3190,6 +3174,7 @@
     "ai.anicca.job-search-browser",
     "ai.anicca.job-search-mercor",
     "ai.anicca.job-search-mercor-browser",
+    "ai.anicca.tier2-agent-diagnose",
     "ai.anicca.larry-anicca-en-v1",
     "ai.anicca.larry-anicca-en-v2",
     "ai.anicca.larry-anicca-en-v3",
