@@ -72,6 +72,16 @@ class MacosLoopRegistryTest(unittest.TestCase):
                 self.assertNotIn(loop_id, registry["loops"])
                 self.assertIn(label, registry["retired_labels"])
 
+    def test_unloaded_stale_external_artifacts_are_retired(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for label in (
+            "ai.anicca.freelancer-bid-watch",
+            "ai.anicca.probe-rollback-1782857566-85245-proactive",
+        ):
+            with self.subTest(label=label):
+                self.assertNotIn(label, registry["external_labels"])
+                self.assertIn(label, registry["retired_labels"])
+
     def test_life_manager_owned_loops_do_not_write_runtime_metadata_to_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         loop_ids = {
