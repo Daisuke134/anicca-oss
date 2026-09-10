@@ -2665,6 +2665,25 @@ from the chat, and two of them contradict what this cursor had previously report
     maximize truthful resume fit; Upwork/Freelancer.com remain bounded by their official account and
     spend state. Do not manufacture applications merely to turn a counter nonzero.
 
+    Acceptance progress is now pinned instead of being left in chat. Coconala's installed release
+    `e23681d9` ended natural PASS at `2026-09-10T20:43:49Z`; each of the three latest natural wakes
+    read 80 official postings and classified every one closed or otherwise unsubmittable, with
+    actionable/effect/readback/failed/pending all zero. Telegram receipts `74833` and `74870` were
+    each delivered once. This is the required exact zero-eligible branch, not a manufactured apply.
+
+    Lancers browser ownership remained continuous; no browser, Aqua, loginwindow or Mac restart was
+    used. One stale unresponsive Google OAuth target was closed only after all Lancers business
+    owners were idle, leaving the responsive owned target and persistent profile intact. The next
+    natural wake submitted project `5600212`; its first result was `submission_uncertain`, and the
+    following natural wake reconciled the official proposal exactly once as provider proposal
+    `27913800` at `2026-09-10T21:00:10Z`. Telegram decision/application receipts `74900` and `74901`
+    each have one delivery attempt. The following natural deterministic terminal passed at
+    `2026-09-10T21:09:21Z` and did not resubmit `5600212`. Historical project `5599976` remains a
+    durable quarantined uncertain claim: repeated official proposal-history readback finds no such
+    proposal, so it is neither counted as revenue nor silently cleared. Lancers acceptance remains
+    open only until that exact quarantine is terminally classified and the current
+    `proposal_pipeline_incomplete` diagnostic is reconciled without another duplicate mutation.
+
 31. [x] `CROWDWORKS-REPLY-2` Recheck CrowdWorks Reply next through the same shared kernel. PASS = a
     fresh natural terminal observes every current official buyer event exactly once, with each event
     replied, durably deferred, handed off or officially classified no-action; Telegram and provider
