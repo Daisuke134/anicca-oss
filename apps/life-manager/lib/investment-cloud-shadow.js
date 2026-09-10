@@ -54,22 +54,22 @@ function makeInvestmentCloudWake(deps) {
       tenantId: owner.uid, limit: 1, leaseSeconds: 300 });
     if (!claimed.length) return { status: "already_processed", effect_permission: "none" };
     const job = claimed[0];
-    const refs = job.input_refs || {};
-    const claimedSlot = String(refs.schedule_slot_ref || "").replace(/^schedule-slot:\/\//, "");
-    const claimedLineage = owner.mode === "shadow" ? `${owner.uid}\n${claimedSlot}\n${artifact.digest}`
-      : `${owner.uid}\nlive\n${claimedSlot}\n${artifact.digest}`;
-    const claimedJobId = crypto.createHash("sha256").update(claimedLineage).digest("hex");
-    if (job.job_id !== claimedJobId || fiveMinuteSlot(claimedSlot) !== claimedSlot
-      || job.tenant_id !== owner.uid || job.loop_id !== "investment.cloud"
-      || job.capability !== capability || job.effect_class !== effectClass
-      || job.effect_key !== (owner.mode === "live" ? job.job_id : null)
-      || refs.investment_state_ref !== `investment-state://${owner.uid}`
-      || refs.runtime_state_ref !== `investment-runtime-state://${owner.uid}`
-      || refs.core_artifact_ref !== artifact.ref) {
-      throw new Error("investment cloud shadow claimed job invalid");
-    }
-    const telegramChatId = await deps.readChatId(owner.uid);
     try {
+      const refs = job.input_refs || {};
+      const claimedSlot = String(refs.schedule_slot_ref || "").replace(/^schedule-slot:\/\//, "");
+      const claimedLineage = owner.mode === "shadow" ? `${owner.uid}\n${claimedSlot}\n${artifact.digest}`
+        : `${owner.uid}\nlive\n${claimedSlot}\n${artifact.digest}`;
+      const claimedJobId = crypto.createHash("sha256").update(claimedLineage).digest("hex");
+      if (job.job_id !== claimedJobId || fiveMinuteSlot(claimedSlot) !== claimedSlot
+        || job.tenant_id !== owner.uid || job.loop_id !== "investment.cloud"
+        || job.capability !== capability || job.effect_class !== effectClass
+        || job.effect_key !== (owner.mode === "live" ? job.job_id : null)
+        || refs.investment_state_ref !== `investment-state://${owner.uid}`
+        || refs.runtime_state_ref !== `investment-runtime-state://${owner.uid}`
+        || refs.core_artifact_ref !== artifact.ref) {
+        throw new Error("investment cloud shadow claimed job invalid");
+      }
+      const telegramChatId = await deps.readChatId(owner.uid);
       const result = await deps.executeInvestment({ tenantId: owner.uid, mode: owner.mode,
         wakeId: claimedSlot, eventKey: job.job_id, sealed,
         secretProvider: deps.secretProvider, telegramChatId,

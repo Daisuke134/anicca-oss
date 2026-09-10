@@ -133,6 +133,23 @@ test("execution failure durably fails the claimed job for bounded retry", async 
   assert.equal(failed.unknownEffect, false);
 });
 
+test("a claimed job is durably failed when Telegram directory lookup fails", async () => {
+  const owner = { uid: "tenant-1", deployment: "cloud", mode: "live" };
+  let enqueued;
+  let failed;
+  const wake = makeInvestmentCloudWake({ expectedMode: "live",
+    stateStore: { listRunnableForMode: async () => [owner] }, runtimeStore: { read: async () => seededBundle() },
+    jobs: { enqueueJob: async (job) => { enqueued = job; }, claimJobs: async () => [{
+      job_id: enqueued.jobId, tenant_id: "tenant-1", loop_id: "investment.cloud",
+      capability: "investment.live", effect_class: "money", effect_key: enqueued.jobId,
+      attempt: 1, input_refs: enqueued.inputRefs }], completeJob: async () => {},
+      failJob: async (value) => { failed = value; } },
+    secretProvider: { assertTenant: () => true }, readChatId: async () => { throw new Error("directory unavailable"); },
+    stateRoot: "/durable/investment", executeInvestment: async () => assert.fail("core must not run") });
+  await assert.rejects(wake(new Date("2026-09-10T12:07:00Z")), /directory unavailable/);
+  assert.equal(failed.jobId, enqueued.jobId);
+});
+
 test("durable five-minute job makes restart replay produce zero extra shadow wakes", async () => {
   const owner = { uid: "tenant-1", deployment: "cloud", mode: "shadow", paused: false, killed: false };
   let enqueued;
