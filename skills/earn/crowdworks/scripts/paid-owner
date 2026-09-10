@@ -15,4 +15,5 @@ exec "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/paid_kernel.py" \
   --state-root "$STATE_ROOT/paid" \
   --output "$STATE_ROOT/paid-latest.json" \
   -- \
-  --account-id 7145638
+  --account-id 7145638 \
+  --state-path "$STATE_ROOT/paid"
