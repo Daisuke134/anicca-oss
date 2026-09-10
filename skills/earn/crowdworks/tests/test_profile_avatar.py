@@ -328,3 +328,6 @@ def test_skill_readback_ignores_provider_action_column() -> None:
     assert profile._public_skills(Page()) == [
         {"name": "Python", "level": "4:上級", "years": "1〜3年", "note": "業務自動化"}
     ]
+    assert profile._skills_value(profile._public_skills(Page()), public=True) == profile._skills_value(
+        [{"name": "Python", "level": "4", "years": 3, "note": "業務自動化"}]
+    )
