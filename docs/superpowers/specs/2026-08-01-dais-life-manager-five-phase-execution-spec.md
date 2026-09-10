@@ -10317,3 +10317,9 @@ Daisの「one by one」に従い、固定順先頭のCG-44だけを再開した�
 wake `wake-01f71a9ff8a0d8582df73497`はTokyo Luma `24/6/2/1/0`を取得した。無料受付中1件は既存Google Calendarと衝突したため、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、durable bundleは0。終端は既知のKokuchPro Harness境界`kokuchpro_direct_requires_harness / consecutive failures 3`で、every-wake Telegram ID `74232`を保存し、PID消失を確認した。CG-44は**NOT DONE**、直接理由は今回もCalendar-free Luma candidate 0である。
 
 同wake中に空きは約703MiBから約234MiBへ再低下した。DownloadsのChromium tempは再生成0、既存cacheは小さく、`/private/tmp`に約80MiB級のLife Manager Git worktreeが多数存在することを確認したが、それらはGit registry上でlockedまたはmanaged lease付きであり、別ownerが同時利用しうるため削除していない。35個のimmutable releaseも現時点では各loopから参照され、cleanup governorが正しく保全している。したがって次wakeは512MiB producer floor回復まで追加kickstartせず、他ownerのworktree/releaseを無断削除・集約しない。固定TODO順は維持する。
+
+### O1B-25進捗554（容量blockerのowner特定 / CG-44停止点）
+
+空きは約234〜377MiBの間で推移し、512MiB producer floorを回復しなかった。一般cache、Homebrew dry-run、Docker、local snapshot、loop stdout/stderrを調べたが、CG-44を安全に再開できる回収量は無かった。`/private/tmp`の約80MiB級worktree群はGit registry上でlocked/managed leaseまたはowner不明であり、CG-44自身の旧worktreeもcaller-owner一致を証明できないため、worktree lifecycle contractどおり保全した。
+
+`lsof +L1`により、削除済みHyperFrames Chrome binary（約166MiB）とCodex cache（約38MiB）がopen handleで保持されていることを確認した。主な25〜29個の`chrome-headless-shell`は`capafy-ig-marketing-daily`のprofileを使用し、親processがPPID 1、約4〜5時間継続している別loop owner資源である。Connectorからこれらをstop/killする権限はなく、running siblingを破壊して容量を作らない。Connector ownerはidle、最新Luma結果は`24/6/2/1/0`、Telegram `74232`のまま。CG-44は**NOT DONE / capacity admission blocked + calendar-free Tokyo Luma candidate 0**として固定先頭を維持する。解除条件は、別ownerの正常cleanupまたは安全なhost容量回復により512MiB以上となり、次のLuma wakeで同一eventのofficial registered/pending、Calendar exact 1、Telegram message/photo、durable bundleを成立させることである。
