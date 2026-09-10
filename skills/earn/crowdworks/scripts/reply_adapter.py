@@ -33,6 +33,7 @@ account = _load("crowdworks_reply_account", HERE / "account.py")
 planner = _load("crowdworks_reply_planner", SHARED / "reply_planner.py")
 grounding_module = _load("crowdworks_reply_grounding", SHARED / "reply_grounding.py")
 composer = _load("crowdworks_reply_composer", SHARED / "reply_composer.py")
+profile_module = _load("crowdworks_reply_profile", HERE / "profile.py")
 
 
 def _now() -> str:
@@ -47,11 +48,12 @@ def _text(value: Any) -> str:
 
 class CrowdWorksReplyAdapter:
     def __init__(self, grounding: Mapping[str, Any], *, state_path: Path | None = None,
-                 candidate_profile: Path | None = None, provider_profile: Path | None = None):
+                 candidate_profile: Path | None = None,
+                 provider_profile: Mapping[str, Any] | None = None):
         self.grounding = dict(grounding)
         self.state_path = Path(state_path) if state_path is not None else None
         self.candidate_profile = Path(candidate_profile) if candidate_profile is not None else None
-        self.provider_profile = Path(provider_profile) if provider_profile is not None else None
+        self.provider_profile = dict(provider_profile) if provider_profile is not None else None
         self.browser = None
         self.page = None
         self.rows: dict[str, dict[str, Any]] = {}
@@ -273,7 +275,7 @@ class CrowdWorksReplyAdapter:
         if self.candidate_profile is None or self.provider_profile is None:
             raise RuntimeError("google_form_profile_unavailable")
         candidate_raw = json.loads(self.candidate_profile.read_text(encoding="utf-8"))
-        provider = json.loads(self.provider_profile.read_text(encoding="utf-8"))
+        provider = self.provider_profile
         candidate = candidate_raw.get("candidate") if isinstance(candidate_raw, Mapping) else None
         if not isinstance(candidate, Mapping) or not isinstance(provider, Mapping):
             raise RuntimeError("google_form_profile_invalid")
@@ -599,14 +601,15 @@ def build(argv: list[str]):
     parser.add_argument("--provider-profile", type=Path,
                         default=Path.home() / ".config/anicca/crowdworks/public-profile.json")
     args = parser.parse_args(argv)
+    provider_profile = profile_module.load_config(args.provider_profile)
     grounding = grounding_module.build_reply_grounding(
         candidate_profile_path=args.candidate_profile,
-        provider_profile_path=args.provider_profile,
+        provider_profile=provider_profile,
     )
     adapter = CrowdWorksReplyAdapter(
         grounding, state_path=args.state_path,
         candidate_profile=args.candidate_profile.expanduser().resolve(),
-        provider_profile=args.provider_profile.expanduser().resolve(),
+        provider_profile=provider_profile,
     )
     state_root = args.state_path.expanduser().resolve().parent
     return adapter, planner.ReplyPlanner(

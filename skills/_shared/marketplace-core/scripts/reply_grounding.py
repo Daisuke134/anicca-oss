@@ -59,6 +59,7 @@ def _contains_private_identity(text: str, values: list[str]) -> bool:
 def build_reply_grounding(
     *, candidate_profile_path: Path,
     provider_profile_path: Path | None = None,
+    provider_profile: Mapping[str, Any] | None = None,
     today: date | None = None,
 ) -> dict[str, Any]:
     private = _object(candidate_profile_path)
@@ -87,7 +88,9 @@ def build_reply_grounding(
                 and not _contains_private_identity(claim, private_identity_values)):
             verified_facts.append({"id": identifier.strip(), "claim": claim.strip()})
 
-    provider_raw = _object(provider_profile_path)
+    if provider_profile is not None and not isinstance(provider_profile, Mapping):
+        raise ValueError("reply_grounding_invalid")
+    provider_raw = dict(provider_profile) if provider_profile is not None else _object(provider_profile_path)
     provider_facts = {
         key: provider_raw[key]
         for key in ("display_name", "hours_limit", "status", "occupation", "skills")

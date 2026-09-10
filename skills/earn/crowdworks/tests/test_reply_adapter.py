@@ -374,7 +374,8 @@ def test_google_form_answers_bind_current_metadata_to_private_profiles(tmp_path)
         "display_name": "Public Seller", "provider_employee_id": "7145638",
     }), encoding="utf-8")
     adapter = adapter_module.CrowdWorksReplyAdapter(
-        {}, candidate_profile=candidate, provider_profile=provider,
+        {}, candidate_profile=candidate,
+        provider_profile=__import__("json").loads(provider.read_text(encoding="utf-8")),
     )
     items = [
         {"title": "①クラウドワークスのユーザー名を教えてください", "type": 0,

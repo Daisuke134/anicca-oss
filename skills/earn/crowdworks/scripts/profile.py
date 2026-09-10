@@ -128,8 +128,26 @@ def _public_occupation_detail(page:Any)->dict[str,str]:
     except Exception: _fail("public_occupation_readback_failed")
     unique={(item["id"],item["label"]):item for item in values}
     return next(iter(unique.values())) if len(unique)==1 else _fail("public_occupation_readback_failed")
+def _public_skills(page:Any)->list[dict[str,str]]:
+    try:
+        rows=page.locator('tr[id^="user_skills_"]'); values=[]
+        for index in range(rows.count()):
+            cells=rows.nth(index).locator("td")
+            if cells.count()!=4: _fail("public_skill_readback_failed")
+            values.append({"name":cells.nth(0).inner_text().strip(),"level":cells.nth(1).inner_text().strip(),"years":cells.nth(2).inner_text().strip(),"note":cells.nth(3).inner_text().strip()})
+    except ProfileError: raise
+    except Exception: _fail("public_skill_readback_failed")
+    return sorted(values,key=lambda item:(item["name"].casefold(),item["level"],item["years"],item["note"]))
+def _years_label(years:int)->str:
+    return "1〜3年" if years==3 else "5年以上" if years==5 else _fail("commercial_profile_invalid")
+def _skills_value(skills:Sequence[Mapping[str,Any]],*,public:bool=False)->str:
+    values=[]
+    for skill in skills:
+        years=skill["years"] if public else _years_label(skill["years"])
+        values.append("|".join((str(skill["name"]),str(skill["level"]),str(years),str(skill["note"]))))
+    return "\n".join(sorted(values,key=str.casefold))
 def _expected_components(config:Mapping[str,Any])->dict[str,dict[str,Any]]:
-    detail=config["occupation_detail"]; values={"display_name":config["display_name"],"occupation":config["occupation"],"occupation_detail":f'{detail["id"]}:{detail["label"]}',"status":config["status"],"hours_limit":config["hours_limit"],"min_hourly_wage":str(config["min_hourly_wage"]),"max_hourly_wage":str(config["max_hourly_wage"]),"web_meeting":config["web_meeting"],"introduction":config["introduction"],"job_categories":"\n".join(sorted(config["job_categories"])),"skills":"\n".join(sorted(skill["name"] for skill in config["skills"]))}
+    detail=config["occupation_detail"]; values={"display_name":config["display_name"],"occupation":config["occupation"],"occupation_detail":f'{detail["id"]}:{detail["label"]}',"status":config["status"],"hours_limit":config["hours_limit"],"min_hourly_wage":str(config["min_hourly_wage"]),"max_hourly_wage":str(config["max_hourly_wage"]),"web_meeting":config["web_meeting"],"introduction":config["introduction"],"job_categories":"\n".join(sorted(config["job_categories"])),"skills":_skills_value(config["skills"])}
     return {key:{"hash":_hash(value)} for key,value in values.items()}
 def _profile_aligned(components:Mapping[str,Any],config:Mapping[str,Any])->bool:
     expected=_expected_components(config)
@@ -163,9 +181,9 @@ def _skill_name(page:Any,name:str)->None:
     if len(matches)!=1: _fail("profile_field_invalid")
     matches[0].click()
 def observe_page(page:Any)->dict[str,Any]:
-    _goto(page,PROFILE_URL,"/profile","role=employee"); _body(page); _goto(page,PROFILE_EDIT_URL,"/profile/edit"); display=_field(page,'input[name="profile[display_name]"]'); _goto(page,EMPLOYEE_URL,"/employee/new"); intro=_field(page,'textarea[name="employee[introduction]"]'); occupation=_selected_label(page,'select[name="occupation[]"]'); details=_occupation_details(page); status=_field(page,'select[name="employee[status]"]'); hours=_field(page,'select[name="employee[hours_limit]"]'); low=_field(page,'input[name="employee[min_hourly_wage]"]'); high=_field(page,'input[name="employee[max_hourly_wage]"]'); meeting=_field(page,'input[name="employee[web_meeting]"]:checked'); categories=_checked_labels(page); _goto(page,SKILLS_URL,"/user_skills"); skills=_skill_names(page); _goto(page,PUBLIC_URL,f"/public/employees/{PROVIDER_EMPLOYEE_ID}"); public=_body(page); avatar=_public_avatar(page); _goto(page,PUBLIC_OCCUPATIONS_URL,f"/public/employees/{PROVIDER_EMPLOYEE_ID}/occupations"); public_detail=_public_occupation_detail(page)
+    _goto(page,PROFILE_URL,"/profile","role=employee"); _body(page); _goto(page,PROFILE_EDIT_URL,"/profile/edit"); display=_field(page,'input[name="profile[display_name]"]'); _goto(page,EMPLOYEE_URL,"/employee/new"); intro=_field(page,'textarea[name="employee[introduction]"]'); occupation=_selected_label(page,'select[name="occupation[]"]'); details=_occupation_details(page); status=_field(page,'select[name="employee[status]"]'); hours=_field(page,'select[name="employee[hours_limit]"]'); low=_field(page,'input[name="employee[min_hourly_wage]"]'); high=_field(page,'input[name="employee[max_hourly_wage]"]'); meeting=_field(page,'input[name="employee[web_meeting]"]:checked'); categories=_checked_labels(page); _goto(page,PUBLIC_URL,f"/public/employees/{PROVIDER_EMPLOYEE_ID}"); public=_body(page); avatar=_public_avatar(page); _goto(page,PUBLIC_OCCUPATIONS_URL,f"/public/employees/{PROVIDER_EMPLOYEE_ID}/occupations"); public_detail=_public_occupation_detail(page); skills=_public_skills(page)
     detail_value=f'{public_detail["id"]}:{public_detail["label"]}' if len(details)==1 and details[0]==public_detail else ""
-    values={"display_name":display,"occupation":occupation,"occupation_detail":detail_value,"status":status,"hours_limit":hours,"min_hourly_wage":low,"max_hourly_wage":high,"web_meeting":meeting,"introduction":intro,"job_categories":"\n".join(categories),"skills":"\n".join(sorted(skills))}
+    values={"display_name":display,"occupation":occupation,"occupation_detail":detail_value,"status":status,"hours_limit":hours,"min_hourly_wage":low,"max_hourly_wage":high,"web_meeting":meeting,"introduction":intro,"job_categories":"\n".join(categories),"skills":_skills_value(skills,public=True)}
     component={key:{"present":bool(value),"hash":_hash(value)} for key,value in values.items()}; component["job_categories"]["count"]=len(categories); component["skills"]["count"]=len(skills); component["avatar"]=avatar; component["public"]={"present":bool(public),"hash":_hash(public)}
     return {"ok":True,"platform":PLATFORM,"provider_employee_id":PROVIDER_EMPLOYEE_ID,"official_route":"/profile?role=employee","official_status":"observed","status":"observed","official_public_url":PUBLIC_URL,"components":component}
 def _apply_page(page:Any,config:Mapping[str,Any],now:Any)->dict[str,Any]:
@@ -203,6 +221,7 @@ def _apply_page(page:Any,config:Mapping[str,Any],now:Any)->dict[str,Any]:
     if not avatar["aligned"]: _fail("profile_avatar_readback_failed")
     _goto(page,PUBLIC_OCCUPATIONS_URL,f"/public/employees/{PROVIDER_EMPLOYEE_ID}/occupations")
     if _public_occupation_detail(page)!=detail: _fail("public_occupation_readback_failed")
+    if _skills_value(_public_skills(page),public=True)!=_skills_value(config["skills"]): _fail("public_skill_readback_failed")
     stamp=now() if callable(now) else now; stamp=stamp if isinstance(stamp,str) and stamp else datetime.now(timezone.utc).isoformat(); hashes={key:value["hash"] for key,value in _expected_components(config).items()}
     changed=["display_name","occupation","occupation_detail","status","hours_limit","min_hourly_wage","max_hourly_wage","web_meeting","introduction","job_categories","skills"]+( ["avatar"] if avatar_missing else [] )
     return {"ok":True,"platform":PLATFORM,"provider_employee_id":PROVIDER_EMPLOYEE_ID,"official_public_url":PUBLIC_URL,"intent_hash":hashlib.sha256(json.dumps(config,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode()).hexdigest(),"changed_fields":changed,"profile_effect_count":1,"avatar_effect_count":int(avatar_missing),"component_counts":{"job_categories":len(config["job_categories"]),"skills":len(config["skills"])},"component_hashes":hashes|{"avatar":avatar["hash"]},"timestamp":stamp,"status":"complete"}

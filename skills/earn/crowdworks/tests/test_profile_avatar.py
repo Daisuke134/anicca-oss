@@ -108,7 +108,10 @@ def test_matching_official_components_need_no_profile_mutation() -> None:
         "web_meeting": "available",
         "introduction": "AI・ソフトウェア開発と研修支援",
         "job_categories": ["Webプログラミング", "AIシステム開発"],
-        "skills": [{"name": "Python"}, {"name": "TypeScript"}],
+        "skills": [
+            {"name": "Python", "level": "4", "years": 3, "note": "業務自動化"},
+            {"name": "TypeScript", "level": "3", "years": 3, "note": "Web開発"},
+        ],
     }
     components = profile._expected_components(config)
     components["avatar"] = {"aligned": True}
@@ -155,7 +158,10 @@ def test_buyer_visible_detail_occupation_is_required_for_alignment() -> None:
         "web_meeting": "available",
         "introduction": "ソフトウェア開発とAI自動化、教育研修支援",
         "job_categories": ["Webプログラミング"],
-        "skills": [{"name": "Python"}, {"name": "TypeScript"}],
+        "skills": [
+            {"name": "Python", "level": "4", "years": 3, "note": "業務自動化"},
+            {"name": "TypeScript", "level": "3", "years": 3, "note": "Web開発"},
+        ],
     }
     components = profile._expected_components(config)
     components["avatar"] = {"aligned": True}
@@ -188,3 +194,25 @@ def test_public_detail_occupation_reads_exact_buyer_visible_id_and_label() -> No
         "id": "1",
         "label": "システムエンジニア（SE）",
     }
+
+
+def test_skill_alignment_includes_public_level_years_and_note() -> None:
+    config = {
+        "display_name": "Kaito｜AI自動化",
+        "occupation": "ITエンジニア",
+        "occupation_detail": {"id": "1", "label": "システムエンジニア（SE）"},
+        "status": "available",
+        "hours_limit": "31-40",
+        "min_hourly_wage": 3000,
+        "max_hourly_wage": 5000,
+        "web_meeting": "available",
+        "introduction": "ソフトウェア開発",
+        "job_categories": ["Webプログラミング"],
+        "skills": [{"name": "Python", "level": "4", "years": 3, "note": "業務自動化"}],
+    }
+    components = profile._expected_components(config)
+    components["avatar"] = {"aligned": True}
+    assert profile._profile_aligned(components, config) is True
+
+    components["skills"]["hash"] = profile._hash("Python|4|1〜3年|別の備考")
+    assert profile._profile_aligned(components, config) is False
