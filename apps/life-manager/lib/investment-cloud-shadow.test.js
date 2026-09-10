@@ -34,6 +34,8 @@ test("one cloud shadow wake verifies account binding, invokes the same core, rep
       assert.equal(fs.statSync(credentialsFile).mode & 0o777, 0o600);
       assert.equal(env.LIFE_MANAGER_INVESTMENT_MODE, "shadow");
       assert.equal(env.LIFE_MANAGER_INVESTMENT_DEPLOYMENT, "cloud");
+      assert.equal(env.ALPACA_INVESTMENT_STATE_DIR, undefined);
+      assert.equal(env.ALPACA_INVESTMENT_SHADOW_STATE_DIR, stateDir);
       assert.equal(env.LM_TELEGRAM_BOT_TOKEN, "telegram");
       fs.writeFileSync(path.join(stateDir, "telegram-latest.json"), '{"message_id":"42"}\n');
       return { status: "allocated", mode: "shadow", deployment: "cloud", effect: "none", telegram_message_id: "42" };
