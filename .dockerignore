@@ -7,6 +7,16 @@ apps/*
 skills/*
 !skills/video/
 !skills/video/**
+!skills/alpaca-investment/
+!skills/alpaca-investment/**
+!skills/_shared/
+skills/_shared/*
+!skills/_shared/telegram.py
+!skills/_shared/marketplace-core/
+skills/_shared/marketplace-core/*
+!skills/_shared/marketplace-core/scripts/
+skills/_shared/marketplace-core/scripts/*
+!skills/_shared/marketplace-core/scripts/telegram_outbox.py
 !skills/earn/
 skills/earn/*
 !skills/earn/marketing-engine/

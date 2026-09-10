@@ -95,8 +95,9 @@ def render(observation: dict[str, Any], campaign: dict[str, Any],
     unrealized = _decimal_or_none(risk.get("unrealized_pnl_usd"))
     observed = decision["observed_at"]
     try:
-        next_wake = (parse_instant(observed)
-                     + timedelta(minutes=5)).isoformat()
+        explicit_next = os.environ.get("LIFE_MANAGER_INVESTMENT_NEXT_WAKE_AT")
+        next_wake = (parse_instant(explicit_next).isoformat() if explicit_next
+                     else (parse_instant(observed) + timedelta(minutes=5)).isoformat())
     except (TypeError, ValueError):
         next_wake = "不明"
     effect_text = "注文なし" if effect == "none" else f"{mode}効果 {effect[:12]}"

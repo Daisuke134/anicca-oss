@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -77,6 +78,15 @@ class ModeReportTest(unittest.TestCase):
             "none")
         self.assertIn("ライブ口座: 有効", message)
         self.assertIn("次回確認: 2026-09-09T14:55:26.139497+00:00", message)
+
+    def test_scheduler_frozen_next_wake_overrides_observation_fallback(self):
+        with patch.dict(os.environ, {
+                "LIFE_MANAGER_INVESTMENT_NEXT_WAKE_AT": "2026-09-09T15:00:00Z"}):
+            message = reporter.render(
+                {"account": {"equity": "66.72", "cash": "0"}, "positions": []}, {},
+                {"candidate_ref": "NO_TRADE", "gate": "model_no_trade",
+                 "observed_at": "2026-09-09T14:55:04Z", "mode": "shadow"}, "none")
+        self.assertIn("次回確認: 2026-09-09T15:00:00+00:00", message)
 
 
 class FailureBalanceTest(unittest.TestCase):
