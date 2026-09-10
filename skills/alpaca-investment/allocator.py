@@ -1,4 +1,4 @@
-"""Model allocation with a deterministic paper-risk boundary."""
+"""Model allocation with a deterministic risk boundary."""
 
 from __future__ import annotations
 
