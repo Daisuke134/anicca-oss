@@ -2827,7 +2827,7 @@ from the chat, and two of them contradict what this cursor had previously report
     Production installation is still pending because another live release build owns the global
     release-cut lock; do not steal that lock or claim completion before official CrowdWorks readback.
 
-32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
+32. [x] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
     no email-as-reply substitution, preserves each Telegram human handoff or verified platform effect
@@ -2851,8 +2851,16 @@ from the chat, and two of them contradict what this cursor had previously report
     timeouts may reuse a structurally valid previous inventory, its original observation time is
     retained, and the shared Reply kernel receives a durable `provider_source_stale` pending item
     that cannot reach model judgment or mutation. Focused snapshot/adapter tests pass 30/30.
-    Remaining work is production installation followed by consecutive fresh natural terminals,
-    official inventory/effect readback, and replay-zero without ENOSPC.
+    At that checkpoint, remaining work was production installation followed by consecutive fresh
+    natural terminals, official inventory/effect readback, and replay-zero without ENOSPC.
+
+    Production acceptance is complete on installed release
+    `ce4fdbf4d907ede2273c194a8de40af8f2539e3e`, which contains the inventory preservation,
+    shared stale-source exposure, and stale-thread mutation fence commits. Natural terminals at
+    `2026-09-10T21:18:08Z`, `21:23:30Z`, `21:29:24Z`, and `21:35:20Z` all ended `pass`.
+    The last official snapshot is fresh at `21:34:44Z`; aggregate is observed/readback `94`,
+    actionable/pending/failed/effect `0`, and every retained item is replay-zero. These acceptance
+    terminals contain no ENOSPC, OSError, exit 120, or exit 143.
 
 
 
