@@ -226,6 +226,45 @@ class LmLoopApplyTest(unittest.TestCase):
         self.assertEqual(environment["EARN_LEDGER"], str(earn_state / "earn-ledger.jsonl"))
         self.assertNotIn("CEO_EFFECTIVE_CRON_DIR", environment)
 
+    def test_agent_economy_plist_uses_explicit_local_install_home(self):
+        value = registry()
+        entry = value["loops"].pop("example")
+        value["loops"]["agent-economy-loop"] = entry
+        value["loops"]["compute-proxy"] = {
+            **entry,
+            "label": "ai.anicca.compute-proxy",
+            "entrypoint": "bin/example.sh",
+        }
+        custom_home = "/private/life-manager-self-host"
+        previous = os.environ.get("LIFE_MANAGER_HOME")
+        os.environ["LIFE_MANAGER_HOME"] = custom_home
+        try:
+            plans = build_apply_plan(value, self.root, SHA)
+        finally:
+            if previous is None:
+                os.environ.pop("LIFE_MANAGER_HOME", None)
+            else:
+                os.environ["LIFE_MANAGER_HOME"] = previous
+        environments = {
+            plan["loop_id"]: plistlib.loads(plan["plist_bytes"])["EnvironmentVariables"]
+            for plan in plans
+        }
+        expected = Path(custom_home) / "agent-economy/instance"
+        environment = environments["agent-economy-loop"]
+        self.assertEqual(environment["ANICCA_HOME"], str(expected))
+        self.assertEqual(
+            environment["EARN_STATE_ROOT"], str(expected / "state/skills/earn")
+        )
+        self.assertEqual(environments["compute-proxy"]["ANICCA_HOME"], str(expected))
+        self.assertEqual(
+            environments["agent-economy-loop"]["LIFE_MANAGER_STATE_ROOT"],
+            str(Path(custom_home) / "agent-economy"),
+        )
+        self.assertEqual(
+            environments["compute-proxy"]["LIFE_MANAGER_STATE_ROOT"],
+            str(Path(custom_home) / "agent-economy/compute-proxy"),
+        )
+
     def test_franklin_plists_own_release_code_and_instance_state(self):
         entrypoint = self.root / "runtime/anicca-daemon.sh"
         entrypoint.parent.mkdir(parents=True, exist_ok=True)

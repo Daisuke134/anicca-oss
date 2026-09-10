@@ -6,7 +6,10 @@ import plistlib
 from pathlib import Path
 from unittest.mock import patch
 
-from runtime.loop.lm_loop import _last_event, _release_from_plist, doctor_report, snapshot, status_rows
+from runtime.loop.lm_loop import (
+    _last_event, _release_from_plist, _state_root_from_plist,
+    doctor_report, snapshot, status_rows,
+)
 
 
 REGISTRY = {"schema_version": 2, "loops": {"example": {
@@ -130,6 +133,15 @@ class LmLoopReadonlyTest(unittest.TestCase):
                 "EnvironmentVariables": {"LIFE_MANAGER_RELEASE_SHA": "a" * 40},
             }))
             self.assertEqual(_release_from_plist(path), "a" * 40)
+
+    def test_status_uses_installed_custom_state_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job.plist"
+            custom = str(Path(directory) / "custom-state")
+            path.write_bytes(plistlib.dumps({
+                "EnvironmentVariables": {"LIFE_MANAGER_STATE_ROOT": custom},
+            }))
+            self.assertEqual(_state_root_from_plist(path, "/default-state"), custom)
 
 
 if __name__ == "__main__":

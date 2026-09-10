@@ -8,10 +8,10 @@
 # What this does:
 #   1. Verify system deps (git, jq, node, npm, python3)
 #   2. Install frozen repository dependencies from lockfiles
-#   3. Scaffold the runtime root ($LIFE_MANAGER_HOME) + .env (never overwrite)
+#   3. Scaffold the runtime root + first isolated citizen/wallet (never overwrite)
 #   4. Validate every declared slot in the repository
-#   5. Optionally register the host daemon
-#   6. Print "what's next" (fuel key + first wake)
+#   5. Optionally register and start the host daemon
+#   6. Print the installed autonomous state
 #
 # What this does NOT do:
 #   - Ask for API keys / private keys (handled out of band — see .env.example)
@@ -140,6 +140,10 @@ GENESIS
 else
   green "  ✓ $ANICCA_HOME/identity/genesis.md  (preserved)"
 fi
+
+CITIZEN_RESULT="$("$(command -v node)" "$REPO_ROOT/runtime/bootstrap-local-citizen.cjs" "$LIFE_MANAGER_HOME")"
+green "  ✓ citizen $(printf '%s' "$CITIZEN_RESULT" | jq -r '.citizen_id')"
+green "  ✓ own Base wallet $(printf '%s' "$CITIZEN_RESULT" | jq -r '.wallet_address')"
 echo
 
 # ─── 4. registry-owned skill validation ────────────────────────────────
@@ -189,14 +193,24 @@ echo
 # ─── 5. supervised, self-updating daemon (optional host mutation) ──────
 cyan "[5/6] daemon registration…"
 if [ "$LIFE_MANAGER_INSTALL_DAEMON" = "1" ]; then
+  LOOPS_KEEP_RELEASES=2 "$REPO_ROOT/bin/cut-loop-release.sh" HEAD >/dev/null
+  RELEASE_ROOT="$(readlink "${LOOPS_ROOT:-$HOME/loops}/current")"
   if [ "$(uname)" = "Darwin" ]; then
-    LOOPS_KEEP_RELEASES=2 "$REPO_ROOT/bin/cut-loop-release.sh" HEAD >/dev/null
-    RELEASE_ROOT="$(readlink "${LOOPS_ROOT:-$HOME/loops}/current")"
-    LIFE_MANAGER_RELEASE_ROOT="$RELEASE_ROOT" \
-      "$RELEASE_ROOT/bin/lm-loop" reconcile deterministic --loop-id compute-proxy --include-running >/dev/null
+    LIFE_MANAGER_HOME="$LIFE_MANAGER_HOME" LIFE_MANAGER_APPLY_TARGET=compute-proxy \
+      LIFE_MANAGER_RELEASE_ROOT="$RELEASE_ROOT" "$RELEASE_ROOT/bin/lm-loop" apply >/dev/null
     green "  ✓ repository compute proxy loaded (ai.anicca.compute-proxy)"
+    LIFE_MANAGER_HOME="$LIFE_MANAGER_HOME" LIFE_MANAGER_APPLY_TARGET=agent-economy-loop \
+      LIFE_MANAGER_RELEASE_ROOT="$RELEASE_ROOT" "$RELEASE_ROOT/bin/lm-loop" apply >/dev/null
+    AGENT_ECONOMY_STATE="$(LIFE_MANAGER_HOME="$LIFE_MANAGER_HOME" LIFE_MANAGER_RELEASE_ROOT="$RELEASE_ROOT" \
+      "$RELEASE_ROOT/bin/lm-loop" status agent-economy-loop | jq -r '.[0].launchd_state')"
+    case "$AGENT_ECONOMY_STATE" in
+      loaded-*) ;;
+      *) red "  ✗ unexpected Agent Economy state: $AGENT_ECONOMY_STATE"; exit 4 ;;
+    esac
+    green "  ✓ Agent Economy owner installed and running (ai.anicca.agent-economy-loop)"
   else
-    green "  Linux/cloud: run runtime/compute-proxy/start-local.sh --proxy-only under your process supervisor."
+    bash "$RELEASE_ROOT/runtime/install-agent-economy-systemd.sh" "$RELEASE_ROOT" "$LIFE_MANAGER_HOME" >/dev/null
+    green "  ✓ Agent Economy owner installed and running (systemd user service)"
   fi
 else
   green "  ✓ disabled (LIFE_MANAGER_INSTALL_DAEMON=0); no LaunchAgent/system service changed"
@@ -206,24 +220,19 @@ echo
 # ─── 6. summary ────────────────────────────────────────────────────────
 cyan "[6/6] done."
 echo
-green "What's next:"
+green "Installed:"
 cat <<EOM
   DEFAULT = FULLY LOCAL + FREE. No server key, no API key required. Life Manager pays
   its OWN compute via ClawRouter/BlockRun (USDC x402) from its OWN wallet — like
   Franklin. You provide only this device (shelter); Life Manager buys its own food.
 
-  1. Start the self-pay proxy + the Life Manager loop (one command, from the repo root):
-       ./start-local.sh node runtime/loop/index.mjs
-     This starts the self-pay compute proxy on http://127.0.0.1:18402/v1 (signs
-     every inference in USDC from a self-owned wallet; empty wallet ⇒ free model,
-     \$0) AND the Life Manager loop (runtime/loop/) which, each wake, asks ClawRouter's
-     'auto' router, runs a tool (e.g. the earn skill), and appends to
-     $ANICCA_HOME/state/ledger.jsonl. The report slot POSTs signed telemetry to
-     https://aniccaai.com so you show on /dashboard.
-  2. (OPTIONAL) Unlock frontier models / more earning: send USDC to the wallet
+  Agent Economy starts automatically when daemon installation is enabled. It uses the
+  isolated citizen and wallet created above. Re-running ./install.sh preserves both.
+
+  1. (OPTIONAL) Unlock frontier models / more earning: send USDC to the wallet
      address printed at startup — the loop then lets ClawRouter pick a paid model.
      Or set ANICCA_BRAIN=claude-p to drive the loop with Claude Code instead.
-  4. (OPTIONAL) Life Manager keys: GEMINI_API_KEY, TWILIO_*, GOOGLE_API_KEY,
+  2. (OPTIONAL) Life Manager keys: GEMINI_API_KEY, TWILIO_*, GOOGLE_API_KEY,
      AGENTMAIL_API_KEY — only for phone wake-calls / lateness alerts.
 
   # FUTURE (cloud, not active): once Conway is available, the same body can run
