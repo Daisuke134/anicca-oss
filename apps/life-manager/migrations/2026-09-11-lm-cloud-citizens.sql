@@ -6,10 +6,14 @@ CREATE TABLE IF NOT EXISTS public.lm_cloud_citizens (
   citizen_id text NOT NULL UNIQUE,
   instance_id text NOT NULL UNIQUE,
   wallet_address text NOT NULL UNIQUE CHECK (wallet_address ~ '^0x[0-9a-f]{40}$'),
+  agent_economy_paused_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE (tenant_id),
   UNIQUE (tenant_id, citizen_id, instance_id)
 );
+
+ALTER TABLE public.lm_cloud_citizens
+  ADD COLUMN IF NOT EXISTS agent_economy_paused_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS private.lm_cloud_citizen_signers (
   tenant_id text PRIMARY KEY,

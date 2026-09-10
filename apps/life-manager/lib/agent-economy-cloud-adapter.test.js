@@ -88,6 +88,25 @@ test("Cloud wake does not plan another job when the shared loop fails", async ()
   await assert.rejects(() => adapter.execute(job), /wake failed/);
 });
 
+test("emergency pause records a terminal receipt and runs no wake or continuation", async () => {
+  let wakes = 0;
+  const job = { ...buildAgentEconomyStartJob({ tenantId: "tenant-a", citizenId: "primary", instanceId: "cloud" }),
+    available_at: "2026-09-11T00:00:00.000Z" };
+  const adapter = createAgentEconomyCloudLoopAdapter({
+    citizenStore: { readPublic: async () => ({ schema_version: 1, record_type: "citizen_identity",
+      tenant_id: "tenant-a", citizen_id: "primary", instance_id: "cloud",
+      wallet: { chain: "eip155:8453", address: ADDRESS } }) },
+    isPaused: async () => true,
+    runSharedWake: async () => { wakes++; },
+    now: () => "2026-09-11T00:00:01.000Z",
+  });
+  const result = await adapter.execute(job);
+  assert.equal(wakes, 0);
+  assert.equal(result.receipt.kind, "agent_economy_paused");
+  assert.equal(result.continuation, undefined);
+  assert.equal(await adapter.verify(result.receipt), true);
+});
+
 test("maximum-length tenant uses a bounded hashed job id", () => {
   const job = buildAgentEconomyStartJob({ tenantId: `t${"a".repeat(127)}`, citizenId: "primary", instanceId: "cloud" });
   assert.ok(job.job_id.length <= 200);

@@ -30,11 +30,12 @@ const { TZ_ROW_KEYS } = require("./user-tz.js");
 const { buildInvestmentReply, telegramExtra, validInvestmentSnapshot } = require("./investment-chat.js");
 const { buildGigReply, validGigSnapshot } = require("./gig-chat.js");
 const { paymentLink } = require("./payment-link.js");
+const { economyReply } = require("./agent-economy-control.js");
 
 // Every /command this bot understands. start/panel are listed for /help but owned elsewhere.
 const KNOWN_COMMANDS = Object.freeze([
   "start", "panel", "help", "status", "where", "stop", "subscribe", "connect", "payout", "reset", "invest",
-  "gig", "crowd",
+  "gig", "crowd", "economy",
 ]);
 // /gig and /crowd share one handler shape (read state, build a platform reply, send, report the same
 // result contract as /invest) but each is pinned to exactly one marketplace platform — never guessed
@@ -88,6 +89,7 @@ function helpMessage() {
     "  /invest — open Investment Loop",
     "  /gig — open the Coconala gig lane",
     "  /crowd — open the CrowdWorks gig lane",
+    "  /economy — Agent Economy status and emergency control",
     "",
     "You can also type:",
     ...help.availableActions.map((action) => `  ${action}`),
@@ -252,6 +254,23 @@ async function handleSlashCommand(parsed, row, deps = {}) {
       ...(providerMessageId == null ? {} : { providerMessageId }),
       ...(ok ? {} : { reason: "state_unavailable" }),
     };
+  }
+
+  if (name === "economy") {
+    let snapshot;
+    try {
+      snapshot = deps.getEconomyState ? await deps.getEconomyState(row.uid) : null;
+    } catch {
+      snapshot = null;
+    }
+    const reply = economyReply(snapshot);
+    const delivery = await send(deps.token, chatId, reply.text, reply.extra);
+    const providerMessageId = delivery && delivery.ok === true
+      && Number.isSafeInteger(delivery.result?.message_id) && delivery.result.message_id > 0
+      ? delivery.result.message_id : null;
+    if (delivery?.ok === false) return { handled: true, action: "economy", ok: false, reason: "delivery_failed" };
+    if (providerMessageId == null) return { handled: true, action: "economy", ok: false, reason: "delivery_unconfirmed" };
+    return { handled: true, action: "economy", ok: true, providerMessageId };
   }
 
   if (name === "gig" || name === "crowd") {
