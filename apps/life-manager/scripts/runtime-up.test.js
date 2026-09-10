@@ -127,6 +127,8 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     ).status === 0;
   };
   for (const requiredPath of [
+    "package.json",
+    "package-lock.json",
     "runtime/loop/index.mjs",
     "runtime/contracts/citizen-identity.cjs",
     "runtime/contracts/common-record.cjs",

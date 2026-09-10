@@ -85,6 +85,8 @@ skills/**/*.md
 
 # Railpack inventories every Node package before running the worker build.
 # Keep only the manifests it hashes; the corresponding unrelated source stays ignored.
+!package.json
+!package-lock.json
 !adapters/
 adapters/*
 !adapters/package.json
