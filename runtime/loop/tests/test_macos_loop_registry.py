@@ -597,6 +597,12 @@ class MacosLoopRegistryTest(unittest.TestCase):
             "skills/earn/marketing-engine/report/scheduled_runner.py",
         )
 
+    def test_warmup_flip_uses_canonical_life_manager_state(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        row = registry["loops"]["warmup-flip-daily"]
+        self.assertEqual(row["state_root"], "~/.local/state/life-manager/warmup-flip-daily")
+        self.assertEqual(row["log_root"], "~/.local/state/life-manager/warmup-flip-daily/logs")
+
     def test_external_labels_are_explicit_and_cannot_overlap_managed(self):
         value = {"schema_version": 2, "loops": {"example": entry()},
                  "external_labels": ["ai.anicca.tsbridge"]}

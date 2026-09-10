@@ -2608,9 +2608,9 @@
       "effect_class": "publish",
       "entrypoint": "skills/anicca-warmup-flip/scripts/run.sh",
       "label": "ai.anicca.warmup-flip-daily",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/warmup-flip-daily/logs",
       "provider_route": "shared-agent-runner",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/warmup-flip-daily"
     },
     "watchdog": {
       "cadence": {
