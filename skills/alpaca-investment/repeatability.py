@@ -77,29 +77,45 @@ def _official_orders(credentials: Path, cli: Path) -> dict[str, Any]:
 def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
              required_days: int, required_wakes: int,
              credentials: Path, cli: Path) -> dict[str, Any]:
-    events = [row for row in _jsonl(shadow_state / "events.jsonl")
-              if row.get("run_id") != "install" and parse_instant(row["timestamp"]) >= start]
+    shadow_events = [row for row in _jsonl(shadow_state / "events.jsonl")
+                     if row.get("run_id") != "install"
+                     and row.get("provider") == "shared-agent-runner"
+                     and parse_instant(row["timestamp"]) >= start]
+    live_events = [row for row in _jsonl(live_state / "events.jsonl")
+                   if row.get("run_id") != "install"
+                   and row.get("provider") == "shared-agent-runner"
+                   and parse_instant(row["timestamp"]) >= start]
+    events = [*shadow_events, *live_events]
     terminal = [row for row in events if row.get("phase") == "report"]
-    outbox = _outbox(shadow_state / "telegram-outbox.sqlite3", start)
+    source_windows = [
+        (shadow_events, _outbox(shadow_state / "telegram-outbox.sqlite3", start)),
+        (live_events, _outbox(live_state / "telegram-outbox.sqlite3", start)),
+    ]
     days = {parse_instant(row["timestamp"]).astimezone(NY).date() for row in terminal}
     event_ids = [row.get("event_id") for row in events]
     terminal_runs = [row.get("run_id") for row in terminal]
     pids = {match.group(1) for row in terminal
             if (match := re.search(r"-(\d+)$", str(row.get("run_id"))))}
-    delivered = [row for row in outbox
-                 if str(row["event_key"]).startswith(("alpaca-wake:", "alpaca-failure:"))
-                 and row["status"] == "delivered"
-                 and row["provider_message_id"] and row["delivered_at"]
-                 and row["last_error_code"] is None]
-    execute_by_run = {row.get("run_id"): parse_instant(row["timestamp"])
-                      for row in events if row.get("phase") == "execute"}
+    delivered = []
     deliveries_by_run = []
-    for row in terminal:
-        execute_at = execute_by_run.get(row.get("run_id"))
-        report_at = parse_instant(row["timestamp"])
-        deliveries_by_run.append(0 if execute_at is None else sum(
-            execute_at <= parse_instant(delivery["created_at"]) <= report_at
-            for delivery in delivered))
+    for source_events, source_outbox in source_windows:
+        source_delivered = [row for row in source_outbox
+                            if str(row["event_key"]).startswith(
+                                ("alpaca-wake:", "alpaca-failure:"))
+                            and row["status"] == "delivered"
+                            and row["provider_message_id"] and row["delivered_at"]
+                            and row["last_error_code"] is None]
+        delivered.extend(source_delivered)
+        execute_by_run = {row.get("run_id"): parse_instant(row["timestamp"])
+                          for row in source_events if row.get("phase") == "execute"}
+        for row in source_events:
+            if row.get("phase") != "report":
+                continue
+            execute_at = execute_by_run.get(row.get("run_id"))
+            report_at = parse_instant(row["timestamp"])
+            deliveries_by_run.append(0 if execute_at is None else sum(
+                execute_at <= parse_instant(delivery["created_at"]) <= report_at
+                for delivery in source_delivered))
     official = _official_orders(credentials, cli)
     calendar_days = len(days) >= required_days and _consecutive_days(days)
     natural_wakes = len(terminal) >= required_wakes
@@ -115,7 +131,8 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
         "multiple_processes": len(pids) >= 2,
         "weekend_observed": weekend_observed,
         "shadow_no_effect": all(row.get("effect_class") == "none"
-                                and row.get("effect_status") == "not_applicable" for row in events),
+                                and row.get("effect_status") == "not_applicable"
+                                for row in shadow_events),
         "live_unresolved_zero": unresolved_intent_count(live_state / "receipts.jsonl") == 0,
         "official_duplicates_zero": official["duplicate_client_ids"] == 0
                                     and official["duplicate_order_ids"] == 0,
@@ -125,7 +142,13 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
     return {"status": "pass" if all(required_checks.values()) else "collecting", "checks": checks,
             "window_start": start.isoformat(),
             "observed": {"calendar_days": len(days), "natural_wakes": len(terminal),
+                         "shadow_wakes": sum(row.get("phase") == "report"
+                                             for row in shadow_events),
+                         "live_wakes": sum(row.get("phase") == "report"
+                                           for row in live_events),
+                         "failed_wakes": sum(row.get("status") == "fail" for row in terminal),
                          "delivered_reports": len(delivered), "processes": len(pids),
+                         "unreported_wakes": sum(count != 1 for count in deliveries_by_run),
                          "first_ny_day": min(days).isoformat() if days else None,
                          "last_ny_day": max(days).isoformat() if days else None,
                          "official_orders": official["count"]},
