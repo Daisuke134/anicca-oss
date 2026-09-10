@@ -254,3 +254,26 @@ def test_external_action_resumes_without_rebooking(monkeypatch, tmp_path):
 
     assert result["verified"] is True
     assert replies == ["message-1"]
+
+
+def test_external_action_posts_provider_slot_format(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    intent_slot = {"start": "2026-09-11T08:10:00+00:00", "end": "2026-09-11T08:40:00+00:00"}
+    provider_slot = {"start": "2026-09-11T08:10:00.000Z", "end": "2026-09-11T08:40:00.000Z"}
+    bookings = []
+    posted = []
+
+    monkeypatch.setattr(adapter, "_booking_snapshot", lambda _url: (bookings, [provider_slot]))
+    monkeypatch.setattr(adapter, "_book", lambda _url, slot: (
+        posted.append(dict(slot)),
+        bookings.append({"slot_start": slot["start"], "slot_end": slot["end"]}),
+    ))
+    monkeypatch.setattr(adapter, "_calendar_contains", lambda _slot: True)
+    monkeypatch.setattr(adapter, "_reply_exists", lambda *_args: "message-1")
+    intent = {"action": "external_action", "thread_id": "9064025", "effect_key": "key",
+              "payload": {"url": "https://yoyaku.triplek-rh.workers.dev/?lid=test",
+                          "slot": intent_slot, "completion_body": "予約しました。"}}
+
+    adapter.mutate(intent)
+
+    assert posted == [provider_slot]
