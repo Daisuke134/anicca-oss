@@ -109,3 +109,9 @@ def test_eval_json_goes_through_the_retrying_connect():
     block = source[source.index("async def _eval_json"):][:300]
     assert "_cdp_connect" in block
     assert "websockets.connect(" not in block
+
+
+def test_apply_parent_reuses_the_retrying_connect():
+    source = (SCRIPTS / "application_parent.py").read_text(encoding="utf-8")
+    assert source.count("async with await _cdp_connect(self.ws_url)") == 6
+    assert "async with websockets.connect(" not in source
