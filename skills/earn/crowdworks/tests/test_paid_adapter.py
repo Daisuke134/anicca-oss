@@ -200,6 +200,76 @@ def test_kernel_concurrency_keeps_paid_adapter_thread_state_isolated(tmp_path):
     assert len({thread for thread, _, _ in seen}) == len({items for _, items, _ in seen}) == 2
 
 
+def test_real_kernel_paths_close_every_thread_owned_runtime(tmp_path):
+    module, kernel = load(), load_kernel()
+    events = []
+
+    class Page:
+        url = ""
+
+        def set_default_timeout(self, timeout):
+            pass
+
+        def goto(self, url, **kwargs):
+            self.url = url
+
+        def wait_for_load_state(self, *args, **kwargs):
+            pass
+
+        def locator(self, selector):
+            return Locator(selector)
+
+        def close(self):
+            events.append("page")
+
+    class Locator:
+        def __init__(self, selector):
+            self.selector = selector
+
+        def evaluate_all(self, expression):
+            # The funded contract's completion form remains visible, and no
+            # receipt exists in this synthetic browser.  That is authoritative
+            # absence for the kernel's pre/post-mutation reconciliation.
+            return []
+
+        def inner_text(self):
+            return "業務を開始しています"
+
+    class Context:
+        def new_page(self):
+            return Page()
+
+    class Browser:
+        contexts = [Context()]
+
+    class Runtime:
+        def stop(self):
+            events.append("runtime")
+
+    def adapter_for(rows):
+        adapter = module.CrowdWorksPaidAdapter(account_id="7145638",
+            connection_factory=lambda: (Runtime(), Browser()), state_path=tmp_path / "receipts")
+        adapter._list_contracts = lambda: rows
+        adapter._detail = lambda row: (adapter._open(), dict(row))[1]
+        return adapter
+
+    # wait, completed/no-op, failed mutation, and submitted mutation all run
+    # through paid_kernel; each public adapter call owns/tears down its runtime.
+    waiting = adapter_for([escrow()])
+    completed = adapter_for([delivered()])
+    failing = adapter_for([funded()])
+    failing._submit_form_once = lambda item: (_ for _ in ()).throw(RuntimeError("form_failed"))
+    submitted = adapter_for([funded()])
+    submitted._submit_form_once = lambda item: {"confirmation_sha256": "already-confirmed"}
+    submitted._complete_once = lambda item, payload: None
+    for index, adapter in enumerate((waiting, completed, failing, submitted)):
+        kernel.run_wake(adapter=adapter, decide=module.decide, state_root=tmp_path / str(index), max_workers=1)
+    assert events.count("page") == events.count("runtime")
+    # All four kernel paths perform multiple independent public calls; no
+    # browser/page/runtime can survive ThreadPoolExecutor worker teardown.
+    assert events.count("runtime") >= 19
+
+
 def test_prepared_form_receipt_fences_replay_before_any_second_post(tmp_path):
     module = load()
     url = funded()["form_url"]

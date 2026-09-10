@@ -323,21 +323,26 @@ class CrowdWorksPaidAdapter:
             self.close()
 
     def observe_one(self, work_id: str) -> dict[str, Any]:
-        matches = [row for row in self._inventory() if row["work_id"] == work_id]
-        if len(matches) != 1:
-            raise RuntimeError("crowdworks_paid_work_unavailable")
-        return matches[0]
+        try:
+            matches = [row for row in self._inventory() if row["work_id"] == work_id]
+            if len(matches) != 1:
+                raise RuntimeError("crowdworks_paid_work_unavailable")
+            return matches[0]
+        finally:
+            self.close()
 
     def context(self, work_id: str) -> dict[str, Any]:
-        if work_id not in self._items:
+        try:
             self._inventory()
-        if work_id not in self._items:
-            raise RuntimeError("crowdworks_paid_work_unavailable")
-        item = self._items[work_id]
-        return {"contract": dict(item), "delivery": {
-            "formal_delivery_authorized": item["provider_state"] == "funded",
-            "form_required": bool(item.get("form_url")),
-        }}
+            if work_id not in self._items:
+                raise RuntimeError("crowdworks_paid_work_unavailable")
+            item = self._items[work_id]
+            return {"contract": dict(item), "delivery": {
+                "formal_delivery_authorized": item["provider_state"] == "funded",
+                "form_required": bool(item.get("form_url")),
+            }}
+        finally:
+            self.close()
 
     def _receipt_path(self, form_sha256: str) -> Path:
         if self.state_path is None:
@@ -431,42 +436,57 @@ class CrowdWorksPaidAdapter:
         if form.count() != 1:
             raise RuntimeError("crowdworks_paid_milestone_unavailable")
         form.locator('textarea[name="message[body]"]').fill(self._compose_text(question="納品完了報告", source="Googleフォームの回答を完了しました。", item=item))
-        submit = form.locator('input[type="submit"][value="納品完了報告をする"]')
+        # The official form has duplicate milestone forms in the DOM.  Fence the
+        # effect to the selected milestone's named submit control, rather than a
+        # same-looking generic submit input.
+        submit = form.locator('input[name="commit"][type="submit"][value="納品完了報告をする"]')
         if submit.count() != 1 or submit.is_disabled():
             raise RuntimeError("crowdworks_paid_milestone_submit_unavailable")
         submit.click(); self.page.wait_for_load_state("domcontentloaded", timeout=20_000)
 
     def mutate(self, intent: dict[str, Any]) -> None:
-        if intent.get("action") != "submit" or not isinstance(intent.get("payload"), Mapping):
-            raise RuntimeError("crowdworks_paid_effect_unsupported")
-        payload = intent["payload"]
-        current = self._detail(self._items.get(_text(intent.get("work_id")), {}))
-        url = current.get("form_url")
-        if (current.get("provider_state") != "funded" or payload.get("milestone_id") != current.get("milestone_id")
-                or payload.get("form_url") != url or payload.get("form_sha256") != hashlib.sha256(str(url).encode()).hexdigest()):
-            raise RuntimeError("crowdworks_paid_context_changed")
-        self._submit_form_once(current); self._complete_once(current, payload)
+        try:
+            if intent.get("action") != "submit" or not isinstance(intent.get("payload"), Mapping):
+                raise RuntimeError("crowdworks_paid_effect_unsupported")
+            payload = intent["payload"]
+            work_id = _text(intent.get("work_id"))
+            self._inventory()
+            try:
+                current = self._items[work_id]
+            except KeyError:
+                raise RuntimeError("crowdworks_paid_work_unavailable") from None
+            url = current.get("form_url")
+            if (current.get("provider_state") != "funded" or payload.get("milestone_id") != current.get("milestone_id")
+                    or payload.get("form_url") != url or payload.get("form_sha256") != hashlib.sha256(str(url).encode()).hexdigest()):
+                raise RuntimeError("crowdworks_paid_context_changed")
+            self._submit_form_once(current)
+            self._complete_once(current, payload)
+        finally:
+            self.close()
 
     def readback(self, intent: dict[str, Any]) -> dict[str, Any]:
-        if intent.get("action") != "submit" or not isinstance(intent.get("payload"), Mapping):
+        try:
+            if intent.get("action") != "submit" or not isinstance(intent.get("payload"), Mapping):
+                return {"authoritative_absent": True}
+            payload = intent["payload"]; work_id = _text(intent.get("work_id")); self._goto_contract(work_id)
+            form_sha256 = _text(payload.get("form_sha256"))
+            binding = {"provider": "crowdworks", "account_id": self.account_id, "contract_id": work_id,
+                       "milestone_id": _text(payload.get("milestone_id")), "form_revision_sha256": form_sha256}
+            receipt = google_form.bound_receipt(self.state_path, binding)
+            form_done = isinstance(receipt, Mapping) and receipt.get("url_sha256") == form_sha256 and bool(receipt.get("confirmation_sha256"))
+            actions = self.page.locator('form[action^="/milestones/"][action$="/complete"]').evaluate_all("forms => forms.map(form => form.getAttribute('action'))")
+            milestone_id = _text(payload.get("milestone_id"))
+            body = _text(self.page.locator("body").inner_text(), "crowdworks_paid_contract_unavailable")
+            delivered = (f"/milestones/{milestone_id}/complete" not in actions
+                         and any(token in body for token in ("検収", "納品済み", "納品完了")))
+            if form_done and delivered:
+                return {"verified": True, "provider_receipt_id": f"contract:{work_id}:milestone:{milestone_id}", "observed_at": _now()}
+            # A confirmed form receipt fences a second Form POST.  The still-visible
+            # CrowdWorks milestone form is authoritative evidence that the separate,
+            # reversible completion step has not happened and may be resumed.
             return {"authoritative_absent": True}
-        payload = intent["payload"]; work_id = _text(intent.get("work_id")); self._goto_contract(work_id)
-        form_sha256 = _text(payload.get("form_sha256"))
-        binding = {"provider": "crowdworks", "account_id": self.account_id, "contract_id": work_id,
-                   "milestone_id": _text(payload.get("milestone_id")), "form_revision_sha256": form_sha256}
-        receipt = google_form.bound_receipt(self.state_path, binding)
-        form_done = isinstance(receipt, Mapping) and receipt.get("url_sha256") == form_sha256 and bool(receipt.get("confirmation_sha256"))
-        actions = self.page.locator('form[action^="/milestones/"][action$="/complete"]').evaluate_all("forms => forms.map(form => form.getAttribute('action'))")
-        milestone_id = _text(payload.get("milestone_id"))
-        body = _text(self.page.locator("body").inner_text(), "crowdworks_paid_contract_unavailable")
-        delivered = (f"/milestones/{milestone_id}/complete" not in actions
-                     and any(token in body for token in ("検収", "納品済み", "納品完了")))
-        if form_done and delivered:
-            return {"verified": True, "provider_receipt_id": f"contract:{work_id}:milestone:{milestone_id}", "observed_at": _now()}
-        # A confirmed form receipt fences a second Form POST.  The still-visible
-        # CrowdWorks milestone form is authoritative evidence that the separate,
-        # reversible completion step has not happened and may be resumed.
-        return {"authoritative_absent": True}
+        finally:
+            self.close()
 
     def close(self) -> None:
         if self.page is not None:

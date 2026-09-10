@@ -623,6 +623,20 @@ Current live Apply acceptance audit:
    diff/compile checks pass, and fresh read-only review returned `ship`; no production mutation has
    occurred. Merge, target only
    `crowdworks-revenue-paid`, and obtain the real form + delivery readback and following replay-zero.
+   PR `#4991` merged this adapter as main SHA `bda380c0a832c6eab7f992ef1bcc5b9a6fe46ce3`.
+   Target-only apply receipt `2e434ea31bd3339589a58cc5` installed that exact immutable release
+   without restarting the Mac, GUI session or browser. Its first natural run
+   `18d4168c17a55428-94094` created one contract-bound `confirmed` Google Form receipt for contract
+   `63570481` at `2026-09-10T22:37:40Z`; contract `63568785` stayed durably
+   `awaiting_client_escrow` and was not touched. The run then ended `entrypoint_exit_1` before a new
+   Paid aggregate or delivery receipt because Playwright runtimes created inside kernel workers
+   survived their worker calls. The confirmed Form receipt fences every later run from re-POSTing.
+   The adapter now closes each worker-owned page and Playwright runtime in that same worker call on
+   wait, no-op, failure and submit paths, without closing or restarting Chromium, and re-observes
+   provider state per call rather than lending Playwright objects across threads. Focused Paid/Reply
+   tests pass 42/42 and fresh read-only review returned `ship`. Merge and target this follow-up, then
+   let the next natural wake resume only CrowdWorks milestone delivery, require positive official
+   delivery readback, and obtain a later natural replay-zero before checking this atom.
 7. [x] `MERCOR-APPLY-1` Restore Mercor as an independent revenue-marketplace Apply owner, not as a
    Job Hunter subfeature. PASS = one bounded owner observes current official opportunities, lets the
    model judge truthful fit, submits only through an identity-bound effect fence, reads the official
