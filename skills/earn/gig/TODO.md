@@ -2512,6 +2512,18 @@ from the chat, and two of them contradict what this cursor had previously report
     replay-zero. Then project the same source only through active Mercor, Freelancer.com and Upwork
     accounts.
 
+    Current official public readback resolves that open question without a profile mutation. The
+    summary page shows the non-default avatar, headline `AI-BPO（AI活用の業務改善）`, software /
+    AI-automation / training biography, and two current contract records. The separate official
+    `/occupations` page still names the occupation `プロンプトエンジニア`, while its skill evidence
+    includes Python automation/scraping, TypeScript web development, five-plus years of education /
+    training presentation work, spreadsheets and writing. Therefore the remaining first executable
+    substep is narrow: project the shared factual occupation to the closest provider-supported
+    software-engineering / AI-automation category, preserve the already-correct headline, biography,
+    skills and avatar, then perform official readback and replay-zero. The blank-avatar hypothesis and
+    the claim that CrowdWorks has zero contracts are both stale; neither may be used to reopen a
+    completed avatar effect or to explain conversion without evidence.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
