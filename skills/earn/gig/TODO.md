@@ -2619,6 +2619,18 @@ from the chat, and two of them contradict what this cursor had previously report
     exact official skill hash and following replay-zero are the current acceptance boundary; do not
     reopen the already-proven occupation, biography or avatar effects.
 
+    That boundary exposed two readback-only provider representations after the official seven-skill
+    mutation had already converged. PR `#4973`, merge
+    `4c52de8d24e991f6c6bb8d57e4c4393109e4aa62`, normalizes authenticated edit labels such as
+    `4:上級` to exact level ID `4` and prevents an aligned skill set from entering deletion. The
+    buyer-visible public table exposes no level text at all; it renders the same value as active and
+    inactive star widths. PR `#4974`, merge `869476b41ba2e73006980681b4c7b5c3d6448dc4`, reads
+    that official star representation into the same exact level ID instead of weakening the public
+    assertion. The full CrowdWorks suite passes `52/52`. Sparse immutable release
+    `20260911T051854-869476b4-cw-profile` is installed only on the Apply owner with receipt
+    `5c541e14f31e68734f9cbf3a`; its natural terminal and following replay-zero remain the active
+    acceptance edge.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
