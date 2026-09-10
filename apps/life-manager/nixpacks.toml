@@ -2,4 +2,10 @@
 # over the Node `/ws` WebSocket — no local TTS/audio-transcode toolchain needed, so no extra nixPkgs.
 # "..." preserves nixpacks' auto-detected Node packages.
 [phases.setup]
-nixPkgs = ["...", "python3"]
+nixPkgs = ["...", "python3", "curl"]
+
+[phases.build]
+cmds = ["bash scripts/install-alpaca-cli.sh .bin/alpaca"]
+
+[variables]
+ALPACA_CLI="/app/.bin/alpaca"
