@@ -1823,6 +1823,15 @@ What preceded it: **806 applications cumulative, 26 on 2026-09-02 alone, from a 
    official proposal readback plus a following replay-zero. A no-inventory pass proves health only,
    not restored application effect.
 
+   Main `c52d5c1f67bb26c1b8ecc3a01eeffee39f77a4d4` is installed only on
+   `hf-gig-apply-direct` with receipt `7bd2e751a17dee80851dae5d`; its loaded cadence is 300 seconds.
+   The installed-SHA wake ended natural PASS at `2026-09-10T08:07:56Z` with official aggregate
+   observed `80`, actionable/effect/readback/failed/pending all `0`: all 80 observed listings were
+   officially unavailable, and no restriction or authentication error occurred. Telegram receipt
+   `73518` was delivered once. This closes the production cadence and health parts only. The atom
+   remains open until the first eligible new listing has an official application readback and the
+   following wake proves replay-zero.
+
 
 ## Apply-owner cursor — Lancers submits nothing, and the reason was thrown away
 
