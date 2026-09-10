@@ -10309,3 +10309,11 @@ Daisの「one by one」に従い、固定順先頭のCG-44だけを再開した�
 同wakeは後続のKokuchPro reconciliationで`kokuchpro_direct_requires_harness`、wake-local consecutive failures 3として安全停止し、every-wake Telegram ID `74084`を保存した。これはLuma失敗ではなく、固定順外の既知KokuchPro Harness境界である。wake終端後もcleanup processが残っているため重ねて起動しない。
 
 同時にhost空きが約373MiBまで再低下し、launchctl-safeのatomic preflight receipt作成が`ENOSPC`になった。既存`life-manager-disk-cleanup` governorを実行し、allow-list候補6件を評価、open 2件とremove-failed 1件を保全、protected deletion 0、回収約8KiB、終了時空き約463MiBだった。危険な削除は行っていないが512MiB producer floorを下回るため、次の対象限定wakeは容量gate回復とcleanup process終了の両方を確認するまで実行しない。固定順は変更せず、残TODOは`CG-44 live Luma bundle → CG-45 replay-zero → CG-47 LT → CG-48 natural duplicate/cleanup → CG-51 Connector closure → Fundraiser natural effect/replay-zero → Telegram OSS fresh-clone E2E → Cloud`である。
+
+### O1B-25進捗553（容量gate回復後のLuma slice / host圧迫再発）
+
+前wakeのPID消失を確認後、容量を再診断した。`~/Downloads`に残ったclosed・open handle 0のChromium一時ファイル`.org.chromium.Chromium.*`だけを対象に62個、483,601,051 bytesを削除し、通常の動画・画像・その他Downloadsは触れなかった。残数0、空き703MiB、launchctl-safe preflight全PASS、Connector loaded-idleを確認し、対象Connectorだけをkickstartした。
+
+wake `wake-01f71a9ff8a0d8582df73497`はTokyo Luma `24/6/2/1/0`を取得した。無料受付中1件は既存Google Calendarと衝突したため、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、durable bundleは0。終端は既知のKokuchPro Harness境界`kokuchpro_direct_requires_harness / consecutive failures 3`で、every-wake Telegram ID `74232`を保存し、PID消失を確認した。CG-44は**NOT DONE**、直接理由は今回もCalendar-free Luma candidate 0である。
+
+同wake中に空きは約703MiBから約234MiBへ再低下した。DownloadsのChromium tempは再生成0、既存cacheは小さく、`/private/tmp`に約80MiB級のLife Manager Git worktreeが多数存在することを確認したが、それらはGit registry上でlockedまたはmanaged lease付きであり、別ownerが同時利用しうるため削除していない。35個のimmutable releaseも現時点では各loopから参照され、cleanup governorが正しく保全している。したがって次wakeは512MiB producer floor回復まで追加kickstartせず、他ownerのworktree/releaseを無断削除・集約しない。固定TODO順は維持する。
