@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Experiment Readout Deck icon</title>
+  <desc id="desc">A purple report card with a comparison chart and decision checkmark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#312E81"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <rect x="96" y="84" width="320" height="344" rx="28" fill="#F8FAFC"/>
+  <rect x="128" y="120" width="142" height="20" rx="10" fill="#312E81"/>
+  <rect x="128" y="155" width="222" height="12" rx="6" fill="#C4B5FD"/>
+  <rect x="128" y="187" width="224" height="126" rx="16" fill="#EDE9FE"/>
+  <path d="M152 284V254M204 284V222M256 284V240" fill="none" stroke="#6D28D9" stroke-linecap="round" stroke-width="24"/>
+  <path d="M152 284H283" fill="none" stroke="#A78BFA" stroke-linecap="round" stroke-width="10"/>
+  <circle cx="337" cy="280" r="50" fill="#10B981"/>
+  <path d="m315 280 15 15 30-34" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="14"/>
+  <rect x="128" y="346" width="160" height="12" rx="6" fill="#C4B5FD"/>
+  <rect x="128" y="375" width="224" height="12" rx="6" fill="#DDD6FE"/>
+</svg>
