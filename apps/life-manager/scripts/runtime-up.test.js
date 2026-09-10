@@ -130,12 +130,23 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   for (const requiredPath of [
     "runtime/loop/index.mjs",
     "runtime/contracts/citizen-identity.cjs",
+    "runtime/contracts/common-record.cjs",
+    "runtime/earn/polymarket-runtime-env.sh",
+    "runtime/agent-runner/agent_runner.py",
+    "runtime/agent-runner/config.json",
     "skills/registry.json",
     "skills/earn/run.sh",
     "skills/earn/lib/resolve-identity.mjs",
     "skills/earn/x402-sell/package.json",
     "skills/earn/taskmarket/package.json",
     "skills/_shared/lib/earn-guard.mjs",
+    "skills/economy/gig/lib/lock.mjs",
+    "skills/economy/gig/lib/ensure-agent-id.mjs",
+    "skills/x-repost/config/humanize-checklist.md",
+    "skills/x-repost/config/voice.md",
+    "lib/registry-enforce.sh",
+    "bin/record-cost-event.sh",
+    "identity/genesis.md",
     "services/x402-endpoint/prisma/schema.prisma",
   ]) {
     assert.equal(checkIgnored(requiredPath), false, `${requiredPath} must be in the Railway build context`);

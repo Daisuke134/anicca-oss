@@ -8,6 +8,12 @@ apps/*
 !runtime/loop/**
 !runtime/contracts/
 !runtime/contracts/citizen-identity.cjs
+!runtime/contracts/common-record.cjs
+!runtime/earn/
+!runtime/earn/polymarket-runtime-env.sh
+!runtime/agent-runner/
+!runtime/agent-runner/*.py
+!runtime/agent-runner/config.json
 !runtime/wallet-address-solana.mjs
 runtime/**/__tests__/**
 runtime/**/tests/**
@@ -57,6 +63,7 @@ services/x402-endpoint/*
 !skills/self/coordinate/**
 !skills/economy/ubi/**
 !skills/economy/lending/**
+!skills/economy/gig/lib/**
 !skills/cook/**
 !skills/earn/*.sh
 !skills/earn/*.mjs
@@ -70,6 +77,12 @@ services/x402-endpoint/*
 !skills/_shared/**
 !skills/ubi/**
 !skills/browser/**
+!lib/
+!lib/registry-enforce.sh
+!bin/
+!bin/record-cost-event.sh
+!identity/
+!identity/genesis.md
 skills/**/__tests__/**
 skills/**/*test.*
 skills/**/test_*.*
@@ -84,6 +97,10 @@ skills/**/reference/**
 skills/**/runbook/**
 skills/**/draft*/**
 skills/**/*.md
+# Runtime prompt/constitution inputs are data, not documentation.
+!skills/x-repost/config/humanize-checklist.md
+!skills/x-repost/config/voice.md
+!identity/genesis.md
 **/.env*
 **/node_modules
 **/__pycache__
