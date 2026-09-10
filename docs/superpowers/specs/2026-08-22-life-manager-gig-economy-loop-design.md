@@ -89,9 +89,11 @@ Current official CrowdWorks public readback already presents the account as
 skills; the older `プロンプトエンジニア` screenshot is not current state. The thin CrowdWorks adapter
 has projected the shared avatar once, and authenticated official public readback exposes its unique
 `alt=userIcon` attachment. Profile acceptance remains independent from application receipts and
-requires a later natural zero-mutation readback. If shared browser-session restoration fails before
-that readback, the wake is not profile acceptance and the already-observed avatar effect is not
-repeated. A missing avatar remains only a conversion-risk hypothesis until official outcome data
+requires a later natural zero-mutation readback. The production adapter resolves provider-relative
+attachment URLs against the official public profile URL before applying the HTTPS host/path
+allowlist. Two natural installed-release wakes now prove zero profile/avatar mutation and stable
+official avatar readback; the first also produced a separate verified application and Telegram
+receipt. A missing avatar remains only a conversion-risk hypothesis until official outcome data
 proves its effect, never the asserted sole cause of zero contracts.
 
 Current Paid status and order are therefore recorded only in that TODO. Coconala has the accepted
