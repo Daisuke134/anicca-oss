@@ -186,8 +186,11 @@ function createWorkerHandlers(env, capabilities, dependencies = {}) {
       query: dependencies.query,
       encryptionKey: requiredEnv(env, "LM_CLOUD_CITIZEN_ENCRYPTION_KEY"),
     });
+    const { createAgentEconomyControlStore } = require("../lib/agent-economy-control.js");
+    const economyControl = createAgentEconomyControlStore({ query: dependencies.query });
     servicesByAdapter["agent-economy-cloud"] = {
       citizenStore,
+      isPaused: (tenantId) => economyControl.isPaused(tenantId),
       runSharedWake: createWakeRunner({
         citizenStore,
         dataDir: requiredEnv(env, "LM_DATA_DIR"),

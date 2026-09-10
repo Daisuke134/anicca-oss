@@ -73,6 +73,29 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
   console.log = (...args) => logs.push(args.map(String).join(" "));
   pg.Pool = class FixturePool {
     query(sql, values) {
+      if (/provision_lm_cloud_citizen/.test(sql)) {
+        const [tenantId, citizenId, instanceId, walletAddress] = values;
+        const existing = cloudCitizens.get(tenantId);
+        if (existing) return Promise.resolve({ rows: [{ ...existing, created: false }] });
+        const row = { tenant_id: tenantId, citizen_id: citizenId, instance_id: instanceId,
+          wallet_address: walletAddress, agent_economy_paused_at: null };
+        cloudCitizens.set(tenantId, row);
+        return Promise.resolve({ rows: [{ ...row, created: true }] });
+      }
+      if (/FROM public\.lm_cloud_citizens AS c/.test(sql)) {
+        const citizen = cloudCitizens.get(values[0]);
+        const job = [...runtimeJobs.values()].find((value) => value.tenant_id === values[0]);
+        return Promise.resolve({ rows: citizen ? [{ ...citizen,
+          ...(job ? { job_id: job.job_id, job_status: "queued", input_refs: job.input_refs,
+            available_at: "2026-09-11T00:00:00.000Z" } : {}),
+        }] : [] });
+      }
+      if (/UPDATE public\.lm_cloud_citizens/.test(sql)) {
+        const citizen = cloudCitizens.get(values[0]);
+        if (!citizen) return Promise.resolve({ rows: [] });
+        citizen.agent_economy_paused_at ||= "2026-09-11T00:00:00.000Z";
+        return Promise.resolve({ rows: [{ agent_economy_paused_at: citizen.agent_economy_paused_at }] });
+      }
       if (/FROM public\.lm_investment_states/.test(sql)) {
         investmentReads.push(values[0]);
         return Promise.resolve({ rows: values[0] === "u1" ? [{
@@ -107,6 +130,11 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
         return response(200, telegramSendOk
           ? { ok: true, result: { message_id: 9000 + sent.length } }
           : { ok: false, error_code: 400, description: "token=fixture-token chat_id=200" });
+      }
+      if (/answerCallbackQuery$/.test(url.pathname)) return response(200, { ok: true, result: true });
+      if (/editMessageText$/.test(url.pathname)) {
+        sent.push(JSON.parse(init.body));
+        return response(200, { ok: true, result: { message_id: 9000 + sent.length } });
       }
       throw new Error(`unexpected telegram call ${url.pathname}`);
     }
@@ -261,6 +289,10 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
       request.on("error", reject);
       request.end(body);
     });
+    const telegramCallback = (chatId, data) => post({ callback_query: {
+      id: `cb-${updateId}`, from: { id: Number(chatId) }, data,
+      message: { message_id: updateId + 700, chat: { id: Number(chatId) }, text: "Agent Economy" },
+    } });
     const lastSent = () => sent[sent.length - 1];
 
     // 1. Unknown /command → honest unknown reply; never feedback, never onboarding, never a browser
@@ -345,8 +377,14 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     assert.equal(actorClaims, 4, "each new update is fenced while the existing tenant is reused");
     assert.equal(cloudCitizens.size, 1, "all /start updates reuse one Cloud citizen");
     assert.equal(runtimeJobs.size, 1, "all /start updates reuse one Agent Economy start job");
+    assert.equal(await message("300", "/economy"), 200);
+    assert.match(lastSent().text, /Agent Economy/);
+    assert.equal(lastSent().reply_markup.inline_keyboard[0][0].callback_data, "economy:pause");
+    assert.equal(await telegramCallback("300", "economy:pause"), 200);
+    assert.match(lastSent().text, /Status: paused/);
+    assert.equal(lastSent().reply_markup, undefined, "a paused card cannot enqueue a second pause");
     assert.equal(await exactMessage(9199, "300", "/start", "999"), 200);
-    assert.equal(sent.length, sentBeforeReplay + 2, "a different actor in the existing chat cannot start onboarding");
+    assert.equal(sent.length, sentBeforeReplay + 4, "a different actor in the existing chat cannot start onboarding");
     assert.equal(actorClaims, 4, "cross-actor input is rejected before the claim RPC");
     assert.equal(await message("300", "/start panel"), 200);
     assert.ok(lastSent().reply_markup.inline_keyboard[0][0].web_app, "/start panel remains owned by the panel deep-link route");

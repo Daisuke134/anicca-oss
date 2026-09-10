@@ -88,10 +88,11 @@ const { recordUsageEvent } = require("./lib/usage-event.js");
 const { createCloudCitizenStore } = require("./lib/cloud-citizen-store.js");
 const { provisionAndStartAgentEconomy } = require("./lib/agent-economy-cloud-provisioning.js");
 const { enqueueJob } = require("./lib/runtime-job-store.js");
+const { createAgentEconomyControlStore, economyReply } = require("./lib/agent-economy-control.js");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder"); // apiKey unused by constructEvent
 const SUPA_URL = process.env.SUPABASE_URL, SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPOSIO_KEY = process.env.COMPOSIO_API_KEY;
-let moneyPrinterSource, moneyPrinterRuntimePool, moneyPrinterRuntimeStore, investmentStateStore, cloudCitizenStore;
+let moneyPrinterSource, moneyPrinterRuntimePool, moneyPrinterRuntimeStore, investmentStateStore, cloudCitizenStore, agentEconomyControlStore;
 function getMoneyPrinterRuntimeStore() {
   if (!moneyPrinterRuntimeStore) {
     const connectionString = String(process.env.LM_RUNTIME_DATABASE_URL || process.env.LM_FEEDBACK_DATABASE_URL || "").trim();
@@ -117,6 +118,13 @@ function getCloudCitizenStore() {
     });
   }
   return cloudCitizenStore;
+}
+function getAgentEconomyControlStore() {
+  getMoneyPrinterRuntimeStore();
+  if (!agentEconomyControlStore) {
+    agentEconomyControlStore = createAgentEconomyControlStore({ query: moneyPrinterRuntimePool.query.bind(moneyPrinterRuntimePool) });
+  }
+  return agentEconomyControlStore;
 }
 async function ensureCloudAgentEconomy(tenantId) {
   getMoneyPrinterRuntimeStore();
@@ -1029,6 +1037,18 @@ const server = http.createServer(async (req, res) => {
                   console.log(`[precepts] callback answer=${outcome.answer} ok=${outcome.ok}${outcome.reason ? ` reason=${outcome.reason}` : ""}`);
                 }
                 return outcome;
+              }, economy: async (data) => {
+                if (String(u.actorId || u.userId || "") !== String(u.chatId || "")) {
+                  throw new Error("Agent Economy actor unavailable");
+                }
+                const row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
+                if (!row || !row.uid) throw new Error("Agent Economy actor unavailable");
+                if (data === "economy:setup") await ensureCloudAgentEconomy(row.uid);
+                else if (data === "economy:pause") await getAgentEconomyControlStore().pause(row.uid);
+                else return { ignored: true };
+                const reply = economyReply(await getAgentEconomyControlStore().read(row.uid));
+                await editMessageText(LM_TG_TOKEN, u.chatId, u.messageId, reply.text, reply.extra);
+                return { handled: true, action: data.split(":")[1], ok: true };
               }, late: async (data) => {
                 // The row selected by chat id is the tenant boundary.  The signed button authenticates
                 // the draft/action; this lookup authenticates which uid may consume it.  A callback
@@ -1192,6 +1212,7 @@ const server = http.createServer(async (req, res) => {
               getInvestmentState: (uid) => {
                 return getInvestmentStateStore().read(uid);
               },
+              getEconomyState: (uid) => getAgentEconomyControlStore().read(uid),
             });
             if (outcome.handled) {
               console.log(`[slash] command=${slash.name} action=${outcome.action}${outcome.ok === false ? ` reason=${outcome.reason || "failed"}` : ""}${outcome.providerMessageId == null ? "" : ` provider_message_id=${outcome.providerMessageId}`}`);

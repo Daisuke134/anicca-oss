@@ -63,10 +63,24 @@ function createAgentEconomyCloudLoopAdapter(services = {}) {
         }
       }
       const cycle = Number(String(job.input_refs.cycle_ref).split("/").at(-1));
+      if (typeof services.isPaused === "function" && await services.isPaused(identity.tenant_id)) {
+        return { receipt: {
+          schema_version: 1,
+          kind: "agent_economy_paused",
+          status: "completed",
+          tenant_id: identity.tenant_id,
+          identity_ref: refs.identity_ref,
+          instance_ref: refs.instance_ref,
+          wallet_address: identity.wallet.address,
+          cycle,
+          completed_at: now(),
+        } };
+      }
       if (typeof services.runSharedWake !== "function") {
         throw new Error("Agent Economy shared wake unavailable");
       }
       const wake = await services.runSharedWake(identity);
+      const paused = typeof services.isPaused === "function" && await services.isPaused(identity.tenant_id);
       const baseAt = Date.parse(String(job.available_at || job.created_at || ""));
       if (!Number.isFinite(baseAt)) throw new Error("Agent Economy wake schedule unavailable");
       const next = buildAgentEconomyStartJob({ tenantId: identity.tenant_id,
@@ -85,10 +99,10 @@ function createAgentEconomyCloudLoopAdapter(services = {}) {
         wake,
         next_job_ref: null,
         completed_at: now(),
-      }, continuation };
+      }, ...(paused ? {} : { continuation }) };
     },
     reconcile: async () => ({ status: "not_applicable" }),
-    verify: async (receipt) => Boolean(receipt && receipt.kind === "agent_economy_wake" && receipt.status === "completed"),
+    verify: async (receipt) => Boolean(receipt && new Set(["agent_economy_wake", "agent_economy_paused"]).has(receipt.kind) && receipt.status === "completed"),
     report: async (receipt) => receipt,
   });
 }
