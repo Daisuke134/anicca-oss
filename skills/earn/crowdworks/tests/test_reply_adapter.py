@@ -264,3 +264,18 @@ def test_contract_readback_does_not_require_reply_composer_after_agreement():
 
     assert opened == ["thread-1"]
     assert receipt["provider_receipt_id"] == "condition-accepted:41879089"
+
+
+def test_single_thread_observation_does_not_require_reply_composer():
+    adapter, _, _, _ = _contract_adapter(status="proposed")
+    opened = []
+    adapter._open_thread_page = opened.append
+    adapter._detail = lambda _thread_id: (_ for _ in ()).throw(
+        AssertionError("official thread observation must not require the reply composer")
+    )
+
+    observation = adapter.observe_one("thread-1")
+
+    assert opened == ["thread-1"]
+    assert observation["thread_id"] == "thread-1"
+    assert observation["decision_version"] == "official-actions-v1"

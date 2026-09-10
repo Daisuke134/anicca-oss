@@ -183,7 +183,7 @@ class CrowdWorksReplyAdapter:
         row = self.rows.get(thread_id)
         if row is None:
             raise RuntimeError("crowdworks_thread_unavailable")
-        self._detail(thread_id)
+        self._open_thread_page(thread_id)
         return self._observation(row)
 
     def context(self, thread_id: str) -> dict[str, Any]:

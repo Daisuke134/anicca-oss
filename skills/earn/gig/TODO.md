@@ -2421,7 +2421,10 @@ from the chat, and two of them contradict what this cursor had previously report
     contract readback enters the conversation detail helper, which requires a reply textarea that is
     not a contract-state invariant after agreement. The bounded follow-up separates authenticated
     proposal-page navigation from reply-composer validation; contract mutation/readback use the
-    former and text replies retain the latter. Related tests pass 302/302. Production receipt,
+    former and text replies retain the latter. Single-thread re-observation uses the same
+    composer-independent page observation so saved contract intents can reach reconciliation;
+    context composition and text mutation/readback still require the reply composer. Related tests
+    pass 303/303. Production receipt,
     Telegram-once and following replay-zero remain open.
 
 31b. [ ] `LANCERS-REPLY-ACTION-1` Complete the live scheduling request through the same shared
