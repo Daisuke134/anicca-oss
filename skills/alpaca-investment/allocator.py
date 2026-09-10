@@ -36,6 +36,7 @@ def _option_parts(symbol: str) -> tuple[str, int] | None:
 
 def build_candidates(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
+    histories = snapshot.get("crypto_history", {})
     for quote in snapshot["crypto"]:
         bid, ask = float(quote["bid"]), float(quote["ask"])
         if bid > 0 and ask >= bid:
@@ -44,6 +45,7 @@ def build_candidates(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
                 "candidate_ref": f"crypto://{quote['symbol']}",
                 "max_loss_usd": 10.0, "quote_age_seconds": _age_seconds(quote["quote_at"]),
                 "spread_fraction": (ask - bid) / ask, "symbol": quote["symbol"],
+                "history_5min": histories.get(quote["symbol"], []),
             })
     asset, quote = snapshot["qqq_asset"], snapshot["qqq_quote"]
     if (asset.get("tradable") is True and asset.get("status") == "active"

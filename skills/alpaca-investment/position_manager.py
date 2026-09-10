@@ -42,6 +42,7 @@ def choose(snapshot: dict[str, Any], observation: dict[str, Any], state: Path,
               "official snapshot. Never invent market data. Prefer EXIT when expected value of "
               "remaining invested is not positive. Write one concise Japanese reason.\n" +
               json.dumps({"position": positions[0], "quotes": snapshot.get("crypto"),
+                          "history_5min": snapshot.get("crypto_history", {}).get("BTC/USDC", []),
                           "risk": snapshot.get("risk")}, separators=(",", ":")))
     result = subprocess.run([str(runner), "--task-class", "diagnostic-agent", "--prompt-stdin",
         "--schema", str(schema), "--evidence-dir", str(evidence), "--task-label",
