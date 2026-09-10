@@ -184,6 +184,31 @@ def test_gog_resolution_includes_homebrew_for_launchd(monkeypatch):
     assert "/opt/homebrew/bin" in observed["path"].split(":")
 
 
+def test_private_calendar_credential_is_in_child_env_not_argv(monkeypatch, tmp_path):
+    private_env = tmp_path / ".env"
+    private_env.write_text("GOG_KEYRING_PASSWORD='private value'\n", encoding="utf-8")
+    private_env.chmod(0o600)
+    monkeypatch.delenv("GOG_KEYRING_PASSWORD", raising=False)
+    monkeypatch.setenv("LIFE_MANAGER_PRIVATE_ENV", str(private_env))
+    observed = {}
+
+    def run(command, **kwargs):
+        observed.update(command=command, env=kwargs["env"])
+        return type("Completed", (), {"returncode": 0, "stdout": '{"events": []}'})()
+
+    monkeypatch.setattr(adapter_module, "_gog_bin", lambda: "/opt/homebrew/bin/gog")
+    monkeypatch.setattr(adapter_module.subprocess, "run", run)
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    monkeypatch.setattr(adapter, "_candidate", lambda: {"application_email": "owner@example.test"})
+
+    assert adapter._calendar_events(
+        adapter_module.datetime(2026, 9, 10, tzinfo=adapter_module.timezone.utc),
+        adapter_module.datetime(2026, 9, 11, tzinfo=adapter_module.timezone.utc),
+    ) == []
+    assert "private value" not in observed["command"]
+    assert observed["env"]["GOG_KEYRING_PASSWORD"] == "private value"
+
+
 def test_booking_link_becomes_shared_external_action_even_when_seller_is_last(monkeypatch, tmp_path):
     adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
     adapter.page = object()
