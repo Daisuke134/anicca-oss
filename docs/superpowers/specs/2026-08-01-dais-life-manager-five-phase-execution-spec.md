@@ -10301,3 +10301,11 @@ Daisの明示訂正によりLuma discovery scopeはTokyo-onlyを正とし、glob
 Fundraiserのproduction label `ai.anicca.fundraiser`はimmutable release `25e45d35…`、`StartInterval=1800`、runs 29、latest exit 0。application ledgerは24件で、最新のverified successはLiberty VenturesとProgressive Ventures、official completion readback、PNG、Telegram photo IDs `73593`・`73760`を保存している。失敗receiptもselector mapping、60秒founder video不足、Continue非遷移など具体的blockerを保存している。したがって新規accelerator応募と成功Telegramは実作動しているが、全wakeの成功・失敗・候補なしをTelegramへ必ず報告するacceptance、次wake duplicate submit 0、継続的に新しいprogramへcursorが進むnatural proofは未完である。
 
 固定順序は維持し、Connector closure後のFundraiser atomは、(1) 30分cadenceを維持、(2) 新規候補list/cursor、(3) applied ledgerによる重複排除、(4) 最大限の実応募、(5) official completion readback、(6) success/failure/no-candidate全wake Telegram、(7) natural replay-zero、(8) cleanup、の実測を完了条件とする。1時間cadenceへの変更は要求されず、現行30分は「毎時以上」の頻度を満たす。
+
+### O1B-25進捗552（CG-44を一件ずつ再開 / Luma正常探索・容量再発）
+
+Daisの「one by one」に従い、固定順先頭のCG-44だけを再開した。productionはimmutable release `bb56e059…`、`StartInterval=1800`、loaded-idle、launchctl-safe preflight全PASSを確認後、対象Connectorだけを一回kickstartした。wake `wake-df6e0b6f72cfd17c0deb5677`はTokyo Luma inventory `24/6/6/5/0`を取得した。公開24件からrotation対象6件を詳細取得し、5件がfree/openだったが、全件が既存Google Calendarと衝突したためLuma Submit、official registered/pending、Calendar write、Telegram event/photo、durable bundleは0だった。これはdiscovery、Luma session、eligibility、Calendar conflict gateが稼働している証拠であり、CG-44は候補不成立のため**NOT DONE**のまま維持する。
+
+同wakeは後続のKokuchPro reconciliationで`kokuchpro_direct_requires_harness`、wake-local consecutive failures 3として安全停止し、every-wake Telegram ID `74084`を保存した。これはLuma失敗ではなく、固定順外の既知KokuchPro Harness境界である。wake終端後もcleanup processが残っているため重ねて起動しない。
+
+同時にhost空きが約373MiBまで再低下し、launchctl-safeのatomic preflight receipt作成が`ENOSPC`になった。既存`life-manager-disk-cleanup` governorを実行し、allow-list候補6件を評価、open 2件とremove-failed 1件を保全、protected deletion 0、回収約8KiB、終了時空き約463MiBだった。危険な削除は行っていないが512MiB producer floorを下回るため、次の対象限定wakeは容量gate回復とcleanup process終了の両方を確認するまで実行しない。固定順は変更せず、残TODOは`CG-44 live Luma bundle → CG-45 replay-zero → CG-47 LT → CG-48 natural duplicate/cleanup → CG-51 Connector closure → Fundraiser natural effect/replay-zero → Telegram OSS fresh-clone E2E → Cloud`である。
