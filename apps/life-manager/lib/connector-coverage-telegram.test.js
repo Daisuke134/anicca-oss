@@ -325,6 +325,20 @@ test("text送信後のphoto不確定は通常失敗として再送せずreconcil
   });
 });
 
+test("画像証拠とobservedAtはprovider送信より前に検証する", async () => {
+  const input = await verifiedNewEventReportInput();
+  let sends = 0;
+  const dependencies = { send: async () => { sends += 1; return { messageId: "321" }; } };
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", ...input,
+    registrationEvidence: { ...input.registrationEvidence, artifact_sha256: "0".repeat(64) },
+  }, dependencies), /invalid/i);
+  await assert.rejects(deliverConnectorCoverageTelegram({
+    tenantId: "dais-local", telegramTarget: "fixture-target", ...input,
+  }, { ...dependencies, observedAt: () => "not-an-instant" }), /invalid/i);
+  assert.equal(sends, 0);
+});
+
 test("coverage telegramの文面はhorizon_daysの実値から組み立て、travel/buffer文言を再導入しない", () => {
   const source = fs.readFileSync(path.join(__dirname, "connector-coverage-telegram.js"), "utf8");
   assert.doesNotMatch(source, /移動時間|travel_minutes|routeMinutes|homeLocation|buffer_minutes/i);

@@ -172,6 +172,9 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
     throw new Error("Connector Telegram artifact reader unavailable");
   }
   const caption = buildConnectorTicketCaption(input);
+  const observedAtMs = Date.parse((dependencies.observedAt || (() => new Date().toISOString()))());
+  if (!Number.isFinite(observedAtMs)) throw new Error("Connector Telegram observed time invalid");
+  const observedAt = new Date(observedAtMs).toISOString();
   const bytes = await dependencies.readArtifact(tenant, artifactRef);
   if (
     !Buffer.isBuffer(bytes)
@@ -186,10 +189,6 @@ async function deliverConnectorTicket(input = {}, dependencies = {}) {
     error.unknownEffect = true;
     throw error;
   }
-  const observedAt = new Date(Date.parse(
-    (dependencies.observedAt || (() => new Date().toISOString()))(),
-  )).toISOString();
-  if (!Number.isFinite(Date.parse(observedAt))) throw new Error("Connector Telegram observed time invalid");
   return Object.freeze({
     kind: "telegram_delivery",
     provider_id: messageId,

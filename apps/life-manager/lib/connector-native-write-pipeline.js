@@ -480,7 +480,9 @@ async function runNativeConnectorWrite(input = {}, deps = {}) {
         observedAt: injected.observedAt || (() => context.now),
       });
       if (!ticketDelivery || !POSITIVE_REF.test(String(ticketDelivery.provider_id || ""))) {
-        throw new Error("Luma ticket Telegram receipt invalid");
+        const error = new Error("Luma ticket Telegram receipt invalid");
+        error.unknownEffect = true;
+        throw error;
       }
     } catch (error) {
       if (error && error.unknownEffect === true) {

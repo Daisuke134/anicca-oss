@@ -138,3 +138,13 @@ test("ticket media transportはTelegram sendPhotoを使いpositive message IDだ
     return true;
   });
 });
+
+test("ticket observedAtはprovider送信より前に検証する", async () => {
+  let sent = false;
+  await assert.rejects(deliverConnectorTicket(input(), {
+    observedAt: () => "not-an-instant",
+    readArtifact: async () => png(),
+    sendMedia: async () => { sent = true; return { messageId: "8008" }; },
+  }), /observed time invalid/);
+  assert.equal(sent, false);
+});

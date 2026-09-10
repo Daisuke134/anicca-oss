@@ -208,19 +208,10 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
   const target = String(input.telegramTarget == null ? "" : input.telegramTarget).trim();
   if (!TENANT.test(tenant) || !target || input.coverage?.tenant_id !== tenant) invalid();
   const message = buildConnectorCoverageTelegramMessage(input);
-  const send = dependencies.send || notifyTelegramReport;
-  const response = await send(message, {
-    telegramTarget: target,
-    idempotencyKey: `connector-coverage:${input.coverage.coverage_snapshot_id}`,
-  });
-  let providerId;
-  try { providerId = parseTelegramMessageId(response || {}); }
-  catch {
-    const error = new Error("Connector coverage Telegram needs a positive message ID");
-    error.unknownEffect = true;
-    throw error;
-  }
-  let photo = null;
+  const observedAtMs = Date.parse((dependencies.observedAt || (() => new Date().toISOString()))());
+  if (!Number.isFinite(observedAtMs)) invalid();
+  const observedAt = new Date(observedAtMs).toISOString();
+  let photoInput = null;
   if (Array.isArray(input.newEvents) && input.newEvents.length > 0) {
     const evidence = input.registrationEvidence;
     const row = input.newEvents.length === 1 ? input.newEvents[0] : null;
@@ -236,10 +227,26 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
       || evidence.artifact_sha256 !== digest
       || evidence.artifact_ref !== `object://sha256/${digest}`
     ) invalid();
+    photoInput = { bytes, digest, caption: `✅ 登録済み証拠: ${safeText(event.title, 160)}\n${event.canonical_url}` };
+  }
+  const send = dependencies.send || notifyTelegramReport;
+  const response = await send(message, {
+    telegramTarget: target,
+    idempotencyKey: `connector-coverage:${input.coverage.coverage_snapshot_id}`,
+  });
+  let providerId;
+  try { providerId = parseTelegramMessageId(response || {}); }
+  catch {
+    const error = new Error("Connector coverage Telegram needs a positive message ID");
+    error.unknownEffect = true;
+    throw error;
+  }
+  let photo = null;
+  if (photoInput) {
     const sendPhoto = dependencies.sendPhoto || notifyTelegramPhoto;
-    const photoResponse = await sendPhoto(bytes, {
+    const photoResponse = await sendPhoto(photoInput.bytes, {
       telegramTarget: target,
-      caption: `✅ 登録済み証拠: ${safeText(event.title, 160)}\n${event.canonical_url}`,
+      caption: photoInput.caption,
       idempotencyKey: `connector-coverage-photo:${input.coverage.coverage_snapshot_id}`,
     });
     let photoProviderId;
@@ -249,12 +256,8 @@ async function deliverConnectorCoverageTelegram(input = {}, dependencies = {}) {
       error.unknownEffect = true;
       throw error;
     }
-    photo = { photo_provider_id: photoProviderId, artifact_sha256: digest };
+    photo = { photo_provider_id: photoProviderId, artifact_sha256: photoInput.digest };
   }
-  const observedAt = new Date(Date.parse(
-    (dependencies.observedAt || (() => new Date().toISOString()))(),
-  )).toISOString();
-  if (!Number.isFinite(Date.parse(observedAt))) invalid();
   return Object.freeze({
     kind: "connector_coverage_telegram_delivery",
     provider_id: providerId,
