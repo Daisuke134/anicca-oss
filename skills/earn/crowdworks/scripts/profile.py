@@ -128,13 +128,19 @@ def _public_occupation_detail(page:Any)->dict[str,str]:
     except Exception: _fail("public_occupation_readback_failed")
     unique={(item["id"],item["label"]):item for item in values}
     return next(iter(unique.values())) if len(unique)==1 else _fail("public_occupation_readback_failed")
+def _skill_level(cell:Any)->str:
+    text=cell.inner_text().strip()
+    if text:return text
+    try:
+        return str(cell.evaluate("""e=>{const spans=[...e.querySelectorAll('span[style]')];const width=kind=>{const span=spans.find(s=>{const img=s.querySelector('img');return img&&img.src.includes(kind)});return span?parseFloat(span.style.width)||0:0};const active=width('stars-active');const total=active+width('stars-inactive');return active&&total?Math.round(5*active/total).toString():''}""")).strip()
+    except Exception:_fail("public_skill_readback_failed")
 def _public_skills(page:Any)->list[dict[str,str]]:
     try:
         rows=page.locator('tr[id^="user_skills_"]'); values=[]
         for index in range(rows.count()):
             cells=rows.nth(index).locator("td")
             if cells.count()<4: _fail("public_skill_readback_failed")
-            values.append({"name":cells.nth(0).inner_text().strip(),"level":cells.nth(1).inner_text().strip(),"years":cells.nth(2).inner_text().strip(),"note":cells.nth(3).inner_text().strip()})
+            values.append({"name":cells.nth(0).inner_text().strip(),"level":_skill_level(cells.nth(1)),"years":cells.nth(2).inner_text().strip(),"note":cells.nth(3).inner_text().strip()})
     except ProfileError: raise
     except Exception: _fail("public_skill_readback_failed")
     return sorted(values,key=lambda item:(item["name"].casefold(),item["level"],item["years"],item["note"]))
