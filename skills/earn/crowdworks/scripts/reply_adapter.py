@@ -135,7 +135,7 @@ class CrowdWorksReplyAdapter:
             result["decision_version"] = "official-actions-v1"
         return result
 
-    def _detail(self, thread_id: str) -> list[dict[str, str]]:
+    def _open_thread_page(self, thread_id: str) -> None:
         row = self.rows.get(thread_id)
         if row is None:
             raise RuntimeError("crowdworks_thread_unavailable")
@@ -146,7 +146,12 @@ class CrowdWorksReplyAdapter:
             self._reset_page()
             self.page.goto(url, wait_until="domcontentloaded", timeout=20_000)
         self.page.wait_for_timeout(1500)
-        if "/proposals/" not in self.page.url or self.page.locator(
+        if "/proposals/" not in self.page.url:
+            raise RuntimeError("crowdworks_thread_unavailable")
+
+    def _detail(self, thread_id: str) -> list[dict[str, str]]:
+        self._open_thread_page(thread_id)
+        if self.page.locator(
             'textarea[name="message[body]"]'
         ).count() != 1:
             raise RuntimeError("crowdworks_thread_unavailable")
@@ -239,7 +244,7 @@ class CrowdWorksReplyAdapter:
 
     def mutate(self, intent: dict[str, Any]) -> None:
         if intent.get("action") == "accept_contract":
-            self._detail(intent["thread_id"])
+            self._open_thread_page(intent["thread_id"])
             expected = self._contract_action(intent["thread_id"])
             if expected is None or expected.get("payload") != intent.get("payload"):
                 raise RuntimeError("crowdworks_contract_terms_changed")
@@ -266,7 +271,7 @@ class CrowdWorksReplyAdapter:
 
     def readback(self, intent: dict[str, Any]) -> dict[str, Any]:
         if intent.get("action") == "accept_contract":
-            self._detail(intent["thread_id"])
+            self._open_thread_page(intent["thread_id"])
             current = self._contract_action(intent["thread_id"])
             persisted = intent.get("payload")
             if (current is not None and isinstance(persisted, Mapping)
