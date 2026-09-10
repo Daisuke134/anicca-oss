@@ -133,7 +133,7 @@ def _public_skills(page:Any)->list[dict[str,str]]:
         rows=page.locator('tr[id^="user_skills_"]'); values=[]
         for index in range(rows.count()):
             cells=rows.nth(index).locator("td")
-            if cells.count()!=4: _fail("public_skill_readback_failed")
+            if cells.count()<4: _fail("public_skill_readback_failed")
             values.append({"name":cells.nth(0).inner_text().strip(),"level":cells.nth(1).inner_text().strip(),"years":cells.nth(2).inner_text().strip(),"note":cells.nth(3).inner_text().strip()})
     except ProfileError: raise
     except Exception: _fail("public_skill_readback_failed")
