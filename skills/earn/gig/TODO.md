@@ -2547,6 +2547,18 @@ from the chat, and two of them contradict what this cursor had previously report
     group plus detail occupation in the adapter, and test that a stale detail ID fails public readback.
     The inspection tab was closed without submitting the form.
 
+    Reuse audit rules out the apparent existing structured candidates. Private
+    `job-search/profile.json` owns factual person/resume evidence and must not become a public persona;
+    `gig/owner-profile.json` owns spending/concurrency bounds and provider selection and contains no
+    commercial identity; the listing catalog owns products, not the seller; `PROFILE-ASSETS.md` is the
+    correct provider-neutral concept but is prose rather than a deterministic projection input. Use
+    the smallest missing artifact beside it: one structured commercial-profile document containing
+    public persona, positioning, role families, biography, skills, proof references and avatar
+    reference. It may reference verified private fact IDs but never copy legal/private values. Provider
+    adapters map those role families and supported fields to provider IDs; provider-local config keeps
+    only provider IDs, limits and state. Do not repurpose the onboarding owner profile, listing catalog
+    or CrowdWorks JSON as a second source.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
