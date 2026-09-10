@@ -65,6 +65,23 @@ test("account mismatch fails before core execution", async () => {
   assert.equal(ran, false);
 });
 
+test("durable binding mismatch never reseals or persists the volume", async () => {
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-binding-"));
+  let persisted = false;
+  const common = { tenantId: "tenant-1", sealed: seededBundle(), wakeId: WAKE_ID, eventKey: EVENT_KEY,
+    secretProvider: { get: async () => "value" }, telegramChatId: "chat", stateRoot,
+    readAccountId: async () => "account-1", runCore: async () => ({ mode: "shadow", deployment: "cloud",
+      effect: "none", telegram_message_id: "1" }), persist: async () => (persisted = true, { digest: "d".repeat(64) }) };
+  await runInvestmentCloudShadow(common);
+  const tenantDir = fs.readdirSync(stateRoot)[0];
+  const markerPath = path.join(stateRoot, tenantDir, ".cutover.json");
+  const marker = JSON.parse(fs.readFileSync(markerPath, "utf8"));
+  fs.writeFileSync(markerPath, `${JSON.stringify({ ...marker, source_release_sha: "b".repeat(40) })}\n`);
+  persisted = false;
+  await assert.rejects(runInvestmentCloudShadow(common), /durable state binding mismatch/);
+  assert.equal(persisted, false);
+});
+
 test("durable volume keeps outbox/receipt state across a send-window crash and rejects stale re-import", async () => {
   const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-crash-volume-"));
   const input = { tenantId: "tenant-1", sealed: seededBundle(),
@@ -194,6 +211,7 @@ test("one Cloud live wake owns a money-class job and persists the shared core re
   assert.equal(enqueued.capability, "investment.live");
   assert.equal(enqueued.effectClass, "money");
   assert.equal(enqueued.effectKey, enqueued.jobId);
+  assert.equal(enqueued.maxAttempts, 1);
   assert.equal(result.receipt.effect_permission, "money");
   assert.equal(result.receipt.order_calls, 1);
   assert.equal(result.receipt.observed_at, "2026-09-10T12:05:00.000Z");

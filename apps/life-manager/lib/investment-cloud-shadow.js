@@ -45,7 +45,8 @@ function makeInvestmentCloudWake(deps) {
       : `${owner.uid}\nlive\n${slot}\n${artifact.digest}`;
     const jobId = crypto.createHash("sha256").update(lineage).digest("hex");
     await deps.jobs.enqueueJob({ jobId, tenantId: owner.uid, loopId: "investment.cloud",
-      capability, effectClass, effectKey: owner.mode === "live" ? jobId : null, maxAttempts: 3,
+      capability, effectClass, effectKey: owner.mode === "live" ? jobId : null,
+      maxAttempts: owner.mode === "live" ? 1 : 3,
       inputRefs: { investment_state_ref: `investment-state://${owner.uid}`,
         runtime_state_ref: `investment-runtime-state://${owner.uid}`,
         core_artifact_ref: artifact.ref, schedule_slot_ref: `schedule-slot://${slot}` } });
@@ -152,6 +153,7 @@ async function runInvestmentCloud(input) {
   let coreResult;
   let persisted;
   let inputRuntimeStateDigest;
+  let stateBindingValid = false;
   try {
     const alpacaCli = input.alpacaCli || process.env.ALPACA_CLI || "/app/.bin/alpaca";
     accountId = await (input.readAccountId || defaultReadAccountId)({ alpacaCli, apiKey, apiSecret });
@@ -171,6 +173,7 @@ async function runInvestmentCloud(input) {
         source_release_sha: input.sealed.bundle.cutover.source_release_sha,
       })}\n`, { mode: 0o600, flag: "wx" });
     }
+    stateBindingValid = true;
     inputRuntimeStateDigest = exportState({ stateDir, accountId,
       cutover: input.sealed.bundle.cutover }).digest;
     const credentials = { credentials: [{ service: "app.alpaca.markets",
@@ -199,7 +202,8 @@ async function runInvestmentCloud(input) {
     }
   } finally {
     try {
-      if (accountId && accountHash(accountId) === input.sealed.bundle.account_binding.account_id_hash) {
+      if (stateBindingValid && accountId
+        && accountHash(accountId) === input.sealed.bundle.account_binding.account_id_hash) {
         const next = exportState({ stateDir, accountId, cutover: input.sealed.bundle.cutover });
         persisted = await input.persist(tenantId, next);
       }
