@@ -49,9 +49,6 @@ services/x402-endpoint/*
 !skills/economy/*/
 !skills/earn/*/
 !skills/registry.json
-!skills/resource-resolver/**
-!skills/report/**
-!skills/cook/**
 !skills/earn/*.sh
 !skills/earn/*.mjs
 !skills/earn/*.py
@@ -59,7 +56,6 @@ services/x402-endpoint/*
 !skills/earn/lib/**
 !skills/earn/taskmarket/**
 !skills/_shared/**
-!skills/browser/**
 skills/**/__tests__/**
 skills/**/*test.*
 skills/**/test_*.*

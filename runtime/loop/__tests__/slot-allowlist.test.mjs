@@ -30,6 +30,11 @@ test('comma list + whitespace + unknown names tolerated', () => {
   assert.deepEqual(Object.keys(registry.slots).sort(), ['earn/sol-trade', 'report', 'x402_sell']);
 });
 
+test('strict Cloud allowlist removes local-only alwaysAvailable utilities', () => {
+  const { registry } = applySlotAllowlist(REG(), 'x402_sell', { preserveAlwaysAvailable: false });
+  assert.deepEqual(Object.keys(registry.slots), ['x402_sell']);
+});
+
 test('does not mutate the input registry', () => {
   const reg = REG();
   applySlotAllowlist(reg, 'x402_sell');

@@ -75,6 +75,7 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
       ANICCA_EVM_WALLET_PATH: walletPath,
       ANICCA_SINGLE_WAKE: "1",
       ANICCA_SLOT_ALLOWLIST: CLOUD_AGENT_ECONOMY_SLOTS.join(","),
+      ANICCA_STRICT_SLOT_ALLOWLIST: "1",
       SLEEP_BASE_S: "0",
       SLEEP_ERROR_S: "0",
       LEDGER_PUBLISH_ENABLED: "0",

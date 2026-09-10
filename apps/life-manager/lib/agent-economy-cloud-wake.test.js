@@ -38,6 +38,7 @@ test("Cloud runner invokes the shared loop for one wake and returns only its saf
       assert.equal(args[0], path.resolve(__dirname, "../../../runtime/loop/index.mjs"));
       assert.equal(options.env.ANICCA_SINGLE_WAKE, "1");
       assert.equal(options.env.ANICCA_SLOT_ALLOWLIST, CLOUD_AGENT_ECONOMY_SLOTS.join(","));
+      assert.equal(options.env.ANICCA_STRICT_SLOT_ALLOWLIST, "1");
       assert.deepEqual(CLOUD_AGENT_ECONOMY_SLOTS, ["earn/taskmarket"]);
       assert.equal(options.env.ANICCA_EVM_PRIVATE_KEY, undefined);
       assert.equal(options.env.LM_CLOUD_CITIZEN_ENCRYPTION_KEY, undefined);

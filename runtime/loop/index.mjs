@@ -156,7 +156,9 @@ let registryForAlwaysAct = null;
     // assembleAlwaysActMenu (per wake) read this same object. alwaysAvailable slots survive.
     {
       const { applySlotAllowlist } = await import('./slot-allowlist.mjs');
-      const res = applySlotAllowlist(registry, process.env.ANICCA_SLOT_ALLOWLIST);
+      const res = applySlotAllowlist(registry, process.env.ANICCA_SLOT_ALLOWLIST, {
+        preserveAlwaysAvailable: process.env.ANICCA_STRICT_SLOT_ALLOWLIST !== '1',
+      });
       registry = res.registry;
       if (res.applied) process.stderr.write(`[loop] slot allowlist active: ${res.applied.join(', ')}\n`);
     }

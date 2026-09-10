@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { TASKMARKET_CLI, classifyTask, runTaskMarketPass, selectTask } from './taskmarket-work.mjs';
+import { TASKMARKET_CLI, classifyTask, ensureTaskmarketWallet, runTaskMarketPass, selectTask } from './taskmarket-work.mjs';
 
 const NOW = Date.parse('2026-07-28T08:00:00Z');
 const IMAGE_BRIEF = [
@@ -16,6 +16,29 @@ const IMAGE_BRIEF = [
 test('TaskMarket uses the repository-local CLI on every operating system', () => {
   assert.equal(TASKMARKET_CLI, join(import.meta.dirname, 'node_modules', '.bin', 'taskmarket'));
   assert.doesNotMatch(TASKMARKET_CLI, /homebrew/);
+});
+
+test('clean tenant initializes TaskMarket with the same citizen wallet and stores no plaintext key', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'taskmarket-clean-home-'));
+  const walletKey = '0x' + '1'.repeat(64);
+  const expectedAddress = '0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a';
+  let importedKey;
+  const result = await ensureTaskmarketWallet({
+    walletKey,
+    home,
+    runImport: async (key) => {
+      importedKey = key;
+      const dir = join(home, '.taskmarket');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'keystore.json'), JSON.stringify({
+        walletAddress: expectedAddress,
+        encryptedKey: 'ciphertext-only',
+      }), { mode: 0o600 });
+    },
+  });
+  assert.equal(importedKey, walletKey);
+  assert.deepEqual(result, { initialized: true, address: expectedAddress });
+  assert.doesNotMatch(readFileSync(join(home, '.taskmarket', 'keystore.json'), 'utf8'), new RegExp(walletKey.slice(2)));
 });
 
 function task(overrides = {}) {
@@ -136,6 +159,7 @@ test('runTaskMarketPass generates three files, submits once, retries bounded rea
     },
     sleep: async (ms) => { sleeps.push(ms); },
     loadWalletKey: () => '0x' + '1'.repeat(64),
+    ensureWallet: async () => {},
     generateImage: async ({ prompt }) => {
       prompts.push(prompt);
       return {
@@ -205,6 +229,7 @@ test('runTaskMarketPass does not generate or submit an already-owned task', asyn
     listTasks: async () => [selected],
     listSubmissions: async () => [{ id: 'sub_existing', taskId: selected.id }],
     loadWalletKey: () => '0x' + '1'.repeat(64),
+    ensureWallet: async () => {},
     generateImage: async () => { generated = true; },
     downloadImage: async () => squarePng(),
     submitTask: async () => { submitted = true; },
@@ -243,6 +268,7 @@ test('runTaskMarketPass reconciles an existing official submit tx exactly once w
     listTasks: async () => [selected],
     listSubmissions: async () => [{ taskId: selected.id, submitTxHash }],
     loadWalletKey: () => '0x' + '1'.repeat(64),
+    ensureWallet: async () => {},
     generateImage: async () => { generated = true; },
     downloadImage: async () => squarePng(),
     submitTask: async () => { submitted = true; },
@@ -312,6 +338,7 @@ test('runTaskMarketPass fails closed after bounded retries when submit has no of
       listSubmissions: async () => { submissionReads += 1; return []; },
       sleep: async (ms) => { sleeps.push(ms); },
       loadWalletKey: () => '0x' + '1'.repeat(64),
+      ensureWallet: async () => {},
       generateImage: async () => ({
         url: 'https://cdn.blockrun.example/missing.png',
         model: 'openai/gpt-image-2',
