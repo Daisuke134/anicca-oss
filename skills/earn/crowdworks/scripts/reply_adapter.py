@@ -47,6 +47,10 @@ def _text(value: Any) -> str:
 
 
 class CrowdWorksReplyAdapter:
+    FORM_CONFIRMATION_BODY = (
+        "先ほどご案内のGoogleフォームへの回答操作を行いましたが、送信完了画面の確認ができませんでした。"
+        "重複回答を避けるため、回答が受領済みかご確認いただけますでしょうか。"
+    )
     def __init__(self, grounding: Mapping[str, Any], *, state_path: Path | None = None,
                  candidate_profile: Path | None = None,
                  provider_profile: Mapping[str, Any] | None = None):
@@ -477,6 +481,12 @@ class CrowdWorksReplyAdapter:
             if not isinstance(payload, Mapping) or payload.get("kind") != "submit_google_form":
                 raise RuntimeError("crowdworks_external_action_unsupported")
             self._open()
+            receipt_path = self._form_receipt_path(_text(payload.get("url_sha256")))
+            if receipt_path.exists():
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                if isinstance(receipt, Mapping) and receipt.get("status") == "prepared":
+                    self._send_reply_once(intent["thread_id"], self.FORM_CONFIRMATION_BODY)
+                    return
             self._submit_google_form(payload)
             self._send_reply_once(intent["thread_id"], _text(payload.get("completion_body")))
             return
@@ -559,6 +569,29 @@ class CrowdWorksReplyAdapter:
             if not isinstance(form_receipt, Mapping) or form_receipt.get("url_sha256") != url_sha256:
                 raise RuntimeError("google_form_receipt_invalid")
             if form_receipt.get("status") == "prepared":
+                rows = self._detail(intent["thread_id"])
+                request_index = next((
+                    index for index, row in enumerate(rows)
+                    if row["role"] == "seller"
+                    and row["body"].replace("\r\n", "\n")
+                    == self.FORM_CONFIRMATION_BODY.replace("\r\n", "\n")
+                ), None)
+                if request_index is None:
+                    return {"resume_required": True}
+                for row in rows[request_index + 1:]:
+                    body = row["body"].replace("\r\n", "\n")
+                    if row["role"] != "buyer":
+                        continue
+                    if any(negative in body for negative in (
+                            "届いていない", "届いてません", "確認できない", "確認できません",
+                            "受領していない", "受領してません")):
+                        return {}
+                    if any(positive in body for positive in (
+                            "確認しました", "確認できました", "受領しました", "届いています",
+                            "回答を確認", "回答確認")):
+                        return {"verified": True,
+                                "provider_receipt_id": "google-form-buyer-confirmed:"
+                                + _text(row.get("event_id")), "observed_at": _now()}
                 return {}
             body = str(payload.get("completion_body") or "")
             rows = self._detail(intent["thread_id"])
