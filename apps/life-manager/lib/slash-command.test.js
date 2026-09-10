@@ -13,6 +13,7 @@ const { buildInvestmentReply } = require("./investment-chat.js");
 const { buildGigReply, COCONALA_SIGNUP_URL, CROWDWORKS_SIGNUP_URL, CROWDWORKS_VERIFICATION_URL } = require("./gig-chat.js");
 
 const NOW = Date.parse("2026-07-30T12:00:00.000Z");
+const ADDRESS = `0x${"a".repeat(40)}`;
 
 const ROW = Object.freeze({
   uid: "u1", telegram_chat_id: "100", tg_onboard_stage: "done",
@@ -28,6 +29,31 @@ test("/invest sends the shared host-neutral reply including its signup button", 
   assert.deepEqual(outcome, { handled: true, action: "invest", ok: true, providerMessageId: 1 });
   assert.equal(sent[0].text, expected.text);
   assert.equal(sent[0].extra.reply_markup.inline_keyboard[0][0].url, "https://app.alpaca.markets/signup");
+});
+
+test("/economy projects the authenticated tenant state and exposes emergency pause", async () => {
+  const snapshot = {
+    citizen: { walletAddress: ADDRESS },
+    pausedAt: null,
+    latestJob: { status: "queued", cycle: 2, availableAt: "2026-09-11T00:10:00.000Z" },
+    latestReceipt: { outcome: "completed", cycle: 1, profitable: false },
+  };
+  const { sent, deps } = harness({ getEconomyState: async (uid) => {
+    assert.equal(uid, "u1");
+    return snapshot;
+  } });
+  const outcome = await handleSlashCommand(parseSlashCommand("/economy"), ROW, deps);
+  assert.deepEqual(outcome, { handled: true, action: "economy", ok: true, providerMessageId: 1 });
+  assert.match(sent[0].text, /Agent Economy/);
+  assert.match(sent[0].text, /queued/);
+  assert.equal(sent[0].extra.reply_markup.inline_keyboard[0][0].callback_data, "economy:pause");
+});
+
+test("/economy exposes setup button when no citizen exists", async () => {
+  const { sent, deps } = harness({ getEconomyState: async () => ({ citizen: null }) });
+  const outcome = await handleSlashCommand(parseSlashCommand("/economy"), ROW, deps);
+  assert.equal(outcome.ok, true);
+  assert.equal(sent[0].extra.reply_markup.inline_keyboard[0][0].callback_data, "economy:setup");
 });
 
 test("/invest sends the shared balance and reason without Cloud-specific copy", async () => {
