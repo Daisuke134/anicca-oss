@@ -395,6 +395,13 @@ This checklist does not reorder the established implementation sequence below. T
   The complete focused economic receipt suite passes 99/99 with shell and module checks.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
+  In progress on `feat/agent-economy-economic-receipts-20260911`: one host-neutral transition contract now renders
+  only verified revenue, cost, fee and payout records into concise Japanese money events, claims by immutable
+  FinancialRecord ID, requires a Telegram provider message ID before delivery is complete, persists that ID and
+  produces zero second send on identical replay or a raced completed claim. Balance snapshots remain out of the
+  realtime event stream. Focused contract tests pass 4/4. Remaining inside this atom: connect the same contract to
+  the Local durable outbox and Cloud Postgres delivery store, trigger it from common record creation, reuse the
+  existing Financial Manager renderer for one daily snapshot, and prove Local/Cloud replay behavior end to end.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
   then citizen-wallet-funded x402 compute only within earned spendable surplus and session caps.
 - [ ] `AE-UX-09` Close the first economic loop with official evidence: earn, bank, pay compute, pay hosted shelter,
