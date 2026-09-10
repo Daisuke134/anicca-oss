@@ -481,8 +481,7 @@ test("Task 7B1 server source wiring is lazy and has no fake Money Printer fallba
   assert.match(server, /LM_RUNTIME_DATABASE_URL\s*\|\|\s*process\.env\.LM_FEEDBACK_DATABASE_URL/);
   assert.match(server, /runtimeStore,\s*opportunityStore:\s*runtimeStore,\s*humanTaskStore:\s*runtimeStore/s);
   assert.match(server, /moneyPrinterSource\s*:/);
-  assert.match(server, /supaUrl:\s*SUPA_URL/);
-  assert.match(server, /supaKey:\s*SUPA_KEY/);
+  assert.match(server, /createCloudCitizenStore\(\{\s*query:\s*moneyPrinterRuntimePool\.query\.bind\(moneyPrinterRuntimePool\),\s*encryptionKey:/s);
   assert.doesNotMatch(server, /moneyPrinterSource:\s*(?:async\s*)?\(?.*=>\s*\(\{\s*tenantId/);
 });
 

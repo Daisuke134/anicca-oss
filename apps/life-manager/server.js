@@ -109,10 +109,10 @@ function getInvestmentStateStore() {
   return investmentStateStore;
 }
 function getCloudCitizenStore() {
+  getMoneyPrinterRuntimeStore();
   if (!cloudCitizenStore) {
     cloudCitizenStore = createCloudCitizenStore({
-      supaUrl: SUPA_URL,
-      supaKey: SUPA_KEY,
+      query: moneyPrinterRuntimePool.query.bind(moneyPrinterRuntimePool),
       encryptionKey: process.env.LM_CLOUD_CITIZEN_ENCRYPTION_KEY,
     });
   }
