@@ -53,6 +53,7 @@ class RepeatabilityTest(unittest.TestCase):
                 shadow_state=shadow, live_state=live, start=start, required_days=30,
                 required_wakes=100, credentials=Path("c"), cli=Path("a"))
         self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["window_start"], start.isoformat())
         self.assertTrue(all(result["checks"].values()))
 
     @patch.object(repeatability, "_official_orders", return_value={

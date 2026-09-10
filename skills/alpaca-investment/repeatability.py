@@ -116,6 +116,7 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
                                     and official["duplicate_order_ids"] == 0,
     }
     return {"status": "pass" if all(checks.values()) else "collecting", "checks": checks,
+            "window_start": start.isoformat(),
             "observed": {"calendar_days": len(days), "natural_wakes": len(terminal),
                          "delivered_reports": len(delivered), "processes": len(pids),
                          "first_ny_day": min(days).isoformat() if days else None,
