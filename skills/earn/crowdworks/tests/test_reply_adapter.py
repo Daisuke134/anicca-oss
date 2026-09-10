@@ -16,7 +16,7 @@ def test_observation_uses_official_thread_and_message_ids():
     assert observed["provider"] == "crowdworks"
     assert observed["thread_id"] == "303996182"
     assert observed["latest_event_id"] == "425906697"
-    assert observed["decision_version"] == "official-actions-v2"
+    assert observed["decision_version"] == "official-actions-v3"
 
 
 def test_only_officially_proposed_threads_reopen_old_no_effect_state():
@@ -308,7 +308,7 @@ def test_single_thread_observation_does_not_require_reply_composer():
 
     assert opened == ["thread-1"]
     assert observation["thread_id"] == "thread-1"
-    assert observation["decision_version"] == "official-actions-v2"
+    assert observation["decision_version"] == "official-actions-v3"
 
 
 def test_buyer_google_form_becomes_shared_external_action():
@@ -329,6 +329,23 @@ def test_buyer_google_form_becomes_shared_external_action():
     assert action["payload"]["url"] == "https://forms.gle/AbCdEf123"
     assert len(action["payload"]["url_sha256"]) == 64
     assert "回答" in action["payload"]["completion_body"]
+
+
+def test_acknowledgement_after_google_form_keeps_external_action_outstanding():
+    adapter = adapter_module.CrowdWorksReplyAdapter({})
+    adapter.conversations = {"thread-1": [
+        {"event_id": "buyer-1", "role": "buyer", "sender": "buyer",
+         "sent_at": "2026-09-10T00:00:00Z", "body": "フォームへ回答してください",
+         "links": ["https://forms.gle/AbCdEf123"]},
+        {"event_id": "seller-1", "role": "seller", "sender": "seller",
+         "sent_at": "2026-09-10T00:01:00Z", "body": "回答を進めます",
+         "links": []},
+    ]}
+
+    action = adapter._external_form_action("thread-1")
+
+    assert action["action"] == "external_action"
+    assert action["payload"]["url"] == "https://forms.gle/AbCdEf123"
 
 
 def test_external_form_action_rejects_untrusted_or_ambiguous_links():
