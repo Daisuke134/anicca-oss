@@ -485,12 +485,16 @@ class CrowdWorksReplyAdapter:
             if receipt_path.exists():
                 receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
                 if isinstance(receipt, Mapping) and receipt.get("status") == "prepared":
-                    self._send_reply_once(intent["thread_id"], self.FORM_CONFIRMATION_BODY)
                     self._write_json(receipt_path, {
                         **dict(receipt), "status": "confirmation_requested",
                         "confirmation_thread_id": intent["thread_id"],
                         "confirmation_requested_at": _now(),
                     })
+                    self._send_reply_once(intent["thread_id"], self.FORM_CONFIRMATION_BODY)
+                    return
+                if isinstance(receipt, Mapping) and receipt.get("status") == "confirmation_requested":
+                    if receipt.get("confirmation_thread_id") == intent["thread_id"]:
+                        self._send_reply_once(intent["thread_id"], self.FORM_CONFIRMATION_BODY)
                     return
             self._submit_google_form(payload)
             self._send_reply_once(intent["thread_id"], _text(payload.get("completion_body")))
@@ -595,7 +599,7 @@ class CrowdWorksReplyAdapter:
                             "届いていな", "届いていません", "届いてません", "確認できな", "確認できません",
                             "受領していな", "受領してません", "確認していません", "未確認")):
                         return {}
-                    object_bound = "回答" in body or "フォーム" in body
+                    object_bound = "回答" in body
                     if object_bound and any(positive in body for positive in (
                             "確認しました", "確認できました", "受領しました", "届いています",
                             "回答を確認", "回答確認")):

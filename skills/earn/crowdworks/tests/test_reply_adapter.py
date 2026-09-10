@@ -458,6 +458,12 @@ def test_prepared_google_form_requests_confirmation_once_and_accepts_buyer_recei
     persisted = __import__("json").loads(receipt.read_text(encoding="utf-8"))
     assert persisted["status"] == "confirmation_requested"
     assert persisted["confirmation_thread_id"] == "thread-1"
+    sent.clear()
+    adapter.mutate(intent)
+    assert sent == [("thread-1", adapter.FORM_CONFIRMATION_BODY)]
+    sent.clear()
+    adapter.mutate({**intent, "thread_id": "thread-2"})
+    assert sent == []
 
     adapter._detail = lambda _thread: [{
         "event_id": "seller-1", "role": "seller", "body": adapter.FORM_CONFIRMATION_BODY,
@@ -495,7 +501,8 @@ def test_google_form_confirmation_rejects_unrelated_and_negated_buyer_messages(t
     }}
     prefix = [{"event_id": "seller-1", "role": "seller",
                "body": adapter.FORM_CONFIRMATION_BODY}]
-    for body in ("日程を確認しました。", "確認しましたが、回答は届いていません。"):
+    for body in ("日程を確認しました。", "フォームを確認しました。",
+                 "確認しましたが、回答は届いていません。"):
         adapter._detail = lambda _thread, body=body: prefix + [{
             "event_id": "buyer-2", "role": "buyer", "body": body,
         }]
