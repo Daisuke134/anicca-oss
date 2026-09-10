@@ -10277,3 +10277,11 @@ Connectorはscheduler、再kickstart、Calendar readback、Luma rotation、Teleg
 preflightを全PASSして対象Connectorだけを再kickstartし、`wake-ebe400fa1bc12f34635a4219`を開始した。Calendar readbackは3,892ms、Connpass候補2件はofficial tier unavailableでSubmit 0。続く別Luma rotationはinventory `20/6/4/1/0`で、唯一のfree/open候補が既存Calendarと衝突したため、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、bundleは0。wakeは後続providerを実行中である。
 
 CG-44の未完理由は継続してCalendar-freeなLuma candidate不在である。探索・rotation・schedulerは動作しているため、固定順を変えず次のsliceへ継続する。
+
+### O1B-25進捗549（Luma inventory一巡後の自然候補待ち）
+
+`wake-ebe400fa1bc12f34635a4219`は後続providerを完走し、KokuchProのwake-local 3候補上限で`circuit_open / kokuchpro_direct_requires_harness / consecutive failures 3`、exit 1として07:47:31 UTCに終端した。Telegram ID `73467`、reconciliation store空、target lease空、owner lockなし、launchd idleを確認した。Luma/Connpassへの不確定effectは0である。
+
+直近の異なるLuma rotationは`19/6/6/5/0`、`20/6/2/1/0`、`19/6/4/1/0`、`20/6/6/1/0`、`20/6/4/1/0`で、複数の1分rotationと30分priority slotを跨いでも全てcalendar-free 0だった。検索停止ではなく、公開inventory内のfree/open候補が既存Google Calendarと衝突していることを十分に再現した。同じinventoryへの追加manual wakeは外部成果を増やさずTelegramノイズとprovider負荷だけを増やすため、ここからは既存`StartInterval=1800`の自然wakeが新規Luma inventoryを取得する経路へ戻す。
+
+CG-44は**NOT DONE / external candidate wait**。解除条件は新しいCalendar-free Luma candidateの出現であり、その自然wakeでofficial registration/pending、Calendar exact 1、Telegram message/photo、durable bundleを閉じる。固定順は変更せず、後続TODOを前倒ししない。
