@@ -47,7 +47,7 @@ class ReplyPlanner:
                 "reason": "official_context_required",
                 "remaining_work": remaining,
             }
-        if action in {"reply", "estimate"}:
+        if action in {"reply", "estimate", "accept_contract"}:
             payload = value.get("payload")
             if not isinstance(payload, Mapping) or not payload:
                 raise ValueError("reply_payload_invalid")
@@ -97,6 +97,9 @@ class ReplyPlanner:
         latest = conversation[-1]
         if not isinstance(latest, Mapping) or latest.get("role") not in {"buyer", "seller"}:
             raise ValueError("reply_conversation_invalid")
+        required_action = context.get("required_action")
+        if isinstance(required_action, Mapping):
+            return self._structured(required_action)
         if context.get("decision_required") is not True and (
             context.get("reply_required") is False or latest["role"] != "buyer"
         ):

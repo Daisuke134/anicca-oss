@@ -66,6 +66,67 @@ def test_reply_effect_is_fenced_read_back_and_replay_zero(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_contract_acceptance_uses_same_fence_readback_and_replay_zero(tmp_path):
+    adapter = Adapter()
+    decide = lambda _context: {
+        "action": "accept_contract",
+        "payload": {"condition_id": "condition-1", "amount": "12円"},
+    }
+
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["effect"] == 1
+    assert first["readback"] == 1
+    assert adapter.effects[0]["action"] == "accept_contract"
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
+
+
+def test_decision_version_reopens_old_no_effect_state_once(tmp_path):
+    adapter = Adapter()
+    reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _context: {"action": "noop", "classification": "awaiting_buyer"},
+        state_root=tmp_path,
+    )
+    adapter.rows[0]["decision_version"] = "official-actions-v1"
+
+    result = reply_kernel.run_wake(
+        adapter=adapter,
+        decide=lambda _context: {
+            "action": "accept_contract", "payload": {"condition_id": "condition-1"}
+        },
+        state_root=tmp_path,
+    )
+
+    assert result["effect"] == 1
+    assert len(adapter.effects) == 1
+
+
+def test_contract_intent_reconciles_after_provider_event_advances(tmp_path):
+    class AcceptedThenInterrupted(Adapter):
+        def mutate(self, intent):
+            super().mutate(intent)
+            self.rows[0] = event(latest="contract-event-2")
+            raise RuntimeError("connection_lost_after_acceptance")
+
+    adapter = AcceptedThenInterrupted()
+    decide = lambda _context: {
+        "action": "accept_contract", "payload": {"condition_id": "condition-1"}
+    }
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["failed"] == 1
+    assert replay["effect"] == 0
+    assert replay["readback"] == 1
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
+
 def test_provider_source_gap_is_pending_without_model_or_effect(tmp_path):
     row = {**event(thread="source:gmail", latest="stale-1"),
            "pending_reason": "provider_source_stale"}
