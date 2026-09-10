@@ -47,13 +47,15 @@ def test_contract_acceptance_stays_in_provider_adapter():
 
 class _Locator:
     def __init__(self, *, count=1, visible=True, disabled=False, action=None, terms=None,
-                 children=None):
+                 children=None, text="", nested=None):
         self._count = count
         self._visible = visible
         self._disabled = disabled
         self._action = action
         self._terms = terms
         self._children = children or []
+        self._text = text
+        self._nested = nested
         self.clicked = 0
         self.checked = 0
 
@@ -61,17 +63,21 @@ class _Locator:
     def is_visible(self): return self._visible
     def is_disabled(self): return self._disabled
     def get_attribute(self, _name): return self._action
-    def locator(self, _selector): return self
+    def locator(self, _selector): return self._nested or self
     def nth(self, index): return self._children[index]
     def evaluate_all(self, _script): return dict(self._terms or {})
+    def inner_text(self): return self._text
     def click(self): self.clicked += 1
     def check(self): self.checked += 1
 
 
 class _Page:
-    def __init__(self, mapping): self.mapping = mapping
+    def __init__(self, mapping, title="対象案件【クラウドワークス】"):
+        self.mapping = mapping
+        self._title = title
     def locator(self, selector): return self.mapping[selector]
     def wait_for_load_state(self, *_args, **_kwargs): pass
+    def title(self): return self._title
 
 
 def _contract_adapter(*, status="proposed", amount="12円", trigger_count=1):
@@ -93,6 +99,10 @@ def _contract_adapter(*, status="proposed", amount="12円", trigger_count=1):
         'input[name="check-terms"]': checkbox,
         'input[value="同意して契約する"]': submit,
         'a[href^="/contracts/"]': _Locator(count=0),
+        'div.progress_detail': _Locator(count=1, nested=_Locator(count=0)),
+        'table.conditions.recent_condition': _Locator(
+            text="発注者 » Kaito｜AI自動化 固定報酬: 12円"
+        ),
     })
     adapter._detail = lambda _thread_id: []
     return adapter, trigger, checkbox, submit
@@ -104,6 +114,8 @@ def test_contract_action_requires_one_official_proposed_control_and_fingerprints
     assert action["action"] == "accept_contract"
     assert action["payload"]["condition_id"] == "41879089"
     assert action["payload"]["title"] == "対象案件"
+    assert action["payload"]["client"] == "発注者"
+    assert action["payload"]["worker"] == "Kaito｜AI自動化"
     assert action["payload"]["amount"] == "12円"
     assert len(action["payload"]["terms_sha256"]) == 64
 
@@ -144,13 +156,16 @@ def test_contract_mutation_checks_terms_and_submits_once():
 
 def test_contract_readback_requires_one_visible_official_contract_link():
     adapter, _, _, _ = _contract_adapter(status="contracted")
-    adapter.page.mapping['a[href^="/contracts/"]'] = _Locator(
-        count=1, children=[_Locator(action="/contracts/987654")]
+    contract_link = _Locator(action="/contracts/987654")
+    adapter.page.mapping['div.progress_detail'] = _Locator(
+        count=1, nested=_Locator(count=1, children=[contract_link])
     )
     adapter.page.mapping[
         'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
     ] = _Locator(count=0)
-    receipt = adapter.readback({"action": "accept_contract", "thread_id": "thread-1"})
+    receipt = adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                                "payload": {"title": "対象案件", "amount": "12円",
+                                            "client": "発注者", "worker": "Kaito｜AI自動化"}})
     assert receipt["verified"] is True
     assert receipt["provider_receipt_id"] == "contract:987654"
 
@@ -158,4 +173,29 @@ def test_contract_readback_requires_one_visible_official_contract_link():
     uncertain.page.mapping[
         'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
     ] = _Locator(count=0)
-    assert uncertain.readback({"action": "accept_contract", "thread_id": "thread-1"}) == {}
+    assert uncertain.readback({"action": "accept_contract", "thread_id": "thread-1",
+                               "payload": {"title": "対象案件", "amount": "12円"}}) == {}
+
+
+def test_contract_readback_ignores_page_wide_or_mismatched_contract_links():
+    adapter, _, _, _ = _contract_adapter(status="contracted")
+    adapter.page.mapping[
+        'a.intro-employer_proposed_project[href="#message-dialog-agreement"]'
+    ] = _Locator(count=0)
+    adapter.page.mapping['a[href^="/contracts/"]'] = _Locator(
+        count=1, children=[_Locator(action="/contracts/111")]
+    )
+    assert adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                             "payload": {"title": "対象案件", "amount": "12円"}}) == {}
+
+    adapter.page.mapping['div.progress_detail'] = _Locator(
+        count=1, nested=_Locator(
+            count=1, children=[_Locator(action="/contracts/987654")]
+        )
+    )
+    adapter.page.mapping['table.conditions.recent_condition'] = _Locator(
+        text="発注者 » Kaito｜AI自動化 固定報酬: 999円"
+    )
+    assert adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                             "payload": {"title": "対象案件", "amount": "12円",
+                                         "client": "発注者"}}) == {}

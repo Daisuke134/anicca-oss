@@ -225,6 +225,8 @@ class CrowdWorksReplyAdapter:
             "condition_id": match.group(1),
             "terms_sha256": hashlib.sha256(canonical.encode()).hexdigest(),
             "title": _text(terms.get("タイトル（仕事名）")),
+            "client": _text(terms.get("クライアント（発注者）")),
+            "worker": _text(terms.get("ワーカー（受注者）")),
             "amount": _text(terms.get("金額")),
         }}
 
@@ -261,13 +263,24 @@ class CrowdWorksReplyAdapter:
             current = self._contract_action(intent["thread_id"])
             if current is not None and current.get("payload") == intent.get("payload"):
                 return {"authoritative_absent": True}
-            links = self.page.locator('a[href^="/contracts/"]')
+            progress = self.page.locator("div.progress_detail")
+            if progress.count() != 1:
+                return {}
+            links = progress.locator('a[href^="/contracts/"]')
             visible = [links.nth(index) for index in range(links.count())
                        if links.nth(index).is_visible()]
             if len(visible) == 1:
                 href = str(visible[0].get_attribute("href") or "")
                 match = re.fullmatch(r"/contracts/(\d+)", href)
-                if match is not None:
+                current_terms = self.page.locator("table.conditions.recent_condition")
+                current_text = current_terms.inner_text() if current_terms.count() == 1 else ""
+                title = str(intent.get("payload", {}).get("title") or "")
+                amount = str(intent.get("payload", {}).get("amount") or "")
+                client = str(intent.get("payload", {}).get("client") or "")
+                worker = str(intent.get("payload", {}).get("worker") or "")
+                expected = [value for value in (amount, client, worker) if value]
+                if (match is not None and title and title in self.page.title()
+                        and expected and all(value in current_text for value in expected)):
                     return {"verified": True,
                             "provider_receipt_id": f"contract:{match.group(1)}",
                             "observed_at": _now()}

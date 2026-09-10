@@ -159,9 +159,11 @@ The first main-derived production wake does not mutate any contract. It ends wit
 that navigation times out, and the shared sync adapter page then cannot serve the remaining rows.
 Thread `304402038` retains a pre-effect intent for condition `41883371`; Effect thread `304340335`
 retains no intent or receipt and remains officially unaccepted. The follow-up fix makes contract
-readback navigate only the exact proposal and require one visible official `/contracts/{id}` link;
+readback navigate only the exact proposal and require one visible official `/contracts/{id}` link
+inside the current workflow status, with the exact proposal title and current condition terms matched;
 bounded page replacement retries only the failed owned tab, never the browser or GUI session.
-Focused and related source tests remain 41/41 and 295/295. Production acceptance remains open.
+Page-wide/prior contract links and mismatched current terms fail closed. Focused and related source
+tests pass 42/42 and 296/296. Production acceptance remains open.
 | Upwork | **Off; safe resume is not yet proven.** All historical Upwork labels are disabled/absent and CDP `9233` is not listening. The last official state retained 12 proposals, one active item, zero Connects/balance, zero contracts, zero offers and USD 0 earnings. The account showed Full Access but also one policy-violation/at-risk signal, identity unverified and API ineligible; therefore an invented three-hour cadence is not evidence that automation is permitted or safe. Resume only after official provider permission/scope is established. | **Off.** Inbox, message and negotiation adapters exist as code only; no active owner proves recurring official readback. | **Not implemented as an active owner.** The historical Project Catalog surface returned forbidden/zero and no current listing receipt chain is installed. | **Off.** Delivery and finance adapter code exists, but no active Paid owner or current terminal/payout chain is installed. Human-only work remains a human gate, not an autonomous success. |
 
 **Current implementable Apply acceptance step — Lancers target isolation.** The shared browser owner
