@@ -11,9 +11,12 @@ const {
 const ADDRESS = `0x${"a".repeat(40)}`;
 
 test("Cloud adapter verifies shared identity refs and emits a secret-free wake receipt", async () => {
-  const job = { ...buildAgentEconomyStartJob({
+  const canonical = buildAgentEconomyStartJob({
     tenantId: "tenant-a", citizenId: "primary", instanceId: "cloud",
-  }), available_at: "2026-09-11T00:00:00.000Z" };
+  });
+  const job = { ...canonical,
+    input_refs: Object.fromEntries(Object.entries(canonical.input_refs).reverse()),
+    available_at: "2026-09-11T00:00:00.000Z" };
   const adapter = createAgentEconomyCloudLoopAdapter({
     citizenStore: {
       async readPublic(tenantId) {

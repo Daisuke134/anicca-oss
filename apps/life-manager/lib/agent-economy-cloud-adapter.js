@@ -7,6 +7,13 @@ const {
   projectCitizenIdentity,
 } = require("../../../runtime/contracts/citizen-identity.cjs");
 
+function sameRefs(left, right) {
+  const keys = Object.keys(left || {}).sort();
+  const expectedKeys = Object.keys(right || {}).sort();
+  return keys.length === expectedKeys.length
+    && keys.every((key, index) => key === expectedKeys[index] && left[key] === right[key]);
+}
+
 function buildAgentEconomyStartJob({ tenantId, citizenId, instanceId, cycle = 0 }) {
   const identityRef = `citizen://${tenantId}/${citizenId}`;
   const instanceRef = `citizen-instance://${tenantId}/${citizenId}/${instanceId}`;
@@ -44,14 +51,14 @@ function createAgentEconomyCloudLoopAdapter(services = {}) {
         instanceId: String(job.input_refs.instance_ref || "").split("/").at(-1),
         cycle: Number(String(job.input_refs.cycle_ref || "").split("/").at(-1)),
       });
-      if (JSON.stringify(job.input_refs) !== JSON.stringify(expected.input_refs)) {
+      if (!sameRefs(job.input_refs, expected.input_refs)) {
         throw new Error("Agent Economy start reference mismatch");
       }
       const identity = projectCitizenIdentity(await services.citizenStore.readPublic(job.tenant_id));
       const refs = citizenIdentityRefs(identity);
-      if (JSON.stringify(refs) !== JSON.stringify(job.input_refs)) {
+      if (!sameRefs(refs, job.input_refs)) {
         const { cycle_ref: ignored, ...boundRefs } = job.input_refs;
-        if (JSON.stringify(refs) !== JSON.stringify(boundRefs)) {
+        if (!sameRefs(refs, boundRefs)) {
           throw new Error("Agent Economy citizen binding mismatch");
         }
       }
