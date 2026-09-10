@@ -10225,3 +10225,9 @@ provider順序は`Math.floor(nowMs / 1_800_000) % 2`で30分ごとにLuma-first�
 同じLuma-first slot内で1分rotation後の別sliceを走査するため、delivery/empty store/empty lease/owner cleanupとpreflightを再度PASSして対象Connectorだけをkickstartした。wake `wake-a2cfa91b0962cda5ea12a55a`はCalendar readback 10,938ms、Luma `20/5/5/0/0`で、期間内5件に無料受付中候補が無くLuma Submit 0。Connpass `290/290/290/252/19`の候補もofficial tier unavailableでSubmit 0、後続providerへ継続し、最後のdiscovery 176,731ms後に`circuit_open / wake_deadline`、consecutive failures 0、Telegram ID `73183`で終了した。終了後はいずれもreconciliation store空、target lease空、owner lockなし、loaded-idleである。
 
 これにより30分交互priorityと1分slice rotationが本番で別Luma inventoryを処理することは確認したが、2 sliceとも実登録可能かつCalendar-freeな候補が存在せず、新規Luma registered/pending、Calendar、Telegram photo、bundleは0だった。CG-44は**NOT DONE**のまま次のLuma-first自然slotへ継続する。ConnectorはConnpass live chainを含め実用稼働中であり、候補不在を故障や登録成功に誤分類しない。
+
+### O1B-25進捗542（Luma-first 3つ目slice / 候補不成立）
+
+14:27 JST時点でepoch slot parity 0、Luma-first、owner idle、preflight PASSを確認し、14:30のConnpass-first切替前に対象Connectorだけをkickstartした。wake `wake-5a2c80946eac20e19f4cd572`はCalendar readbackを49,612msで成功し、前2回と異なるLuma slice `20/6/6/0/0`を処理した。期間内6件に無料受付中候補が無く、Luma Submit、official registered/pending、Calendar write、Telegram event/photo、bundleはすべて0だった。
+
+後続Connpassは`290/290/290/252/19`、2候補はいずれもofficial tier unavailableとしてSubmit 0。Peatix/Meetupはfail closed、後続provider inventory `228/7/2/1/1`まで継続したが、最後のdiscoveryが314,502msを要しterminalは`circuit_open / wake_deadline`、consecutive failures 0、Telegram ID `73205`。終了後はreconciliation store空、target lease空、owner lockなし、loaded-idleである。14:00 Luma-first slotで合計3つの別sliceを走査したがlive bundle候補は成立せず、CG-44は**NOT DONE**のまま次のLuma-first slotへ継続する。
