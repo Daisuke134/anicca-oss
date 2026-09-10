@@ -358,6 +358,7 @@ process.on('SIGTERM', async () => {
 // ── Wake loop ─────────────────────────────────────────────────────────────────
 
 process.stderr.write(`[loop] Starting Anicca loop. ANICCA_HOME=${ANICCA_HOME}\n`);
+const singleWake = process.env.ANICCA_SINGLE_WAKE === '1';
 
 while (!shuttingDown) {
   await runOneWake();
@@ -392,6 +393,7 @@ while (!shuttingDown) {
   } catch (err) {
     process.stderr.write(`[loop] ledger-publish cycle threw unexpectedly (should be impossible): ${err.message}\n`);
   }
+  if (singleWake) break;
 }
 
 // ── Single wake ───────────────────────────────────────────────────────────────
@@ -1153,6 +1155,7 @@ async function safeAppend(ledgerPath, line) {
 }
 
 function sleepSecs(s) {
+  if (singleWake) return Promise.resolve();
   const ms = Math.max(0, Math.floor(Number(s) * 1000));
   return new Promise(r => setTimeout(r, ms));
 }

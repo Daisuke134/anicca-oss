@@ -63,6 +63,7 @@ async function executeCapabilityJob(job, services) {
     handlers = {},
     heartbeatJob,
     completeJob,
+    completeJobAndEnqueue,
     failJob,
     storeOptions,
     leaseSeconds = 300,
@@ -162,15 +163,39 @@ async function executeCapabilityJob(job, services) {
     return;
   }
   if (execution.receipt.status === "blocked") return;
-  await completeJob({
-    ...identity,
-    receipt: execution.receipt,
-  }, storeOptions);
+  if (execution.continuation) {
+    if (typeof completeJobAndEnqueue !== "function") throw new Error("runtime continuation store unavailable");
+    await completeJobAndEnqueue({ ...identity, receipt: execution.receipt,
+      nextJob: execution.continuation.job, availableAt: execution.continuation.availableAt }, storeOptions);
+  } else {
+    await completeJob({ ...identity, receipt: execution.receipt }, storeOptions);
+  }
 }
 
 function createWorkerHandlers(env, capabilities, dependencies = {}) {
   const handlers = {};
   const servicesByAdapter = {};
+  if (capabilities.includes("agent-economy.start")) {
+    if (typeof dependencies.query !== "function") {
+      throw new Error("Agent Economy Cloud citizen store unavailable");
+    }
+    const { createCloudCitizenStore } = require("../lib/cloud-citizen-store.js");
+    const createWakeRunner = dependencies.createAgentEconomyCloudWakeRunner
+      || require("../lib/agent-economy-cloud-wake.js").createAgentEconomyCloudWakeRunner;
+    const citizenStore = createCloudCitizenStore({
+      query: dependencies.query,
+      encryptionKey: requiredEnv(env, "LM_CLOUD_CITIZEN_ENCRYPTION_KEY"),
+    });
+    servicesByAdapter["agent-economy-cloud"] = {
+      citizenStore,
+      runSharedWake: createWakeRunner({
+        citizenStore,
+        dataDir: requiredEnv(env, "LM_DATA_DIR"),
+        repoRoot: String(env.LM_REPO_ROOT || "").trim() || path.resolve(__dirname, "../../.."),
+      }),
+      now: dependencies.now,
+    };
+  }
   if (capabilities.includes("general-agent.work")) {
     const {
       createMoneyPrinterRuntimeStore,
@@ -599,6 +624,7 @@ async function runCapabilityWorker(env = process.env) {
     claimJobs,
     heartbeatJob,
     completeJob,
+    completeJobAndEnqueue,
     failJob,
   } = require("../lib/runtime-job-store.js");
   const connectionString = requiredEnv(env, "LM_RUNTIME_DATABASE_URL");
@@ -656,6 +682,7 @@ async function runCapabilityWorker(env = process.env) {
           handlers,
           heartbeatJob,
           completeJob,
+          completeJobAndEnqueue,
           failJob,
           storeOptions: opts,
           leaseSeconds,

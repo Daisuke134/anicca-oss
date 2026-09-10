@@ -14,6 +14,7 @@ const {
   claimJobs,
   heartbeatJob,
   completeJob,
+  completeJobAndEnqueue,
   failJob,
   resolveReconciliation,
   recordUnknownReconciliation,
@@ -348,6 +349,22 @@ test("unknown reconcile aging uses one narrow RPC with the bounded constant", as
     jobId: "job-001",
     attempt: 1,
   }, { query: async () => ({ rows: [] }) }), /lost job/i);
+});
+
+test("money completion and its continuation use one atomic RPC", async () => {
+  const calls = [];
+  const row = await completeJobAndEnqueue({ tenantId: "tenant-a", jobId: "job-001", attempt: 1,
+    workerId: "worker-a", receipt: { kind: "agent_economy_wake" },
+    nextJob: sampleJob({ jobId: "job-002", tenantId: "tenant-a", loopId: "agent-economy",
+      capability: "agent-economy.start", effectClass: "money", effectKey: "wake:2", maxAttempts: 1 }),
+    availableAt: "2026-09-11T00:05:00.000Z" }, { query: async (sql, params) => {
+    calls.push({ sql, params });
+    return { rows: [{ job_id: "job-001", tenant_id: "tenant-a", attempt: 1 }] };
+  } });
+  assert.equal(row.job_id, "job-001");
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].sql, /complete_lm_runtime_job_and_enqueue/);
+  assert.equal(calls[0].params[10], "tenant-a");
 });
 
 test("aging migration adds a durable unknown counter that dead-letters exhausted reconciliation", () => {
