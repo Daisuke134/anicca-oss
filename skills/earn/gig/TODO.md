@@ -29,52 +29,100 @@ owners keep acquiring, serving and completing paid work. Coconala, Lancers, Crow
 later marketplace reuse the same deterministic lifecycle. A new provider adds only its authenticated
 inventory, identity vocabulary, selectors, mutations and official readback; it does not copy a lane.
 
-The target ownership tree is below. Names under `paid/` describe responsibilities, not a requirement
-to create every file before the second provider proves the split. Reuse the existing shared
-`contracts.py`, `ledger.py`, agent runner and `runtime/loop` primitives wherever they already satisfy
-the contract.
+The target ownership tree is below. It is a responsibility map, not a command to create empty files.
+Reuse the existing `contracts.py`, `ledger.py`, browser/session owner, agent runner and `runtime/loop`
+primitives wherever they already satisfy the contract. A provider never receives a copied lane.
 
 ```text
 skills/
 ├── _shared/marketplace-core/
 │   ├── scripts/
-│   │   ├── paid/
-│   │   │   ├── kernel.py          # one bounded observe -> decide -> act -> verify -> persist wake
-│   │   │   ├── contracts.py       # WorkItem, BuyerEvent, Intent, Effect, Receipt, MoneyReceipt
-│   │   │   ├── owner.py           # durable lifecycle and independent per-order ownership
-│   │   │   ├── context.py         # cumulative brief, messages and attachments for the model
-│   │   │   ├── planner.py         # website-neutral model/tool loop; no category keyword routing
-│   │   │   ├── reviewer.py        # fresh review of exact artifact/message against current contract
-│   │   │   ├── workspace.py       # stable order workspace and immutable artifact hashes
-│   │   │   ├── effects.py         # compare-and-swap fence and reconcile-before-retry
-│   │   │   ├── receipts.py        # official submission/acceptance/payment evidence
-│   │   │   └── retry.py           # durable backoff, next_eligible_at and resumability
-│   │   ├── apply_kernel.py         # separately owned shared Apply lifecycle
-│   │   ├── reply_kernel.py         # separately owned shared Reply/estimate lifecycle
-│   │   ├── storefront_kernel.py    # separately owned shared offer/conversion lifecycle
-│   │   ├── ledger.py               # existing cross-lane identity and receipt ledger
-│   │   └── reporting.py            # receipt-derived operator report for every provider/lane
+│   │   ├── lifecycle.py            # observe -> decide -> intent -> act -> readback -> persist
+│   │   ├── context.py              # profile, opportunity, thread, files, contract and prior receipts
+│   │   ├── effects.py              # compare-and-swap fence and reconcile-before-retry
+│   │   ├── receipts.py             # official application/reply/contract/delivery/payment evidence
+│   │   ├── retry.py                # durable backoff, next_eligible_at and resumability
+│   │   ├── reporting.py            # one natural-language Telegram contract for every lane/provider
+│   │   ├── browser_owner.py        # persistent authenticated session and provider-scoped mutation lease
+│   │   ├── apply_kernel.py          # discover, rank, propose, submit, official application readback
+│   │   ├── reply_kernel.py          # buyer event, tool action, reply/estimate/contract transition
+│   │   ├── paid_kernel.py           # work item, artifact, review, submit, acceptance/payment readback
+│   │   └── storefront_kernel.py     # catalog, publish, improve, retire, conversion readback
 │   ├── schemas/
-│   │   ├── paid-work-item.schema.json
-│   │   ├── paid-effect.schema.json
-│   │   ├── paid-receipt.schema.json
-│   │   └── money-receipt.schema.json
+│   │   ├── provider-capability.schema.json
+│   │   ├── opportunity.schema.json
+│   │   ├── buyer-event.schema.json
+│   │   ├── work-item.schema.json
+│   │   ├── effect.schema.json
+│   │   └── receipt.schema.json
 │   └── tests/
-│       ├── test_paid_kernel.py
-│       ├── test_paid_adapter_conformance.py
-│       └── fixtures/{coconala,lancers,crowdworks,mercor,freelancer,upwork}/
+│       ├── test_lane_kernel_conformance.py
+│       ├── test_adapter_conformance.py
+│       └── fixtures/{coconala,lancers,crowdworks,mercor,freelancer,upwork,audiobabel}/
 ├── earn/marketplace-adapters/
-│   ├── coconala/paid_adapter.py
-│   ├── lancers/paid_adapter.py
-│   ├── crowdworks/paid_adapter.py
-│   ├── mercor/paid_adapter.py
-│   ├── freelancer/paid_adapter.py
-│   └── upwork/paid_adapter.py
+│   ├── coconala/{provider,apply,reply,paid,storefront}.py
+│   ├── lancers/{provider,apply,reply,paid,storefront}.py
+│   ├── crowdworks/{provider,apply,reply,paid}.py
+│   ├── mercor/{provider,apply,reply,paid}.py
+│   ├── freelancer/{provider,apply,reply,paid,storefront}.py
+│   ├── upwork/{provider,apply,reply,paid,storefront}.py
+│   └── audiobabel/{provider,apply,reply,paid}.py
+├── earn/marketplace-meta/
+│   ├── discover.py                 # model searches for new revenue platforms; no fixed site whitelist
+│   ├── qualify.py                  # market value, automation ratio, policy and expected net revenue
+│   ├── bootstrap.py                # signup/profile/session/KYC gates through existing tools
+│   ├── scaffold.py                 # generate only thin adapters from capability observations
+│   ├── accept.py                   # real official effect/readback/replay-zero before promotion
+│   └── improve.py                  # learn from receipts and improve shared policy, then re-evaluate
 ├── loop-development/SKILL.md              # build/release/ownership/acceptance SSOT
 ├── loop-engineering/references/
+│   ├── marketplace-lane-kernel.md         # four-lane shared lifecycle and adapter boundary
 │   └── marketplace-paid-lane.md           # Paid business-lifecycle recipe SSOT
 └── earn/gig/TODO.md                       # fixed execution order and measured acceptance evidence
 ```
+
+### Fixed remaining program order — current platform truth before meta-loop
+
+This list does not replace or reorder the active atomic cursor below. It is the end-to-end program
+that follows it, and its order is fixed as **Apply -> Reply -> Paid -> Storefront -> expansion ->
+meta-loop**. A lane is complete only after a natural installed-owner terminal, exact official effect
+readback, one deduplicated Telegram receipt and a following replay-zero; code presence and an empty
+inventory check are not completion.
+
+1. **Apply.** Restore continuous official applications on Coconala, Lancers and CrowdWorks; preserve
+   Mercor's working submission path but rank for truthful resume fit and expected acceptance value.
+   Activate Freelancer.com and Upwork only after official account/policy state permits it. Prove both
+   fixed-price one-off and hourly opportunities; do not reject feasible general-agent work merely
+   because no named Skill exists.
+2. **Reply.** Close every current buyer event on Coconala, Lancers and CrowdWorks through the shared
+   kernel. A reply may require tools: open an allowed scheduling link, create and read back a calendar
+   event, complete an allowed form, accept exact contract terms, or send a grounded message. Add
+   Mercor/Freelancer/Upwork adapters only against their official in-platform inbox/action surfaces;
+   email is never fabricated as a platform reply.
+3. **Paid.** Keep Coconala's accepted five-room evidence, finish the funded CrowdWorks contract and
+   its payment receipt, then prove Lancers, Mercor, Freelancer.com and Upwork with a real funded work
+   item. Human-produced audio/video/interview steps become typed Telegram handoffs; the loop continues
+   other work instead of blocking the provider queue.
+4. **Storefront.** Prove Coconala and Lancers listings continuously publish, improve and produce
+   attributable orders. Add Storefront only where the provider actually offers a seller catalog;
+   CrowdWorks and Mercor do not receive a fake lane.
+5. **Shared-kernel convergence.** Move lifecycle, context, effect fencing, retry, official readback,
+   reporting and browser/session ownership into `marketplace-core`; leave auth, provider vocabulary,
+   selectors and actual mutations in thin adapters. One shared-kernel change must pass conformance
+   fixtures for every adopted provider without copying a lane.
+6. **Next-platform expansion.** Qualify and add Freelancer.com, Upwork, AudioBabel and the next
+   evidence-backed marketplaces in expected net-revenue order. Each provider moves through
+   discover -> account/profile -> Apply -> Reply -> Paid -> optional Storefront -> bank receipt.
+7. **Marketplace meta-loop.** Let the model discover and qualify platforms, inspect official
+   surfaces, call scaffold/build/test/release tools, and promote a new adapter only after real
+   acceptance. Deterministic code owns permissions, credentials, effect fences, receipts, rollback
+   and budgets; the model owns open-ended market, fit and action judgment. It continuously repairs
+   weak existing lanes and discovers new providers rather than exhausting a hardcoded list.
+8. **General revenue meta-loop.** Generalize the same verified harness beyond contract work to new
+   businesses. Completion is Life Manager discovering, building, operating and improving a lawful
+   net-positive revenue loop with no Dais/Codex/Claude involvement except explicit identity, KYC,
+   irreversible personal spending or physically human deliverables. Revenue targets are objectives,
+   never proof; official net-cash receipts remain the proof.
 
 ### Paid sharing boundary
 
@@ -137,7 +185,7 @@ acceptance receipt changes a cell.
 |---|---|---|---|---|
 | Coconala | **Restriction cause clarified; fresh application acceptance remains open.** Provider support attributes the restriction to an earlier system cancellation caused by client non-contact, not to application cadence. Dais reports the restriction is lifted, so the disproven throttling hypothesis no longer suppresses eligible applications. Natural run `18d3e48749cf7b18-47730` passes with 57 official rows, seven already applied, 50 closed, effect/readback/failed/pending 0 and Telegram `73423`; it proves execution health but finds no open new job and therefore does not prove restored submission. The source change returns this owner from 1,800 to 300 seconds; installed-cadence readback plus a fresh proposal receipt and following replay-zero still gate completion. | **Historical acceptance retained; current owner is failing.** The last saved aggregate observes 174, reads back 159, fails 4 and keeps 11 pending; the installed owner latest terminal is fail. Restriction removal alone does not prove Reply recovery. | **Current owner is failing.** The installed owner latest terminal is fail; historical publication does not prove current Storefront health or revenue. | **Reference acceptance retained; current owner is failing.** `COCONALA-PAID-1` through `3C` prove the five-room receipt chain, formal delivery off and Ryu replay-zero, but the installed owner latest terminal is fail. The support explanation ties the restriction to the earlier missed-client/system-cancellation outcome, making current Paid health a revenue and account-safety requirement. |
 | Lancers | **Historical application receipts retained; current owner is failing on a wedged browser.** Natural release `25e45d35` reconciled project `5599521` as proposal `27907931` and project `5599537` as proposal `27907996`, both at JPY 20,000, with Telegram `71494` and `71516` once. Current wakes repeatedly fail on next project `5599538` with `browser_unavailable`: Chromium PID `82502` and its supervisor remain alive, but official CDP `9227/json/version` times out and no listener is usable. The shared browser owner waited only for process exit and never rechecked service health. PR `#4844` puts the generic CDP watchdog in main `1b06dd0f3`; 52 focused tests and fresh review pass, and sealed release `20260910T124525-1b06dd0f` contains the matching read-only source. Production is still unaccepted because activating it requires a target-only Lancers browser-owner transition, which remains prohibited by the current no-browser-restart instruction; Mac, Aqua and loginwindow are not involved. After that boundary is explicitly lifted, PASS still requires a natural application receipt and following replay-zero. | **Runtime PASS, business action incomplete.** The prior aggregate replayed seven message threads at zero duplicate effect, but the live `pyrite` thread requests booking a 30-minute preliminary meeting through its scheduling URL. The seller replied that it would book, yet no scheduling-page submission, Google Calendar event readback or buyer-visible completion receipt is recorded. Reply completion must include the requested reversible browser/calendar action, not only text. | **Current runtime passes, revenue unproven.** Installed release `75fab5a9` has a natural PASS. Catalog/public-readback changes are in main, but state preservation remains only on unmerged `fix/lancers-state-wipe-and-readback-evidence-20260908`; no attributed order or payment exists. | **Current runtime passes; no contract or revenue proof.** Main release `d4022758` removes the accidental Apply proposal-pipeline dependency from Paid while retaining the shared Paid kernel. Its natural terminal at `2026-09-09T15:21:31Z` is PASS with official aggregate observed/actionable/effect/readback/failed/pending all `0`; authenticated contract inventory and finance readback are complete, with zero contract candidates, zero payment history and JPY 0. A real funded contract is still required for delivery, acceptance, payment and replay-zero proof. |
-| CrowdWorks | **Historical fixed-price/hourly effects are real; current continuous acceptance is open.** Natural release `eee05950` retained fixed-price proposal `305126036` and verified hourly proposals `305130945`, `305132604` and `305134017`. Later release `869476b4` verified proposals `305351407` and `305352578`, but its latest terminal is `entrypoint_exit_1` with `account_ensure_failed`. Read-only status still proves `authenticated=true`; Apply, Reply and Paid instead overlap on the same CDP `:9228`, with observed EPIPE/timeouts. Branch `fix/crowdworks-provider-browser-lock-20260911` connects all three entrypoints to one crash-safe provider browser lock; 48 focused tests pass. Completion requires main integration, target-only immutable release, a natural Apply PASS/effect with official receipt, and following replay-zero. Fixed-price/one-off work remains eligible; hourly support extends rather than replaces it. | **Working, including contract transition.** Installed/event release `10cc2e01` ended consecutive natural PASS terminals at `2026-09-10T07:23:19Z` and `07:24:53Z`, both with observed/readback 23, failed/pending/effect 0. Exact message redirects verify Effect contract `63570481` and JPY 110 contract `63568785`; Telegram receipts `73406` and `73407` remain delivered once. Shared Reply owns intent/readback/replay-zero; only terms and provider mutation remain in the thin adapter. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Runtime PASS but business lane incomplete.** A fresh natural terminal at `2026-09-10T07:25:47Z` still reports observed 0 and durable pending `official_contract_detail_required`. Paid does not yet ingest the two official contracts. It must normalize `63570481` as work-startable and `63568785` as escrow-waiting, then own delivery/payment without working before escrow. |
+| CrowdWorks | **Historical fixed-price/hourly effects are real; current continuous acceptance is open.** Natural release `eee05950` retained fixed-price proposal `305126036` and verified hourly proposals `305130945`, `305132604` and `305134017`. Later release `869476b4` verified proposals `305351407` and `305352578`, but also ended intermittent `account_ensure_failed`. Read-only status proves `authenticated=true`; Apply, Reply and Paid instead overlap on the same CDP `:9228`, with observed EPIPE/timeouts. PR `#4995`, merged as main SHA `e75174ee6`, connects all three entrypoints to one crash-safe provider browser lock; lock behavior, clean-install regression and all CrowdWorks tests pass. The first sparse production release omitted `skills/gig-work/profile`, so its natural wake failed before provider mutation with `commercial_profile_invalid` and effect zero. The automatic dependency-complete main release is still building. Completion requires installing that full release on Apply, a natural PASS/effect with official receipt, and following replay-zero. Fixed-price/one-off work remains eligible; hourly support extends rather than replaces it. | **Working, including contract transition.** Installed/event release `10cc2e01` ended consecutive natural PASS terminals at `2026-09-10T07:23:19Z` and `07:24:53Z`, both with observed/readback 23, failed/pending/effect 0. Exact message redirects verify Effect contract `63570481` and JPY 110 contract `63568785`; Telegram receipts `73406` and `73407` remain delivered once. Shared Reply owns intent/readback/replay-zero; only terms and provider mutation remain in the thin adapter. | **Not implemented.** The storefront owner remains disabled, so there is no listing, inquiry, order or revenue receipt chain. | **Runtime PASS but business lane incomplete.** A fresh natural terminal at `2026-09-10T07:25:47Z` still reports observed 0 and durable pending `official_contract_detail_required`. Paid does not yet ingest the two official contracts. It must normalize `63570481` as work-startable and `63568785` as escrow-waiting, then own delivery/payment without working before escrow. |
 | Mercor | **Submitting, but acceptance-fit policy remains incomplete.** Installed/event release `464216b4` proved ranking, official submission/readback, Telegram-once and replay-zero. The newest verified submission is `Expert Senior SWE` at `2026-09-10T07:51:33+09:00` (not 10:49), listing `list_AAABl9JyG7KVgJVmjv9Dioxa`, with official `2 of 2 steps done`/`100%`/submitted readback and Telegram `72299`. Its AI-agent/Agentforce/Databricks evidence overlaps the verified resume, but its US/Europe location and 10+ years at top US technology companies are strong contradictions. The shared `apply_policy.py` was used; its remaining defect is that weak fit is only ranked later and strong contradictory requirements do not sufficiently lower expected acceptance value. Raw application count is therefore working, but money-maximizing fit is not complete. | **Working.** Installed release `20198997` ended consecutive natural terminals at `2026-09-08T19:49:13Z` and `19:58:31Z` with `observed=78`, `actionable=1`, `effect=0`, `readback=77`, `failed=0`, `pending=1`. Official auth is authenticated; the one actionable human handoff read back existing Telegram receipt `70005` with `attempted=0`, and the outbox remains exactly three delivered rows with attempt count one. | **Not applicable today.** No seller storefront workflow is implemented or evidenced for Mercor. | **Official empty-inventory monitoring, not live-accepted.** Installed release `ec59f8f0` reuses the fresh shared Reply snapshot and its natural terminal passed with `status=ok`, `observed=0`, `failed=0`, `pending=0`; official Contracts are currently empty. No real work item, submission or payout receipt exists. |
 | Freelancer.com | **Off.** Historical bid-watch/application labels are disabled and no managed owner is active. | **Off.** No active Reply owner or official reply receipt. | **Not implemented.** No active storefront owner or official listing receipt. | **Off.** The historical work-sync label is disabled and there is no delivery/payout receipt chain. |
 
@@ -381,12 +429,16 @@ Current read-only stop-point snapshot (no repair authorized in this checkpoint):
 - CrowdWorks Apply is **not healthy**: its latest business output is `account_ensure_failed` at
   `2026-09-10T23:00:05Z`, and the owner terminal is `entrypoint_exit_1`. Earlier verified proposals
   remain real receipts, but intermittent success is not continuous acceptance.
-- Repair is now authorized and active without reordering the cursor. Runs prove cross-lane overlap:
+- Repair is active without reordering the cursor. Runs prove cross-lane overlap:
   Apply `18d4183838d949a8-37101` and Reply `18d4184519d0c178-38421` simultaneously drive the same
   authenticated CrowdWorks CDP `:9228`; Paid also overlaps on the same resource, while logs retain
-  EPIPE and timeout failures. The minimal fix is one crash-safe provider browser lock shared by the
-  three entrypoints. Source and 48 focused tests pass; production acceptance is still unchecked until
-  the merged immutable release reaches a natural Apply terminal and official receipt/replay-zero.
+  EPIPE and timeout failures. PR `#4995` is merged to main as `e75174ee6` with one crash-safe provider
+  browser lock shared by the three entrypoints. Normal-exit/SIGKILL lock behavior, clean-install and
+  all 74 CrowdWorks tests pass. Its first sparse immutable release omitted the shared commercial
+  profile path; natural run `18d41976315394b0-65971` therefore failed before provider mutation with
+  `commercial_profile_invalid` and effect zero. The dependency-complete automatic release build is
+  still running. Production acceptance remains unchecked until that release is installed only on
+  Apply and reaches a natural official receipt plus following replay-zero.
 - CrowdWorks Reply currently reports observed `24`, readback `22`, failed `0`, pending `2`, effect
   `0`. It is live but not fully closed while the two durable pending items remain.
 - CrowdWorks Paid currently reports two official contracts: funded `63570481` and escrow-waiting
