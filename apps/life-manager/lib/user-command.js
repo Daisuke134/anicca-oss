@@ -7,6 +7,7 @@ const { normalizePhone } = require("./telegram-onboard.js");
 const BOOLEAN_SETTINGS = new Set(["call_enabled", "notifications_enabled", "daily_automation_enabled"]);
 const USER_SETTINGS = new Set(["call_language", "wake_policy"]);
 const TIME_ZONES = new Set(["Asia/Tokyo", "UTC", "Europe/London", "America/New_York", "America/Los_Angeles"]);
+const CALENDAR_OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 const AVAILABLE_ACTIONS = Object.freeze([
   "connect calendar / カレンダーをつないで",
   "disconnect calendar / カレンダーを切断",
@@ -176,7 +177,7 @@ async function executeUserCommand(scope, rawCommand, deps = {}) {
         state = resumed;
       } else {
         const bytes = (deps.randomBytes || crypto.randomBytes)(32), stateToken = bytes.toString("base64url");
-        await store.createOAuthState(scope, { stateHash: hash(stateToken), provider: "calendar", expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() });
+        await store.createOAuthState(scope, { stateHash: hash(stateToken), provider: "calendar", expiresAt: new Date(Date.now() + CALENDAR_OAUTH_STATE_TTL_MS).toISOString() });
         const oauth = await (deps.startCalendarOAuth || startCalendarOAuth)(scope, stateToken, deps);
         state = { provider: "calendar", state: "action_required", redirectUrl: oauth.redirectUrl };
       }
