@@ -376,6 +376,72 @@ class LmLoopApplyTest(unittest.TestCase):
         )
         self.assertEqual(environment["CLOAK_CONTEXT_PARK_ON_IDLE"], "1")
 
+    def test_realtime_guide_plist_projects_canonical_env(self):
+        entrypoint = "skills/anicca-life-manager/scripts/realtime_guide.py"
+        script = self.root / entrypoint
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text("#!/bin/sh\nexit 0\n")
+        script.chmod(0o755)
+        value = registry(entrypoint)
+        entry = value["loops"].pop("example")
+        entry.update({"label": "ai.anicca.realtime-guide"})
+        value["loops"]["realtime-guide"] = entry
+        environment = plistlib.loads(
+            build_apply_plan(value, self.root, SHA)[0]["plist_bytes"]
+        )["EnvironmentVariables"]
+        self.assertEqual(
+            environment["LIFE_MANAGER_ENV_FILE"],
+            str(Path.home() / ".local/state/life-manager/.env"),
+        )
+        self.assertEqual(
+            environment["LIFE_MANAGER_PYTHON"],
+            str(Path.home() / ".local/share/life-manager/venv/bin/python"),
+        )
+
+    def test_realtime_guide_apply_retires_openclaw_home_and_working_directory(self):
+        loop_id = "realtime-guide"
+        release = self._release("release-realtime-guide").resolve()
+        entrypoint = release / "skills/anicca-life-manager/scripts/realtime_guide.py"
+        entrypoint.parent.mkdir(parents=True, exist_ok=True)
+        entrypoint.write_text("#!/usr/bin/env python3\n")
+        entrypoint.chmod(0o755)
+        registry_value = registry("skills/anicca-life-manager/scripts/realtime_guide.py")
+        entry = registry_value["loops"].pop("example")
+        entry.update({"label": "ai.anicca.realtime-guide"})
+        registry_value["loops"][loop_id] = entry
+        (release / "config/loop-registry.json").write_text(json.dumps(registry_value))
+        current = self.root / "current-realtime-guide"
+        current.symlink_to(release)
+        values = self._apply_kwargs(
+            current, self.root / "apply-realtime-guide.lock",
+            [str(release / "bin/lm-loop-run"), loop_id, str(release)],
+            label="ai.anicca.realtime-guide",
+            agents_dir_name="LaunchAgents-realtime-guide",
+        )
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
+        target = values["agents_dir"] / "ai.anicca.realtime-guide.plist"
+        installed = plistlib.loads(rendered["plist_bytes"])
+        installed["EnvironmentVariables"].update({
+            "ANICCA_HOME": "/legacy/.openclaw",
+            "OPENCLAW_ENV_FILE": "/legacy/.openclaw/.env",
+            "REALTIME_GUIDE_STATE_DIR": "/legacy/.openclaw/state",
+            "REALTIME_GUIDE_OPERATOR_SETTING": "kept",
+        })
+        installed["WorkingDirectory"] = "/legacy/.openclaw"
+        target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
+
+        result = apply_live(
+            release, values["agents_dir"], values["launchctl_safe"], target=loop_id,
+            current=current, lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
+
+        self.assertTrue(result[0]["changed"])
+        result_plist = plistlib.loads(target.read_bytes())
+        environment = result_plist["EnvironmentVariables"]
+        self.assertTrue({"ANICCA_HOME", "OPENCLAW_ENV_FILE", "REALTIME_GUIDE_STATE_DIR"}.isdisjoint(environment))
+        self.assertEqual(environment["REALTIME_GUIDE_OPERATOR_SETTING"], "kept")
+        self.assertNotIn("WorkingDirectory", result_plist)
+
     def test_generic_install_does_not_secure_launchd_log_files(self):
         log_root = self.root / ".local/state/test-log-root"
         log_root.mkdir(mode=0o755, parents=True)

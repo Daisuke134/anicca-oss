@@ -59,6 +59,19 @@ class MacosLoopRegistryTest(unittest.TestCase):
         self.assertNotIn("citizens-diff-monitor", registry["loops"])
         self.assertIn("ai.anicca.citizens-diff-monitor", registry["retired_labels"])
 
+    def test_obsolete_phone_and_bridge_runtimes_are_retired(self):
+        registry = json.loads((ROOT / "config/loop-registry.json").read_text())
+        for loop_id, label in (
+            ("pipecat-phone", "ai.anicca.pipecat-phone"),
+            ("phone-conversation", "ai.anicca.phone-conversation"),
+            ("phone-tunnel", "ai.anicca.phone-tunnel"),
+            ("phone-tunnel-watcher", "ai.anicca.phone-tunnel-watcher"),
+            ("slack-bridge", "ai.anicca.slack-bridge"),
+        ):
+            with self.subTest(loop_id=loop_id):
+                self.assertNotIn(loop_id, registry["loops"])
+                self.assertIn(label, registry["retired_labels"])
+
     def test_life_manager_owned_loops_do_not_write_runtime_metadata_to_openclaw(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         loop_ids = {
@@ -615,7 +628,7 @@ class MacosLoopRegistryTest(unittest.TestCase):
         self.assertEqual(registry["loops"]["life-manager-payout"]["effect_class"], "money")
         self.assertEqual(registry["loops"]["life-manager-honne-ja"]["effect_class"], "publish")
         self.assertEqual(registry["loops"]["agentmail-replier"]["domain"], "earn")
-        self.assertEqual(registry["loops"]["phone-conversation"]["domain"], "physical")
+        self.assertIn("ai.anicca.phone-conversation", registry["retired_labels"])
         self.assertEqual(registry["loops"]["x-repost"]["label"], "ai.anicca.x-repost-pass")
         self.assertEqual(registry["loops"]["x-tweeter"]["label"], "ai.anicca.x-tweeter-pass")
         self.assertEqual(registry["loops"]["x-tweeter"]["cadence"],
