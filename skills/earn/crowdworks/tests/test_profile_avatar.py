@@ -287,3 +287,44 @@ def test_hidden_stale_occupation_checkbox_is_cleared_without_clicking() -> None:
     profile._set_checkbox(checkbox, False)
     assert checkbox.checked is False
     assert checkbox.evaluated is True
+
+
+def test_skill_readback_ignores_provider_action_column() -> None:
+    class Cell:
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+        def inner_text(self) -> str:
+            return self.value
+
+    class Cells:
+        def __init__(self, values: list[str]) -> None:
+            self.values = values
+
+        def count(self) -> int:
+            return len(self.values)
+
+        def nth(self, index: int) -> Cell:
+            return Cell(self.values[index])
+
+    class Row:
+        def locator(self, selector: str) -> Cells:
+            assert selector == "td"
+            return Cells(["Python", "4:上級", "1〜3年", "業務自動化", "編集 削除"])
+
+    class Rows:
+        def count(self) -> int:
+            return 1
+
+        def nth(self, index: int) -> Row:
+            assert index == 0
+            return Row()
+
+    class Page:
+        def locator(self, selector: str) -> Rows:
+            assert selector == 'tr[id^="user_skills_"]'
+            return Rows()
+
+    assert profile._public_skills(Page()) == [
+        {"name": "Python", "level": "4:上級", "years": "1〜3年", "note": "業務自動化"}
+    ]
