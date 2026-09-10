@@ -216,3 +216,56 @@ def test_skill_alignment_includes_public_level_years_and_note() -> None:
 
     components["skills"]["hash"] = profile._hash("Python|4|1〜3年|別の備考")
     assert profile._profile_aligned(components, config) is False
+
+
+def test_commercial_profile_rejects_year_band_the_provider_cannot_project(tmp_path: Path) -> None:
+    value = json.loads(profile.DEFAULT_COMMERCIAL_PROFILE_PATH.read_text(encoding="utf-8"))
+    value["skills"][0]["years"] = 4
+    path = tmp_path / "commercial.json"
+    path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+
+    try:
+        profile._load_commercial(path)
+    except profile.ProfileError as error:
+        assert error.code == "commercial_profile_invalid"
+    else:
+        raise AssertionError("unsupported year band was accepted")
+
+
+def test_stale_same_name_skill_is_deleted_before_exact_rebuild() -> None:
+    class Locator:
+        def __init__(self, page: "Page", kind: str) -> None:
+            self.page = page
+            self.kind = kind
+            self.first = self
+
+        def count(self) -> int:
+            return self.page.rows if self.kind == "rows" else 1
+
+        def locator(self, selector: str) -> "Locator":
+            assert selector == 'a[data-method="delete"]'
+            return Locator(self.page, "delete")
+
+        def click(self) -> None:
+            self.page.rows -= 1
+
+    class Page:
+        rows = 1
+        url = profile.SKILLS_URL
+
+        def locator(self, selector: str) -> Locator:
+            assert selector in {'tr[id^="user_skills_"]', "body"}
+            return Locator(self, "rows" if selector.startswith("tr") else "body")
+
+        def once(self, event: str, callback: object) -> None:
+            assert event == "dialog"
+
+        def wait_for_load_state(self, **_kwargs: object) -> None:
+            return None
+
+        def goto(self, url: str) -> None:
+            self.url = url
+
+    page = Page()
+    profile._delete_all_skills(page)
+    assert page.rows == 0

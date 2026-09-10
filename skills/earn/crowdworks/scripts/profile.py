@@ -39,7 +39,7 @@ def validate_config(value:Any)->dict[str,Any]:
 def _commercial_skill(item:Any)->dict[str,Any]:
     if not isinstance(item,Mapping) or set(item)!=_COMMERCIAL_SKILL_KEYS: _fail("commercial_profile_invalid")
     value={"name":_text(item["name"],120),"level":_text(item["level"],32),"years":item["years"],"note":_text(item["note_ja"],1000)}
-    return value if type(value["years"])is int and 0<=value["years"]<=80 else _fail("commercial_profile_invalid")
+    return value if type(value["years"])is int and value["years"] in {3,5} else _fail("commercial_profile_invalid")
 def _load_commercial(path:Path|str)->dict[str,Any]:
     try:
         candidate=Path(path); info=candidate.lstat()
@@ -175,6 +175,19 @@ def _skill_names(page:Any)->list[str]:
         rows=page.locator('tr[id^="user_skills_"]'); names=[rows.nth(i).locator("td").first.inner_text().strip() for i in range(rows.count())]
     except Exception: _fail("skill_readback_failed")
     return [name for name in names if name]
+def _delete_all_skills(page:Any)->None:
+    while True:
+        rows=page.locator('tr[id^="user_skills_"]')
+        count=rows.count()
+        if count==0:return
+        row=rows.first; target=row.locator('a[data-method="delete"]')
+        if target.count()!=1:_fail("skill_delete_invalid")
+        try:
+            page.once("dialog",lambda dialog:dialog.accept())
+            target.click(); page.wait_for_load_state(state="domcontentloaded",timeout=10_000)
+        except Exception:_fail("skill_delete_failed")
+        _goto(page,SKILLS_URL,"/user_skills")
+        if page.locator('tr[id^="user_skills_"]').count()>=count:_fail("skill_delete_readback_failed")
 def _skill_name(page:Any,name:str)->None:
     _fill(page,'input[name="user_skill[name]"]',name); page.wait_for_timeout(800); items=page.locator("li.ui-menu-item:visible")
     matches=[items.nth(index) for index in range(items.count()) if items.nth(index).inner_text().strip()==name]
@@ -205,7 +218,11 @@ def _apply_page(page:Any,config:Mapping[str,Any],now:Any)->dict[str,Any]:
     if not target.is_checked(): target.check()
     _value(page,'select[name="employee[status]"]',config["status"]); _value(page,'select[name="employee[hours_limit]"]',config["hours_limit"]); _fill(page,'input[name="employee[min_hourly_wage]"]',config["min_hourly_wage"]); _fill(page,'input[name="employee[max_hourly_wage]"]',config["max_hourly_wage"]); _one(page,f'input[name="employee[web_meeting]"][value="{config["web_meeting"]}"]',"profile_field_invalid").check(); _fill(page,'textarea[name="employee[introduction]"]',config["introduction"]); _categories(page,config["job_categories"]); _form(page,"/employee","ワーカー情報を更新する" if urlsplit(page.url).path=="/employee/edit" else "ワーカー情報を登録する").click(); _goto(page,EMPLOYEE_URL,"/employee/new")
     if _field(page,'textarea[name="employee[introduction]"]',True)!=config["introduction"] or _selected_label(page,'select[name="occupation[]"]')!=config["occupation"] or _occupation_details(page)!=[detail]: _fail("profile_readback_failed")
-    _goto(page,SKILLS_URL,"/user_skills"); existing=_skill_names(page)
+    _goto(page,SKILLS_URL,"/user_skills")
+    current=_public_skills(page)
+    if _skills_value(current,public=True)!=_skills_value(config["skills"]):
+        _delete_all_skills(page)
+    existing=_skill_names(page)
     for skill in config["skills"]:
         name=skill["name"]
         if existing.count(name)>1: _fail("skill_duplicate")
