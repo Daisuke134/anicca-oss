@@ -578,6 +578,8 @@ class MacosLoopRegistryTest(unittest.TestCase):
         row = registry["loops"]["clip-loop"]
         self.assertEqual(row["adapter"], "python")
         self.assertEqual(row["command"], ["clip"])
+        self.assertEqual(row["state_root"], "~/.local/state/life-manager/clip-loop")
+        self.assertEqual(row["log_root"], "~/.local/state/life-manager/clip-loop/logs")
         self.assertEqual(
             row["entrypoint"],
             "skills/earn/marketing-engine/report/scheduled_runner.py",
