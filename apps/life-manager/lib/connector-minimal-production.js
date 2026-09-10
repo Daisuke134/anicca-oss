@@ -64,7 +64,7 @@ const CONNECTOR_CDP_CONNECT_TIMEOUT_MS = 120_000;
 const PROVIDER_RANK_MAX_DATES = 12;
 const PROVIDER_RANK_MAX_CANDIDATES = 12;
 const PROVIDER_RANK_ROTATION_MS = 60_000;
-const CONNPASS_DURABLE_RECONCILE_LIMIT = 3;
+const DURABLE_RECONCILE_LIMIT = 3;
 
 function invalid() {
   throw new Error("Connector minimal production unavailable");
@@ -381,9 +381,12 @@ function createProductionProviderRouter(options = {}) {
     });
   }
 
-  function rememberConnpass(result, route) {
+  function rememberPotentialEffect(result, route) {
     const remember = (value) => {
-      if (route.input.provider === "connpass" && value && value.status === "completed") {
+      if (value && (
+        (route.input.provider === "connpass" && value.status === "completed")
+        || value.safe_reason === "effect_unknown"
+      )) {
         reconciliationStore.save(route.input.candidate, exactNow(now()).toISOString());
       }
       return value;
@@ -397,12 +400,12 @@ function createProductionProviderRouter(options = {}) {
       const discovered = route.workflow.discoverCandidates({ page, calendar });
       return (async () => {
         const discoveredCandidates = await discovered;
-        const pendingReconciliation = provider === "connpass" ? reconciliationStore.list(provider) : [];
+        const pendingReconciliation = reconciliationStore.list(provider);
         const queueOffset = pendingReconciliation.length === 0 ? 0
           : Math.floor(exactNow(now()).getTime() / 1_800_000) % pendingReconciliation.length;
         const rotatedReconciliation = Object.freeze([
           ...pendingReconciliation.slice(queueOffset), ...pendingReconciliation.slice(0, queueOffset),
-        ].slice(0, CONNPASS_DURABLE_RECONCILE_LIMIT));
+        ].slice(0, DURABLE_RECONCILE_LIMIT));
         const queued = rotatedReconciliation.map((candidate) => Object.freeze({
           ...candidate,
           registration_status: "registered",
@@ -470,7 +473,7 @@ function createProductionProviderRouter(options = {}) {
       if (route.input.provider === "connpass" && !connpassAutomatedSubmitAllowed) {
         return Object.freeze({ status: "failed", safe_reason: "connpass_action_permission_required" });
       }
-      return rememberConnpass(actionCache.replay({
+      return rememberPotentialEffect(actionCache.replay({
         provider: route.input.provider,
         workflowVersion: route.workflowVersion,
         pageState: LUMA_PAGE_STATE,
@@ -489,7 +492,7 @@ function createProductionProviderRouter(options = {}) {
       if (route.input.provider === "connpass" && !connpassAutomatedSubmitAllowed) {
         return Object.freeze({ status: "failed", safe_reason: "connpass_action_permission_required" });
       }
-      return rememberConnpass(route.workflow.runDirectAction({ page: route.input.page, candidate: route.input.candidate }), route);
+      return rememberPotentialEffect(route.workflow.runDirectAction({ page: route.input.page, candidate: route.input.candidate }), route);
     },
 
     runAgentFallback(input) {
@@ -500,7 +503,7 @@ function createProductionProviderRouter(options = {}) {
       if (!Number.isInteger(route.input.maxSteps) || route.input.maxSteps < 1) invalid();
       const maxSteps = route.input.provider === "techplay"
         ? route.input.maxSteps : Math.min(route.input.maxSteps, 10);
-      return rememberConnpass(browserHarness.runFallback({
+      return rememberPotentialEffect(browserHarness.runFallback({
         provider: route.input.provider,
         candidate: route.input.candidate,
         page: route.input.page,
@@ -514,7 +517,7 @@ function createProductionProviderRouter(options = {}) {
       const route = selected(input);
       const result = route.workflow.readProviderState({ page: route.input.page, candidate: route.input.candidate });
       const settle = (value) => {
-        if (route.input.provider === "connpass" && route.input.candidate.reconciliation_only === true
+        if (route.input.candidate.reconciliation_only === true
           && value && value.status === "absent") {
           reconciliationStore.remove(route.input.provider, route.input.candidate.event_ref);
         }
