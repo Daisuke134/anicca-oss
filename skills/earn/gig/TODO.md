@@ -2655,7 +2655,7 @@ from the chat, and two of them contradict what this cursor had previously report
     natural wake proved zero profile/avatar/application effects, substeps (5) and (6) are complete.
     Advance to `APPLY-ACCEPTANCE-ALL-1`; do not reopen profile parity without new official drift.
 
-30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
+30b. [x] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
     another mutation; CrowdWorks must retain today's verified proposal IDs while closing
@@ -2682,7 +2682,10 @@ from the chat, and two of them contradict what this cursor had previously report
     durable quarantined uncertain claim: repeated official proposal-history readback finds no such
     proposal, so it is neither counted as revenue nor silently cleared. Lancers acceptance remains
     open only until that exact quarantine is terminally classified and the current
-    `proposal_pipeline_incomplete` diagnostic is reconciled without another duplicate mutation.
+    `proposal_pipeline_incomplete` diagnostic is carried into the next fixed-order Reply acceptance;
+    it is work-sync output, not an unverified application effect. The quarantine was reconciled
+    before the later mutation and remains replay-safe, so it is not counted as an application or a
+    reason to hold every other eligible project forever. This closes Lancers Apply acceptance.
 
     CrowdWorks acceptance is complete. The official append-only receipt store retains verified
     proposal IDs `305338764`, `305342693`, `305346397` and the newer verified application
