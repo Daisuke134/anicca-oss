@@ -15,7 +15,7 @@ Split from the `earn` skill (2026-06-21): `earn` = INFLOW (make money), `ubi` = 
 | `bank-watcher.mjs` / `bank-payout-watcher.mjs` | ③ bank-direct UBI: atomic-claim → GMO BulkTransfer → completion poll. VCSDD-converged (no double-pay / no drop). |
 | `gmo-furikomi.mjs` | GMO あおぞら 一括振込 (BulkTransfer) API request builder + submit. |
 | `fern-payout.mjs` | (Fern dead — replace with active rail.) |
-| `ubi-watcher.mjs` / `ubi-payout-watcher.mjs` / `ubi-watcher-daemon.sh` / `com.anicca.ubi-watcher.plist` | Watcher daemon that pays queued recipients. |
+| `ubi-watcher-owner` / `ubi-payout-watcher.mjs` | Finite scheduled owner that pays queued recipients using the shared Life Manager runtime. |
 | `lib/ubi.mjs` | Pure: buildRecipients / planUbi / alreadyDone. |
 | `lib/bank-fanout.mjs` / `lib/bank-recipients.mjs` | Bank fan-out planning + recipient parsing. |
 

@@ -9,9 +9,7 @@
 //   BLOCKRUN_WALLET_KEY (execute-ubi), CROSSMINT_API_KEY (email wallets),
 //   UBI_STIPEND_BASE (default 100000 = $0.10), UBI_PERTX_CAP_BASE (default = STIPEND_BASE),
 //   UBI_REALIZED_THRESHOLD_USD (default 1).
-// Usage:
-//   node ubi-payout-watcher.mjs          one pass
-//   node ubi-payout-watcher.mjs --loop   poll forever (demo mode, every 8s)
+// Usage: node ubi-payout-watcher.mjs (one finite pass; the shared scheduler owns cadence)
 //
 // #5b (Task #10): a REALIZED-SURPLUS GATE runs before every pass — this daemon previously paid a
 // flat stipend to anyone queued as long as the reserve floor held, with no link to whether Anicca is
@@ -24,7 +22,6 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import fs from 'node:fs';
 import { contribute } from '../economy/ubi/ubi.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -36,8 +33,7 @@ const REALIZED_THRESHOLD_USD = parseFloat(process.env.UBI_REALIZED_THRESHOLD_USD
 const WALLET_RE = /wallet=(0x[0-9a-fA-F]{40})/;
 const METHOD_RE = /method=(\w+)/;
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFER_LOG = join(__dirname, 'state', 'defer-log.jsonl');
-const A3CDD4_ADDR = '0xb9dd3b67921b354c656523d6851537988f31dd56'; // rotated 2026-07-07 (was 0xa3cdd4...)
+const TREASURY_ADDRESS = process.env.UBI_TREASURY_ADDRESS;
 
 // Realized profit = the SAME figure telemetry-poster.mjs already reports (revenueBySource(...).total),
 // read from the live, already-verified dashboard-sync rather than recomputing on-chain positions here
@@ -46,7 +42,7 @@ async function realizedProfitUsd() {
   try {
     const r = await fetch('https://aniccaai.com/.netlify/functions/dashboard-sync', { signal: AbortSignal.timeout(10000) });
     const j = await r.json();
-    const row = (j.leaderboard || []).find((x) => String(x.id || '').toLowerCase() === A3CDD4_ADDR);
+    const row = (j.leaderboard || []).find((x) => String(x.id || '').toLowerCase() === TREASURY_ADDRESS.toLowerCase());
     const v = row ? Number(row.monthly_revenue_usd) : 0;
     return Number.isFinite(v) ? v : 0;
   } catch {
@@ -54,15 +50,8 @@ async function realizedProfitUsd() {
   }
 }
 
-function appendDeferLog(rec) {
-  try {
-    fs.mkdirSync(dirname(DEFER_LOG), { recursive: true });
-    fs.appendFileSync(DEFER_LOG, JSON.stringify(rec) + '\n');
-  } catch { /* best effort, never blocks */ }
-}
-
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
+if (!SUPABASE_URL || !SUPABASE_KEY || !/^0x[0-9a-fA-F]{40}$/.test(TREASURY_ADDRESS || '')) {
+  console.error('missing SUPABASE credentials or valid UBI_TREASURY_ADDRESS');
   process.exit(1);
 }
 
@@ -96,7 +85,7 @@ async function crossmintEmailWallet(email) {
 
 function payWallet(to, amountBase) {
   const plan = JSON.stringify({ transfers: [{ to, amount_base: amountBase }] });
-  const out = execFileSync('python3', [join(__dirname, 'execute-ubi.py')], {
+  const out = execFileSync(process.env.LIFE_MANAGER_PYTHON || 'python3', [join(__dirname, 'execute-ubi.py')], {
     env: { ...process.env, UBI_PLAN: plan },
     encoding: 'utf8',
   });
@@ -106,14 +95,13 @@ function payWallet(to, amountBase) {
 }
 
 const RESERVE_BASE = parseInt(process.env.UBI_RESERVE_BASE || '1000000', 10); // keep $1 runway
-const ANICCA_BASE_ADDR = 'a3cdd4ec6b94f01826aaf90a6d5538a2aa8c4c21';
 const USDC_BASE_ADDR = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
 
 async function aniccaUsdcBase() {
   const r = await fetch('https://mainnet.base.org', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: USDC_BASE_ADDR, data: '0x70a08231000000000000000000000000' + ANICCA_BASE_ADDR }, 'latest'] }),
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: USDC_BASE_ADDR, data: '0x70a08231000000000000000000000000' + TREASURY_ADDRESS.slice(2) }, 'latest'] }),
   });
   const j = await r.json();
   return j.result && j.result !== '0x' ? parseInt(j.result, 16) : 0;
@@ -142,7 +130,6 @@ async function pass() {
   const realized = await realizedProfitUsd();
   const gate = contribute(realized, bal / 1e6, { contributeThresholdUsd: REALIZED_THRESHOLD_USD });
   if (gate.amount_usd <= 0) {
-    appendDeferLog({ ts: new Date().toISOString(), realized_profit_usd: realized, liquid_usd: bal / 1e6, decision: gate });
     console.log(`DEFER pass: realized=$${realized} liquid=$${(bal / 1e6).toFixed(6)} -> ${gate.reason}`);
     return { queued: 0, paid: 0, deferred: true, reason: gate.reason };
   }
@@ -198,23 +185,8 @@ async function pass() {
 }
 
 async function main() {
-  const loop = process.argv.includes('--loop');
-  if (!loop) {
-    const r = await pass();
-    console.log(`done queued=${r.queued} paid=${r.paid}`);
-    return;
-  }
-  console.log('watcher loop started (every 8s). Ctrl-C to stop.');
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    try {
-      const r = await pass();
-      if (r.paid) console.log(`[tick] paid ${r.paid}`);
-    } catch (e) {
-      console.error('[tick] err', e.message);
-    }
-    await new Promise((res) => setTimeout(res, 8000));
-  }
+  const r = await pass();
+  console.log(`done queued=${r.queued} paid=${r.paid}`);
 }
 
 main().catch((e) => {
