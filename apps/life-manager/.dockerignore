@@ -7,6 +7,9 @@ eval
 **/*.test.js
 scripts/*
 !scripts/runtime-up.js
+!scripts/install-alpaca-cli.sh
+!scripts/cloud-investment-agent-runner.js
+!scripts/investment-cutover-state.js
 !scripts/browser-auth-production-e2e.js
 !scripts/browser-auth-luma-bootstrap.js
 !scripts/browser-auth-tenant-isolation-e2e.js
