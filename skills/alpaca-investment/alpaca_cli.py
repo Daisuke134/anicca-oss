@@ -454,7 +454,12 @@ def read_live_performance_snapshot(
             raise ValueError
         by_order = {row["order_id"]: row for row in fills}
         buy_fill, sell_fill = by_order[buy_order["id"]], by_order[sell_order["id"]]
-        if buy_fill.get("side") != "buy" or sell_fill.get("side") != "sell":
+        expected_order_ids = {buy_order["id"], sell_order["id"]}
+        if (set(by_order) != expected_order_ids or buy_fill.get("side") != "buy"
+                or sell_fill.get("side") != "sell"
+                or any(row.get("activity_type") != "FILL" for row in fills)
+                or {row.get("order_id") for row in fees} != expected_order_ids
+                or any(row.get("activity_type") != "CFEE" for row in fees)):
             raise ValueError
         complete = [row for row in transfers if row.get("asset") == "USDC"
                     and row.get("direction") == "INCOMING" and row.get("status") == "COMPLETE"]
@@ -473,7 +478,8 @@ def read_live_performance_snapshot(
                        for moment in (buy_time, sell_time)]
         latest = _run(cli_path, ["data", "crypto", "latest-quotes", "--symbols", "BTC/USDC",
             "--quiet", "--jq", '.quotes["BTC/USDC"]|{t,bp,ap}'], env)
-        if not isinstance(latest, dict) or observed - parse_instant(latest["t"]) > timedelta(minutes=15):
+        latest_age = observed - parse_instant(latest["t"]) if isinstance(latest, dict) else None
+        if latest_age is None or not timedelta(0) <= latest_age <= timedelta(minutes=15):
             raise ValueError
 
         def number(value: Any) -> Decimal:
@@ -484,13 +490,20 @@ def read_live_performance_snapshot(
 
         def nearest(rows: list[dict[str, Any]], moment: datetime) -> dict[str, Any]:
             row = min(rows, key=lambda item: abs((parse_instant(item["t"]) - moment).total_seconds()))
-            if abs((parse_instant(row["t"]) - moment).total_seconds()) > 1:
+            bid, ask = number(row["bp"]), number(row["ap"])
+            if (abs((parse_instant(row["t"]) - moment).total_seconds()) > 1
+                    or bid <= 0 or ask < bid):
                 raise ValueError
             return row
 
         buy_ref, sell_ref = nearest(fill_quotes[0], buy_time), nearest(fill_quotes[1], sell_time)
         buy_qty, sell_qty = number(buy_fill["qty"]), number(sell_fill["qty"])
         buy_price, sell_price = number(buy_fill["price"]), number(sell_fill["price"])
+        if (buy_qty <= 0 or sell_qty <= 0 or buy_price <= 0 or sell_price <= 0
+                or buy_qty != number(buy_order["filled_qty"])
+                or sell_qty != number(sell_order["filled_qty"])
+                or any(number(row["qty"]) >= 0 or number(row["price"]) <= 0 for row in fees)):
+            raise ValueError
         slippage = max(Decimal("0"), buy_price - number(buy_ref["ap"])) * buy_qty
         slippage += max(Decimal("0"), number(sell_ref["bp"]) - sell_price) * sell_qty
         fee_total = sum((abs(number(row["qty"])) * number(row["price"]) for row in fees), Decimal("0"))
@@ -500,10 +513,14 @@ def read_live_performance_snapshot(
         realised_usd = realised_usdc * number(position["current_price"])
         unrealised = number(position["unrealized_pl"])
         ending_nav = number(account["cash"]) + position_value
-        if (abs(number(account["equity"]) - ending_nav) > Decimal("0.01")
+        if (transfer_amount <= 0 or transfer_usd <= 0
+                or abs(number(account["equity"]) - ending_nav) > Decimal("0.01")
                 or abs((realised_usd + unrealised) - (ending_nav - transfer_usd)) > Decimal("0.01")):
             raise ValueError
         start_quote = start_quotes[0]
+        start_quote_time = parse_instant(start_quote["t"])
+        if not start <= start_quote_time <= start + timedelta(seconds=30):
+            raise ValueError
         benchmark_start = (number(start_quote["bp"]) + number(start_quote["ap"])) / 2
         benchmark_end = (number(latest["bp"]) + number(latest["ap"])) / 2
         source_ids = [transfer["id"], buy_order["id"], sell_order["id"],
