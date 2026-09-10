@@ -396,10 +396,10 @@ Current live Apply acceptance audit:
   readback exposes attachment `59139511.jpg` as the unique `alt=userIcon` image. Its current
   `AI-BPO（AI活用の業務改善） / AI関連サービス` occupation and software /
   AI-automation / training skills already match the shared commercial positioning; the older
-  prompt-engineer screenshot is stale. Profile replay-zero and consecutive natural Apply acceptance
-  remain open; existing verified proposal effects never reopen. The first natural wake from release
-  `051d6f4a...` ended `vault_restore_failed` before avatar readback, so the current blocker is shared
-  browser-session restoration rather than the already-corrected public avatar.
+  prompt-engineer screenshot is stale. CrowdWorks profile projection and replay-zero are now
+  accepted on release `c09a26e9...`; fresh operational Apply acceptance also submitted project
+  `13444761` as official proposal `305338764` and delivered Telegram receipt `74261` once. Broader
+  consecutive Apply acceptance remains open; existing verified proposal effects never reopen.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -2474,6 +2474,24 @@ from the chat, and two of them contradict what this cursor had previously report
     readback. The earlier official avatar effect remains valid and must not be repeated. Restore the
     shared browser-session attach path without restarting the browser, then require one natural
     no-profile-mutation terminal, the same official avatar readback, and a following replay-zero.
+
+    CrowdWorks profile substep is accepted. Root-cause tracing showed the vault itself was valid and
+    browser-level CDP commands responded; an unused `chrome://newtab/` renderer alone failed every
+    `Page.*` command and made Playwright attach time out. With all four CrowdWorks owners idle, closing
+    only that provider-owned target restored attach in 1.2 seconds without restarting the browser or
+    changing cookies. The next official DOM returned the avatar as relative
+    `/attachments/59139971.jpg?...`; PR `#4931`, merge
+    `c09a26e91b3fb7c20b7c91cf43fdbccaf2e9b752`, resolves it against the official public URL before
+    applying the existing HTTPS host/path allowlist. Focused Apply tests pass `17/17`.
+
+    Immutable release `20260910T232642-c09a26e9` was installed only on the Apply owner with receipt
+    `86dd29c7fe34704edd2fab79`. Its first natural terminal passed at `2026-09-10T14:35:17Z`, recorded
+    `changed_fields=[]`, profile/avatar effects `0/0`, then submitted project `13444761` as verified
+    proposal `305338764`; the shared Telegram outbox delivered message `74261` at attempt `1`. The
+    following natural terminal passed at `2026-09-10T14:44:42Z`, retained the same official avatar
+    hash with profile/avatar effects `0/0`, ended `profile_complete_no_eligible_open_job` with
+    application effect `0`, and left the proposal receipt count at one. Continue with fixed substep
+    (3): correct only proven Coconala/Lancers profile drift.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
