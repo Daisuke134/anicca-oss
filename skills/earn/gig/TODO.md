@@ -392,10 +392,11 @@ Current live Apply acceptance audit:
   In addition to the retained earlier receipts, current official logs verify proposals `305309712`,
   `305314740`, and `305321784`. Other wakes end `account_ensure_failed`,
   `profile_navigation_failed`, or `proposal_form_changed`, so “some applications succeed” must not
-  be reported as continuous health. Fresh public profile readback also shows no avatar and labels the
-  worker as a prompt engineer. That positioning does not match the shared factual commercial persona:
-  software engineer / AI automation / training and freelance delivery. Profile conversion parity and
-  consecutive natural Apply acceptance remain open; existing verified proposal effects never reopen.
+  be reported as continuous health. Fresh public profile readback still shows the provider-default
+  avatar. Its current `AI-BPO（AI活用の業務改善） / AI関連サービス` occupation and software /
+  AI-automation / training skills already match the shared commercial positioning; the older
+  prompt-engineer screenshot is stale. Avatar projection, profile replay-zero and consecutive natural
+  Apply acceptance remain open; existing verified proposal effects never reopen.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
