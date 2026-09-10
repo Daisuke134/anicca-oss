@@ -413,3 +413,22 @@ def test_google_form_readback_resumes_message_without_resubmitting_form(tmp_path
     result = adapter.readback(intent)
     assert result["verified"] is True
     assert result["provider_receipt_id"].endswith(":message-1")
+
+
+def test_google_form_readback_proves_absence_only_before_prepared_marker(tmp_path):
+    state = tmp_path / "reply" / "state.json"
+    adapter = adapter_module.CrowdWorksReplyAdapter({}, state_path=state)
+    url_hash = "a" * 64
+    intent = {"action": "external_action", "thread_id": "thread-1", "payload": {
+        "kind": "submit_google_form", "url_sha256": url_hash,
+        "completion_body": "Googleフォームへの回答を完了しました。",
+    }}
+
+    assert adapter.readback(intent) == {"authoritative_absent": True}
+
+    receipt = adapter._form_receipt_path(url_hash)
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(__import__("json").dumps({
+        "status": "prepared", "url_sha256": url_hash,
+    }), encoding="utf-8")
+    assert adapter.readback(intent) == {}
