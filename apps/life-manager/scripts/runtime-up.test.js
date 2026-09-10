@@ -136,6 +136,10 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     "skills/earn/taskmarket/package.json",
     "skills/_shared/lib/earn-guard.mjs",
     "services/x402-endpoint/prisma/schema.prisma",
+    "services/x402-worker/package.json",
+    "skills/earn/x402-sell/package.json",
+    "runtime/compute-proxy/package-lock.json",
+    "skills/video/lm-assets/package.json",
   ]) {
     assert.equal(checkIgnored(requiredPath), false, `${requiredPath} must be in the Railway build context`);
   }
@@ -155,7 +159,7 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     "skills/report/anicca-report.sh",
     "skills/cook/run.sh",
     "skills/earn/polymarket-trade/run.sh",
-    "skills/earn/x402-sell/package.json",
+    "skills/earn/x402-sell/run.sh",
     "skills/self/spawn/run.sh",
     "skills/earn/README.md",
     "skills/earn/references/provider.md",
