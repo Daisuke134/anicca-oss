@@ -9,7 +9,8 @@ const CORE_FILES = Object.freeze([
   "allocator.py", "alpaca_cli.py", "campaign.py", "control.py", "effect_store.py",
   "live_canary.py", "live_close.py", "parity_core.py", "performance.py",
   "performance_gate.py", "position_manager.py", "repeatability.py", "reporter.py",
-  "review_status.py", "risk_day.py", "risk_policy.py", "run.py",
+  "review_status.py", "risk_day.py", "risk_policy.py", "run.py", "telegram.py",
+  "telegram_outbox.py",
 ]);
 
 function readInvestmentCoreArtifact(coreDir = CORE_DIR) {
