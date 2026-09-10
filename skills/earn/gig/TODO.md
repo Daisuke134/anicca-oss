@@ -2827,6 +2827,18 @@ from the chat, and two of them contradict what this cursor had previously report
     Production installation is still pending because another live release build owns the global
     release-cut lock; do not steal that lock or claim completion before official CrowdWorks readback.
 
+    Production recovery is now live. The first sparse release omitted the shared commercial-profile
+    path and its natural wake failed before any provider effect with `commercial_profile_invalid`;
+    the dependency-complete sparse release `8e749d386fbc1e4a263429de63fb48e64790bf1e` is installed only
+    on `crowdworks-revenue-reply` under receipt `8455dde7eae2360d556587e2`. Its natural run
+    `18d4140be0c31e68-25470` ended `pass` at `2026-09-10T21:52:54Z`, with observed `24`,
+    failed `0`, pending `2`, effect `1`, and readback `22`. Before the one buyer-visible confirmation
+    request, the shared URL receipt atomically became `confirmation_requested` and assigned sole
+    ownership to thread `304360469`; thread `304333075` produced effect zero. The form itself was not
+    re-POSTed. Telegram milestone receipt is `75019`. The atom remains open only for the buyer's
+    explicit official confirmation of answer receipt, after which the same owner sends completion
+    once and the following wake must prove replay-zero.
+
 32. [x] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
