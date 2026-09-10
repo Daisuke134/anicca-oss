@@ -358,8 +358,12 @@ class CrowdWorksReplyAdapter:
         receipt_path = self._form_receipt_path(url_sha256)
         if receipt_path.exists():
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-            if isinstance(receipt, Mapping) and receipt.get("url_sha256") == url_sha256:
+            if (isinstance(receipt, Mapping)
+                    and receipt.get("url_sha256") == url_sha256
+                    and receipt.get("confirmation_sha256")):
                 return receipt
+            if isinstance(receipt, Mapping) and receipt.get("status") == "prepared":
+                raise RuntimeError("google_form_submission_uncertain")
             raise RuntimeError("google_form_receipt_invalid")
         form = self.browser.contexts[0].new_page()
         try:
@@ -378,6 +382,10 @@ class CrowdWorksReplyAdapter:
                 if locator.count() == 1:
                     fields.append((name, str(locator.input_value())))
             fields.extend(answers)
+            self._write_json(receipt_path, {
+                "version": 1, "status": "prepared", "url_sha256": url_sha256,
+                "prepared_at": _now(),
+            })
             response = self.browser.contexts[0].request.post(
                 action, data=urlencode(fields), headers={
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -388,7 +396,7 @@ class CrowdWorksReplyAdapter:
             if response.status != 200 or not any(marker in body for marker in (
                     "回答を記録しました", "Your response has been recorded")):
                 raise RuntimeError("google_form_submission_unverified")
-            receipt = {"version": 1, "url_sha256": url_sha256,
+            receipt = {"version": 1, "status": "confirmed", "url_sha256": url_sha256,
                        "confirmation_sha256": hashlib.sha256(body.encode()).hexdigest(),
                        "observed_at": _now()}
             self._write_json(receipt_path, receipt)
@@ -541,13 +549,15 @@ class CrowdWorksReplyAdapter:
             url_sha256 = str(payload.get("url_sha256") or "")
             receipt_path = self._form_receipt_path(url_sha256)
             if not receipt_path.exists():
-                return {}
+                return {"authoritative_absent": True}
             try:
                 form_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 raise RuntimeError("google_form_receipt_invalid") from None
             if not isinstance(form_receipt, Mapping) or form_receipt.get("url_sha256") != url_sha256:
                 raise RuntimeError("google_form_receipt_invalid")
+            if form_receipt.get("status") == "prepared":
+                return {}
             body = str(payload.get("completion_body") or "")
             rows = self._detail(intent["thread_id"])
             for row in rows:
