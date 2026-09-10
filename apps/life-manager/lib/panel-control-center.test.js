@@ -173,6 +173,24 @@ test("PANEL-0 Calendar ACTIVE follows Composio status and disabled fields, not a
   assert.equal(calls.filter((call) => call.init.method === "PATCH").length, 1);
 });
 
+test("PANEL-0 expired Composio account starts a fresh auth link instead of enabling the dead session", async () => {
+  const calls = [];
+  const expired = {
+    id: "ca-expired", user_id: "u-a", toolkit: { slug: "googlecalendar" },
+    status: "EXPIRED", is_disabled: false,
+  };
+  const result = await composioCalendarStart({ uid: "u-a", chatId: "101" }, {
+    composioKey: "test-key",
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url: String(url), init });
+      return { ok: true, json: async () => ({ items: [expired] }) };
+    },
+  });
+  assert.equal(result, null, "caller must create a new hosted auth link");
+  assert.equal(calls.length, 1, "the expired account must never receive an enable PATCH");
+  assert.equal(calls[0].init.method, undefined);
+});
+
 test("PANEL-0 concurrent OAuth state claim failure blocks legacy control-center provider link", async () => {
   let providerLinks = 0;
   const store = {

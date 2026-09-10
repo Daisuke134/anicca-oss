@@ -824,6 +824,7 @@ async function composioCalendarStart(scope, opts = {}) {
   const account = accounts[0];
   if (account.status === "ACTIVE" && account.is_disabled !== true
     && (account.enabled === undefined || account.enabled === true)) return { provider: "calendar", state: "connected" };
+  if (account.is_disabled !== true && account.enabled !== false) return null;
   const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts/${encodeURIComponent(account.id)}/status`, {
     method: "PATCH",
     headers: { "x-api-key": opts.composioKey, "content-type": "application/json" },
