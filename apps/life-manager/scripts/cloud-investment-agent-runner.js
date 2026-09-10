@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const TASK_LABELS = new Set(["alpaca-allocation", "alpaca-position"]);
 
 function invalid() { throw new Error("cloud investment agent response invalid"); }
 
@@ -81,7 +82,7 @@ function args(argv) {
 async function main() {
   const parsed = args(process.argv.slice(2));
   if (parsed["task-class"] !== "diagnostic-agent" || parsed.loop !== "alpaca-investment"
-    || parsed["task-label"] !== "alpaca-allocation" || parsed["prompt-stdin"] !== true
+    || !TASK_LABELS.has(parsed["task-label"]) || parsed["prompt-stdin"] !== true
     || parsed["read-only"] !== true) invalid();
   const schema = JSON.parse(fs.readFileSync(path.resolve(parsed.schema), "utf8"));
   const chunks = [];
@@ -96,4 +97,4 @@ if (require.main === module) main().catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { runCloudAgent };
+module.exports = { TASK_LABELS, runCloudAgent };
