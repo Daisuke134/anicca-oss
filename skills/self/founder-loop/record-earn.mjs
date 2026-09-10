@@ -138,7 +138,7 @@ if (now < cursor) die("block height went backwards (fail-closed)");
 
 // FIND-702: cap the scan span so a single eth_getLogs never exceeds the provider's block-range limit (a silent
 // truncation would under-count). Advance the cursor only by what we actually scanned — the next run continues; no skip.
-const MAX_SPAN = 9000;
+const MAX_SPAN = 2000;
 const to = Math.min(now, cursor + MAX_SPAN);
 
 const earned = await externalInflow(cursor + 1, to).catch((e) => die("getLogs failed (fail-closed): " + e.message));
