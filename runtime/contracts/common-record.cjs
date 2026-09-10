@@ -5,6 +5,14 @@ const {
   projectFinancialRecord,
   financialRecordId,
 } = require("../../apps/life-manager/lib/financial-record-contract.js");
+const {
+  createCitizenIdentity,
+  projectCitizenIdentity,
+  citizenIdentityRefs,
+  assertCitizenBinding,
+  assertCitizenCollection,
+  assertSignerAddress,
+} = require("./citizen-identity.cjs");
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const EFFECT_CLASSES = new Set([
@@ -101,4 +109,6 @@ function projectReceipt(value) {
 
 module.exports = {
   projectJob, projectReceipt, projectFinancialRecord, financialRecordId,
+  createCitizenIdentity, projectCitizenIdentity, citizenIdentityRefs,
+  assertCitizenBinding, assertCitizenCollection, assertSignerAddress,
 };

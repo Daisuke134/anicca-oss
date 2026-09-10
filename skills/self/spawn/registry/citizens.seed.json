@@ -1,11 +1,1 @@
-[
-  {
-    "id": "Franklin",
-    "wallet": { "solana": true },
-    "walletAddress": { "solana": "F5SYUC4f5QULbEgSYb1DFCBfi74AnWE3ZaXAhqXwhZ5T" },
-    "fuel": { "provider": "x402" },
-    "humanDependencies": [],
-    "homeDir": "/home/life-manager/.blockrun",
-    "coLocatedWithCoordinator": true
-  }
-]
+[]
