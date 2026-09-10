@@ -66,6 +66,28 @@ const sb = (path, init = {}) =>
     },
   });
 
+async function claim(row) {
+  const response = await sb(`recipients?id=eq.${row.id}&status=eq.queued`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ status: 'processing' }),
+  });
+  if (!response.ok) throw new Error(`claim failed ${response.status}`);
+  const claimed = await response.json();
+  return Array.isArray(claimed) && claimed.length === 1;
+}
+
+async function settleClaim(id, status, notes) {
+  const response = await sb(`recipients?id=eq.${id}&status=eq.processing`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ status, notes }),
+  });
+  if (!response.ok) throw new Error(`settle failed ${response.status}`);
+  const settled = await response.json();
+  if (!Array.isArray(settled) || settled.length !== 1) throw new Error('claim ownership lost');
+}
+
 // Create (or get) a Crossmint smart wallet OWNED by an email; returns its Base address.
 async function crossmintEmailWallet(email) {
   if (!CROSSMINT_KEY) throw new Error('no CROSSMINT_API_KEY');
@@ -155,6 +177,14 @@ async function pass() {
       console.log(`SKIP duplicate ${method} ${r.email}`);
       continue;
     }
+    if (bal - payAmountBase < RESERVE_BASE) {
+      console.log(`RESERVE floor reached (bal $${bal / 1e6}); ${r.email} stays queued (their turn comes when funds grow)`);
+      break;
+    }
+    if (!(await claim(r))) {
+      console.log(`SKIP already claimed ${method} ${r.email}`);
+      continue;
+    }
     try {
       let to;
       if (method === 'wallet') {
@@ -163,21 +193,18 @@ async function pass() {
       } else {
         to = await crossmintEmailWallet(r.email); // email → their Crossmint wallet
       }
-      if (bal - payAmountBase < RESERVE_BASE) {
-        console.log(`RESERVE floor reached (bal $${bal / 1e6}); ${r.email} stays queued (their turn comes when funds grow)`);
-        break; // FIFO: leave the rest queued, pay them next cycle when topped up
-      }
       const tx = payWallet(to, payAmountBase);
       bal -= tx.amount_base;
-      await sb(`recipients?id=eq.${r.id}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({ status: 'paid', notes: `${notes};payout_addr=${to};paid_tx=${tx.tx};paid_base=${tx.amount_base}` }),
-      });
+      await settleClaim(r.id, 'paid', `${notes};payout_addr=${to};paid_tx=${tx.tx};paid_base=${tx.amount_base}`);
       paid++;
       console.log(`PAID ${method} ${r.email} -> ${to} $${tx.amount_base / 1e6} tx=${tx.tx}`);
       if (r.email) yourTurnEmail(r.email, method, tx.amount_base / 1e6);
     } catch (e) {
+      // A subprocess/network failure can be ambiguous after broadcast. Never put the row back in
+      // the queued set: a human/provider reconciliation must decide whether another send is safe.
+      try {
+        await settleClaim(r.id, 'needs_review', `${notes};payout_error=${String(e.message || e).slice(0, 120)}`);
+      } catch { /* retaining processing is also fail-closed and non-retriable */ }
       console.error(`FAIL ${method} ${r.email}: ${e.message}`);
     }
   }

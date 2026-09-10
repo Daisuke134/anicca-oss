@@ -21,10 +21,18 @@ if [ -z "${BLOCKRUN_WALLET_KEY:-}" ] && [ -x "$NODE" ]; then
   BLOCKRUN_WALLET_KEY="$("$NODE" "$REPO/skills/earn/lib/resolve-identity.mjs" evm 2>/dev/null || true)"
   export BLOCKRUN_WALLET_KEY
 fi
-if [ -z "${UBI_TREASURY_ADDRESS:-}" ] && [ -n "${BLOCKRUN_WALLET_KEY:-}" ] && [ -x "$NODE" ]; then
-  UBI_TREASURY_ADDRESS="$(ANICCA_EVM_PRIVATE_KEY="$BLOCKRUN_WALLET_KEY" "$NODE" "$REPO/skills/earn/lib/resolve-identity.mjs" evm-address 2>/dev/null || true)"
-  export UBI_TREASURY_ADDRESS
+DERIVED_TREASURY_ADDRESS=""
+if [ -n "${BLOCKRUN_WALLET_KEY:-}" ] && [ -x "$NODE" ]; then
+  DERIVED_TREASURY_ADDRESS="$(ANICCA_EVM_PRIVATE_KEY="$BLOCKRUN_WALLET_KEY" "$NODE" "$REPO/skills/earn/lib/resolve-identity.mjs" evm-address 2>/dev/null || true)"
 fi
+CONFIGURED_TREASURY_LOWER="$(printf '%s' "${UBI_TREASURY_ADDRESS:-}" | tr '[:upper:]' '[:lower:]')"
+DERIVED_TREASURY_LOWER="$(printf '%s' "$DERIVED_TREASURY_ADDRESS" | tr '[:upper:]' '[:lower:]')"
+if [ -n "${UBI_TREASURY_ADDRESS:-}" ] && [ "$CONFIGURED_TREASURY_LOWER" != "$DERIVED_TREASURY_LOWER" ]; then
+  echo "configured UBI_TREASURY_ADDRESS does not match signer" >&2
+  exit 2
+fi
+UBI_TREASURY_ADDRESS="$DERIVED_TREASURY_ADDRESS"
+export UBI_TREASURY_ADDRESS
 
 if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || \
    [ -z "${BLOCKRUN_WALLET_KEY:-}" ] || [[ ! "${UBI_TREASURY_ADDRESS:-}" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
