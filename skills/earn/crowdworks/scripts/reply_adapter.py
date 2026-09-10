@@ -230,6 +230,11 @@ class CrowdWorksReplyAdapter:
             "amount": _text(terms.get("金額")),
         }}
 
+    @staticmethod
+    def _same_contract_offer(current: Mapping[str, Any], persisted: Mapping[str, Any]) -> bool:
+        core = ("condition_id", "terms_sha256", "title", "amount")
+        return all(current.get(field) == persisted.get(field) for field in core)
+
     def mutate(self, intent: dict[str, Any]) -> None:
         if intent.get("action") == "accept_contract":
             self._detail(intent["thread_id"])
@@ -261,7 +266,9 @@ class CrowdWorksReplyAdapter:
         if intent.get("action") == "accept_contract":
             self._detail(intent["thread_id"])
             current = self._contract_action(intent["thread_id"])
-            if current is not None and current.get("payload") == intent.get("payload"):
+            persisted = intent.get("payload")
+            if (current is not None and isinstance(persisted, Mapping)
+                    and self._same_contract_offer(current["payload"], persisted)):
                 return {"authoritative_absent": True}
             progress = self.page.locator("div.progress_detail")
             if progress.count() != 1:

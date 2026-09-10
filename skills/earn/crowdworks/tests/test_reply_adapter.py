@@ -142,6 +142,17 @@ def test_contract_mutation_rejects_changed_terms_before_click():
     assert trigger.clicked == 0
 
 
+def test_pre_effect_readback_accepts_legacy_persisted_payload_shape():
+    adapter, _, _, _ = _contract_adapter()
+    current = adapter._contract_action("thread-1")["payload"]
+    legacy = {field: current[field] for field in (
+        "condition_id", "terms_sha256", "title", "amount"
+    )}
+
+    assert adapter.readback({"action": "accept_contract", "thread_id": "thread-1",
+                             "payload": legacy}) == {"authoritative_absent": True}
+
+
 def test_contract_mutation_checks_terms_and_submits_once():
     adapter, trigger, checkbox, submit = _contract_adapter()
     intent = {"action": "accept_contract", "thread_id": "thread-1",
