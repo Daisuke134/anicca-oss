@@ -770,15 +770,19 @@ function sameDisabledCalendarAccount(item, id) {
     && (item.enabled === undefined || item.enabled === false));
 }
 
+function currentCalendarAccounts(scope, items) {
+  if (items.some(item => !exactCalendarAccount(scope, item))) throw new Error("provider_ownership");
+  return items.filter(item => item.status !== "EXPIRED");
+}
+
 async function composioCalendarStatus(scope, opts = {}) {
   if (!opts.composioKey) throw new Error("provider_unavailable");
   const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts?user_ids=${encodeURIComponent(scope.uid)}&toolkit_slugs=googlecalendar`, { headers: { "x-api-key": opts.composioKey } });
   if (!response.ok) throw new Error("provider_failed");
   const body = await jsonOr(response, {});
-  const items = Array.isArray(body.items) ? body.items : [];
+  const items = currentCalendarAccounts(scope, Array.isArray(body.items) ? body.items : []);
   if (items.length > 1) throw new Error("provider_ambiguous");
   if (items.length === 0) return "MISSING";
-  if (!exactCalendarAccount(scope, items[0])) throw new Error("provider_ownership");
   return items[0].status === "ACTIVE" && items[0].is_disabled !== true
     && (items[0].enabled === undefined || items[0].enabled === true) ? "ACTIVE" : "DISABLED";
 }
@@ -789,9 +793,7 @@ async function composioCalendarAccounts(scope, opts = {}) {
   const response = await (opts.fetchImpl || fetch)(url, { headers: { "x-api-key": opts.composioKey } });
   if (!response.ok) throw new Error("provider_failed");
   const body = await jsonOr(response, {});
-  const items = Array.isArray(body.items) ? body.items : [];
-  if (items.some(item => !exactCalendarAccount(scope, item))) throw new Error("provider_ownership");
-  return items;
+  return currentCalendarAccounts(scope, Array.isArray(body.items) ? body.items : []);
 }
 
 async function composioCalendarDisconnect(scope, opts = {}) {
