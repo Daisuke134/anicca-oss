@@ -9,6 +9,8 @@ runtime/**/__tests__/**
 runtime/**/tests/**
 runtime/**/test/**
 runtime/**/*test.*
+runtime/**/test_*.*
+runtime/**/test-*.*
 runtime/**/fixtures/**
 runtime/**/state/**
 runtime/**/*.md
@@ -36,16 +38,45 @@ services/x402-endpoint/*
 !services/x402-endpoint/prisma/
 !services/x402-endpoint/prisma/**
 # The shared Agent Economy loop resolves its live tools from skills/registry.json.
-# Package runtime source, but keep tests, docs, fixtures, state, and vendored deps out.
-!skills/**
+# Include only its live tools and their shared runtime dependencies.
+!skills/*/
+!skills/self/*/
+!skills/economy/*/
+!skills/earn/*/
+!skills/registry.json
+!skills/resource-resolver/**
+!skills/x-repost/**
+!skills/report/**
+!skills/self/spawn/**
+!skills/self/spawn-child/**
+!skills/self/issue-dev/**
+!skills/self/coordinate/**
+!skills/economy/ubi/**
+!skills/economy/lending/**
+!skills/cook/**
+!skills/earn/*.sh
+!skills/earn/*.mjs
+!skills/earn/*.py
+!skills/earn/*.json
+!skills/earn/lib/**
+!skills/earn/x402-sell/**
+!skills/earn/taskmarket/**
+!skills/earn/sol-trade/**
+!skills/earn/polymarket-trade/**
+!skills/_shared/**
+!skills/ubi/**
+!skills/browser/**
 skills/**/__tests__/**
 skills/**/*test.*
+skills/**/test_*.*
+skills/**/test-*.*
 skills/**/tests/**
 skills/**/test/**
 skills/**/fixtures/**
 skills/**/state/**
 skills/**/node_modules/**
 skills/**/references/**
+skills/**/reference/**
 skills/**/runbook/**
 skills/**/draft*/**
 skills/**/*.md
@@ -56,6 +87,8 @@ skills/**/*.md
 **/*.mp4
 **/*.mov
 **/*.mp3
+**/*.aiff
+**/*.m4a
 **/*.png
 **/*.jpg
 **/*.jpeg

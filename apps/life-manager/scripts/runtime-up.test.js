@@ -111,7 +111,8 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   assert.equal(fs.existsSync(path.join(ROOT, "skills/earn/run.sh")), true);
   const buildIgnore = fs.readFileSync(path.join(ROOT, ".dockerignore"), "utf8");
   assert.match(buildIgnore, /!runtime\/\*\*/);
-  assert.match(buildIgnore, /!skills\/\*\*/);
+  assert.match(buildIgnore, /!skills\/registry\.json/);
+  assert.doesNotMatch(buildIgnore, /^!skills\/\*\*$/m);
   const ignoreProbe = fs.mkdtempSync(path.join(os.tmpdir(), "lm-worker-ignore-"));
   fs.writeFileSync(path.join(ignoreProbe, ".gitignore"), buildIgnore);
   spawnSync("git", ["init", "--quiet"], { cwd: ignoreProbe });
@@ -141,10 +142,14 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   for (const excludedPath of [
     "runtime/loop/__tests__/wake.test.mjs",
     "runtime/loop/test/wake.test.mjs",
+    "runtime/contracts/test_common_contracts.py",
+    "runtime/agentmail/test-replier.sh",
     "runtime/loop/state/probe.jsonl",
     "runtime/README.md",
     "skills/earn/lib/__tests__/net-worth.test.mjs",
     "skills/earn/test/fixture.js",
+    "skills/browser/scripts/test_session_vault.py",
+    "skills/writer-agent/reference/private.json",
     "skills/earn/README.md",
     "skills/earn/references/provider.md",
     "skills/earn/state/earn-ledger.jsonl",
