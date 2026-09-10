@@ -97,6 +97,8 @@ Telegram署名済みactorからtenant identityを確定する。Telegram profile
 
 3分以内を初回設定の目標とし、実測前に保証しない。電話なしでもtrialとTelegram通知を使える。再scan/reloadは同じtenantへ戻り、trialや接続を重複作成しない。
 
+Calendarの成功判定は、今回Telegramへ渡したComposio linkが返したexact connected-account IDに限定する。`user_id`に古いACTIVE接続があるだけではhomeへ進めない。接続後は同じIDを日常のCalendar read/writeへpinし、まず実API readbackを行う。今後7日が0件なら成功を隠さず「予定0件」と表示し、`このまま進む`と`別のGoogleアカウントをつなぐ`を同じTelegram messageに置く。別アカウント接続は新しい接続の確認後だけ切り替え、途中離脱で現在の接続を壊さない。
+
 ## 3. 日常の通知を、そのまま行動できる案内にする
 
 Cloud v1の中心は、Calendarの移動block、出発前のTelegram案内、任意の電話。価値のない定期メッセージは送らない。
