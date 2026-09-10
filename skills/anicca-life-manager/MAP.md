@@ -1,14 +1,15 @@
 # anicca-life-manager — MAP (SSOT、 毎回 search しないための記憶)
 
 > このファイル = 「誰が何を動かすか」の唯一の真実。 混乱したらまずここを読む。
-> 更新日: 2026-06-09 (lateness-guard 統合・refactor 後)
+> lateness-guard 統合・旧電話runtime退役後の現行構成。
 
 ## 結論: ライフマネージャー = この skill 1本。 重複は全部消した。
 
 ```
 あなたを呼ぶ仕組み = launchd ai.anicca.lateness-heartbeat (5分毎) ただ1つ。
   → bash anicca-life-manager/scripts/run.sh  (純シェル/Python = ゼロ円)
-  → 電話が要る時だけ sutando :3100 経由で Gemini音声 (Charon)
+  → ANICCA_PHONE_DIALOUT_URL が設定済みなら、その管理済み電話endpointを任意利用
+  → 未設定・到達不能なら電話だけskipし、Telegram/遅刻判定は継続
 ```
 
 ## トリガー一覧 (これが全部。 他に呼ぶものは無い)
@@ -45,7 +46,7 @@ anicca-life-manager/
 ## コスト構造 (token を気にする時はここ)
 
 - 5分毎の判定ループ = **全部 純 Python = ゼロ円** (LLM 呼ばない)
-- 電話が鳴る時だけ = Gemini音声 (sutando)。 ★Claude/openclaw トークンではない★
+- 電話endpointを明示設定した場合だけ = 外部音声経路を任意利用。未設定なら電話だけskip。
 - openclaw cron (agent run) は LLM を起動 = トークン課金。 だから lateness は launchd (bash直) に置いてある = 安い + openclaw が落ちても動く。
 
 ## local → cloud (同一 core、 deploy フラグで2モード)
