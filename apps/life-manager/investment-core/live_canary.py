@@ -94,7 +94,8 @@ def _write_cloud_ownership(state: Path, sealed: dict[str, str], result: dict | N
         try:
             filled = Decimal(str(result["order"]["filled_qty"]))
             owned = Decimal(str(result["position"]["qty"]))
-            if (result["position"].get("symbol") != "BTCUSD" or not filled.is_finite()
+            if (result["position"].get("symbol") not in {"BTCUSD", "BTCUSDC", "BTC/USDC"}
+                    or not filled.is_finite()
                     or not owned.is_finite() or filled <= 0 or owned <= 0 or owned > filled):
                 raise ValueError
         except (InvalidOperation, KeyError, TypeError, ValueError) as error:

@@ -118,7 +118,7 @@ class LiveCanaryTest(unittest.TestCase):
     def test_cloud_canary_has_distinct_identity_and_replays_without_a_second_submit(self):
         verified = {"status": "verified", "verified": True,
                     "order": {"id": "cloud-one", "filled_qty": "0.00002"},
-                    "position": {"symbol": "BTCUSD", "qty": "0.00001995"}}
+                    "position": {"symbol": "BTCUSDC", "qty": "0.00001995"}}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             local = effect_store.seal(root / "local.jsonl", live_canary.DECISION, live_canary.ORDER)
