@@ -34,10 +34,11 @@ test("status sums verified external net, compute, and shelter costs over the las
     ],
     corrections: [],
     computeRows: [
-      { ts: (NOW - 3 * 86400000) / 1000, cost_usd: 6 },
+      { ts: (NOW - 3 * 86400000) / 1000, cost_usd: 6, verified: true, payment_receipt_id: "compute-main" },
       { ts: (NOW - 40 * 86400000) / 1000, cost_usd: 99 },
     ],
-    shelterRows: [{ ts: NOW - 4 * 86400000, settledLeaseCostUsd: 4 }],
+    shelterRows: [{ ts: NOW - 4 * 86400000, settledLeaseCostUsd: 4,
+      proof: { verified: true, provider_receipt_id: "shelter-main" } }],
     liquidRunwayDays: 30,
     humanPaidInference30d: 0,
   });
@@ -52,7 +53,7 @@ test("status counts compute receipt cost_usdc and defaults to the Life Manager j
     nowMs: NOW,
     earnRows: [],
     corrections: [],
-    computeRows: [{ ts: (NOW - 86400000) / 1000, cost_usdc: 0.002 }],
+    computeRows: [{ ts: (NOW - 86400000) / 1000, cost_usdc: 0.002, verified: true, payment_receipt_id: "compute-1" }],
     shelterRows: [],
   });
   assert.equal(result.compute_cost_30d, 0.002);
@@ -67,6 +68,14 @@ test("status counts compute receipt cost_usdc and defaults to the Life Manager j
     },
   });
   assert.equal(overridden.computePath, "/tmp/explicit-compute.jsonl");
+});
+
+test("status excludes amount-only compute estimates and shelter bid prices", () => {
+  const result = summarizeEconomyStatus({ nowMs: NOW, earnRows: [], corrections: [],
+    computeRows: [{ ts: NOW / 1000, est_usd: 9 }, { ts: NOW / 1000, cost_usd: 8 }],
+    shelterRows: [{ ts: NOW, settledLeaseCostUsd: 7, leaseId: "bid-not-payment" }] });
+  assert.equal(result.compute_cost_30d, 0);
+  assert.equal(result.shelter_cost_30d, 0);
 });
 
 test("status-only status=0x1 rows contribute zero by default", () => {
@@ -86,7 +95,7 @@ test("status keeps graduation ineligible when runway or human-fuel evidence is m
     nowMs: NOW,
     earnRows: [{ ts: NOW / 1000, source: "gig", net_usdc: 15, external: true, tx: "0x1", status: "0x1" }],
     corrections: [],
-    computeRows: [{ ts: NOW / 1000, cost_usd: 6 }],
+    computeRows: [{ ts: NOW / 1000, cost_usd: 6, verified: true, payment_receipt_id: "compute-2" }],
     shelterRows: [{ ts: NOW, settledLeaseCostUsd: 4 }],
   });
   assert.equal(result.graduation.eligible, false);
@@ -242,8 +251,8 @@ test("status discovers compute and shelter from the shared Life Manager state", 
   await Promise.all([
     writeFile(join(state, "earn-ledger.jsonl"), ""),
     writeFile(join(state, "revenue-receipts.jsonl"), ""),
-    writeFile(ownerCompute, `${JSON.stringify({ ts: NOW / 1000, cost_usd: 6 })}\n`),
-    writeFile(ownerShelter, `${JSON.stringify({ ts: NOW, settledLeaseCostUsd: 4 })}\n`),
+    writeFile(ownerCompute, `${JSON.stringify({ ts: NOW / 1000, cost_usd: 6, verified: true, payment_receipt_id: "compute-shared" })}\n`),
+    writeFile(ownerShelter, `${JSON.stringify({ ts: NOW, settledLeaseCostUsd: 4, verified: true, provider_receipt_id: "shelter-shared" })}\n`),
   ]);
   const result = JSON.parse((await execFileAsync(process.execPath, ["skills/agent-economy/status.mjs"], {
     cwd: process.cwd(),
@@ -301,7 +310,7 @@ test("run.sh counts cost_usdc from the Life Manager compute journal by default",
     writeFile(join(state, "receipt-reconciliations.jsonl"), ""),
     writeFile(join(state, "revenue-receipts.inbox.jsonl"), ""),
     writeFile(join(state, "revenue-receipts.jsonl"), ""),
-    writeFile(instanceCompute, `${JSON.stringify({ ts: Date.now() / 1000, cost_usdc: 0.002 })}\n`),
+    writeFile(instanceCompute, `${JSON.stringify({ ts: Date.now() / 1000, cost_usdc: 0.002, verified: true, payment_receipt_id: "compute-run" })}\n`),
   ]);
   const env = { ...process.env, AGENT_ECONOMY_STATE_ROOT: state, HOME: owner };
   delete env.COMPUTE_COST_LOG;
