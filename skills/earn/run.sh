@@ -560,6 +560,10 @@ else:
     print(json.dumps({'wallet':W,'source':src,'task':(action or 'deploy')+' '+proto,'kind':'yield','deposited_usdc':float(amt),'earn_usdc':0,'cost_usdc':0,'tx':d.get('tx',''),'status':d.get('status',''),'external':False,'wake':WAKE}))
 " 2>/dev/null)
   OUT=$(record_line "$JSON")
+  LIFE_MANAGER_REPO="${ANICCA_REPO:-$HERE/../..}" \
+    LM_FINANCIAL_RECORDS_DIR="${LM_FINANCIAL_RECORDS_DIR:-${CFO_STATE_DIR:-$HOME/.local/state/life-manager/life-manager-cfo-hourly}/financial-records}" \
+    LM_CFO_SUBJECT_ID="${LM_CFO_SUBJECT_ID:-${LM_UID:-local}}" \
+    node "${ANICCA_REPO:-$HERE/../..}/apps/life-manager/scripts/record-yield-financial.js" "$RES" >/dev/null
   echo "[earn] yield $(printf '%s' "$RES" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('action') or d.get('kind'),d.get('tx','') or '')" 2>/dev/null) -> $OUT"
   exit 0
 fi

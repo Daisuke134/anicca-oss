@@ -378,8 +378,12 @@ This checklist does not reorder the established implementation sequence below. T
   cycles, and repairs a missing common record even when the legacy ledger already contains the trade. Stable trade
   timestamps make replay byte-identical. The focused parser/recorder/projection suite passes 20/20 and the shell
   entrypoint parses. Its wider integration harness stops safely because an isolated worktree deliberately lacks the
-  production state directory. Remaining inside this atom: add realized Yield and cover receipt-backed compute,
-  hosted cloud, storage, network and API costs.
+  production state directory. Yield now records only a successful full withdrawal's returned Base USDC minus its
+  known pre-withdraw cost basis: positive realized yield becomes business revenue, principal loss becomes business
+  cost, while deposits, holds, failed receipts, unknown basis and flat returns remain excluded. The legacy reinvest
+  entrypoint delegates to the same canonical `skills/earn` implementation instead of retaining a second copy. The
+  focused Yield/accounting/reinvest suite passes 27/27 and both shell entrypoints parse. Remaining inside this atom:
+  cover receipt-backed compute, hosted cloud, storage, network and API costs.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
