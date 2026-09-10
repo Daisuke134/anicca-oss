@@ -47,7 +47,7 @@ class ReplyPlanner:
                 "reason": "official_context_required",
                 "remaining_work": remaining,
             }
-        if action in {"reply", "estimate", "accept_contract"}:
+        if action in {"reply", "estimate", "accept_contract", "external_action"}:
             payload = value.get("payload")
             if not isinstance(payload, Mapping) or not payload:
                 raise ValueError("reply_payload_invalid")

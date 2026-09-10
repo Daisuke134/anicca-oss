@@ -39,6 +39,19 @@ def test_official_provider_action_precedes_message_composition():
     assert planner(value) == value["context"]["required_action"]
 
 
+def test_external_action_uses_the_same_structured_decision_contract():
+    value = row("seller", reply_required=False)
+    value["context"]["required_action"] = {
+        "action": "external_action",
+        "payload": {"kind": "schedule_meeting", "url": "https://example.com/booking"},
+    }
+    planner = planner_module.ReplyPlanner(
+        lambda _context: (_ for _ in ()).throw(AssertionError("model called"))
+    )
+
+    assert planner(value) == value["context"]["required_action"]
+
+
 def test_buyer_last_uses_model_result():
     planner = planner_module.ReplyPlanner(lambda context: context["conversation"][0]["body"])
     assert planner(row()) == {"action": "reply", "payload": {"body": "hello"}}

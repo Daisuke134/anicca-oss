@@ -167,3 +167,50 @@ def test_readback_accepts_provider_crlf_normalization(monkeypatch, tmp_path):
     })
     assert result["verified"] is True
     assert result["provider_receipt_id"] == "59145491"
+
+
+def test_booking_link_becomes_shared_external_action_even_when_seller_is_last(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    adapter.page = object()
+    adapter._boards = {
+        "9064025": (
+            {"id": "9064025", "title": "pyrite"}, {},
+            [
+                {"id": "1", "description": "日程調整をお願いします。\nhttps://yoyaku.triplek-rh.workers.dev/?lid=keiodaisuke",
+                 "send_user": {"is_client": True}},
+                {"id": "2", "description": "予約いたします。",
+                 "send_user": {"is_client": False}},
+            ],
+        )
+    }
+    monkeypatch.setattr(adapter, "_choose_booking_slot", lambda _url: {
+        "start": "2026-09-11T10:00:00+09:00", "end": "2026-09-11T10:30:00+09:00",
+    })
+
+    context = adapter.context("9064025")
+
+    assert context["decision_required"] is True
+    assert context["required_action"]["action"] == "external_action"
+    assert context["required_action"]["payload"]["kind"] == "schedule_meeting"
+
+
+def test_external_action_resumes_without_rebooking(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    slot = {"start": "2026-09-11T10:00:00+09:00", "end": "2026-09-11T10:30:00+09:00"}
+    replies = []
+    bookings = [{"slot_start": slot["start"], "slot_end": slot["end"]}]
+    monkeypatch.setattr(adapter, "_booking_snapshot", lambda _url: (bookings, []))
+    monkeypatch.setattr(adapter, "_calendar_contains", lambda _slot: True)
+    monkeypatch.setattr(adapter, "_book", lambda *_args: (_ for _ in ()).throw(AssertionError("rebooked")))
+    monkeypatch.setattr(adapter, "_reply_exists", lambda _thread, _body: replies[-1] if replies else None)
+    monkeypatch.setattr(adapter, "_post_reply", lambda _thread, _key, _body: replies.append("message-1"))
+    intent = {"action": "external_action", "thread_id": "9064025", "effect_key": "key",
+              "payload": {"url": "https://yoyaku.triplek-rh.workers.dev/?lid=keiodaisuke",
+                          "slot": slot, "completion_body": "予約しました。"}}
+
+    assert adapter.readback(intent) == {"resume_required": True}
+    adapter.mutate(intent)
+    result = adapter.readback(intent)
+
+    assert result["verified"] is True
+    assert replies == ["message-1"]

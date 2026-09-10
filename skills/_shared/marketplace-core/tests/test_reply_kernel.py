@@ -84,6 +84,43 @@ def test_contract_acceptance_uses_same_fence_readback_and_replay_zero(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_partial_external_action_resumes_only_after_authoritative_readback(tmp_path):
+    class Partial(Adapter):
+        def __init__(self):
+            super().__init__()
+            self.stage = "absent"
+
+        def mutate(self, intent):
+            self.effects.append(intent)
+            self.stage = "partial" if self.stage == "absent" else "complete"
+
+        def readback(self, _intent):
+            if self.stage == "absent":
+                return {"authoritative_absent": True}
+            if self.stage == "partial":
+                return {"resume_required": True}
+            return {"verified": True, "provider_receipt_id": "external-1",
+                    "observed_at": "2026-09-10T00:00:00Z"}
+
+    adapter = Partial()
+    decide = lambda _context: {
+        "action": "external_action",
+        "payload": {"kind": "schedule_meeting", "url": "https://example.com"},
+    }
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    final = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["pending"] == 1
+    assert first["effect"] == 1
+    assert replay["failed"] == 0
+    assert replay["readback"] == 1
+    assert replay["items"][0]["reason"] == "resumed"
+    assert final["effect"] == 0
+    assert final["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 2
+
+
 
 def test_decision_version_reopens_old_no_effect_state_once(tmp_path):
     adapter = Adapter()

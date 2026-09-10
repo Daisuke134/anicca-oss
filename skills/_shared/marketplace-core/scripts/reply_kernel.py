@@ -22,7 +22,8 @@ import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
 
-MUTATIONS = frozenset({"reply", "estimate", "accept_contract"})
+MUTATIONS = frozenset({"reply", "estimate", "accept_contract", "external_action"})
+RESUMABLE_MUTATIONS = frozenset({"accept_contract", "external_action"})
 NO_EFFECT = frozenset({"awaiting_buyer", "closed", "no_reply", "noop"})
 
 
@@ -260,7 +261,7 @@ def _run_locked(
         and prior_observation.get("latest_event_id") == row["latest_event_id"]
     )
     if isinstance(prior_intent, Mapping) and (
-        same_event or prior_intent.get("action") == "accept_contract"
+        same_event or prior_intent.get("action") in RESUMABLE_MUTATIONS
     ):
         official = adapter.readback(dict(prior_intent))
         if official.get("verified") is True:
@@ -277,8 +278,33 @@ def _run_locked(
             if notification is not None:
                 result["notification"] = notification
             return result
+        if (prior_intent.get("action") == "external_action"
+                and official.get("resume_required") is True):
+            adapter.mutate(dict(prior_intent))
+            resumed = adapter.readback(dict(prior_intent))
+            if resumed.get("verified") is not True:
+                _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                              "observation": row, "intent": prior_intent,
+                              "status": "reconcile_unknown"})
+                return {"thread_id": row["thread_id"], "status": "pending",
+                        "reason": "reconcile_unknown", "effect": 1,
+                        "readback": 0, "failed": 0}
+            receipt = _receipt(prior_intent, resumed)
+            notification = _notify_verified(
+                notify, prior_intent, receipt, state.get("notification")
+            )
+            _write(path, {"version": 1, "inventory_event_id": inventory_event_id,
+                          "observation": row, "intent": prior_intent,
+                          "receipt": receipt, "notification": notification,
+                          "status": "verified"})
+            result = {"thread_id": row["thread_id"], "status": "verified",
+                      "reason": "resumed", "effect": 1, "readback": 1,
+                      "failed": 0}
+            if notification is not None:
+                result["notification"] = notification
+            return result
         if (state.get("status") == "reconcile_unknown"
-                and prior_intent.get("action") != "accept_contract"):
+                and prior_intent.get("action") not in RESUMABLE_MUTATIONS):
             return _pending(row, "reconcile_unknown")
         if official.get("authoritative_absent") is not True:
             return _pending(row, "reconcile_unknown")
@@ -519,7 +545,8 @@ def _notifier(*, database: Path, chat_id: str, env_file: Path):
 
     def send(intent: dict[str, Any], receipt: dict[str, Any]) -> dict[str, Any]:
         provider = str(intent["provider"]).strip()
-        action = {"estimate": "見積り", "accept_contract": "契約承認"}.get(
+        action = {"estimate": "見積り", "accept_contract": "契約承認",
+                  "external_action": "依頼された外部手続き"}.get(
             intent["action"], "返信"
         )
         message = (
