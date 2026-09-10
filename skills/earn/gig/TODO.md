@@ -346,10 +346,12 @@ Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in 
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
 official contract inventories are empty. The active engineering atom is now
-`APPLY-PROFILE-PARITY-1`, because fresh official CrowdWorks evidence shows a blank avatar even while
-Apply creates proposal receipts. The earlier screenshot of `プロンプトエンジニア` is stale: current
-official public readback already shows `AI-BPO（AI活用の業務改善） / AI関連サービス`, with software,
-AI-automation and training skills. Fresh Apply operational
+`APPLY-PROFILE-PARITY-1`, because profile trust and positioning must be verified before Apply yield is
+judged. The screenshot with a blank CrowdWorks avatar predates the accepted official non-default-avatar
+readback, so that image defect is closed. The same screenshot exposes `プロンプトエンジニア` inside
+the occupation/skill view; do not dismiss that field as stale until a current official public readback
+proves it. The shared commercial source must project the truthful software-engineering, AI-automation,
+training and freelance-work positioning rather than a prompt-engineer-only identity. Fresh Apply operational
 acceptance follows that profile correction. Reply then resumes at `CROWDWORKS-REPLY-ACTION-2` and
 `MERCOR-REPLY-2`; Paid follows Reply, and Storefront follows Paid. This preserves Dais's explicit
 Apply -> Reply -> Paid -> Storefront order.
@@ -394,10 +396,11 @@ Current live Apply acceptance audit:
   `profile_navigation_failed`, or `proposal_form_changed`, so “some applications succeed” must not
   be reported as continuous health. The shared avatar was uploaded once and authenticated public
   readback exposes attachment `59139511.jpg` as the unique `alt=userIcon` image. Its current
-  `AI-BPO（AI活用の業務改善） / AI関連サービス` occupation and software /
-  AI-automation / training skills already match the shared commercial positioning; the older
-  prompt-engineer screenshot is stale. CrowdWorks profile projection and replay-zero are now
-  accepted on release `c09a26e9...`; fresh operational Apply acceptance also submitted project
+  `AI-BPO（AI活用の業務改善） / AI関連サービス` headline and software / AI-automation / training
+  skills, but the supplied occupation/skill screenshot also shows `プロンプトエンジニア`. Treat that
+  as a field-specific mismatch to reconcile against the current official page, not as proof that the
+  whole profile is aligned and not as proof that it alone caused missing contracts. CrowdWorks avatar
+  projection and replay-zero are accepted on release `c09a26e9...`; fresh operational Apply acceptance also submitted project
   `13444761` as official proposal `305338764` and delivered Telegram receipt `74261` once. Broader
   consecutive Apply acceptance remains open; existing verified proposal effects never reopen.
 
@@ -2441,8 +2444,10 @@ from the chat, and two of them contradict what this cursor had previously report
 
     Execute atomically in this fixed sub-order: (1) compare the private factual profile and shared
     commercial profile projection with official Coconala, Lancers and CrowdWorks public profiles;
-    (2) correct CrowdWorks' blank avatar; its current public occupation and positioning already match
-    the intended software-engineering / AI-automation / training profile, so do not rewrite them;
+    (2) retain CrowdWorks' now-proven non-default avatar, then reconcile every supported public
+    occupation/headline/skill field against the current official page; replace `プロンプトエンジニア`
+    only where it is still officially present and the shared factual source supports the broader
+    software-engineering / AI-automation / training / freelance-work positioning;
     (3) correct only proven
     Coconala/Lancers drift; (4) project the same source through existing Mercor, Freelancer.com and
     Upwork adapters where those accounts are active; (5) read every changed public field and avatar
@@ -2475,7 +2480,7 @@ from the chat, and two of them contradict what this cursor had previously report
     shared browser-session attach path without restarting the browser, then require one natural
     no-profile-mutation terminal, the same official avatar readback, and a following replay-zero.
 
-    CrowdWorks profile substep is accepted. Root-cause tracing showed the vault itself was valid and
+    CrowdWorks avatar substep is accepted. Root-cause tracing showed the vault itself was valid and
     browser-level CDP commands responded; an unused `chrome://newtab/` renderer alone failed every
     `Page.*` command and made Playwright attach time out. With all four CrowdWorks owners idle, closing
     only that provider-owned target restored attach in 1.2 seconds without restarting the browser or
@@ -2492,6 +2497,20 @@ from the chat, and two of them contradict what this cursor had previously report
     hash with profile/avatar effects `0/0`, ended `profile_complete_no_eligible_open_job` with
     application effect `0`, and left the proposal receipt count at one. Continue with fixed substep
     (3): correct only proven Coconala/Lancers profile drift.
+
+    Fixed substep (3) required no mutation for Coconala or Lancers. Official Coconala public service/profile readback shows
+    `Kosuke｜教育研修PPT×AI活用`, the AI-automation / education / presentation positioning, 23 total
+    sales, NDA/invoice status and current response schedule. No contradictory public profile fact was
+    observed. Official Lancers profile readback matches its repository-owned projection exactly; the
+    latest natural Storefront observations repeatedly record `profile_aligned=true`,
+    `profile_photo_aligned=true`, completion `90`, and profile effect `0`. Its remaining phone
+    verification is explicitly excluded and does not block earning. The separate Coconala Apply
+    browser currently renders `/login`; that is an Apply operational-acceptance issue, not permission
+    to rewrite a correct public profile. Before substep (4), finish the field-specific portion of
+    substep (2): officially read CrowdWorks' current occupation/headline/skills, correct only a
+    still-present `プロンプトエンジニア` mismatch from the shared factual source, read it back and prove
+    replay-zero. Then project the same source only through active Mercor, Freelancer.com and Upwork
+    accounts.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
