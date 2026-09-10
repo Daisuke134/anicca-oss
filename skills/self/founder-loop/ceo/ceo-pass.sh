@@ -12,7 +12,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "${FOUNDER_TEST:-}" = "1" ] && [ -n "${FOUNDER_DIR:-}" ]; then
   export CEO_STATE_DIR="${CEO_STATE_DIR:-$FOUNDER_DIR/state}"
 else
-  export CEO_STATE_DIR="${CEO_STATE_DIR:-$HOME/.anicca-founder/state}"
+  export CEO_STATE_DIR="${CEO_STATE_DIR:-${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/founder-loop-cadence}/state}"
 fi
 mkdir -p "$CEO_STATE_DIR"
 

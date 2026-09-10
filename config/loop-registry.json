@@ -822,9 +822,9 @@
       "effect_class": "none",
       "entrypoint": "skills/self/founder-loop/founder-loop.sh",
       "label": "ai.anicca.founder-loop-cadence",
-      "log_root": "~/.openclaw/logs",
+      "log_root": "~/.local/state/life-manager/founder-loop-cadence/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.openclaw"
+      "state_root": "~/.local/state/life-manager/founder-loop-cadence"
     },
     "franklin-loop": {
       "cadence": {

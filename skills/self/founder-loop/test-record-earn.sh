@@ -18,13 +18,15 @@ mkdir_dir(){ local d; d="$(mktemp -d)"; mkdir -p "$d/state"; printf '{"address":
 # ---------- STATIC ----------
 src="$(cat "$M")"
 src_code="$(sed 's|//.*||' "$M")"   # FIND-703: strip line comments so a comment's "TEST &&"/"TEST ?" cannot false-pass the seam gate
-for seam in FOUNDER_DIR FOUNDER_WALLET FOUNDER_LEDGER FOUNDER_CURSOR FOUNDER_BLOCK_NOW FOUNDER_LOGS_JSON FOUNDER_RAW_LOGS_JSON BASE_RPC_URL HOME; do
+for seam in FOUNDER_WALLET FOUNDER_LEDGER FOUNDER_CURSOR FOUNDER_BLOCK_NOW FOUNDER_LOGS_JSON FOUNDER_RAW_LOGS_JSON BASE_RPC_URL HOME; do
   bad="$(grep -n "process\.env\.$seam" <<<"$src_code" | grep -vE "TEST (&&|\?)" || true)"
   ok "$([ -z "$bad" ] && echo 1 || echo 0)" "STATIC: $seam read is TEST-gated (${bad:-none})"
 done
+ok "$(grep -q 'const FOUNDER_DIR = TEST' <<<"$src" && echo 1 || echo 0)" "STATIC: FOUNDER_DIR test seam remains TEST-gated"
 ok "$(grep -q "renameSync" <<<"$src" && echo 1 || echo 0)" "STATIC: cursor written atomically (renameSync)"
 ok "$(grep -q 'realpathSync(FOUNDER_DIR)' <<<"$src" && echo 1 || echo 0)" "STATIC: ledger realpath symlink-deref — INV-3"
-ok "$(grep -qF ': "$HOME/.anicca-founder"' <<<"$src" && echo 1 || echo 0)" "STATIC: prod root is an env-independent literal — FIND-401"
+ok "$(grep -q 'LIFE_MANAGER_STATE_ROOT' <<<"$src" && grep -q 'founder-loop-cadence' <<<"$src" && echo 1 || echo 0)" "STATIC: prod root follows the canonical registry-owned state contract"
+ok "$(grep -q 'must equal the canonical' <<<"$src" && grep -q 'os.userInfo().homedir' <<<"$src" && echo 1 || echo 0)" "STATIC: production rejects redirected roots and HOME poisoning"
 ok "$(grep -q 'MY_WALLETS' <<<"$src" && echo 1 || echo 0)" "STATIC: external-payer check (MY_WALLETS) present — INV-7"
 
 # ---------- BEHAVIORAL ----------
@@ -83,11 +85,10 @@ T="$(mkdir_dir "$FW")"
 OUT="$(FOUNDER_TEST=1 FOUNDER_DIR="$T" FOUNDER_CURSOR=300 FOUNDER_BLOCK_NOW=200 FOUNDER_LOGS_JSON="[]" node "$M" 2>&1)"; rc=$?
 ok "$([ $rc -ne 0 ] && echo 1 || echo 0)" "block backwards (now<cursor) → fail-closed (rc=$rc)"
 
-# 12. PROD HOME-poison ignored (env-independent root) — assert ONLY planted dir stays empty (FIND-401/501)
-PLANT="$(mktemp -d)"; mkdir -p "$PLANT/.anicca-founder/state"
-printf '{"address":"%s"}' "$FW" > "$PLANT/.anicca-founder/wallet.json"; echo 100 > "$PLANT/.anicca-founder/state/block-cursor.txt"
-HOME="$PLANT" node "$M" >/dev/null 2>&1
-ok "$([ ! -s "$PLANT/.anicca-founder/state/earn-ledger.jsonl" ] && echo 1 || echo 0)" "PROD: HOME-poisoned planted dir NOT used as root — FIND-401"
+# 12. PROD uses only the explicit canonical state root, never a planted legacy home.
+PLANT="$(mktemp -d)"; TARGET="$(mkdir_dir "$FW")"; echo 100 > "$TARGET/state/block-cursor.txt"
+LIFE_MANAGER_STATE_ROOT="$TARGET" HOME="$PLANT" node "$M" >/dev/null 2>&1; rc=$?
+ok "$([ $rc -ne 0 ] && [ ! -e "$PLANT/.anicca-founder" ] && echo 1 || echo 0)" "PROD: HOME poisoning plus redirected root is rejected"
 
 # ----- RAW eth_getLogs parse path (FIND-602: the real from-slice/BigInt/topic checks, never tested before) -----
 TT="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"   # Transfer topic0

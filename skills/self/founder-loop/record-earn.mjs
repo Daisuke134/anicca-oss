@@ -16,8 +16,15 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };
 function die(m) { console.error("record-earn: " + m); process.exit(1); }
 
-// FIND-401: prod root is an env-independent absolute literal; only test may relocate it.
-const FOUNDER_DIR = TEST ? (process.env.FOUNDER_DIR || path.join(process.env.HOME || os.homedir(), ".anicca-founder")) : "/home/life-manager/.anicca-founder";
+// Production follows the registry-owned per-loop root; only tests may use FOUNDER_DIR.
+const DEFAULT_FOUNDER_DIR = path.join(os.userInfo().homedir, ".local", "state", "life-manager", "founder-loop-cadence");
+const FOUNDER_DIR = TEST
+  ? (process.env.FOUNDER_DIR || DEFAULT_FOUNDER_DIR)
+  : (process.env.LIFE_MANAGER_STATE_ROOT || DEFAULT_FOUNDER_DIR);
+if (!path.isAbsolute(FOUNDER_DIR)) die("LIFE_MANAGER_STATE_ROOT must be absolute");
+if (!TEST && path.resolve(FOUNDER_DIR) !== path.resolve(DEFAULT_FOUNDER_DIR)) {
+  die("LIFE_MANAGER_STATE_ROOT must equal the canonical founder-loop-cadence root");
+}
 const STATE = path.join(FOUNDER_DIR, "state");
 const WALLET_JSON = path.join(FOUNDER_DIR, "wallet.json");
 const CURSOR_FILE = path.join(STATE, "block-cursor.txt");
