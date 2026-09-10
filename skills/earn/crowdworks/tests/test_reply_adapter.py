@@ -16,7 +16,7 @@ def test_observation_uses_official_thread_and_message_ids():
     assert observed["provider"] == "crowdworks"
     assert observed["thread_id"] == "303996182"
     assert observed["latest_event_id"] == "425906697"
-    assert observed["decision_version"] == "official-actions-v1"
+    assert observed["decision_version"] == "official-actions-v2"
 
 
 def test_only_officially_proposed_threads_reopen_old_no_effect_state():
@@ -308,7 +308,7 @@ def test_single_thread_observation_does_not_require_reply_composer():
 
     assert opened == ["thread-1"]
     assert observation["thread_id"] == "thread-1"
-    assert observation["decision_version"] == "official-actions-v1"
+    assert observation["decision_version"] == "official-actions-v2"
 
 
 def test_buyer_google_form_becomes_shared_external_action():

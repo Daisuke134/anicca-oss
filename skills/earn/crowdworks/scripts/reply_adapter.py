@@ -145,7 +145,7 @@ class CrowdWorksReplyAdapter:
                   "thread_id": _text(row.get("thread_id")),
                   "latest_event_id": _text(row.get("id")), "observed_at": _now()}
         if row.get("proposal_status") == "proposed":
-            result["decision_version"] = "official-actions-v1"
+            result["decision_version"] = "official-actions-v2"
         return result
 
     def _open_thread_page(self, thread_id: str) -> None:
