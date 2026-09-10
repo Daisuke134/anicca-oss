@@ -15,8 +15,8 @@ available and end suffering for humans and, ultimately, all living beings.
 
 [Open Life Manager](https://aniccaai.com/lm) · [Start in Telegram](https://t.me/LifeManagerBotbot?start=lp) · [View the source](https://github.com/Daisuke134/life-manager)
 
-The repository is open source and the target is a portable self-hosted Life Manager that keeps its data on the
-owner's machine; that full clean-host path is not finished yet. Use the paid monthly cloud service when you want an
+The repository is open source. The Investment Loop has a portable Docker self-host path that keeps its durable
+state on the owner's machine; other Life Manager loops are still converging on that clean-host contract. Use the paid monthly cloud service when you want an
 always-on manager with only a phone. Both surfaces use the same core from this repository
 and converge on the same state, evidence, and human-readable reporting contracts. Life
 Manager never guarantees wealth or investment returns, and it never reports an attempted action as completed
@@ -36,7 +36,7 @@ implement and support these 14 loops.
 | 3 | Gig — CrowdWorks | `crowdworks-revenue-application`, `crowdworks-revenue-report` | Applies to suitable CrowdWorks projects and reports evidence-backed outcomes |
 | 4 | Writer | `writer-opportunity-discovery`, `writer-opportunity-response`, `writer-money-sync`, `writer-report` | Finds paid writing work, responds, and records publisher and payment receipts |
 | 5 | Affiliate | `affiliate-loop`, `affiliate-source-refresh`, `affiliate-browser` | Finds and publishes attributable affiliate opportunities through an owned browser path |
-| 6 | Investment | `alpaca-investment` | Runs the risk-gated Alpaca paper-trading loop, reconciles orders, and reports every pass |
+| 6 | Investment | `alpaca-investment` | Runs the risk-gated Alpaca shadow/live loop, reconciles orders, and reports every five-minute pass |
 | 7 | Agent Economy | `agent-economy-loop` plus x402 helpers | Tracks agent revenue, compute cost, and self-funding without mixing owner funds |
 | 8 | Job Hunter | `job-search-daily`, `job-search-browser`, `job-search-inbox` | Discovers and submits qualified applications, then reconciles confirmations and replies |
 | 9 | Fundraiser | `fundraiser` | Discovers accelerators, fellowships, grants, and public investor intakes and applies when eligible |
@@ -76,26 +76,28 @@ Release and launchd work then follows its required `loop-development` route.
 
 ### Run the Alpaca investment loop
 
-This loop is structurally paper-only: it accepts the exact Alpaca paper endpoint,
-uses the pinned Alpaca CLI for every broker effect, and cannot be switched to live
-trading with an environment flag. Before running it, store one
-`app.alpaca.markets` credential record containing `api_key`, `api_secret`, and
-`paper_endpoint=https://paper-api.alpaca.markets/v2` in the private local
-credential file `~/.local/share/anicca/credentials.json` (directory mode `0700`,
-file mode `0600`). Configure `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the
-private Life Manager environment; neither belongs in Git.
+The same Python core supports isolated `paper`, real-account read-only `shadow`, and
+risk-bounded `live` modes. It uses the checksum-pinned Alpaca CLI for official reads
+and effects, stable client-order IDs, durable receipts, reconciliation, and one
+Telegram report every five minutes. It never treats a deposit as profit or promises
+returns.
+
+For a new computer, use the secret-free Docker package and begin in `shadow`:
+
+[`skills/alpaca-investment/self-host/README.md`](skills/alpaca-investment/self-host/README.md)
 
 Run and inspect one finite pass from a checkout:
 
 ```bash
-ALPACA_LIVE_TRADE=false python3 skills/alpaca-investment/run.py
+LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py
 ./bin/lm-loop status alpaca-investment
 ```
 
-An operator can install the five-minute job only from an immutable main-derived
-release through the standard `lm-loop apply` lifecycle. A successful process is
-not proof of profit: use the reported Alpaca account, position, order, and P&L
-readbacks. Paper results do not guarantee future or live returns.
+The repository's managed macOS path installs only from an immutable main-derived
+release through `lm-loop apply`; the Docker path uses a named durable volume. Never
+run two live writers for one Alpaca account. A successful process is not proof of
+profit: use the reported account, position, order, fee, slippage, and net-P&L
+readbacks.
 
 ## The general agent we are building
 

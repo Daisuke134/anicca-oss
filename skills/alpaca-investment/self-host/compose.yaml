@@ -1,0 +1,24 @@
+services:
+  investment-loop:
+    build:
+      context: ../../..
+      dockerfile: skills/alpaca-investment/self-host/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      INVESTMENT_MODE: ${INVESTMENT_MODE:-shadow}
+      INVESTMENT_INTERVAL_SECONDS: ${INVESTMENT_INTERVAL_SECONDS:-300}
+      I_UNDERSTAND_REAL_MONEY: ${I_UNDERSTAND_REAL_MONEY:-false}
+    volumes:
+      - investment-state:/data/investment
+    read_only: true
+    tmpfs:
+      - /run/investment:mode=0700,uid=10001,gid=10001
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  investment-state:
