@@ -37,8 +37,13 @@ test("Railway app-root artifact is byte-identical to every committed core source
   const sourceRoot = path.resolve(__dirname, "../../../skills/alpaca-investment");
   const appRoot = path.resolve(__dirname, "../investment-core");
   for (const file of readInvestmentCoreArtifact().files) {
+    const source = file.name === "telegram.py"
+      ? path.resolve(__dirname, "../../../skills/_shared/telegram.py")
+      : file.name === "telegram_outbox.py"
+        ? path.resolve(__dirname, "../../../skills/_shared/marketplace-core/scripts/telegram_outbox.py")
+        : path.join(sourceRoot, file.name);
     assert.deepEqual(fs.readFileSync(path.join(appRoot, file.name)),
-      fs.readFileSync(path.join(sourceRoot, file.name)), file.name);
+      fs.readFileSync(source), file.name);
   }
 });
 
@@ -72,6 +77,18 @@ test("cloud readback never calls an enabled schedule disabled", async () => {
   });
   assert.equal(result.status, "invalid_schedule_enabled");
   assert.equal(result.schedule_enabled, true);
+});
+
+test("cloud shadow readback reports real observation/reporting but no broker mutation", async () => {
+  const result = await readInvestmentCloudWiring({
+    env: { LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_SHADOW_ENABLED: "true" },
+    secretProvider: cloudSecrets(),
+  });
+  assert.equal(result.status, "shadow_enabled");
+  assert.equal(result.schedule_enabled, true);
+  assert.equal(result.broker_mutation_enabled, false);
+  assert.equal(result.telegram_transport_enabled, true);
+  assert.equal(result.secret_provider_ok, true);
 });
 
 test("enabled worker rejects a foreign tenant before queue enqueue", async () => {
