@@ -147,10 +147,18 @@ def _money_or_unknown(amount) -> str:
 
 
 def _deliver_message(state: Path, event_key: str, message: str,
-                     observed_at: str) -> dict[str, Any]:
+                     observed_at: str, reuse_delivered_conflict: bool = False) -> dict[str, Any]:
     outbox = _load_outbox()
     database = state / "telegram-outbox.sqlite3"
-    inserted = outbox.enqueue(database, event_key, message, observed_at)
+    try:
+        inserted = outbox.enqueue(database, event_key, message, observed_at)
+    except outbox.IdempotencyConflict:
+        item = next((row for row in outbox.list_items(database)
+                     if row.event_key == event_key), None)
+        if reuse_delivered_conflict and item and item.status == "delivered" \
+                and item.provider_message_id:
+            return {"message_id": item.provider_message_id, "status": "delivered"}
+        raise
     if not inserted:
         item = next((row for row in outbox.list_items(database)
                      if row.event_key == event_key), None)
@@ -183,18 +191,19 @@ def _deliver_message(state: Path, event_key: str, message: str,
 
 
 def deliver(state: Path, observation: dict[str, Any], campaign: dict[str, Any],
-            decision: dict[str, Any], effect: str) -> dict[str, Any]:
+            decision: dict[str, Any], effect: str, event_key: str | None = None) -> dict[str, Any]:
     observed_at = decision["observed_at"]
     return _deliver_message(
         state,
-        f"alpaca-wake:{observed_at}",
+        f"alpaca-wake:{event_key or observed_at}",
         render(observation, campaign, decision, effect),
         observed_at,
+        reuse_delivered_conflict=event_key is not None,
     )
 
 
 def deliver_control(state: Path, *, control: dict[str, Any], wake_id: str,
-                    mode: str) -> dict[str, Any]:
+                    mode: str, event_key: str | None = None) -> dict[str, Any]:
     killed = control.get("killed") is True
     heading = "⛔ Investment Loopは停止済みです" if killed else "⏸️ Investment Loopは一時停止中です"
     action = "再開するには /invest resume を送ってください。" if not killed else \
@@ -204,7 +213,8 @@ def deliver_control(state: Path, *, control: dict[str, Any], wake_id: str,
         "新しい市場判断と注文は実行していません。",
         _latest_financial_text(state, mode=mode), "", "次に行うこと", action,
     ))
-    return _deliver_message(state, f"alpaca-control-wake:{wake_id}", message, wake_id)
+    return _deliver_message(state, f"alpaca-control-wake:{event_key or wake_id}", message, wake_id,
+                            reuse_delivered_conflict=event_key is not None)
 
 
 def render_failure(*, stage: str, effect_uncertain: bool, wake_id: str,
@@ -278,10 +288,11 @@ def _latest_financial_text(state: Path, observation=None, campaign=None,
 
 def deliver_failure(state: Path, *, stage: str, effect_uncertain: bool,
                     wake_id: str, observation=None,
-                    campaign=None, mode: str = "unknown") -> dict[str, Any]:
+                    campaign=None, mode: str = "unknown",
+                    event_key: str | None = None) -> dict[str, Any]:
     return _deliver_message(
         state,
-        f"alpaca-failure:{wake_id}",
+        f"alpaca-failure:{event_key or wake_id}",
         render_failure(
             stage=stage,
             effect_uncertain=effect_uncertain,
@@ -290,4 +301,5 @@ def deliver_failure(state: Path, *, stage: str, effect_uncertain: bool,
             financial_text=_latest_financial_text(state, observation, campaign, mode),
         ),
         wake_id,
+        reuse_delivered_conflict=event_key is not None,
     )

@@ -7,7 +7,7 @@ const path = require("node:path");
 const runtimeJobs = require("./runtime-job-store.js");
 const { createInvestmentStateStore } = require("./investment-state-store.js");
 const { createInvestmentRuntimeStateStore } = require("./investment-runtime-state-store.js");
-const { makeInvestmentCloudShadowWake, runInvestmentCloudShadow } = require("./investment-cloud-shadow.js");
+const { makeInvestmentCloudWake, runInvestmentCloud } = require("./investment-cloud-shadow.js");
 const { createSecretProvider } = require("./secret-provider.js");
 const { sendMessage } = require("./telegram.js");
 const { readInvestmentCoreArtifact, runInvestmentParityCore } = require("./investment-core-artifact.js");
@@ -73,15 +73,19 @@ async function readInvestmentCloudWiring(opts = {}) {
   const health = await secretProvider.health();
   const parity = JSON.parse(fs.readFileSync(PARITY_PATH, "utf8"));
   const shadow = env.LM_INVESTMENT_CLOUD_SHADOW_ENABLED === "true";
+  const live = env.LM_INVESTMENT_CLOUD_LIVE_ENABLED === "true";
+  const conflict = live && shadow;
   const dryRun = env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED === "true";
   const durableRoot = String(env.LM_INVESTMENT_CLOUD_STATE_ROOT || "").trim();
   const durableStateRootBound = durableRoot.startsWith("/") && durableRoot !== "/";
   return Object.freeze({
-    status: shadow ? (durableStateRootBound ? "shadow_enabled" : "invalid_shadow_config")
+    status: conflict ? "invalid_schedule_conflict"
+      : live ? (durableStateRootBound ? "live_enabled" : "invalid_live_config")
+      : shadow ? (durableStateRootBound ? "shadow_enabled" : "invalid_shadow_config")
       : dryRun ? "invalid_schedule_enabled" : "wired_disabled",
     deployment: "cloud",
-    schedule_enabled: shadow || dryRun,
-    broker_mutation_enabled: false,
+    schedule_enabled: live || shadow || dryRun,
+    broker_mutation_enabled: live,
     core_digest: parity.core_digest,
     core_artifact_digest: artifact.digest,
     core_artifact_ref: artifact.ref,
@@ -92,7 +96,7 @@ async function readInvestmentCloudWiring(opts = {}) {
     secret_provider_ok: health.ok,
     telegram_transport: "life-manager-telegram",
     telegram_transport_wired: typeof (opts.telegramTransport || sendMessage) === "function",
-    telegram_transport_enabled: shadow,
+    telegram_transport_enabled: live || shadow,
   });
 }
 
@@ -118,6 +122,7 @@ function productionDependencies() {
       enqueueJob: (job) => runtimeJobs.enqueueJob(job, { query }),
       claimJobs: (input) => runtimeJobs.claimJobs(input, { query }),
       completeJob: (input) => runtimeJobs.completeJob(input, { query }),
+      failJob: (input) => runtimeJobs.failJob(input, { query }),
     },
     readChatId,
   };
@@ -196,13 +201,15 @@ function makeInvestmentDryRun(stateStore, jobs, opts = {}) {
 }
 
 async function runInvestmentDryRun(now) {
-  if (process.env.LM_INVESTMENT_CLOUD_SHADOW_ENABLED === "true") {
-    if (process.env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED === "true") {
+  const live = process.env.LM_INVESTMENT_CLOUD_LIVE_ENABLED === "true";
+  const shadow = process.env.LM_INVESTMENT_CLOUD_SHADOW_ENABLED === "true";
+  if (live || shadow) {
+    if (process.env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED === "true" || (live && shadow)) {
       throw new Error("investment cloud schedules conflict");
     }
     const dependencies = productionDependencies();
-    return makeInvestmentCloudShadowWake({ ...dependencies,
-      executeShadow: runInvestmentCloudShadow })(now);
+    return makeInvestmentCloudWake({ ...dependencies, expectedMode: live ? "live" : "shadow",
+      executeInvestment: runInvestmentCloud })(now);
   }
   if (process.env.LM_INVESTMENT_CLOUD_DRY_RUN_ENABLED !== "true") {
     return { status: "disabled", effect_permission: "none" };
