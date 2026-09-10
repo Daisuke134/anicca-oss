@@ -18,6 +18,8 @@ REPO = Path(__file__).resolve().parents[2]
 
 def _load_outbox():
     path = REPO / "skills/_shared/marketplace-core/scripts/telegram_outbox.py"
+    if not path.is_file():
+        path = Path(__file__).resolve().with_name("telegram_outbox.py")
     spec = importlib.util.spec_from_file_location("lm_telegram_outbox", path)
     if spec is None or spec.loader is None:
         raise ValueError("telegram_outbox_unavailable")
@@ -44,14 +46,27 @@ def _env_file(path: Path) -> dict[str, str]:
 
 def _telegram_client():
     import sys
-    sys.path.insert(0, str(REPO))
-    from skills._shared.telegram import TelegramClient
+    shared = REPO / "skills/_shared/telegram.py"
+    if shared.is_file():
+        sys.path.insert(0, str(REPO))
+        from skills._shared.telegram import TelegramClient
+    else:
+        local = Path(__file__).resolve().with_name("telegram.py")
+        spec = importlib.util.spec_from_file_location("lm_telegram", local)
+        if spec is None or spec.loader is None:
+            raise ValueError("telegram_client_unavailable")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        TelegramClient = module.TelegramClient
 
     environment = dict(os.environ)
     state_env = Path(os.environ.get(
         "LIFE_MANAGER_ENV_FILE", "~/.local/state/life-manager/.env")).expanduser()
     for key, value in _env_file(state_env).items():
         environment.setdefault(key, value)
+    if environment.get("LM_TELEGRAM_BOT_TOKEN"):
+        environment.setdefault("TELEGRAM_BOT_TOKEN", environment["LM_TELEGRAM_BOT_TOKEN"])
     target = (environment.get("TELEGRAM_ALERT_CHAT_ID")
               or environment.get("LM_TELEGRAM_ALERT_CHAT_ID")
               or environment.get("TELEGRAM_CHAT_ID"))
