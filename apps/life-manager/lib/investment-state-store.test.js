@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createInvestmentStateStore, normalizeInvestmentState } = require("./investment-state-store.js");
 
-test("listRunnable selects only active Cloud paper/shadow tenants with a bound", async () => {
+test("listRunnable selects only active Cloud paper/shadow/live tenants with a bound", async () => {
   let seen;
   const row = { uid: "tenant-1", lifecycle: "in_review", deployment: "cloud", mode: "paper",
     paused: false, killed: false, core_digest: null, receipt_refs: [],
@@ -14,7 +14,7 @@ test("listRunnable selects only active Cloud paper/shadow tenants with a bound",
   const store = createInvestmentStateStore({ query: async (sql, params) => (seen = { sql, params }, { rows: [row] }) });
   assert.deepEqual(await store.listRunnable(1), [row]);
   assert.match(seen.sql, /deployment = 'cloud'/);
-  assert.match(seen.sql, /mode IN \('paper', 'shadow'\)/);
+  assert.match(seen.sql, /mode IN \('paper', 'shadow', 'live'\)/);
   assert.match(seen.sql, /paused = false AND killed = false/);
   assert.deepEqual(seen.params, [1]);
 });

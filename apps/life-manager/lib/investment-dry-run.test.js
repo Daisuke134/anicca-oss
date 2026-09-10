@@ -128,6 +128,21 @@ test("cloud shadow flag fails readback without a durable volume path", async () 
   assert.equal(result.durable_state_root_bound, false);
 });
 
+test("cloud live readback explicitly exposes broker mutation and rejects flag conflicts", async () => {
+  const live = await readInvestmentCloudWiring({ env: {
+    LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_LIVE_ENABLED: "true",
+    LM_INVESTMENT_CLOUD_STATE_ROOT: "/data/investment" }, secretProvider: cloudSecrets() });
+  assert.equal(live.status, "live_enabled");
+  assert.equal(live.schedule_enabled, true);
+  assert.equal(live.broker_mutation_enabled, true);
+  assert.equal(live.telegram_transport_enabled, true);
+  const conflict = await readInvestmentCloudWiring({ env: {
+    LM_RUNTIME_TENANT_ID: "owner-1", LM_INVESTMENT_CLOUD_LIVE_ENABLED: "true",
+    LM_INVESTMENT_CLOUD_SHADOW_ENABLED: "true", LM_INVESTMENT_CLOUD_STATE_ROOT: "/data/investment" },
+    secretProvider: cloudSecrets() });
+  assert.equal(conflict.status, "invalid_schedule_conflict");
+});
+
 test("enabled worker rejects a foreign tenant before queue enqueue", async () => {
   let enqueued = false;
   const run = makeInvestmentDryRun({ listRunnable: async () => [{ ...state, uid: "owner-2" }] }, {

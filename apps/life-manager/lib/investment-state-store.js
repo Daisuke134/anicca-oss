@@ -36,7 +36,7 @@ function createInvestmentStateStore({ query } = {}) {
       const result = await query(`
         SELECT ${ROW_KEYS.join(", ")}
         FROM public.lm_investment_states
-        WHERE deployment = 'cloud' AND mode IN ('paper', 'shadow')
+        WHERE deployment = 'cloud' AND mode IN ('paper', 'shadow', 'live')
           AND paused = false AND killed = false
         ORDER BY uid
         LIMIT $1

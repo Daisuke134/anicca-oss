@@ -23,54 +23,67 @@ function fiveMinuteSlot(value = new Date()) {
   return new Date(Math.floor(milliseconds / 300000) * 300000).toISOString();
 }
 
-function makeInvestmentCloudShadowWake(deps) {
+function makeInvestmentCloudWake(deps) {
   const workerId = deps.workerId || `investment-shadow-${process.pid}`;
   return async (now = new Date()) => {
     const owners = await deps.stateStore.listRunnable(1);
     if (!owners.length) return { status: "no_tenant", effect_permission: "none" };
     const owner = owners[0];
-    if (owner.deployment !== "cloud" || owner.mode !== "shadow") {
-      throw new Error("investment cloud shadow owner invalid");
+    if (owner.deployment !== "cloud" || !["shadow", "live"].includes(owner.mode)) {
+      throw new Error("investment cloud owner invalid");
     }
     deps.secretProvider.assertTenant(owner.uid);
     const sealed = await deps.runtimeStore.read(owner.uid);
     if (!sealed) throw new Error("investment cloud runtime state missing");
     const slot = fiveMinuteSlot(now);
     const artifact = readInvestmentCoreArtifact();
-    const jobId = crypto.createHash("sha256").update(`${owner.uid}\n${slot}\n${artifact.digest}`).digest("hex");
+    const capability = `investment.${owner.mode}`;
+    const effectClass = owner.mode === "live" ? "money" : "none";
+    const lineage = owner.mode === "shadow" ? `${owner.uid}\n${slot}\n${artifact.digest}`
+      : `${owner.uid}\nlive\n${slot}\n${artifact.digest}`;
+    const jobId = crypto.createHash("sha256").update(lineage).digest("hex");
     await deps.jobs.enqueueJob({ jobId, tenantId: owner.uid, loopId: "investment.cloud",
-      capability: "investment.shadow", effectClass: "none", effectKey: null, maxAttempts: 3,
+      capability, effectClass, effectKey: owner.mode === "live" ? jobId : null, maxAttempts: 3,
       inputRefs: { investment_state_ref: `investment-state://${owner.uid}`,
         runtime_state_ref: `investment-runtime-state://${owner.uid}`,
         core_artifact_ref: artifact.ref, schedule_slot_ref: `schedule-slot://${slot}` } });
-    const claimed = await deps.jobs.claimJobs({ workerId, capabilities: ["investment.shadow"],
+    const claimed = await deps.jobs.claimJobs({ workerId, capabilities: [capability],
       tenantId: owner.uid, limit: 1, leaseSeconds: 300 });
     if (!claimed.length) return { status: "already_processed", effect_permission: "none" };
     const job = claimed[0];
     const refs = job.input_refs || {};
     const claimedSlot = String(refs.schedule_slot_ref || "").replace(/^schedule-slot:\/\//, "");
-    const claimedJobId = crypto.createHash("sha256")
-      .update(`${owner.uid}\n${claimedSlot}\n${artifact.digest}`).digest("hex");
+    const claimedLineage = owner.mode === "shadow" ? `${owner.uid}\n${claimedSlot}\n${artifact.digest}`
+      : `${owner.uid}\nlive\n${claimedSlot}\n${artifact.digest}`;
+    const claimedJobId = crypto.createHash("sha256").update(claimedLineage).digest("hex");
     if (job.job_id !== claimedJobId || fiveMinuteSlot(claimedSlot) !== claimedSlot
       || job.tenant_id !== owner.uid || job.loop_id !== "investment.cloud"
-      || job.capability !== "investment.shadow" || job.effect_class !== "none" || job.effect_key !== null
+      || job.capability !== capability || job.effect_class !== effectClass
+      || job.effect_key !== (owner.mode === "live" ? job.job_id : null)
       || refs.investment_state_ref !== `investment-state://${owner.uid}`
       || refs.runtime_state_ref !== `investment-runtime-state://${owner.uid}`
       || refs.core_artifact_ref !== artifact.ref) {
       throw new Error("investment cloud shadow claimed job invalid");
     }
     const telegramChatId = await deps.readChatId(owner.uid);
-    const result = await deps.executeShadow({ tenantId: owner.uid, sealed,
+    const result = await deps.executeInvestment({ tenantId: owner.uid, mode: owner.mode, sealed,
       secretProvider: deps.secretProvider, telegramChatId,
       stateRoot: deps.stateRoot,
       persist: (uid, next) => deps.runtimeStore.upsert(uid, next.bundle) });
-    const receipt = { deployment: "cloud", mode: "shadow", effect_permission: "none",
-      order_calls: 0, message_calls: 1, decision: result.decision || null,
+    const receipt = { deployment: "cloud", mode: owner.mode,
+      effect_permission: owner.mode === "live" ? "money" : "none",
+      broker_effect: result.effect, order_calls: result.effect === "none" ? 0 : 1,
+      message_calls: 1, decision: result.decision || null,
       telegram_message_id: String(result.telegram_message_id), observed_at: claimedSlot,
       core_artifact_ref: artifact.ref, runtime_state_digest: sealed.digest };
     await deps.jobs.completeJob({ tenantId: owner.uid, jobId: job.job_id, attempt: job.attempt, workerId, receipt });
     return { status: "completed", receipt };
   };
+}
+
+function makeInvestmentCloudShadowWake(deps) {
+  return makeInvestmentCloudWake({ ...deps,
+    executeInvestment: deps.executeInvestment || deps.executeShadow });
 }
 
 async function defaultReadAccountId({ alpacaCli, apiKey, apiSecret }) {
@@ -91,10 +104,13 @@ async function defaultRunCore({ stateDir, credentialsFile, env }) {
   try { return JSON.parse(lines.at(-1)); } catch { throw new Error("investment cloud core result invalid"); }
 }
 
-async function runInvestmentCloudShadow(input) {
+async function runInvestmentCloud(input) {
   const tenantId = String(input && input.tenantId || "").trim();
+  const mode = String(input && input.mode || "shadow");
   if (!tenantId || !input.sealed || !input.secretProvider || typeof input.secretProvider.get !== "function"
-    || typeof input.persist !== "function") throw new Error("investment cloud shadow input invalid");
+    || typeof input.persist !== "function" || !["shadow", "live"].includes(mode)) {
+    throw new Error("investment cloud input invalid");
+  }
   const [apiKey, apiSecret, telegramToken] = await Promise.all([
     input.secretProvider.get(tenantId, "secret://alpaca/api-key"),
     input.secretProvider.get(tenantId, "secret://alpaca/api-secret"),
@@ -140,17 +156,18 @@ async function runInvestmentCloudShadow(input) {
     fs.writeFileSync(credentialsFile, `${JSON.stringify(credentials)}\n`, { mode: 0o600 });
     fs.chmodSync(credentialsFile, 0o600);
     const env = { ...process.env,
-      LIFE_MANAGER_INVESTMENT_MODE: "shadow", LIFE_MANAGER_INVESTMENT_DEPLOYMENT: "cloud",
+      LIFE_MANAGER_INVESTMENT_MODE: mode, LIFE_MANAGER_INVESTMENT_DEPLOYMENT: "cloud",
       LIFE_MANAGER_INVESTMENT_AGENT_RUNNER: AGENT,
       ALPACA_CLI: alpacaCli,
-      ALPACA_INVESTMENT_SHADOW_STATE_DIR: stateDir,
-      ALPACA_INVESTMENT_SHADOW_CREDENTIALS_FILE: credentialsFile,
       LM_TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,
     };
+    const prefix = mode === "live" ? "ALPACA_INVESTMENT_LIVE" : "ALPACA_INVESTMENT_SHADOW";
+    env[`${prefix}_STATE_DIR`] = stateDir;
+    env[`${prefix}_CREDENTIALS_FILE`] = credentialsFile;
     const result = await (input.runCore || defaultRunCore)({ stateDir, credentialsFile, env });
-    if (!result || result.mode !== "shadow" || result.deployment !== "cloud"
-      || result.effect !== "none" || !result.telegram_message_id) {
-      throw new Error("investment cloud shadow result invalid");
+    if (!result || result.mode !== mode || result.deployment !== "cloud"
+      || (mode === "shadow" && result.effect !== "none") || !result.telegram_message_id) {
+      throw new Error("investment cloud result invalid");
     }
     return result;
   } finally {
@@ -162,4 +179,9 @@ async function runInvestmentCloudShadow(input) {
   }
 }
 
-module.exports = { accountHash, fiveMinuteSlot, makeInvestmentCloudShadowWake, runInvestmentCloudShadow };
+async function runInvestmentCloudShadow(input) {
+  return runInvestmentCloud({ ...input, mode: "shadow" });
+}
+
+module.exports = { accountHash, fiveMinuteSlot, makeInvestmentCloudWake,
+  makeInvestmentCloudShadowWake, runInvestmentCloud, runInvestmentCloudShadow };

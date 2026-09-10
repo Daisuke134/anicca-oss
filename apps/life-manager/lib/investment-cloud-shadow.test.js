@@ -6,7 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { exportState } = require("../scripts/investment-cutover-state.js");
-const { makeInvestmentCloudShadowWake, runInvestmentCloudShadow } = require("./investment-cloud-shadow.js");
+const { makeInvestmentCloudWake, makeInvestmentCloudShadowWake,
+  runInvestmentCloud, runInvestmentCloudShadow } = require("./investment-cloud-shadow.js");
 
 function seededBundle() {
   const state = fs.mkdtempSync(path.join(os.tmpdir(), "investment-shadow-source-"));
@@ -128,4 +129,49 @@ test("an older claimed shadow slot completes with its own immutable lineage", as
   });
   assert.equal((await wake(new Date("2026-09-10T12:05:00Z"))).receipt.observed_at, oldSlot);
   assert.equal(completion.jobId, oldId);
+});
+
+test("one Cloud live wake owns a money-class job and persists the shared core result", async () => {
+  const owner = { uid: "tenant-1", deployment: "cloud", mode: "live" };
+  let enqueued;
+  let completion;
+  const wake = makeInvestmentCloudWake({ stateStore: { listRunnable: async () => [owner] },
+    runtimeStore: { read: async () => seededBundle(), upsert: async () => {} },
+    jobs: { enqueueJob: async (job) => { enqueued = job; }, claimJobs: async () => [{
+      job_id: enqueued.jobId, tenant_id: "tenant-1", loop_id: "investment.cloud",
+      capability: "investment.live", effect_class: "money", effect_key: enqueued.jobId,
+      attempt: 1, input_refs: enqueued.inputRefs }],
+      completeJob: async (value) => { completion = value; } },
+    secretProvider: { assertTenant: () => true }, readChatId: async () => "chat",
+    stateRoot: "/durable/investment", executeInvestment: async ({ mode }) => ({
+      mode, deployment: "cloud", effect: "e".repeat(64),
+      telegram_message_id: "live-message", decision: "position://BTCUSD" }) });
+  const result = await wake(new Date("2026-09-10T12:07:00Z"));
+  assert.equal(enqueued.capability, "investment.live");
+  assert.equal(enqueued.effectClass, "money");
+  assert.equal(enqueued.effectKey, enqueued.jobId);
+  assert.equal(result.receipt.effect_permission, "money");
+  assert.equal(result.receipt.order_calls, 1);
+  assert.equal(completion.receipt.telegram_message_id, "live-message");
+});
+
+test("Cloud live executor passes only live state variables to the shared Python core", async () => {
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "investment-live-volume-"));
+  const saved = [];
+  const result = await runInvestmentCloud({ tenantId: "tenant-1", mode: "live",
+    sealed: seededBundle(), secretProvider: { get: async (_tenant, ref) => ({
+      "secret://alpaca/api-key": "key", "secret://alpaca/api-secret": "secret",
+      "secret://telegram/bot-token": "telegram" })[ref] }, telegramChatId: "chat",
+    alpacaCli: "/app/.bin/alpaca", readAccountId: async () => "account-1", stateRoot,
+    runCore: async ({ stateDir, env }) => {
+      assert.equal(env.LIFE_MANAGER_INVESTMENT_MODE, "live");
+      assert.equal(env.LIFE_MANAGER_INVESTMENT_DEPLOYMENT, "cloud");
+      assert.equal(env.ALPACA_INVESTMENT_LIVE_STATE_DIR, stateDir);
+      assert.equal(env.ALPACA_INVESTMENT_LIVE_CREDENTIALS_FILE.endsWith("credentials.json"), true);
+      assert.equal(env.ALPACA_INVESTMENT_SHADOW_STATE_DIR, undefined);
+      return { status: "allocated", mode: "live", deployment: "cloud", effect: "none",
+        telegram_message_id: "live-message" };
+    }, persist: async (tenantId, bundle) => saved.push({ tenantId, bundle }) });
+  assert.equal(result.mode, "live");
+  assert.equal(saved.length, 1);
 });
