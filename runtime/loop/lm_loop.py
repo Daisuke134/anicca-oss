@@ -480,6 +480,9 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                     "realtime-guide": (
                         "ANICCA_HOME", "OPENCLAW_ENV_FILE", "REALTIME_GUIDE_STATE_DIR",
                     ),
+                    "lateness-heartbeat": (
+                        "ANICCA_HOME", "OPENCLAW_ENV_FILE",
+                    ),
                 }.get(item["loop_id"], writer_retired_environment_keys)
                 retired_operational_keys = (
                     ("WorkingDirectory",)
