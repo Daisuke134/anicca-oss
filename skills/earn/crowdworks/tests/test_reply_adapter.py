@@ -309,3 +309,36 @@ def test_single_thread_observation_does_not_require_reply_composer():
     assert opened == ["thread-1"]
     assert observation["thread_id"] == "thread-1"
     assert observation["decision_version"] == "official-actions-v1"
+
+
+def test_buyer_google_form_becomes_shared_external_action():
+    adapter = adapter_module.CrowdWorksReplyAdapter({})
+    adapter.rows = {"thread-1": {
+        "thread_id": "thread-1", "id": "message-1", "proposal_status": "proposed",
+    }}
+    adapter.conversations = {"thread-1": [{
+        "event_id": "event-1", "role": "buyer", "sender": "buyer",
+        "sent_at": "2026-09-10T00:00:00Z", "body": "フォームへ回答してください",
+        "links": ["https://forms.gle/AbCdEf123"],
+    }]}
+
+    action = adapter._external_form_action("thread-1")
+
+    assert action["action"] == "external_action"
+    assert action["payload"]["kind"] == "submit_google_form"
+    assert action["payload"]["url"] == "https://forms.gle/AbCdEf123"
+    assert len(action["payload"]["url_sha256"]) == 64
+    assert "回答" in action["payload"]["completion_body"]
+
+
+def test_external_form_action_rejects_untrusted_or_ambiguous_links():
+    adapter = adapter_module.CrowdWorksReplyAdapter({})
+    adapter.rows = {"thread-1": {"thread_id": "thread-1", "id": "message-1"}}
+    base = {"event_id": "event-1", "role": "buyer", "sender": "buyer",
+            "sent_at": "2026-09-10T00:00:00Z", "body": "回答してください"}
+    adapter.conversations = {"thread-1": [{**base, "links": ["https://evil.example/form"]}]}
+    assert adapter._external_form_action("thread-1") is None
+    adapter.conversations = {"thread-1": [{**base, "links": [
+        "https://forms.gle/one", "https://docs.google.com/forms/d/e/two/viewform",
+    ]}]}
+    assert adapter._external_form_action("thread-1") is None

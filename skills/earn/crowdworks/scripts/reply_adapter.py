@@ -51,7 +51,7 @@ class CrowdWorksReplyAdapter:
         self.browser = None
         self.page = None
         self.rows: dict[str, dict[str, Any]] = {}
-        self.conversations: dict[str, list[dict[str, str]]] = {}
+        self.conversations: dict[str, list[dict[str, Any]]] = {}
 
     def _open(self) -> None:
         if self.page is not None:
@@ -158,7 +158,7 @@ class CrowdWorksReplyAdapter:
         if self._provider_route(self.page.url) is None:
             raise RuntimeError("crowdworks_thread_unavailable")
 
-    def _detail(self, thread_id: str) -> list[dict[str, str]]:
+    def _detail(self, thread_id: str) -> list[dict[str, Any]]:
         self._open_thread_page(thread_id)
         if self.page.locator(
             'textarea[name="message[body]"]'
@@ -172,7 +172,8 @@ class CrowdWorksReplyAdapter:
               const time=full?.querySelector('time')?.getAttribute('datetime');
               const bodies=[...full?.querySelectorAll('p') || []]
                 .map(item => item.innerText.trim()).filter(Boolean).sort((a,b)=>b.length-a.length);
-              return {sender, time, body:bodies[0] || ''};
+              const links=[...full?.querySelectorAll('a[href]') || []].map(a=>a.href);
+              return {sender, time, body:bodies[0] || '', links};
             })"""
         )
         if not isinstance(values, list) or not values:
@@ -183,8 +184,12 @@ class CrowdWorksReplyAdapter:
                 raise RuntimeError("crowdworks_conversation_invalid")
             sender, sent_at, body = (_text(value.get(key)) for key in ("sender", "time", "body"))
             digest = hashlib.sha256(f"{sender}\0{sent_at}\0{body}".encode()).hexdigest()
+            links = value.get("links")
+            if not isinstance(links, list) or not all(isinstance(link, str) for link in links):
+                raise RuntimeError("crowdworks_conversation_invalid")
             result.append({"event_id": digest, "role": "seller" if sender == "Kaito｜AI自動化" else "buyer",
-                           "sender": sender, "sent_at": sent_at, "body": body})
+                           "sender": sender, "sent_at": sent_at, "body": body,
+                           "links": links})
         self.conversations[thread_id] = result
         return result
 
@@ -206,10 +211,35 @@ class CrowdWorksReplyAdapter:
                     "outside_contact_before_approval": "forbidden",
                     "auto_accept_official_proposals": True,
                 }}
-        required_action = self._contract_action(thread_id)
+        required_action = self._contract_action(thread_id) or self._external_form_action(thread_id)
         if required_action is not None:
             result["required_action"] = required_action
         return result
+
+    @staticmethod
+    def _google_form_url(url: str) -> bool:
+        parsed = urlsplit(url)
+        if parsed.scheme != "https":
+            return False
+        if parsed.netloc == "forms.gle":
+            return bool(parsed.path.strip("/"))
+        return (parsed.netloc == "docs.google.com"
+                and re.fullmatch(r"/forms/d/e/[^/]+/viewform", parsed.path) is not None)
+
+    def _external_form_action(self, thread_id: str) -> dict[str, Any] | None:
+        conversation = self.conversations.get(thread_id) or self._detail(thread_id)
+        if not conversation or conversation[-1].get("role") != "buyer":
+            return None
+        links = sorted({link for row in conversation if row.get("role") == "buyer"
+                        for link in row.get("links", []) if self._google_form_url(link)})
+        if len(links) != 1:
+            return None
+        url = links[0]
+        return {"action": "external_action", "payload": {
+            "kind": "submit_google_form", "url": url,
+            "url_sha256": hashlib.sha256(url.encode()).hexdigest(),
+            "completion_body": "ご案内いただいたGoogleフォームへの回答を完了しました。ご確認をお願いいたします。",
+        }}
 
     def _contract_action(self, thread_id: str) -> dict[str, Any] | None:
         row = self.rows.get(thread_id)
