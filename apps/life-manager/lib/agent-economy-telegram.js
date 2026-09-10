@@ -1,6 +1,7 @@
 "use strict";
 
 const { projectFinancialRecord } = require("./financial-record-contract.js");
+const { sendMessage } = require("./telegram.js");
 
 function amount(record) {
   const digits = record.currency === "USDC" ? 6 : record.currency === "JPY" ? 0 : 2;
@@ -53,7 +54,12 @@ async function deliverFinancialTransition({ record: raw, deliveryStore, notify, 
   if (typeof notify !== "function") throw new Error("Agent Economy Telegram notifier required");
   const sent = await notify({ eventKey, message, observedAt: new Date(now).toISOString() });
   if (!sent || sent.delivered !== true || !String(sent.providerMessageId || "").trim()) {
-    return { status: "failed", reason: "telegram_provider_receipt_missing", delivered: false };
+    const unknownEffect = Boolean(sent?.unknownEffect || sent?.delivered === true);
+    if (!unknownEffect && typeof deliveryStore.release === "function") {
+      await deliveryStore.release({ eventKey, record });
+    }
+    return { status: "failed", reason: "telegram_provider_receipt_missing", delivered: false,
+      unknownEffect };
   }
   await deliveryStore.markDelivered({ eventKey, record, provider_message_id: String(sent.providerMessageId),
     delivered_at: new Date(now).toISOString() });
@@ -61,4 +67,90 @@ async function deliverFinancialTransition({ record: raw, deliveryStore, notify, 
     providerMessageId: String(sent.providerMessageId), eventKey };
 }
 
-module.exports = { renderFinancialTransition, deliverFinancialTransition };
+function createFinancialTransitionStore({ store, deliver } = {}) {
+  if (!store || typeof store.append !== "function" || typeof store.read !== "function") {
+    throw new Error("FinancialRecord store required");
+  }
+  if (typeof deliver !== "function") throw new Error("financial transition delivery required");
+  return Object.freeze({
+    async append(record) {
+      const write = await store.append(record);
+      return { ...write, notification: await deliver(write.record) };
+    },
+    read: (input) => store.read(input),
+  });
+}
+
+function createPostgresFinancialTransitionDeliveryStore({ query } = {}) {
+  if (typeof query !== "function") throw new Error("financial transition Postgres query required");
+  return Object.freeze({
+    async lookup({ eventKey, record }) {
+      const rows = (await query(`
+        SELECT telegram_message_id AS provider_message_id
+        FROM public.lm_financial_transition_receipts
+        WHERE subject_id = $1 AND event_key = $2 AND status = 'sent'
+        LIMIT 1
+      `, [record.subject_id, eventKey])).rows;
+      if (rows.length > 1) throw new Error("financial transition receipt lookup failed");
+      return rows[0] || null;
+    },
+    async claim({ eventKey, record, observedAt }) {
+      const rows = (await query(`
+        INSERT INTO public.lm_financial_transition_receipts
+          (subject_id, event_key, record_id, status, created_at, updated_at)
+        VALUES ($1, $2, $3, 'pending', $4::timestamptz, $4::timestamptz)
+        ON CONFLICT DO NOTHING
+        RETURNING event_key
+      `, [record.subject_id, eventKey, record.record_id, observedAt])).rows;
+      return { claimed: rows.length === 1 };
+    },
+    async markDelivered({ eventKey, record, provider_message_id, delivered_at }) {
+      const rows = (await query(`
+        UPDATE public.lm_financial_transition_receipts
+        SET status = 'sent', telegram_message_id = $3::bigint,
+            sent_at = $4::timestamptz, updated_at = $4::timestamptz
+        WHERE subject_id = $1 AND event_key = $2 AND status = 'pending'
+        RETURNING event_key
+      `, [record.subject_id, eventKey, provider_message_id, delivered_at])).rows;
+      if (rows.length !== 1) throw new Error("financial transition delivery lost its claim");
+      return true;
+    },
+    async release({ eventKey, record }) {
+      const rows = (await query(`
+        DELETE FROM public.lm_financial_transition_receipts
+        WHERE subject_id = $1 AND event_key = $2 AND status = 'pending'
+        RETURNING event_key
+      `, [record.subject_id, eventKey])).rows;
+      if (rows.length !== 1) throw new Error("financial transition release lost its claim");
+      return true;
+    },
+  });
+}
+
+function createCloudFinancialTransitionStore({ store, query, readTenant, telegramToken, sendTelegram = sendMessage,
+  now = () => new Date() } = {}) {
+  if (typeof readTenant !== "function") throw new Error("financial transition tenant reader required");
+  const deliveryStore = createPostgresFinancialTransitionDeliveryStore({ query });
+  return createFinancialTransitionStore({ store, deliver: async (record) => {
+    const tenant = await readTenant(record.subject_id);
+    if (!tenant || tenant.notifications_enabled === false) {
+      return { status: "quiet", reason: "notifications_disabled", delivered: false };
+    }
+    if (!String(tenant.telegram_chat_id || "").trim()) {
+      return { status: "quiet", reason: "telegram_unbound", delivered: false };
+    }
+    return deliverFinancialTransition({ record, deliveryStore, now: now(), notify: async ({ message }) => {
+      const result = await sendTelegram(telegramToken, String(tenant.telegram_chat_id), message);
+      return { delivered: Boolean(result?.ok), providerMessageId: result?.result?.message_id,
+        unknownEffect: Boolean(result?.delivery_unknown || (result?.ok && !result?.result?.message_id)) };
+    } });
+  } });
+}
+
+module.exports = {
+  createCloudFinancialTransitionStore,
+  createFinancialTransitionStore,
+  createPostgresFinancialTransitionDeliveryStore,
+  renderFinancialTransition,
+  deliverFinancialTransition,
+};

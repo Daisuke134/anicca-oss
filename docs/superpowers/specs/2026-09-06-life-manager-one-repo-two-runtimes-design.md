@@ -399,9 +399,14 @@ This checklist does not reorder the established implementation sequence below. T
   only verified revenue, cost, fee and payout records into concise Japanese money events, claims by immutable
   FinancialRecord ID, requires a Telegram provider message ID before delivery is complete, persists that ID and
   produces zero second send on identical replay or a raced completed claim. Balance snapshots remain out of the
-  realtime event stream. Focused contract tests pass 4/4. Remaining inside this atom: connect the same contract to
-  the Local durable outbox and Cloud Postgres delivery store, trigger it from common record creation, reuse the
-  existing Financial Manager renderer for one daily snapshot, and prove Local/Cloud replay behavior end to end.
+  realtime event stream. The shared FinancialRecord store wrapper now invokes delivery after every idempotent append,
+  including duplicate replay so a previously stored record can repair a missing notification. Cloud uses a dedicated
+  tenant-scoped Postgres receipt with a unique event key, resolves the tenant's existing Telegram binding, persists the
+  provider message ID, and the Agent Economy worker injects this notifying store into its unchanged shared wake. The
+  Cloud focused transition suite passes 10/10, including identical replay with exactly one provider send; targeted
+  worker packaging and wake tests pass 2/2. Remaining inside this atom: connect the same renderer to the existing Local
+  SQLite outbox, reuse the existing Financial Manager renderer for one daily snapshot, and prove the complete Local
+  replay plus Cloud daily-snapshot behavior end to end. No running Gig loop is changed.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
   then citizen-wallet-funded x402 compute only within earned spendable surplus and session caps.
 - [ ] `AE-UX-09` Close the first economic loop with official evidence: earn, bank, pay compute, pay hosted shelter,

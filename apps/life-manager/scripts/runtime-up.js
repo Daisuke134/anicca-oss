@@ -189,6 +189,21 @@ function createWorkerHandlers(env, capabilities, dependencies = {}) {
     const { createAgentEconomyControlStore } = require("../lib/agent-economy-control.js");
     const economyControl = createAgentEconomyControlStore({ query: dependencies.query });
     const { createPostgresFinancialRecordStore } = require("../lib/financial-record-store.js");
+    const { createCloudFinancialTransitionStore } = require("../lib/agent-economy-telegram.js");
+    const financialStore = createCloudFinancialTransitionStore({
+      store: createPostgresFinancialRecordStore({ query: dependencies.query }),
+      query: dependencies.query,
+      readTenant: dependencies.readFinancialTenant || ((uid) => (
+        require("../lib/financial-report-runtime.js").readFinancialTenant(uid, {
+          supaUrl: env.SUPABASE_URL,
+          supaKey: env.SUPABASE_SERVICE_ROLE_KEY,
+          fetchImpl: dependencies.fetchImpl || globalThis.fetch,
+        })
+      )),
+      telegramToken: env.LM_TELEGRAM_BOT_TOKEN,
+      sendTelegram: dependencies.sendTelegram,
+      now: dependencies.now,
+    });
     servicesByAdapter["agent-economy-cloud"] = {
       citizenStore,
       isPaused: (tenantId) => economyControl.isPaused(tenantId),
@@ -196,7 +211,7 @@ function createWorkerHandlers(env, capabilities, dependencies = {}) {
         citizenStore,
         dataDir: requiredEnv(env, "LM_DATA_DIR"),
         repoRoot: String(env.LM_REPO_ROOT || "").trim() || path.resolve(__dirname, "../../.."),
-        financialStore: createPostgresFinancialRecordStore({ query: dependencies.query }),
+        financialStore,
         now: dependencies.now,
       }),
       now: dependencies.now,
