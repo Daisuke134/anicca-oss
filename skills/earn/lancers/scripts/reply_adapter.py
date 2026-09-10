@@ -494,7 +494,7 @@ class LancersReplyAdapter:
                 ).hexdigest()[:32]
                 return {"verified": True, "provider_receipt_id": receipt_id,
                         "observed_at": _now()}
-            if booked and calendar and not message_id:
+            if booked and (not calendar or not message_id):
                 return {"resume_required": True}
             if not booked and not message_id:
                 return {"authoritative_absent": True}
