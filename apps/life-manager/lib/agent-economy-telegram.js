@@ -67,6 +67,24 @@ async function deliverFinancialTransition({ record: raw, deliveryStore, notify, 
     providerMessageId: String(sent.providerMessageId), eventKey };
 }
 
+async function deliverFinancialTransitionWithOutbox({ record: raw, notify, now = new Date() } = {}) {
+  const record = projectFinancialRecord(raw);
+  const message = renderFinancialTransition(record);
+  if (!message) return { status: "quiet", reason: "non_transition_record", delivered: false };
+  if (typeof notify !== "function") throw new Error("financial transition outbox notifier required");
+  const eventKey = `agent-economy:financial:${record.record_id}`;
+  const result = await notify({ eventKey, message, observedAt: new Date(now).toISOString() });
+  const providerMessageId = String(result?.provider_message_id || "").trim();
+  if (result?.delivery !== "delivered" || !providerMessageId) {
+    return { status: "failed", reason: "telegram_provider_receipt_missing", delivered: false,
+      unknownEffect: ["sending", "delivery_uncertain"].includes(result?.delivery)
+        || result?.delivery === "delivered" };
+  }
+  return { status: Number(result.attempted) === 0 ? "quiet" : "sent",
+    reason: Number(result.attempted) === 0 ? "duplicate" : null,
+    delivered: Number(result.attempted) !== 0, providerMessageId, eventKey };
+}
+
 function createFinancialTransitionStore({ store, deliver } = {}) {
   if (!store || typeof store.append !== "function" || typeof store.read !== "function") {
     throw new Error("FinancialRecord store required");
@@ -75,7 +93,14 @@ function createFinancialTransitionStore({ store, deliver } = {}) {
   return Object.freeze({
     async append(record) {
       const write = await store.append(record);
-      return { ...write, notification: await deliver(write.record) };
+      const notification = await deliver(write.record);
+      if (notification?.status === "failed") {
+        const error = new Error(`financial transition delivery failed: ${notification.reason || "unknown"}`);
+        error.code = "FINANCIAL_TRANSITION_DELIVERY_FAILED";
+        error.unknownEffect = Boolean(notification.unknownEffect);
+        throw error;
+      }
+      return { ...write, notification };
     },
     read: (input) => store.read(input),
   });
@@ -153,4 +178,5 @@ module.exports = {
   createPostgresFinancialTransitionDeliveryStore,
   renderFinancialTransition,
   deliverFinancialTransition,
+  deliverFinancialTransitionWithOutbox,
 };

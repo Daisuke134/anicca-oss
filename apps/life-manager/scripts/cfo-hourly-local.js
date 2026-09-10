@@ -4,13 +4,14 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
 const { createJsonlFinancialRecordStore } = require("../lib/financial-record-store.js");
 const { createMoneytreeObservationStore } = require("../lib/moneytree-observation-store.js");
 const { ingestFinancialRecords, splitPaths } = require("../lib/financial-manager-ingest.js");
 const {
   runFinancialManager,
 } = require("../lib/financial-manager-runtime.js");
+const { renderFinancialManagerTelegram } = require("../lib/financial-manager-report.js");
+const { notifyViaLocalOutbox } = require("../lib/financial-transition-local.js");
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
@@ -64,25 +65,6 @@ function writeSnapshot(file, value) {
   }
 }
 
-function defaultNotify(input, options) {
-  const script = path.resolve(__dirname, "../../../skills/cfo/notify.py");
-  const result = spawnSync(options.pythonBin, [
-    script,
-    "--database", options.database,
-    "--event-key", input.eventKey,
-    "--observed-at", input.observedAt,
-    "--chat-id", options.chatId,
-    "--env-file", options.envFile,
-  ], {
-    encoding: "utf8",
-    input: JSON.stringify({ message: input.message }),
-    env: process.env,
-    timeout: 30_000,
-  });
-  if (result.status !== 0) throw new Error("telegram_outbox_failed");
-  return JSON.parse(String(result.stdout || "").trim());
-}
-
 async function runHourlyCfo(options = {}) {
   const now = new Date(typeof options.now === "function" ? options.now() : (options.now || new Date()));
   if (!Number.isFinite(now.getTime())) throw new Error("CFO clock invalid");
@@ -100,7 +82,23 @@ async function runHourlyCfo(options = {}) {
   });
   const ingest = options.ingest || ingestFinancialRecords;
   const snapshotFile = path.join(stateDir, "last-delivered-snapshot.json");
-  const notify = options.notify || ((input) => defaultNotify(input, options));
+  const notify = options.notify || ((input) => notifyViaLocalOutbox(input, options));
+  const pending = readSnapshot(snapshotFile);
+  if (pending?.status === "pending" && pending.reportingDate === date && pending.report) {
+    const delivery = await notify({ eventKey: `cfo:${subjectId}:${date}`,
+      observedAt: now.toISOString(), message: renderFinancialManagerTelegram(pending.report) });
+    if (delivery?.delivery !== "delivered" || !String(delivery.provider_message_id || "").trim()) {
+      return { status: "failed", reason: "telegram_delivery_uncertain", reportingDate: date,
+        recordCount: pending.report.verifiedRecordCount || 0, delivered: false };
+    }
+    writeSnapshot(snapshotFile, { ...pending, status: "delivered",
+      delivery: { delivery: "delivered", provider_message_id: String(delivery.provider_message_id) },
+      deliveredAt: now.toISOString() });
+    const duplicate = Number(delivery.attempted) === 0;
+    return { status: duplicate ? "quiet" : "sent", reason: duplicate ? "unchanged" : null,
+      reportingDate: date, recordCount: pending.report.verifiedRecordCount || 0,
+      delivered: !duplicate, providerMessageId: String(delivery.provider_message_id) };
+  }
   const result = await runFinancialManager({
     subjectId, reportingDate: date, timezone: "Asia/Tokyo", now, store,
     ingest: () => ingest({
@@ -113,18 +111,24 @@ async function runHourlyCfo(options = {}) {
       pythonBin: options.pythonBin || "python3",
     }),
     deliveryStore: {
-      lookup: ({ digest }) => {
+      lookup: () => {
         const previous = readSnapshot(snapshotFile);
-        return previous && previous.digest === digest ? previous : null;
+        const previousDate = previous && (previous.reportingDate || previous.report?.reportingDate);
+        return previousDate === date && previous.status !== "pending" ? previous : null;
       },
-      claim: async () => ({ claimed: true }),
+      claim: async ({ digest, report, observedAt }) => {
+        writeSnapshot(snapshotFile, { schemaVersion: 1, status: "pending", reportingDate: date,
+          digest, report, createdAt: observedAt });
+        return { claimed: true };
+      },
       markDelivered: ({ digest, report, delivery, observedAt }) => writeSnapshot(snapshotFile, {
-        schemaVersion: 1, digest, report,
+        schemaVersion: 1, status: "delivered", digest, report,
+        reportingDate: date,
         delivery: { delivery: "delivered", provider_message_id: delivery.providerMessageId },
         deliveredAt: observedAt,
       }),
     },
-    eventKey: ({ digest }) => `cfo:${subjectId}:${digest}`,
+    eventKey: () => `cfo:${subjectId}:${date}`,
     notify: async (input) => {
       const delivery = await notify(input);
       return {

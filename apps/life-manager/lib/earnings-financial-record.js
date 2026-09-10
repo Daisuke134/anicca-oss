@@ -2,7 +2,7 @@
 
 const { financialRecordId } = require("./financial-record-contract.js");
 
-function earningsIncomeToFinancialRecord(row, { subjectId, recordedAt = new Date().toISOString() } = {}) {
+function earningsIncomeToFinancialRecord(row, { subjectId, recordedAt } = {}) {
   if (row?.kind !== "financial_external_income" || row?.meta?.external !== true
     || row?.meta?.finalized !== true || !/^0x[0-9a-f]{64}$/i.test(String(row?.tx_hash || ""))) {
     throw new Error("verified external earnings row required");
@@ -14,7 +14,7 @@ function earningsIncomeToFinancialRecord(row, { subjectId, recordedAt = new Date
   }
   const key = `earnings-financial:v1:${row.entry_key}`;
   const occurred = new Date(row.occurred_at).toISOString();
-  const recorded = new Date(recordedAt).toISOString();
+  const recorded = new Date(recordedAt || row.occurred_at).toISOString();
   return {
     schema_version: 1, record_type: "financial_record",
     record_id: financialRecordId(subjectId, key), subject_id: subjectId,
@@ -27,17 +27,17 @@ function earningsIncomeToFinancialRecord(row, { subjectId, recordedAt = new Date
   };
 }
 
-function createFinancialEarningsWriter({ store, subjectId, now = () => new Date().toISOString() }) {
+function createFinancialEarningsWriter({ store, subjectId, now } = {}) {
   if (!store || typeof store.append !== "function") throw new Error("FinancialRecord store required");
   return async (row) => {
-    const write = await store.append(earningsIncomeToFinancialRecord(row, { subjectId, recordedAt: now() }));
+    const write = await store.append(earningsIncomeToFinancialRecord(row, {
+      subjectId, recordedAt: now ? now() : row.occurred_at,
+    }));
     return { ok: true, duplicate: write.created === false, entry_key: row.entry_key };
   };
 }
 
-function polymarketEarningToFinancialRecord(row, {
-  subjectId, receipts, recordedAt = new Date().toISOString(),
-} = {}) {
+function polymarketEarningToFinancialRecord(row, { subjectId, receipts, recordedAt } = {}) {
   const kind = {
     financial_external_income: ["business_revenue", "credit"],
     financial_realized_loss: ["business_cost", "debit"],
@@ -54,7 +54,7 @@ function polymarketEarningToFinancialRecord(row, {
   const amount = Number(row.amount_minor);
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("Polymarket amount invalid");
   const key = `earnings-financial:v1:${row.entry_key}`;
-  const recorded = new Date(recordedAt).toISOString();
+  const recorded = new Date(recordedAt || row.occurred_at).toISOString();
   return {
     schema_version: 1, record_type: "financial_record",
     record_id: financialRecordId(subjectId, key), subject_id: subjectId,
@@ -68,10 +68,12 @@ function polymarketEarningToFinancialRecord(row, {
   };
 }
 
-function createPolymarketFinancialWriter({ store, subjectId, receipts, now = () => new Date().toISOString() }) {
+function createPolymarketFinancialWriter({ store, subjectId, receipts, now } = {}) {
   if (!store || typeof store.append !== "function") throw new Error("FinancialRecord store required");
   return async (row) => {
-    const record = polymarketEarningToFinancialRecord(row, { subjectId, receipts, recordedAt: now() });
+    const record = polymarketEarningToFinancialRecord(row, {
+      subjectId, receipts, recordedAt: now ? now() : row.occurred_at,
+    });
     const write = await store.append(record);
     return { ok: true, duplicate: write.created === false, entry_key: row.entry_key };
   };

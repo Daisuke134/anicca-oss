@@ -86,6 +86,17 @@ test("FinancialRecord store retries delivery on duplicate writes without duplica
   assert.deepEqual(await store.read({ subjectId: "tenant-a" }), [raw]);
 });
 
+test("FinancialRecord store fails its completion boundary until notification is receipted", async () => {
+  const raw = record();
+  const store = createFinancialTransitionStore({
+    store: { append: async () => ({ created: true, record: raw }), read: async () => [raw] },
+    deliver: async () => ({ status: "failed", reason: "telegram_provider_receipt_missing", unknownEffect: true }),
+  });
+  await assert.rejects(store.append(raw), (error) => (
+    error.code === "FINANCIAL_TRANSITION_DELIVERY_FAILED" && error.unknownEffect === true
+  ));
+});
+
 test("Postgres transition store claims once, persists provider receipt, then resolves replay", async () => {
   const rows = new Map();
   const query = async (sql, values) => {
@@ -180,7 +191,7 @@ test("Cloud store releases a known Telegram rejection so replay can retry", asyn
       ? { ok: false, error_code: 400 }
       : { ok: true, result: { message_id: 77 } }),
   });
-  assert.equal((await store.append(raw)).notification.status, "failed");
+  await assert.rejects(store.append(raw), /financial transition delivery failed/);
   assert.equal((await store.append(raw)).notification.status, "sent");
   assert.equal(sends, 2);
 });
@@ -204,8 +215,8 @@ test("Cloud store retains a claim when Telegram says sent without a provider rec
     query, readTenant: async () => ({ telegram_chat_id: "private", notifications_enabled: true }),
     telegramToken: "token", sendTelegram: async () => (sends++, { ok: true, result: {} }),
   });
-  assert.equal((await store.append(raw)).notification.unknownEffect, true);
-  assert.equal((await store.append(raw)).notification.reason, "delivery_claim_unresolved");
+  await assert.rejects(store.append(raw), (error) => error.unknownEffect === true);
+  await assert.rejects(store.append(raw), (error) => error.unknownEffect === true);
   assert.equal(sends, 1);
 });
 

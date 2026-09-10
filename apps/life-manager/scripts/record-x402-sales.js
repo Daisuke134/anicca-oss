@@ -18,6 +18,7 @@ const {
 } = require("../lib/x402-sale-ledger.js");
 const { classifyThe402Revenue } = require("../lib/the402-work-provenance.js");
 const { createJsonlFinancialRecordStore } = require("../lib/financial-record-store.js");
+const { createLocalFinancialTransitionStore } = require("../lib/financial-transition-local.js");
 const { createFinancialEarningsWriter } = require("../lib/earnings-financial-record.js");
 
 const USDC_ADDRESS = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
@@ -299,9 +300,12 @@ async function main(deps = {}, argv = process.argv.slice(2)) {
   });
   const subjectId = deps.subjectId || process.env.LM_CFO_SUBJECT_ID
     || process.env.LM_CFO_UID || process.env.LM_UID || "local";
-  const financialStore = deps.financialStore || createJsonlFinancialRecordStore({
+  const baseFinancialStore = createJsonlFinancialRecordStore({
     directoryPath: deps.financialRecordsDir || process.env.LM_FINANCIAL_RECORDS_DIR
       || join(process.env.CFO_STATE_DIR || join(homedir(), ".local/state/life-manager/life-manager-cfo-hourly"), "financial-records"),
+  });
+  const financialStore = deps.financialStore || createLocalFinancialTransitionStore({
+    store: baseFinancialStore, env: process.env,
   });
   const recordFinancial = createFinancialEarningsWriter({ store: financialStore, subjectId });
   const recordSale = deps.recordSale || ((input, boundary) => recordX402Sale(input, { ...boundary, recordEntry: recordFinancial }));

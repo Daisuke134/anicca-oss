@@ -156,3 +156,22 @@ test("a legacy duplicate still repairs a missing common FinancialRecord", async 
   assert.equal(financialCalls, 1);
   assert.equal((await readLedger(ledger)).length, 1);
 });
+
+test("a notification failure leaves a stable ledger occurrence for exact replay", async () => {
+  const ledger = await tmpFile();
+  let notifications = 0;
+  const input = { sig: SIG, wallet: WALLET, ledger, wake: "wake-notify" };
+  const opts = {
+    fetchImpl: fetchFor({ delta: 0.2 }),
+    recordFinancial: async (result) => {
+      notifications += 1;
+      if (notifications === 1) throw new Error("financial transition delivery failed");
+      return { occurred_at: result.occurred_at };
+    },
+  };
+  await assert.rejects(recordSwap(input, opts), /financial transition delivery failed/);
+  const replay = await recordSwap(input, opts);
+  assert.equal(replay.status, "duplicate");
+  assert.equal(replay.financial.occurred_at, replay.occurred_at);
+  assert.equal(notifications, 2);
+});

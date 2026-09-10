@@ -62,11 +62,13 @@ export async function recordSwap(
   });
   const result = { status: legacyDuplicate ? "duplicate" : "recorded", sig, signatures,
     net_usdc: delta, earn_usdc, cost_usdc, occurred_at, profitable: false };
-  if (typeof opts.recordFinancial === "function") result.financial = await opts.recordFinancial(result);
   if (!legacyDuplicate) {
     const { profitable } = await record(json, ledger);
     result.profitable = profitable;
   }
+  // Preserve the source occurrence before notification so a pre-send failure can replay the
+  // exact same FinancialRecord rather than collide on a newly generated timestamp.
+  if (typeof opts.recordFinancial === "function") result.financial = await opts.recordFinancial(result);
   return result;
 }
 
@@ -80,9 +82,13 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()
     const require = createRequire(import.meta.url);
     const root = path.resolve(process.env.LIFE_MANAGER_REPO);
     const { createJsonlFinancialRecordStore } = require(path.join(root, "apps/life-manager/lib/financial-record-store.js"));
+    const { createLocalFinancialTransitionStore } = require(path.join(root, "apps/life-manager/lib/financial-transition-local.js"));
     const { createSolanaTradeFinancialWriter } = require(path.join(root, "apps/life-manager/lib/solana-trade-financial-record.js"));
     recordFinancial = createSolanaTradeFinancialWriter({
-      store: createJsonlFinancialRecordStore({ directoryPath: path.resolve(process.env.LM_FINANCIAL_RECORDS_DIR) }),
+      store: createLocalFinancialTransitionStore({
+        store: createJsonlFinancialRecordStore({ directoryPath: path.resolve(process.env.LM_FINANCIAL_RECORDS_DIR) }),
+        env: process.env,
+      }),
       subjectId: process.env.LM_CFO_SUBJECT_ID || process.env.LM_UID || "local",
     });
   }

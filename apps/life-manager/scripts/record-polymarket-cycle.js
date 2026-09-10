@@ -7,6 +7,7 @@ const path = require("node:path");
 const { recordPolymarketCycle } = require("../lib/polymarket-cycle.js");
 const { generateMonthlyReport } = require("../lib/earnings-runtime.js");
 const { createJsonlFinancialRecordStore } = require("../lib/financial-record-store.js");
+const { createLocalFinancialTransitionStore } = require("../lib/financial-transition-local.js");
 const { createPolymarketFinancialWriter } = require("../lib/earnings-financial-record.js");
 
 const PUSD = "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB";
@@ -77,9 +78,12 @@ async function main(deps = {}, argv = process.argv.slice(2)) {
     [String(cycle.redeem_tx_hash).toLowerCase()]: receipt,
   };
   const subjectId = env.LM_CFO_SUBJECT_ID || env.LM_CFO_UID || env.LM_UID || "local";
-  const financialStore = deps.financialStore || createJsonlFinancialRecordStore({
+  const baseFinancialStore = createJsonlFinancialRecordStore({
     directoryPath: env.LM_FINANCIAL_RECORDS_DIR
       || path.join(env.CFO_STATE_DIR || path.join(os.homedir(), ".local", "state", "life-manager", "life-manager-cfo-hourly"), "financial-records"),
+  });
+  const financialStore = deps.financialStore || createLocalFinancialTransitionStore({
+    store: baseFinancialStore, env,
   });
   const recordEntry = createPolymarketFinancialWriter({
     store: financialStore, subjectId, receipts,

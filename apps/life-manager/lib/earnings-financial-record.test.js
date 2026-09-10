@@ -42,6 +42,22 @@ test("writer preserves common-store idempotency as the legacy callback contract"
   assert.equal(calls.length, 1);
 });
 
+test("default x402 and Polymarket records are byte-stable across delayed replay", async () => {
+  const first = earningsIncomeToFinancialRecord(row(), { subjectId: "dais-local" });
+  await new Promise((resolve) => setTimeout(resolve, 2));
+  const replay = earningsIncomeToFinancialRecord(row(), { subjectId: "dais-local" });
+  assert.deepEqual(replay, first);
+
+  const redeem = `0x${"b".repeat(64)}`;
+  const settled = { entry_key: "polymarket:stable", kind: "financial_external_income",
+    amount_minor: 315, occurred_at: "2026-09-11T04:00:00.000Z", tx_hash: redeem,
+    source: "polymarket_cycle" };
+  const options = { subjectId: "dais-local",
+    receipts: { [redeem]: { status: "0x1", transactionHash: redeem } } };
+  assert.deepEqual(polymarketEarningToFinancialRecord(settled, options),
+    polymarketEarningToFinancialRecord(settled, options));
+});
+
 test("projects verified Polymarket income, loss, and fee into the common record taxonomy", () => {
   const redeem = `0x${"b".repeat(64)}`;
   const base = { entry_key: "polymarket:cycle:income", amount_minor: 315, currency: "USD",

@@ -4,6 +4,7 @@
 const os = require("node:os");
 const path = require("node:path");
 const { createJsonlFinancialRecordStore } = require("../lib/financial-record-store.js");
+const { createLocalFinancialTransitionStore } = require("../lib/financial-transition-local.js");
 const { yieldResultToFinancialRecord } = require("../lib/yield-financial-record.js");
 
 async function main(deps = {}, argv = process.argv.slice(2)) {
@@ -15,9 +16,10 @@ async function main(deps = {}, argv = process.argv.slice(2)) {
     occurredAt: timestamp, recordedAt: timestamp,
   });
   if (!record) return { ok: true, skipped: true };
-  const store = deps.store || createJsonlFinancialRecordStore({ directoryPath:
-    env.LM_FINANCIAL_RECORDS_DIR || path.join(env.CFO_STATE_DIR
-      || path.join(os.homedir(), ".local", "state", "life-manager", "life-manager-cfo-hourly"), "financial-records") });
+  const baseStore = createJsonlFinancialRecordStore({ directoryPath: env.LM_FINANCIAL_RECORDS_DIR
+    || path.join(env.CFO_STATE_DIR || path.join(os.homedir(), ".local", "state", "life-manager",
+      "life-manager-cfo-hourly"), "financial-records") });
+  const store = deps.store || createLocalFinancialTransitionStore({ store: baseStore, env });
   const write = await store.append(record);
   return { ok: true, duplicate: write.created === false, record_id: record.record_id };
 }
