@@ -15,7 +15,7 @@
 //   - names not present in registry   -> tolerated (no throw; they just match nothing)
 //   - registry malformed / no slots   -> returned untouched (fail-open to the existing loop fallback)
 // Pure: never mutates the input object.
-export function applySlotAllowlist(registry, envValue) {
+export function applySlotAllowlist(registry, envValue, { preserveAlwaysAvailable = true } = {}) {
   const raw = String(envValue || '').trim();
   if (!raw) return { registry, applied: null };
   if (!registry || typeof registry !== 'object' || !registry.slots || typeof registry.slots !== 'object') {
@@ -25,7 +25,7 @@ export function applySlotAllowlist(registry, envValue) {
   if (!allow.size) return { registry, applied: null };
   const slots = {};
   for (const [name, def] of Object.entries(registry.slots)) {
-    if (allow.has(name) || (def && def.alwaysAvailable === true)) slots[name] = def;
+    if (allow.has(name) || (preserveAlwaysAvailable && def && def.alwaysAvailable === true)) slots[name] = def;
   }
   return { registry: { ...registry, slots }, applied: [...allow] };
 }

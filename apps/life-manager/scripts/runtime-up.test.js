@@ -99,7 +99,6 @@ test("Railway start command routes the worker role to internal-worker", () => {
 test("Agent Economy Cloud worker packages the shared monorepo runtime without Docker", () => {
   const config = fs.readFileSync(path.join(ROOT, "railway.worker.toml"), "utf8");
   assert.match(config, /npm ci --ignore-scripts --prefix apps\/life-manager/);
-  assert.match(config, /npm ci --ignore-scripts --prefix skills\/earn\/x402-sell/);
   assert.match(config, /npm ci --ignore-scripts --prefix skills\/earn\/taskmarket/);
   assert.match(config, /nixpacksConfigPath = "nixpacks\.worker\.toml"/);
   const nixpacks = fs.readFileSync(path.join(ROOT, "nixpacks.worker.toml"), "utf8");
@@ -109,6 +108,65 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
   assert.doesNotMatch(config, /docker/i);
   assert.equal(fs.existsSync(path.join(ROOT, "runtime/loop/index.mjs")), true);
   assert.equal(fs.existsSync(path.join(ROOT, "skills/earn/run.sh")), true);
+  const buildIgnore = fs.readFileSync(path.join(ROOT, ".dockerignore"), "utf8");
+  assert.match(buildIgnore, /!runtime\/loop\/\*\*/);
+  assert.doesNotMatch(buildIgnore, /^!runtime\/\*\*$/m);
+  assert.match(buildIgnore, /!skills\/registry\.json/);
+  assert.doesNotMatch(buildIgnore, /^!skills\/\*\*$/m);
+  const ignoreProbe = fs.mkdtempSync(path.join(os.tmpdir(), "lm-worker-ignore-"));
+  fs.writeFileSync(path.join(ignoreProbe, ".gitignore"), buildIgnore);
+  spawnSync("git", ["init", "--quiet"], { cwd: ignoreProbe });
+  const checkIgnored = (relativePath) => {
+    const absolutePath = path.join(ignoreProbe, relativePath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, "probe");
+    return spawnSync(
+      "git",
+      ["check-ignore", "--no-index", "--quiet", relativePath],
+      { cwd: ignoreProbe },
+    ).status === 0;
+  };
+  for (const requiredPath of [
+    "runtime/loop/index.mjs",
+    "runtime/contracts/citizen-identity.cjs",
+    "runtime/contracts/common-record.cjs",
+    "skills/registry.json",
+    "skills/earn/run.sh",
+    "skills/earn/lib/resolve-identity.mjs",
+    "skills/earn/taskmarket/package.json",
+    "skills/_shared/lib/earn-guard.mjs",
+    "services/x402-endpoint/prisma/schema.prisma",
+  ]) {
+    assert.equal(checkIgnored(requiredPath), false, `${requiredPath} must be in the Railway build context`);
+  }
+  for (const excludedPath of [
+    "runtime/loop/__tests__/wake.test.mjs",
+    "runtime/loop/test/wake.test.mjs",
+    "runtime/contracts/test_common_contracts.py",
+    "runtime/agentmail/test-replier.sh",
+    "runtime/loop/state/probe.jsonl",
+    "runtime/README.md",
+    "skills/earn/lib/__tests__/net-worth.test.mjs",
+    "skills/earn/test/fixture.js",
+    "skills/browser/scripts/test_session_vault.py",
+    "skills/writer-agent/reference/private.json",
+    "skills/x-repost/x-repost-cli.sh",
+    "skills/resource-resolver/run.sh",
+    "skills/report/anicca-report.sh",
+    "skills/cook/run.sh",
+    "skills/earn/polymarket-trade/run.sh",
+    "skills/earn/x402-sell/package.json",
+    "skills/self/spawn/run.sh",
+    "skills/earn/README.md",
+    "skills/earn/references/provider.md",
+    "skills/earn/state/earn-ledger.jsonl",
+    "skills/earn/x402-sell/node_modules/example.js",
+    "skills/earn/.env",
+    "skills/earn/.env.production",
+  ]) {
+    assert.equal(checkIgnored(excludedPath), true, `${excludedPath} must stay out of the Railway build context`);
+  }
+  fs.rmSync(ignoreProbe, { recursive: true, force: true });
 });
 
 test("runtime worker entrypoint fails closed for every non-worker argv", () => {

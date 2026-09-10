@@ -7,7 +7,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const test = require("node:test");
 
-const { createAgentEconomyCloudWakeRunner } = require("./agent-economy-cloud-wake.js");
+const { CLOUD_AGENT_ECONOMY_SLOTS, createAgentEconomyCloudWakeRunner } = require("./agent-economy-cloud-wake.js");
 
 const PRIVATE_KEY = "11".repeat(32);
 const ADDRESS = `0x${"a".repeat(40)}`;
@@ -37,6 +37,9 @@ test("Cloud runner invokes the shared loop for one wake and returns only its saf
       assert.equal(executable, process.execPath);
       assert.equal(args[0], path.resolve(__dirname, "../../../runtime/loop/index.mjs"));
       assert.equal(options.env.ANICCA_SINGLE_WAKE, "1");
+      assert.equal(options.env.ANICCA_SLOT_ALLOWLIST, CLOUD_AGENT_ECONOMY_SLOTS.join(","));
+      assert.equal(options.env.ANICCA_STRICT_SLOT_ALLOWLIST, "1");
+      assert.deepEqual(CLOUD_AGENT_ECONOMY_SLOTS, ["earn/taskmarket"]);
       assert.equal(options.env.ANICCA_EVM_PRIVATE_KEY, undefined);
       assert.equal(options.env.LM_CLOUD_CITIZEN_ENCRYPTION_KEY, undefined);
       assert.equal(options.env.SUPABASE_SERVICE_ROLE_KEY, undefined);

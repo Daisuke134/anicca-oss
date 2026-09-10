@@ -1,8 +1,8 @@
 import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { loadEvmKey } from '../lib/resolve-identity.mjs';
@@ -10,7 +10,10 @@ import { evmErc20Balance, EVM_TOKENS, RPC } from '../lib/net-worth.mjs';
 import { generateImage as generateX402Image } from './x402-image-client.mjs';
 
 const USDC_DECIMALS = 1_000_000;
-const TASKMARKET_CLI = '/opt/homebrew/bin/taskmarket';
+export const TASKMARKET_CLI = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'node_modules', '.bin', 'taskmarket',
+);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_IMAGE_COST_USD = 0.07;
 const DAILY_IMAGE_CAP_USD = 0.14;
@@ -92,14 +95,51 @@ async function taskmarketCli(args) {
   return parseTaskmarketJson(stdout, `taskmarket ${args.join(' ')}`);
 }
 
+async function importTaskmarketWallet(walletKey) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(TASKMARKET_CLI, ['wallet', 'import', '--yes'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env,
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdin.end(`${walletKey}\n`);
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`TaskMarket wallet import failed (${code}): ${stderr.slice(0, 200)}`));
+    });
+  });
+}
+
+export async function ensureTaskmarketWallet({ walletKey, home = process.env.HOME, runImport = importTaskmarketWallet }) {
+  const expected = privateKeyToAccount(walletKey).address.toLowerCase();
+  const keystorePath = join(home, '.taskmarket', 'keystore.json');
+  try {
+    const existing = JSON.parse(await readFile(keystorePath, 'utf8'));
+    if (String(existing.walletAddress || '').toLowerCase() !== expected) {
+      throw new Error('TaskMarket keystore belongs to another citizen wallet');
+    }
+    return { initialized: false, address: expected };
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  await runImport(walletKey);
+  const created = JSON.parse(await readFile(keystorePath, 'utf8'));
+  if (String(created.walletAddress || '').toLowerCase() !== expected) {
+    throw new Error('TaskMarket wallet import did not bind the citizen wallet');
+  }
+  return { initialized: true, address: expected };
+}
+
 async function defaultListTasks() {
   const data = await taskmarketCli(['task', 'list', '--status', 'open', '--limit', '100']);
   if (!data || !Array.isArray(data.tasks)) throw new Error('TaskMarket task list is malformed');
   return data.tasks;
 }
 
-async function defaultListSubmissions() {
-  const data = await taskmarketCli(['task', 'my-submissions']);
+async function defaultListSubmissions(address) {
+  const data = await taskmarketCli(['task', 'my-submissions', '--address', address]);
   if (!Array.isArray(data)) throw new Error('TaskMarket submission list is malformed');
   return data;
 }
@@ -310,9 +350,12 @@ export async function runTaskMarketPass(options = {}, deps = {}) {
   } = options;
   if (!aniccaHome) throw new Error('ANICCA_HOME is required');
 
-  const listTasks = deps.listTasks || defaultListTasks;
-  const listSubmissions = deps.listSubmissions || defaultListSubmissions;
   const loadWalletKey = deps.loadWalletKey || (() => loadEvmKey());
+  const walletKey = loadWalletKey();
+  if (!walletKey) throw new Error('no per-instance EVM key for TaskMarket');
+  const walletAddress = privateKeyToAccount(walletKey).address;
+  const listTasks = deps.listTasks || defaultListTasks;
+  const listSubmissions = deps.listSubmissions || (() => defaultListSubmissions(walletAddress));
   const downloadImage = deps.downloadImage || defaultDownloadImage;
   const submitTask = deps.submitTask || defaultSubmitTask;
   const sleep = deps.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -387,8 +430,8 @@ export async function runTaskMarketPass(options = {}, deps = {}) {
     throw new Error(`requested TaskMarket task is unsupported: ${classification.reason}`);
   }
 
-  const walletKey = loadWalletKey();
-  if (!walletKey) throw new Error('no per-instance EVM key for TaskMarket image spend');
+  const ensureWallet = deps.ensureWallet || ensureTaskmarketWallet;
+  await ensureWallet({ walletKey, home: process.env.HOME });
   const stateDir = join(
     aniccaHome,
     'skills',

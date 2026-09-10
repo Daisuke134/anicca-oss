@@ -8,6 +8,9 @@ const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 
 const execFileAsync = promisify(execFile);
+const CLOUD_AGENT_ECONOMY_SLOTS = Object.freeze([
+  "earn/taskmarket",
+]);
 
 function safeSegment(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -71,6 +74,8 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
       ANICCA_WALLET_ADDRESS: identity.wallet.address,
       ANICCA_EVM_WALLET_PATH: walletPath,
       ANICCA_SINGLE_WAKE: "1",
+      ANICCA_SLOT_ALLOWLIST: CLOUD_AGENT_ECONOMY_SLOTS.join(","),
+      ANICCA_STRICT_SLOT_ALLOWLIST: "1",
       SLEEP_BASE_S: "0",
       SLEEP_ERROR_S: "0",
       LEDGER_PUBLISH_ENABLED: "0",
@@ -105,4 +110,4 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
   };
 }
 
-module.exports = { createAgentEconomyCloudWakeRunner };
+module.exports = { CLOUD_AGENT_ECONOMY_SLOTS, createAgentEconomyCloudWakeRunner };
