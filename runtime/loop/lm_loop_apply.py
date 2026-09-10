@@ -106,15 +106,11 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             ),
         })
     if loop_id == "lateness-heartbeat":
-        timeout = shutil.which("timeout")
-        if not timeout or not Path(timeout).is_absolute():
-            raise ValueError("lateness-heartbeat: timeout executable is unavailable")
         value["EnvironmentVariables"].update({
             "LIFE_MANAGER_ENV_FILE": str(Path.home() / ".local/state/life-manager/.env"),
             "LIFE_MANAGER_PYTHON": str(
                 Path.home() / ".local/share/life-manager/venv/bin/python"
             ),
-            "LIFE_MANAGER_TIMEOUT": timeout,
         })
     key, cadence = next(iter(entry["cadence"].items()))
     if key == "start_interval_seconds":

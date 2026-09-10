@@ -13,7 +13,11 @@ class LatenessEntrypointContractTest(unittest.TestCase):
         self.assertEqual(source.count("unset ANICCA_HOME OPENCLAW_ENV_FILE"), 2)
         self.assertIn("migrate-legacy-lateness-state.py", source)
         self.assertIn('PYTHON_BIN="${LIFE_MANAGER_PYTHON:-python3}"', source)
+        self.assertIn('"$LIFE_MANAGER_REPO/runtime/run-with-timeout.py"', source)
         self.assertNotIn("/opt/homebrew", source)
+        self.assertNotIn("TIMEOUT_BIN", source)
+        self.assertIn("LATENESS_STATUS=$?", source)
+        self.assertIn('exit "$LATENESS_STATUS"', source)
         self.assertNotIn('LOG="$SKILL/state/run.log"', source)
         self.assertNotIn("openclaw cron", source.lower())
 

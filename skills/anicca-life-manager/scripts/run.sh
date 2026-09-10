@@ -8,7 +8,6 @@ set -uo pipefail
 # sleep event punches through (Dais: "they are not calling me when i wake up").
 SKILL="$LIFE_MANAGER_REPO/skills/anicca-life-manager"
 PYTHON_BIN="${LIFE_MANAGER_PYTHON:-python3}"
-TIMEOUT_BIN="${LIFE_MANAGER_TIMEOUT:-timeout}"
 LIFE_MANAGER_HOME="${LIFE_MANAGER_HOME:-$HOME/.local/state/life-manager}"
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$LIFE_MANAGER_HOME/lateness-heartbeat}"
 MIGRATION_MARKER="$STATE_ROOT/legacy-migration.json"
@@ -26,10 +25,12 @@ export LIFE_MANAGER_ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$LIFE_MANAGER_HOME/.env}"
 set -a; source "$LIFE_MANAGER_ENV_FILE" 2>/dev/null; set +a
 unset ANICCA_HOME OPENCLAW_ENV_FILE
 echo "=== lateness run $(date '+%Y-%m-%d %H:%M:%S %Z') ===" >> "$LOG"
-"$TIMEOUT_BIN" --kill-after=10 110 "$PYTHON_BIN" \
+"$PYTHON_BIN" "$LIFE_MANAGER_REPO/runtime/run-with-timeout.py" --grace-seconds 10 110 "$PYTHON_BIN" \
   "$SKILL/scripts/lateness_check.py" "$@" >> "$LOG" 2>&1
-echo "exit=$?" >> "$LOG"
+LATENESS_STATUS=$?
+echo "exit=$LATENESS_STATUS" >> "$LOG"
 
 # === arrival closure (merged from anicca-arrival-mail v7.6) ===
-"$TIMEOUT_BIN" 60 "$PYTHON_BIN" \
+"$PYTHON_BIN" "$LIFE_MANAGER_REPO/runtime/run-with-timeout.py" 60 "$PYTHON_BIN" \
   "$SKILL/scripts/arrival.py" >> "$LOG" 2>&1 || true
+exit "$LATENESS_STATUS"

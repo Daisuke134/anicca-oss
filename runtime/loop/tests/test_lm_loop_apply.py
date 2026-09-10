@@ -462,8 +462,7 @@ class LmLoopApplyTest(unittest.TestCase):
             label="ai.anicca.lateness-heartbeat",
             agents_dir_name="LaunchAgents-lateness",
         )
-        with patch("runtime.loop.lm_loop_apply.shutil.which", return_value="/managed/bin/timeout"):
-            rendered = build_apply_plan(registry_value, release, SHA)[0]
+        rendered = build_apply_plan(registry_value, release, SHA)[0]
         target = values["agents_dir"] / "ai.anicca.lateness-heartbeat.plist"
         installed = plistlib.loads(rendered["plist_bytes"])
         installed["EnvironmentVariables"].update({
@@ -473,17 +472,15 @@ class LmLoopApplyTest(unittest.TestCase):
         })
         target.write_bytes(plistlib.dumps(installed, fmt=plistlib.FMT_XML, sort_keys=True))
 
-        with patch("runtime.loop.lm_loop_apply.shutil.which", return_value="/managed/bin/timeout"):
-            apply_live(
-                release, values["agents_dir"], values["launchctl_safe"], target=loop_id,
-                current=current, lock_path=values["lock_path"], event_writer=lambda *_: None,
-            )
+        apply_live(
+            release, values["agents_dir"], values["launchctl_safe"], target=loop_id,
+            current=current, lock_path=values["lock_path"], event_writer=lambda *_: None,
+        )
 
         environment = plistlib.loads(target.read_bytes())["EnvironmentVariables"]
         self.assertNotIn("ANICCA_HOME", environment)
         self.assertNotIn("OPENCLAW_ENV_FILE", environment)
         self.assertEqual(environment["LATENESS_OPERATOR_SETTING"], "kept")
-        self.assertEqual(environment["LIFE_MANAGER_TIMEOUT"], "/managed/bin/timeout")
         self.assertEqual(
             environment["LIFE_MANAGER_PYTHON"],
             str(Path.home() / ".local/share/life-manager/venv/bin/python"),
