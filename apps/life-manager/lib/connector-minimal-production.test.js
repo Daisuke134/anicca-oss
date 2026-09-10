@@ -417,6 +417,52 @@ test("production router prioritizes a durable Connpass reconciliation candidate 
   assert.deepEqual(saved, [[ordinary.event_ref, "2026-09-08T19:13:34.232Z"]]);
 });
 
+test("production router durably prioritizes a Luma effect-unknown candidate until official readback settles it", async () => {
+  const queued = Object.freeze({
+    provider: "luma",
+    event_ref: "luma-event://event/unknown-effect",
+    canonical_url: "https://luma.com/unknown-effect",
+    title: "Tokyo AI Builders",
+    starts_at: "2026-09-12T10:00:00.000Z",
+    ends_at: "2026-09-12T11:00:00.000Z",
+    venue_name: "Tokyo",
+  });
+  const saved = [];
+  const removed = [];
+  const emptyWorkflow = {
+    async discoverCandidates() { return []; },
+    async runDirectAction() { return { status: "failed", safe_reason: "direct_action_unavailable" }; },
+    async readProviderState() { return { status: "absent" }; },
+  };
+  const lumaWorkflow = {
+    ...emptyWorkflow,
+    async runDirectAction() { return { status: "failed", safe_reason: "effect_unknown" }; },
+  };
+  const router = createProductionProviderRouter({
+    now: () => new Date("2026-09-10T03:23:10.590Z"),
+    lumaWorkflow,
+    connpassWorkflow: emptyWorkflow,
+    actionCache: { async replay() {}, async saveVerifiedRepair() {} },
+    browserHarness: { async runFallback() {} },
+    async performAction() {},
+    reconciliationStore: {
+      list(provider) { return provider === "luma" ? [queued] : []; },
+      save(candidate, observedAt) { saved.push([candidate.event_ref, observedAt]); },
+      remove(provider, eventRef) { removed.push([provider, eventRef]); },
+    },
+  });
+
+  const candidates = await router.discoverCandidates("luma", [], {});
+  assert.equal(candidates[0].event_ref, queued.event_ref);
+  assert.equal(candidates[0].reconciliation_only, true);
+  assert.deepEqual(await router.runDirectAction({ provider: "luma", candidate: queued, page: {} }), {
+    status: "failed", safe_reason: "effect_unknown",
+  });
+  assert.deepEqual(saved, [[queued.event_ref, "2026-09-10T03:23:10.590Z"]]);
+  await router.readProviderState({ provider: "luma", candidate: candidates[0], page: {} });
+  assert.deepEqual(removed, [["luma", queued.event_ref]]);
+});
+
 test("production router rotates durable Connpass reconciliation candidates every half hour", async () => {
   const queue = [rankingCandidate("queue-a", "2026-09-10T09:00:00.000Z"), rankingCandidate("queue-b", "2026-09-11T09:00:00.000Z")];
   const workflow = { async discoverCandidates() { return []; }, async runDirectAction() {}, async readProviderState() { return { status: "absent" }; } };
