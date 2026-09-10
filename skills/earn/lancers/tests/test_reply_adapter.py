@@ -300,3 +300,19 @@ def test_booked_action_creates_missing_calendar_event_before_reply(monkeypatch, 
 
     assert calendar == [(slot, "https://meet.google.com/abc-defg-hij")]
     assert replies == ["message-1"]
+
+
+def test_booked_action_without_calendar_requests_resume(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    slot = {"start": "2026-09-11T08:10:00.000Z", "end": "2026-09-11T08:40:00.000Z"}
+    monkeypatch.setattr(adapter, "_booking_snapshot", lambda _url: ([{
+        "slot_start": slot["start"], "slot_end": slot["end"],
+        "meet_link": "https://meet.google.com/abc-defg-hij",
+    }], []))
+    monkeypatch.setattr(adapter, "_calendar_contains", lambda _slot: False)
+    monkeypatch.setattr(adapter, "_reply_exists", lambda *_args: None)
+    intent = {"action": "external_action", "thread_id": "9064025", "effect_key": "key",
+              "payload": {"url": "https://yoyaku.triplek-rh.workers.dev/?lid=test",
+                          "slot": slot, "completion_body": "予約しました。"}}
+
+    assert adapter.readback(intent) == {"resume_required": True}
