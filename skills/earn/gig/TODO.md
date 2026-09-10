@@ -2574,6 +2574,16 @@ from the chat, and two of them contradict what this cursor had previously report
     zero-Connects acquisition blocker, and defer Freelancer profile projection until its Apply owner is
     repo-owned. Do not call those three a uniform profile mutation.
 
+    Pre-implementation audit limits the next repository change to three files: one small structured
+    `skills/gig-work/profile/commercial-profile.json`, the existing CrowdWorks `profile.py` adapter,
+    and its existing focused profile test. The shared document owns factual positioning, role family,
+    proof/avatar references and approved public persona aliases. `Kaito` and `Kosuke` are public trade
+    aliases rather than legal identity; preserve the approved provider projection instead of forcing
+    every provider to render one literal name. The adapter owns only the CrowdWorks group/detail IDs
+    and DOM ceremony. The regression must fail when detail occupation `142` remains buyer-visible even
+    if the edit form reports group `AI関連サービス`, and pass only when public `/occupations` reads the
+    mapped SE role. No new profile framework, provider duplicate, or separate test file is required.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
