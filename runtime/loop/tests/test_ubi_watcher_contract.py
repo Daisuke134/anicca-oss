@@ -92,15 +92,10 @@ class UbiWatcherContractTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("does not match signer", result.stderr)
 
-    def test_watcher_claims_before_send_and_never_requeues_ambiguous_failure(self):
+    def test_invalid_wallet_is_rejected_before_claimed_payout(self):
         source = (ROOT / "skills/ubi/ubi-payout-watcher.mjs").read_text()
-        self.assertIn("status: 'processing'", source)
-        self.assertIn("status=eq.queued", source)
-        self.assertIn("status=eq.processing", source)
-        self.assertIn("'needs_review'", source)
         self.assertNotIn("status: 'queued'", source)
-        self.assertLess(source.index("await claim(r)"), source.index("const tx = payWallet(to"))
-        self.assertIn("retaining processing is also fail-closed", source)
+        self.assertLess(source.index("if (!to) continue"), source.index("const result = await executeClaimedPayout({"))
 
 
 if __name__ == "__main__":

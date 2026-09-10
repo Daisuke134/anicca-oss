@@ -50,11 +50,6 @@ async function realizedProfitUsd() {
   }
 }
 
-if (!SUPABASE_URL || !SUPABASE_KEY || !/^0x[0-9a-fA-F]{40}$/.test(TREASURY_ADDRESS || '')) {
-  console.error('missing SUPABASE credentials or valid UBI_TREASURY_ADDRESS');
-  process.exit(1);
-}
-
 const sb = (path, init = {}) =>
   fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
@@ -114,6 +109,21 @@ function payWallet(to, amountBase) {
   const tx = JSON.parse(out.trim()).txs?.[0];
   if (!tx || tx.status !== '0x1') throw new Error('send not confirmed: ' + out.trim());
   return tx;
+}
+
+export async function executeClaimedPayout({ row, to, amountBase, claimFn, payFn, settleFn }) {
+  if (!(await claimFn(row))) return { outcome: 'already_claimed' };
+  try {
+    const tx = await payFn(to, amountBase);
+    if (!tx || tx.status !== '0x1') throw new Error('send not confirmed');
+    await settleFn(row.id, 'paid', `${row.notes || ''};payout_addr=${to};paid_tx=${tx.tx};paid_base=${tx.amount_base}`);
+    return { outcome: 'paid', tx };
+  } catch (error) {
+    try {
+      await settleFn(row.id, 'needs_review', `${row.notes || ''};payout_error=${String(error.message || error).slice(0, 120)}`);
+    } catch { /* retaining processing is also fail-closed and non-retriable */ }
+    return { outcome: 'needs_review', error };
+  }
 }
 
 const RESERVE_BASE = parseInt(process.env.UBI_RESERVE_BASE || '1000000', 10); // keep $1 runway
@@ -181,42 +191,52 @@ async function pass() {
       console.log(`RESERVE floor reached (bal $${bal / 1e6}); ${r.email} stays queued (their turn comes when funds grow)`);
       break;
     }
-    if (!(await claim(r))) {
-      console.log(`SKIP already claimed ${method} ${r.email}`);
-      continue;
-    }
-    try {
-      let to;
-      if (method === 'wallet') {
-        to = (notes.match(WALLET_RE) || [])[1];
-        if (!to) continue;
-      } else {
+    let to;
+    if (method === 'wallet') {
+      to = (notes.match(WALLET_RE) || [])[1];
+      if (!to) continue;
+    } else {
+      try {
         to = await crossmintEmailWallet(r.email); // email → their Crossmint wallet
+      } catch (e) {
+        console.error(`FAIL ${method} ${r.email}: ${e.message}`);
+        continue;
       }
-      const tx = payWallet(to, payAmountBase);
+    }
+    const result = await executeClaimedPayout({
+      row: r,
+      to,
+      amountBase: payAmountBase,
+      claimFn: claim,
+      payFn: (address, amount) => payWallet(address, amount),
+      settleFn: settleClaim,
+    });
+    if (result.outcome === 'paid') {
+      const tx = result.tx;
       bal -= tx.amount_base;
-      await settleClaim(r.id, 'paid', `${notes};payout_addr=${to};paid_tx=${tx.tx};paid_base=${tx.amount_base}`);
       paid++;
       console.log(`PAID ${method} ${r.email} -> ${to} $${tx.amount_base / 1e6} tx=${tx.tx}`);
       if (r.email) yourTurnEmail(r.email, method, tx.amount_base / 1e6);
-    } catch (e) {
-      // A subprocess/network failure can be ambiguous after broadcast. Never put the row back in
-      // the queued set: a human/provider reconciliation must decide whether another send is safe.
-      try {
-        await settleClaim(r.id, 'needs_review', `${notes};payout_error=${String(e.message || e).slice(0, 120)}`);
-      } catch { /* retaining processing is also fail-closed and non-retriable */ }
-      console.error(`FAIL ${method} ${r.email}: ${e.message}`);
+    } else if (result.outcome === 'already_claimed') {
+      console.log(`SKIP already claimed ${method} ${r.email}`);
+    } else {
+      console.error(`FAIL ${method} ${r.email}: ${result.error.message}`);
     }
   }
   return { queued: rows.length, paid };
 }
 
 async function main() {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !/^0x[0-9a-fA-F]{40}$/.test(TREASURY_ADDRESS || '')) {
+    throw new Error('missing SUPABASE credentials or valid UBI_TREASURY_ADDRESS');
+  }
   const r = await pass();
   console.log(`done queued=${r.queued} paid=${r.paid}`);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
