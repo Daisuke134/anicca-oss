@@ -145,12 +145,21 @@ if [ -n "$RELEASE_PATHS" ]; then
   # every caller to remember a second path.
   HAS_BIN=0
   HAS_SHARED=0
+  HAS_CONNECTOR=0
+  HAS_BROWSER_RUNTIME=0
   for path in "${ARCHIVE_PATHS[@]}"; do
     [ "$path" = "bin" ] && HAS_BIN=1
     [ "$path" = "skills/_shared" ] && HAS_SHARED=1
+    { [ "$path" = "apps/life-manager" ] || [ "$path" = "skills/connector" ]; } && HAS_CONNECTOR=1
+    [ "$path" = "runtime/browser" ] && HAS_BROWSER_RUNTIME=1
   done
   if [ "$HAS_BIN" -eq 1 ] && [ "$HAS_SHARED" -eq 0 ]; then
     ARCHIVE_PATHS+=("skills/_shared")
+  fi
+  # Connector's target-lease adapter imports the shared browser ownership
+  # primitive at runtime. Keep sparse releases import-complete.
+  if [ "$HAS_CONNECTOR" -eq 1 ] && [ "$HAS_BROWSER_RUNTIME" -eq 0 ]; then
+    ARCHIVE_PATHS+=("runtime/browser")
   fi
 fi
 if [ "${#ARCHIVE_PATHS[@]}" -eq 0 ]; then

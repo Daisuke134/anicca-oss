@@ -17,6 +17,37 @@ DEPENDENCY_ROOTS = (
 
 
 class CutLoopReleaseTest(unittest.TestCase):
+    def test_connector_sparse_release_includes_shared_browser_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            loops = root / "loops"
+            agents = root / "agents"
+            agents.mkdir()
+            npm = root / "npm"
+            npm.write_text("#!/bin/sh\nmkdir -p node_modules\n")
+            npm.chmod(0o755)
+
+            result = subprocess.run(
+                ["/bin/bash", str(ROOT / "bin/cut-loop-release.sh"), "origin/main"],
+                cwd=ROOT,
+                env={
+                    **os.environ,
+                    "LOOPS_ROOT": str(loops),
+                    "LOOPS_RELEASE_PATHS": "bin config runtime/loop runtime/agent-runner skills/_shared skills/connector apps/life-manager",
+                    "LOOPS_ACTIVATE_CURRENT": "0",
+                    "LIFE_MANAGER_LAUNCH_AGENTS_DIR": str(agents),
+                    "LIFE_MANAGER_DISK_PRESSURE_FILE": str(root / "no-pressure"),
+                    "NPM_BIN": str(npm),
+                },
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            release = next((loops / "releases").iterdir())
+            self.assertTrue((release / "runtime/browser/target-lease.cjs").is_file())
+
     def test_release_can_be_built_without_changing_current(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
