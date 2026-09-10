@@ -151,7 +151,7 @@ def test_server_agents_malformed_shape_or_nonzero_is_unreadable(monkeypatch) -> 
 
     cases = [
         ("not-json", 0),
-        (json.dumps({"agents": {"list": []}}), 0),
+        (json.dumps({"agents": {}}), 0),
         (json.dumps({"agents": ["not-an-object"]}), 0),
         (json.dumps({"agents": []}), 1),
     ]

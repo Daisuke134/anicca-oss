@@ -28,6 +28,8 @@ Exit 0 always (reconciliation is best-effort; a server read failure is reported,
 """
 import json, os, subprocess, sys, datetime
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from agent_list_response import parse_agent_list
 
 # Source stays in the repository; auth and mutable ledger state live in the user state root.
 REPO_ROOT = Path(os.environ.get("LIFE_MANAGER_REPO", Path(__file__).resolve().parents[3]))
@@ -47,8 +49,8 @@ DRAFT = {"draft"}                        # created but never submitted → orpha
 
 
 def load_ledger():
-    """Return (list of raw entries, set of agent_ids already recorded)."""
-    entries, ids = [], set()
+    """Return entries plus ids already recorded as server-confirmed online."""
+    entries, online_ids = [], set()
     if not os.path.exists(LEDGER):
         return entries, ids
     with open(LEDGER) as f:
@@ -64,18 +66,22 @@ def load_ledger():
             entries.append(d)
             aid = str(d.get("agent_id") or d.get("agentId") or "").strip()
             if aid:
-                ids.add(aid)
-    return entries, ids
+                status = str(d.get("status") or "").strip().lower()
+                if status.startswith("online") or status.startswith("approved"):
+                    online_ids.add(aid)
+    return entries, online_ids
 
 
 def server_agents():
     """Return the server's agent list (publish-list), or None on read failure."""
     try:
-        out = subprocess.run(
+        result = subprocess.run(
             [sys.executable, "packager.py", "publish-list"],
             cwd=PUB, capture_output=True, text=True, timeout=60,
-        ).stdout
-        return json.loads(out, strict=False)["agents"]["list"]
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"publish-list exited with {result.returncode}")
+        return parse_agent_list(json.loads(result.stdout, strict=False))
     except Exception as e:
         print(f"[reconcile] server read FAILED: {e}", file=sys.stderr)
         return None
@@ -83,7 +89,7 @@ def server_agents():
 
 def main():
     want_json = "--json" in sys.argv[1:]
-    entries, recorded = load_ledger()
+    entries, recorded_online = load_ledger()
     agents = server_agents()
     if agents is None:
         # fail-safe: never touch the ledger on a bad read
@@ -99,14 +105,14 @@ def main():
         name = (a.get("name") or "").strip()
         if not aid:
             continue
-        if status in ONLINE and aid not in recorded:
+        if status in ONLINE and aid not in recorded_online:
             entry = {
                 "agent_id": aid, "title": name,
                 "status": "online (status=4 listed) — reconciled from server",
                 "date": today,
                 "note": "reconcile_ledger.py: server-confirmed live but was missing from ledger.",
             }
-            entries.append(entry); recorded.add(aid); appended.append((aid, name))
+            entries.append(entry); recorded_online.add(aid); appended.append((aid, name))
         elif status in REJECTED:
             rejected.append((aid, status, name))
         elif status in DRAFT:

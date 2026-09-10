@@ -28,6 +28,8 @@ as a VERDICT=<state> line for cheap bash grepping.
 """
 import json, os, re, subprocess, sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from agent_list_response import parse_agent_list
 
 REPO_ROOT = Path(os.environ.get("LIFE_MANAGER_REPO", Path(__file__).resolve().parents[3]))
 STATE_HOME = Path(os.environ.get(
@@ -166,23 +168,7 @@ def server_agents():
         )
         if result.returncode != 0:
             raise RuntimeError(f"publish-list exited with {result.returncode}")
-        payload = json.loads(result.stdout, strict=False)
-        if not isinstance(payload, dict) or not isinstance(payload.get("agents"), list):
-            raise ValueError("publish-list response has no top-level agents list")
-        rows = []
-        for index, agent in enumerate(payload["agents"]):
-            if not isinstance(agent, dict):
-                raise ValueError(f"publish-list agents[{index}] is not an object")
-            rows.append({
-                "agentId": agent.get("agent_id"),
-                "name": agent.get("name"),
-                "description": agent.get("description"),
-                "agentType": agent.get("agent_type"),
-                "agentStatus": agent.get("agent_status"),
-                "latestAgentVersionId": agent.get("latest_agent_version_id"),
-                "updatedAt": agent.get("updated_at"),
-            })
-        return rows
+        return parse_agent_list(json.loads(result.stdout, strict=False))
     except Exception as e:
         print(f"[inventory_status] server read FAILED: {e}", file=sys.stderr)
         return None
