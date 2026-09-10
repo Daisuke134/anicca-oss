@@ -52,7 +52,10 @@ known private identity value. Provider adapters must not implement their own red
 
 Coconala is the working reference, Lancers proves the same kernel against a second provider, and
 CrowdWorks proves a third thin adapter. All three have official reply/readback acceptance and a later
-zero-duplicate terminal. A subsequent receipt audit found that one CrowdWorks reply introduced the
+zero-duplicate terminal for their earlier message-only inventories. That historical acceptance does
+not close newly requested browser actions: scheduling links, contract buttons and external hiring
+forms remain Reply work until their requested business outcome has an official receipt. A subsequent
+receipt audit found that one CrowdWorks reply introduced the
 owner's legal name even though the provider account's public seller identity is different. This is a
 shared composition/privacy defect, not a CrowdWorks transport defect; existing effect receipts remain
 valid but no provider is identity-safe until the shared fence and cross-provider regression pass.
@@ -63,6 +66,23 @@ Mercor is not accepted until the shared identity fence passes for Coconala, Lanc
 Mercor, then an installed natural terminal, official effect or truthful human-handoff receipt, and a
 following replay-zero are all observed. The exact fixed execution order and receipt
 details remain exclusively in `skills/earn/gig/TODO.md`.
+
+### 0.0B Shared commercial profile contract
+
+Apply conversion starts from one factual commercial profile, not separately authored provider
+personas. Its shared source owns the approved avatar asset, software-engineering / AI-automation /
+training positioning, biography, skills, work history and reusable portfolio proof. Provider adapters
+project only the fields and image ceremony that their official profile supports, then read the public
+result back. They do not copy prose from Coconala, infer private identity, or maintain a second factual
+profile. A field absent on one marketplace is not drift; conflicting facts, a blank required trust
+asset, or materially different positioning is drift.
+
+Profile completeness and Apply execution are separate receipts. A proposal ID proves submission, not
+that the public profile is credible; a complete profile proves positioning, not that an application
+was sent. The fixed production sequence remains Apply -> Reply -> Paid -> Storefront. Within Apply,
+profile parity precedes fresh provider acceptance because conversion cannot be evaluated while the
+public seller identity is blank or misclassified. The atomic order and current evidence live only in
+`skills/earn/gig/TODO.md`.
 
 Current Paid status and order are therefore recorded only in that TODO. Coconala has the accepted
 reference receipt chain: its Paid owner completed the Ryu revision through a normal message with

@@ -345,9 +345,12 @@ case lists below are historical evidence and do not reopen completed work or reo
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
-official contract inventories are empty; they do not block the next implementable atom. The active
-engineering atom is `APPLY-REPORT-9`, followed by fresh three-provider Apply acceptance. Reply is
-next, Paid follows Reply, and Storefront follows Paid. This is Dais's explicit order change.
+official contract inventories are empty. The active engineering atom is now
+`APPLY-PROFILE-PARITY-1`, because fresh official CrowdWorks evidence shows a blank avatar and the
+wrong public occupation even while Apply creates proposal receipts. Fresh Apply operational
+acceptance follows that profile correction. Reply then resumes at `CROWDWORKS-REPLY-ACTION-2` and
+`MERCOR-REPLY-2`; Paid follows Reply, and Storefront follows Paid. This preserves Dais's explicit
+Apply -> Reply -> Paid -> Storefront order.
 
 Fresh cross-owner handoff audit:
 
@@ -383,11 +386,14 @@ Current live Apply acceptance audit:
   exact `/work/detail/5599976` row after a saved intent. The current blocker is therefore
   `submission_uncertain` / `proposal_pipeline_incomplete`, not browser availability. Preserve the
   intent and reconcile before retry; a process-level PASS is not an application receipt.
-- **CrowdWorks:** Apply is actively producing official receipts. It verified proposals
-  `305228508`, `305233859`, `305247114`, and `305251644` during current retained evidence. The
-  latest attempted project `13443190` instead ended `proposal_form_changed`, so the lane is working
-  generally but its newest form variant is not accepted. Do not reopen earlier verified effects;
-  diagnose only that exact form before retry.
+- **CrowdWorks:** Apply is actively producing official receipts, but is not operationally accepted.
+  In addition to the retained earlier receipts, current official logs verify proposals `305309712`,
+  `305314740`, and `305321784`. Other wakes end `account_ensure_failed`,
+  `profile_navigation_failed`, or `proposal_form_changed`, so “some applications succeed” must not
+  be reported as continuous health. Fresh public profile readback also shows no avatar and labels the
+  worker as a prompt engineer. That positioning does not match the shared factual commercial persona:
+  software engineer / AI automation / training and freelance delivery. Profile conversion parity and
+  consecutive natural Apply acceptance remain open; existing verified proposal effects never reopen.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -2419,6 +2425,33 @@ from the chat, and two of them contradict what this cursor had previously report
     owned, while both fresh wakes performed no duplicate effect. No code or production mutation was
     needed.
 
+30a. [ ] `APPLY-PROFILE-PARITY-1` Project one factual, conversion-ready commercial persona across
+    every active marketplace before judging Apply yield. The shared source owns the truthful headline,
+    software-engineering / AI-automation / training positioning, biography, skills, work history,
+    portfolio/proofs and approved avatar asset. Each provider adapter owns only its supported fields,
+    image ceremony, field limits and official public readback. Never scrape one provider profile as
+    another provider's source, duplicate profile prose in adapters, or expose private/legal identity
+    merely to make profiles look identical.
+
+    Execute atomically in this fixed sub-order: (1) compare the private factual profile and shared
+    commercial profile projection with official Coconala, Lancers and CrowdWorks public profiles;
+    (2) correct CrowdWorks' blank avatar and prompt-engineer occupation; (3) correct only proven
+    Coconala/Lancers drift; (4) project the same source through existing Mercor, Freelancer.com and
+    Upwork adapters where those accounts are active; (5) read every changed public field and avatar
+    back officially; (6) prove a second wake makes zero profile mutation. PASS does not require every
+    provider to expose the same fields. It requires the same facts and positioning, provider-supported
+    projection, no private credential/name leakage, one shared source, and provider-specific adapters.
+
+30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
+    provider owners without restarting browsers. Coconala must observe an eligible posting or retain
+    exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
+    another mutation; CrowdWorks must retain today's verified proposal IDs while closing
+    `account_ensure_failed`, `profile_navigation_failed` and `proposal_form_changed`. Each successful
+    application needs provider ID, official history readback, one real-time Telegram receipt and a
+    following replay-zero. Mercor remains a separate application-shaped revenue provider and must
+    maximize truthful resume fit; Upwork/Freelancer.com remain bounded by their official account and
+    spend state. Do not manufacture applications merely to turn a counter nonzero.
+
 31. [x] `CROWDWORKS-REPLY-2` Recheck CrowdWorks Reply next through the same shared kernel. PASS = a
     fresh natural terminal observes every current official buyer event exactly once, with each event
     replied, durably deferred, handed off or officially classified no-action; Telegram and provider
@@ -2508,22 +2541,27 @@ from the chat, and two of them contradict what this cursor had previously report
     selectors and Google session transport stay adapter-specific; intent, resumability, receipt,
     official readback, Telegram delivery and replay-zero stay in the shared Reply kernel.
 
-    Current measured state is incomplete. The installed shared Reply kernel declares only `reply`,
-    `estimate` and `accept_contract` mutations; it has no `submit_external_form` effect. Neither the
-    CrowdWorks Reply state nor its production logs contain a Google Form submission receipt for this
-    thread. Therefore the loop has not completed the questionnaire and must not tell the buyer that
-    it has. This atom remains after `LANCERS-REPLY-ACTION-1`; do not skip that fixed cursor order.
+    Current measured state is incomplete and effect-uncertain. Fresh official observation identifies
+    exact thread `304360469`, still `proposed`, with one buyer-supplied `forms.gle` link. The buyer
+    explicitly says the earlier response is unconfirmed; the seller later promises to complete the
+    form, so “latest message is seller” cannot close the requested browser action. PRs `#4904`,
+    `#4906`, `#4910`, and `#4913` add the thin Google Form action, re-evaluate earlier no-effect state,
+    retain the action after an acknowledgement, and fence the POST with durable `prepared` then
+    `confirmed` receipt states. Shared Reply owns intent, resumability, notification and replay-zero;
+    only form metadata, transport and provider message mutation remain in the adapter. Focused tests
+    pass 48/48.
 
-    Fresh official read-only observation identifies exact thread `304360469`, still `proposed`, with
-    one buyer-supplied `forms.gle` link and no competing external-form link. Installed release
-    `10cc2e01cf46d46bbea118962788683254dc319c` nevertheless classifies it as `awaiting_buyer` and
-    ends aggregate `observed=24`, `pending=0`, because the adapter extracts contract controls but not
-    external action links. The form is a multi-page questionnaire: email; 17 identity, equipment and
-    work-history questions; then availability, monthly capacity and communication questions. The
-    private candidate/profile SSOT grounds the CrowdWorks public name and ID, initials, male gender,
-    age 24, Tokyo residence, graduate education, company employment, Mac, weekly capacity and PC-work
-    experience. Read-only probes advanced between pages but never pressed the final submit button;
-    Google submission receipt and buyer-visible completion message remain absent.
+    Production release `58f056cfefe98cb42030f5a35d8fc3baedfeb1eb` is installed only on
+    `crowdworks-revenue-reply` with install receipt `91a086a60686c94dd08c2bd9`. Its natural run
+    reached the exact form action and persisted `prepared` at `2026-09-10T12:27:27Z`, then the host
+    exhausted disk during concurrent full-release copying. The owner exited 120; the terminal event
+    could not be written, and the form confirmation receipt is absent. A read-only reopen shows the
+    ordinary submit surface, not an official already-submitted marker. That does not prove the POST
+    was absent. The durable marker therefore correctly blocks automatic resubmission and the thread
+    remains `reconcile_unknown`; no buyer-visible “completed” message or Telegram completion receipt
+    exists. Do not clear the marker or submit again without authoritative absence. Resolve the
+    uncertain effect through official confirmation or a truthful buyer confirmation request, then
+    send the completion message only if confirmed and prove the following wake is replay-zero.
 
 32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
