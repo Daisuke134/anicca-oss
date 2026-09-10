@@ -2458,6 +2458,16 @@ from the chat, and two of them contradict what this cursor had previously report
     the receipt once; the following wake performs no duplicate booking or reply. Google login/session
     transport and the provider's link ceremony stay adapter-specific.
 
+31c. [ ] `CROWDWORKS-REPLY-ACTION-2` Complete the newly observed hiring questionnaire through the
+    same shared Reply lifecycle. The official `cw_agent` thread says that answers in marketplace
+    chat are not accepted and requires its external Google Form. This is a Reply work item, not Paid
+    and not a text-only reply. PASS = the loop opens only the exact buyer-supplied form URL, derives
+    truthful answers from the private profile/context SSOT, submits it once, reads the Google Form
+    submission receipt back, sends one buyer-visible completion message in CrowdWorks, reports the
+    receipt once, and the following wake performs no duplicate form submission or message. Form
+    selectors and Google session transport stay adapter-specific; intent, resumability, receipt,
+    official readback, Telegram delivery and replay-zero stay in the shared Reply kernel.
+
 32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
