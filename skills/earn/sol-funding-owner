@@ -1,0 +1,18 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO="${LIFE_MANAGER_REPO:-$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)}"
+[ -n "$REPO" ] || { echo "LIFE_MANAGER_REPO could not be resolved" >&2; exit 2; }
+
+ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+if [ -r "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+fi
+
+PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+[ -x "$PYTHON" ] || { echo "managed LIFE_MANAGER_PYTHON is not executable" >&2; exit 2; }
+
+exec "$PYTHON" "$REPO/skills/earn/sol-to-usdc.py"

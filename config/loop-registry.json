@@ -2478,6 +2478,24 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/session-vault"
     },
+    "sol-funding": {
+      "adapter": "exec",
+      "cadence": {
+        "start_interval_seconds": 60
+      },
+      "cleanup": {
+        "max_age_days": 14,
+        "max_runs": 100
+      },
+      "command": [],
+      "domain": "financial",
+      "effect_class": "money",
+      "entrypoint": "skills/earn/sol-funding-owner",
+      "label": "ai.anicca.sol-funding",
+      "log_root": "~/.local/state/life-manager/sol-funding/logs",
+      "provider_route": "deterministic",
+      "state_root": "~/.local/state/life-manager/sol-funding"
+    },
     "stripe-revenue-listener": {
       "cadence": {
         "keep_alive": true
@@ -3213,7 +3231,8 @@
     "ai.anicca.watercolor-jp-morning",
     "ai.anicca.watercolor-jp-noon",
     "ai.anicca.x402-seller-8412",
-    "com.anicca.peer-api"
+    "com.anicca.peer-api",
+    "com.anicca.sol-funding"
   ],
   "schema_version": 2
 }

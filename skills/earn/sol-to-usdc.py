@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-anicca SOL(Solana) -> USDC(Base) auto-swap via relay.link API.
-SOL is only transport (Binance can only send SOL). anicca's real currency is USDC.
+Life Manager SOL(Solana) -> USDC(Base) auto-swap via relay.link API.
+SOL is the transport asset; the configured instance receives USDC.
 
-Flow: detect SOL on anicca's Solana wallet -> relay /quote -> build+sign the Solana
+Flow: detect SOL on the configured Solana wallet -> relay /quote -> build+sign the Solana
 tx from the returned instructions (solders) -> submit to a Solana RPC -> poll relay
-/intents/status until the USDC fill lands on Base in anicca's wallet (0xB9dd3B67... since the
-2026-07-07 key rotation; was 0xa3CDd4... before that).
+/intents/status until the USDC fill lands in the configured Base recipient wallet.
 
 Env (~/.local/state/life-manager/.env): ANICCA_SOLANA_KEY (base58 secret), SOLANA_RPC (optional).
 Run: python3 sol-to-usdc.py            # swaps the full SOL balance (minus rent/fee buffer)
@@ -29,13 +28,8 @@ from solders.message import MessageV0
 from solders.transaction import VersionedTransaction
 from solders.address_lookup_table_account import AddressLookupTableAccount
 
-# Reusable swap skill: recipient + signing key are env-configurable so ANY wallet (Anicca's, a test
-# wallet, a child's) can bridge SOL -> USDC(Base). Defaults to Anicca's wallet for backward compat.
-# NOTE (2026-07-07 security rotation): the OLD default 0xa3cdd4ec6b94f01826aaf90a6d5538a2aa8c4c21 was
-# a wallet whose private key leaked (~/.anicca-founder/agents/polymarket-agent/.env + ~/.local/state/life-manager/.env).
-# This daemon runs unattended every 60s (sol-funding-daemon.sh) with NO SWAP_RECIPIENT env override set
-# anywhere, so this hardcoded default is the ACTUAL operative recipient -- fixed to the rotated address.
-ANICCA_BASE = os.environ.get("SWAP_RECIPIENT", "0xb9dd3b67921b354c656523d6851537988f31dd56").lower()
+# Reusable swap skill: recipient + signing key are private runtime configuration so every
+# Life Manager instance bridges only its own funds. Missing configuration is a clean no-op.
 USDC_BASE = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 SOL_NATIVE = "11111111111111111111111111111111"
 SOLANA = 792703809
@@ -67,7 +61,17 @@ def get(url):
 
 
 def main():
-    kp = Keypair.from_base58_string(os.environ.get("SWAP_SOLANA_KEY") or os.environ["ANICCA_SOLANA_KEY"])
+    secret = os.environ.get("SWAP_SOLANA_KEY") or os.environ.get("ANICCA_SOLANA_KEY")
+    recipient = (os.environ.get("SWAP_RECIPIENT") or "").strip().lower()
+    if not secret or len(recipient) != 42 or not recipient.startswith("0x"):
+        print("sol funding not configured; set a Solana key and SWAP_RECIPIENT")
+        return
+    try:
+        int(recipient[2:], 16)
+    except ValueError:
+        print("sol funding not configured; SWAP_RECIPIENT must be an EVM address")
+        return
+    kp = Keypair.from_base58_string(secret)
     me = str(kp.pubkey())
 
     bal = rpc("getBalance", [me])["value"]
@@ -79,10 +83,10 @@ def main():
     if amount <= 0:
         print("no swappable SOL (need funds + rent buffer)")
         return
-    print(f"swapping {amount/1e9} SOL -> chain {DEST_CHAIN} token {DEST_CURRENCY} to {ANICCA_BASE}")
+    print(f"swapping {amount/1e9} SOL -> chain {DEST_CHAIN} token {DEST_CURRENCY} to {recipient}")
 
     q = post("https://api.relay.link/quote", {
-        "user": me, "recipient": ANICCA_BASE,
+        "user": me, "recipient": recipient,
         "originChainId": SOLANA, "destinationChainId": DEST_CHAIN,
         "originCurrency": SOL_NATIVE, "destinationCurrency": DEST_CURRENCY,
         "amount": str(amount), "tradeType": "EXACT_INPUT",
