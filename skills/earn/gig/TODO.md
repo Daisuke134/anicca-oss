@@ -2588,6 +2588,19 @@ from the chat, and two of them contradict what this cursor had previously report
     suite, CI, merge, immutable release, official mutation readback and replay-zero remain required
     before checking this atom complete. No production profile mutation has occurred from this branch.
 
+    PR `#4965` merged as `94cd93293ee41918ccf754e51080a4f9d1417814`; all GitHub checks and a
+    fresh read-only review passed. Immutable sparse release
+    `20260911T035754-94cd9329-cw-profile` was installed only on
+    `crowdworks-revenue-application` with receipt `4a69dedac1cb95a42d919fd5`. Its first natural wake
+    ran the merged SHA but failed before mutation as `profile_apply_failed`. Direct tracing proved
+    the exact DOM cause: after changing the top-level occupation group, old detail `142` remained
+    checked but hidden, so Playwright refused a visibility-bound `uncheck()` call. Official readback
+    confirmed the old occupation, introduction and seven skills stayed intact; no partial profile
+    effect occurred. Active fix branch `fix/crowdworks-hidden-occupation-20260911` clears that hidden
+    checkbox through DOM state plus input/change events and adds the hidden-element regression.
+    Focused/full tests pass `54/54`. Merge, replacement immutable release, natural official mutation
+    readback and replay-zero remain.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before

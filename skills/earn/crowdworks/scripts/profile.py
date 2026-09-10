@@ -170,6 +170,11 @@ def _categories(page:Any,names:Sequence[str])->None:
         if count!=1 or loc.get_attribute("type") not in (None,"checkbox") or loc.get_attribute("name") not in (None,"user[job_category_ids][]"): _fail("category_ambiguous")
         if not loc.is_checked(): loc.evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}")
         if not loc.is_checked(): _fail("category_ambiguous")
+def _set_checkbox(locator:Any,checked:bool)->None:
+    if bool(locator.is_checked())==checked:return
+    try: locator.evaluate("(e,checked)=>{e.checked=checked;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}",checked)
+    except Exception:_fail("occupation_detail_invalid")
+    if bool(locator.is_checked())!=checked:_fail("occupation_detail_invalid")
 def _skill_names(page:Any)->list[str]:
     try:
         rows=page.locator('tr[id^="user_skills_"]'); names=[rows.nth(i).locator("td").first.inner_text().strip() for i in range(rows.count())]
@@ -214,8 +219,8 @@ def _apply_page(page:Any,config:Mapping[str,Any],now:Any)->dict[str,Any]:
     _goto(page,EMPLOYEE_URL,"/employee/new"); _select(page,'select[name="occupation[]"]',config["occupation"]); detail=config["occupation_detail"]; detail_selector=f'input[name="user[occupation_ids][]"][value="{detail["id"]}"]'; page.locator(detail_selector).wait_for(state="attached",timeout=10_000); target=_one(page,detail_selector,"occupation_detail_invalid"); rows=page.locator('input[name="user[occupation_ids][]"]:checked')
     for index in range(rows.count()):
         row=rows.nth(index)
-        if row.get_attribute("value")!=detail["id"]: row.uncheck(force=True)
-    if not target.is_checked(): target.check()
+        if row.get_attribute("value")!=detail["id"]:_set_checkbox(row,False)
+    _set_checkbox(target,True)
     _value(page,'select[name="employee[status]"]',config["status"]); _value(page,'select[name="employee[hours_limit]"]',config["hours_limit"]); _fill(page,'input[name="employee[min_hourly_wage]"]',config["min_hourly_wage"]); _fill(page,'input[name="employee[max_hourly_wage]"]',config["max_hourly_wage"]); _one(page,f'input[name="employee[web_meeting]"][value="{config["web_meeting"]}"]',"profile_field_invalid").check(); _fill(page,'textarea[name="employee[introduction]"]',config["introduction"]); _categories(page,config["job_categories"]); _form(page,"/employee","ワーカー情報を更新する" if urlsplit(page.url).path=="/employee/edit" else "ワーカー情報を登録する").click(); _goto(page,EMPLOYEE_URL,"/employee/new")
     if _field(page,'textarea[name="employee[introduction]"]',True)!=config["introduction"] or _selected_label(page,'select[name="occupation[]"]')!=config["occupation"] or _occupation_details(page)!=[detail]: _fail("profile_readback_failed")
     _goto(page,SKILLS_URL,"/user_skills")
