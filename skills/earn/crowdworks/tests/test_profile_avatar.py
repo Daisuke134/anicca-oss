@@ -269,3 +269,22 @@ def test_stale_same_name_skill_is_deleted_before_exact_rebuild() -> None:
     page = Page()
     profile._delete_all_skills(page)
     assert page.rows == 0
+
+
+def test_hidden_stale_occupation_checkbox_is_cleared_without_clicking() -> None:
+    class HiddenCheckbox:
+        checked = True
+        evaluated = False
+
+        def is_checked(self) -> bool:
+            return self.checked
+
+        def evaluate(self, script: str, checked: bool) -> None:
+            assert "dispatchEvent" in script
+            self.evaluated = True
+            self.checked = checked
+
+    checkbox = HiddenCheckbox()
+    profile._set_checkbox(checkbox, False)
+    assert checkbox.checked is False
+    assert checkbox.evaluated is True
