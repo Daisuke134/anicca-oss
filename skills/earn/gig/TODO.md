@@ -2514,6 +2514,17 @@ from the chat, and two of them contradict what this cursor had previously report
     thread. Therefore the loop has not completed the questionnaire and must not tell the buyer that
     it has. This atom remains after `LANCERS-REPLY-ACTION-1`; do not skip that fixed cursor order.
 
+    Fresh official read-only observation identifies exact thread `304360469`, still `proposed`, with
+    one buyer-supplied `forms.gle` link and no competing external-form link. Installed release
+    `10cc2e01cf46d46bbea118962788683254dc319c` nevertheless classifies it as `awaiting_buyer` and
+    ends aggregate `observed=24`, `pending=0`, because the adapter extracts contract controls but not
+    external action links. The form is a multi-page questionnaire: email; 17 identity, equipment and
+    work-history questions; then availability, monthly capacity and communication questions. The
+    private candidate/profile SSOT grounds the CrowdWorks public name and ID, initials, male gender,
+    age 24, Tokyo residence, graduate education, company employment, Mac, weekly capacity and PC-work
+    experience. Read-only probes advanced between pages but never pressed the final submit button;
+    Google submission receipt and buyer-visible completion message remain absent.
+
 32. [ ] `MERCOR-REPLY-2` Recheck Mercor Reply after the three direct gig marketplaces. PASS = the
     installed owner ends consecutive fresh natural terminals from authenticated official state,
     represents every conversation/application event once through the shared Reply kernel, performs
