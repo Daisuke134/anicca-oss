@@ -2434,7 +2434,7 @@ from the chat, and two of them contradict what this cursor had previously report
     owned, while both fresh wakes performed no duplicate effect. No code or production mutation was
     needed.
 
-30a. [ ] `APPLY-PROFILE-PARITY-1` Project one factual, conversion-ready commercial persona across
+30a. [x] `APPLY-PROFILE-PARITY-1` Project one factual, conversion-ready commercial persona across
     every active marketplace before judging Apply yield. The shared source owns the truthful headline,
     software-engineering / AI-automation / training positioning, biography, skills, work history,
     portfolio/proofs and approved avatar asset. Each provider adapter owns only its supported fields,
@@ -2628,8 +2628,32 @@ from the chat, and two of them contradict what this cursor had previously report
     that official star representation into the same exact level ID instead of weakening the public
     assertion. The full CrowdWorks suite passes `52/52`. Sparse immutable release
     `20260911T051854-869476b4-cw-profile` is installed only on the Apply owner with receipt
-    `5c541e14f31e68734f9cbf3a`; its natural terminal and following replay-zero remain the active
-    acceptance edge.
+    `5c541e14f31e68734f9cbf3a`. Its first natural terminal passed at
+    `2026-09-10T20:29:01Z` with matching installed/event SHA. The official profile receipt records
+    `changed_fields=[]`, profile/avatar effects `0/0`, ten job categories and seven skills; the exact
+    public skill hash is `0a0479ad...`. An independent official public observe then returned the same
+    avatar, occupation, detail occupation, biography, rate, availability, ten-category and seven-skill
+    hashes. The following natural terminal passed at `2026-09-10T20:39:05Z`, retained the same receipt
+    with profile/avatar effects `0/0`, ended `profile_complete_no_eligible_open_job`, and made
+    application effect `0`. CrowdWorks substep (2) is therefore accepted. Continue with fixed substep
+    (4): retain and officially read Mercor's factual candidate profile, retain Upwork's provider-
+    compliant profile and its zero-Connects blocker, then defer Freelancer.com projection until its
+    Apply owner is repository-owned.
+
+    Fixed substep (4) is also accepted without a provider mutation. With the Mercor Apply owner idle,
+    its authenticated official `/profile?tab=resume` route matched the private factual profile's name,
+    application email, LinkedIn and GitHub fields and exposed one resume, two education entries, two
+    work entries and two project entries; the read-only check made profile effect `0`. This deliberately
+    retains Mercor's candidate/resume identity instead of projecting the marketplace seller alias.
+    Upwork remains on its recorded official published/100%-complete provider-compliant profile with an
+    authentic owner photo and no validation error; its acquisition capacity remains exactly zero
+    Connects and zero free applications. CDP `9233` is not listening and all former Upwork labels are
+    retired, so this atom neither invents a fresh readback nor restarts that browser. Freelancer.com's
+    former bid/application/work-sync labels are likewise retired and no repository-owned managed Apply
+    owner exists, so its projection remains explicitly deferred to that owner rather than creating a
+    second profile implementation. Because CrowdWorks was the only changed provider and its following
+    natural wake proved zero profile/avatar/application effects, substeps (5) and (6) are complete.
+    Advance to `APPLY-ACCEPTANCE-ALL-1`; do not reopen profile parity without new official drift.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
