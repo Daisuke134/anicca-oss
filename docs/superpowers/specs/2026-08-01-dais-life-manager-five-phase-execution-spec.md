@@ -10285,3 +10285,11 @@ CG-44の未完理由は継続してCalendar-freeなLuma candidate不在である
 直近の異なるLuma rotationは`19/6/6/5/0`、`20/6/2/1/0`、`19/6/4/1/0`、`20/6/6/1/0`、`20/6/4/1/0`で、複数の1分rotationと30分priority slotを跨いでも全てcalendar-free 0だった。検索停止ではなく、公開inventory内のfree/open候補が既存Google Calendarと衝突していることを十分に再現した。同じinventoryへの追加manual wakeは外部成果を増やさずTelegramノイズとprovider負荷だけを増やすため、ここからは既存`StartInterval=1800`の自然wakeが新規Luma inventoryを取得する経路へ戻す。
 
 CG-44は**NOT DONE / external candidate wait**。解除条件は新しいCalendar-free Luma candidateの出現であり、その自然wakeでofficial registration/pending、Calendar exact 1、Telegram message/photo、durable bundleを閉じる。固定順は変更せず、後続TODOを前倒ししない。
+
+### O1B-25進捗550（Luma root-cause診断：認証正常・Tokyo固定・申込境界未完）
+
+read-only auth inspectorをowner idle時にLuma `/home`へ実行し、`authenticated / recovered false`を取得した。現在のLuma sessionはログイン済みであり、今回の未登録をlogoutでは説明できない。直近action historyにも`luma_session_expired`、`LUMA_LOGIN_REQUIRED`、`LUMA_PAGE_AUTH_FAILED`は無い。
+
+一方、production discovery sourceは`LUMA_DISCOVERY_URL = https://luma.com/tokyo?k=p`、workflowも`TOKYO_DISCOVER_URL`へ固定され、global discoveryは実装されていない。一wakeのdetail inspectionは最大6件で1分rotationする。したがってDaisが求めるglobal tech eventを候補に含める現在契約には不足がある。Tokyo inventory内ではfree/open候補を発見しているが直近はCalendar conflictで除外され、過去にcalendar-free候補へ進んだ実行ではform schema、required profile/private value、最近はeffect_unknown後のofficial absentで実登録に至っていない。
+
+最新自然wake `wake-24d32ea9b4a7ac02ef75737a`のLuma auditは`19/6/6/2/0`でLuma Submit 0。terminal `effect_unknown`はLumaではなくKokuchPro Harness由来で、同候補はreconciliation storeに保存済みである。よってLumaの根本問題は単一の認証切れではなく、`Tokyo-only discovery + bounded 6-detail slice + Calendar conflict + form/action verification未成立`の複合である。CG-44の次の修正対象は、globalを含む複数の公式Luma discovery surfaceをbounded/idempotentに統合し、その後calendar-free live candidateで既存のofficial readback→Calendar→Telegram→bundle contractを実測することとする。固定TODO順は変えない。
