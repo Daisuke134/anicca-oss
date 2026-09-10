@@ -89,10 +89,13 @@ class MacosLoopRegistryTest(unittest.TestCase):
     def test_unloaded_stale_external_artifacts_are_retired(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
         for label in (
+            "ai.anicca.clawrouter",
             "ai.anicca.fleet-daily",
             "ai.anicca.freelancer-bid-watch",
             "ai.anicca.job-search-observability",
+            "ai.anicca.job-search-camofox",
             "ai.anicca.probe-rollback-1782857566-85245-proactive",
+            "ai.anicca.provision-browser.tiktok.anicca",
         ):
             with self.subTest(label=label):
                 self.assertNotIn(label, registry["external_labels"])
