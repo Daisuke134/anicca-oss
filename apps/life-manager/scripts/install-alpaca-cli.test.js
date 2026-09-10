@@ -26,4 +26,5 @@ test("nixpacks installs the pinned CLI before starting the service", () => {
   assert.match(config, /ALPACA_CLI="\/app\/\.bin\/alpaca"/);
   assert.match(dockerignore, /!scripts\/install-alpaca-cli\.sh/);
   assert.match(dockerignore, /!scripts\/cloud-investment-agent-runner\.js/);
+  assert.match(dockerignore, /!scripts\/investment-cutover-state\.js/);
 });
