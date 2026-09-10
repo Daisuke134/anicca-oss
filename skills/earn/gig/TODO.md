@@ -392,10 +392,14 @@ Current live Apply acceptance audit:
   In addition to the retained earlier receipts, current official logs verify proposals `305309712`,
   `305314740`, and `305321784`. Other wakes end `account_ensure_failed`,
   `profile_navigation_failed`, or `proposal_form_changed`, so “some applications succeed” must not
-  be reported as continuous health. Fresh public profile readback also shows no avatar and labels the
-  worker as a prompt engineer. That positioning does not match the shared factual commercial persona:
-  software engineer / AI automation / training and freelance delivery. Profile conversion parity and
-  consecutive natural Apply acceptance remain open; existing verified proposal effects never reopen.
+  be reported as continuous health. The shared avatar was uploaded once and authenticated public
+  readback exposes attachment `59139511.jpg` as the unique `alt=userIcon` image. Its current
+  `AI-BPO（AI活用の業務改善） / AI関連サービス` occupation and software /
+  AI-automation / training skills already match the shared commercial positioning; the older
+  prompt-engineer screenshot is stale. Profile replay-zero and consecutive natural Apply acceptance
+  remain open; existing verified proposal effects never reopen. The first natural wake from release
+  `051d6f4a...` ended `vault_restore_failed` before avatar readback, so the current blocker is shared
+  browser-session restoration rather than the already-corrected public avatar.
 
 1. [x] `COCONALA-PAID-1` Close Ryu0820119 talkroom `18211957` through Paid itself.
    PASS = the loop consumes the latest cumulative revision, sends the corrected buyer-visible
@@ -2454,6 +2458,22 @@ from the chat, and two of them contradict what this cursor had previously report
     official avatar, an official non-default public-image readback, and the following natural
     replay-zero. A blank avatar may reduce trust and conversion, but no receipt proves that it is the
     sole reason proposals have not become contracts.
+
+    Fresh production evidence narrows the remaining CrowdWorks substep. The natural installed wake
+    did upload the shared avatar exactly once: authenticated official public readback now exposes
+    `https://crowdworks.jp/attachments/59139511.jpg` as the unique `alt=userIcon` image. The wake
+    nevertheless failed `profile_avatar_readback_failed` because release `59807376...` recognized
+    only the provider's retired `/user_picture/` URL shape. PR `#4926`, merge
+    `f7833519e7ae307ea571a38685ec7e6be07d19bd`, admits the current exact CrowdWorks attachment shape
+    and DOM identity while retaining the legacy form; focused tests pass `16/16`. Production
+    replay-zero remains unproved. Sparse immutable release `20260910T224959-051d6f4a` was installed
+    only on `crowdworks-revenue-application` with install receipt `d18d3c4af1909cf1dd21cb07`; loaded
+    arguments and installed SHA point to `051d6f4a46c93717811965438530527b0d2a1b97`, without changing
+    the global current release. Its first natural terminal ended at `2026-09-10T14:00:39Z` with the
+    same event/installed SHA and exit `1`: the owner reported `vault_restore_failed` before profile
+    readback. The earlier official avatar effect remains valid and must not be repeated. Restore the
+    shared browser-session attach path without restarting the browser, then require one natural
+    no-profile-mutation terminal, the same official avatar readback, and a following replay-zero.
 
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain

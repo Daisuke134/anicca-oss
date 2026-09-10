@@ -46,6 +46,26 @@ function createCloudInvestmentSecretProvider(env = process.env) {
   });
 }
 
+function createSupabaseInvestmentChatReader({ env = process.env, fetchImpl = fetch } = {}) {
+  const base = String(env.SUPABASE_URL || "").replace(/\/$/, "");
+  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!base || !key) throw new Error("investment cloud Telegram directory unavailable");
+  return async (uid) => {
+    const tenant = String(uid || "").trim();
+    if (!tenant) throw new Error("investment cloud Telegram target unavailable");
+    const response = await fetchImpl(`${base}/rest/v1/lm_users?uid=eq.${encodeURIComponent(tenant)}`
+      + "&select=uid,telegram_chat_id&limit=2", {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    if (!response.ok) throw new Error("investment cloud Telegram directory unavailable");
+    const rows = await response.json();
+    const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    const value = row && row.uid === tenant && String(row.telegram_chat_id || "").trim();
+    if (!value) throw new Error("investment cloud Telegram target unavailable");
+    return value;
+  };
+}
+
 async function readInvestmentCloudWiring(opts = {}) {
   const env = opts.env || process.env;
   const artifact = (opts.readCoreArtifact || readInvestmentCoreArtifact)();
@@ -87,6 +107,7 @@ function productionDependencies() {
   if (!connectionString) throw new Error("investment dry-run database unavailable");
   if (!pool) pool = new (require("pg").Pool)({ connectionString, max: 2 });
   const query = pool.query.bind(pool);
+  const readChatId = createSupabaseInvestmentChatReader();
   return {
     stateStore: createInvestmentStateStore({ query }),
     runtimeStore: createInvestmentRuntimeStateStore({ query }),
@@ -98,12 +119,7 @@ function productionDependencies() {
       claimJobs: (input) => runtimeJobs.claimJobs(input, { query }),
       completeJob: (input) => runtimeJobs.completeJob(input, { query }),
     },
-    readChatId: async (uid) => {
-      const rows = (await query("SELECT telegram_chat_id FROM public.lm_users WHERE uid = $1 LIMIT 1", [uid])).rows;
-      const value = rows.length === 1 && String(rows[0].telegram_chat_id || "").trim();
-      if (!value) throw new Error("investment cloud Telegram target unavailable");
-      return value;
-    },
+    readChatId,
   };
 }
 
@@ -205,5 +221,5 @@ function startInvestmentDryRunLoop(opts = {}) {
 }
 
 module.exports = { CAPABILITY, fiveMinuteSlot, makeInvestmentDryRun,
-  createCloudInvestmentSecretProvider, readInvestmentCloudWiring,
+  createCloudInvestmentSecretProvider, createSupabaseInvestmentChatReader, readInvestmentCloudWiring,
   runInvestmentDryRun, startInvestmentDryRunLoop };
