@@ -7,8 +7,10 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 from typing import Any, Mapping
@@ -56,6 +58,16 @@ def _now() -> str:
 def _message_body(value: Any) -> str:
     """Normalize the provider's CRLF storage without changing message content."""
     return str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _gog_bin() -> str:
+    path = os.pathsep.join(filter(None, [
+        os.environ.get("PATH", ""), "/opt/homebrew/bin", "/usr/local/bin",
+    ]))
+    binary = shutil.which("gog", path=path)
+    if not binary:
+        raise work_sync.SourceFailure("calendar_read_unavailable")
+    return binary
 
 
 class LancersReplyAdapter:
@@ -233,7 +245,7 @@ class LancersReplyAdapter:
         if not account:
             raise work_sync.SourceFailure("candidate_profile_unavailable")
         completed = subprocess.run(
-            ["gog", "calendar", "events", "-a", account, "--json",
+            [_gog_bin(), "calendar", "events", "-a", account, "--json",
              "--from", start.astimezone(JST).isoformat(), "--to", end.astimezone(JST).isoformat(),
              "--max", "250", "--all-pages"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120, check=False,

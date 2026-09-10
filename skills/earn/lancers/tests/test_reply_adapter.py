@@ -169,6 +169,21 @@ def test_readback_accepts_provider_crlf_normalization(monkeypatch, tmp_path):
     assert result["provider_receipt_id"] == "59145491"
 
 
+def test_gog_resolution_includes_homebrew_for_launchd(monkeypatch):
+    observed = {}
+
+    def which(name, *, path):
+        observed.update(name=name, path=path)
+        return "/opt/homebrew/bin/gog"
+
+    monkeypatch.setattr(adapter_module.shutil, "which", which)
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+
+    assert adapter_module._gog_bin() == "/opt/homebrew/bin/gog"
+    assert observed["name"] == "gog"
+    assert "/opt/homebrew/bin" in observed["path"].split(":")
+
+
 def test_booking_link_becomes_shared_external_action_even_when_seller_is_last(monkeypatch, tmp_path):
     adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
     adapter.page = object()
