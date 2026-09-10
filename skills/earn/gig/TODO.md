@@ -637,6 +637,18 @@ Current live Apply acceptance audit:
    tests pass 42/42 and fresh read-only review returned `ship`. Merge and target this follow-up, then
    let the next natural wake resume only CrowdWorks milestone delivery, require positive official
    delivery readback, and obtain a later natural replay-zero before checking this atom.
+   PR `#4992` merged the worker-lifecycle repair as main SHA
+   `1cb762d13971aaeb2cbef52a0040c35ea41931dd`; target-only apply receipt
+   `fcfaef8b6ebe54244f8677e5` installed it. Natural run `18d4177fcde42d10-20827` then observed both
+   contracts and ended with `63568785` correctly pending escrow, but `63570481` failed with a generic
+   `TimeoutError`; Form effect stayed zero and the earlier confirmed receipt hash did not change.
+   Runtime sampling showed one Paid worker spending almost five minutes in repeated Playwright reads:
+   every kernel call reloaded the full contract list, both contract details and proposal detail. The
+   adapter now takes one full official snapshot per wake into a lock-protected pure-data cache, performs
+   only targeted official detail refresh for each work item, revalidates the target immediately before
+   mutation, keeps all Playwright objects worker-local, and classifies timeouts by active-list,
+   contract-detail, proposal-detail or milestone step. Focused Paid/Reply tests pass 45/45. Merge and
+   retarget this bounded repair; the production gate remains delivery readback plus replay-zero.
 7. [x] `MERCOR-APPLY-1` Restore Mercor as an independent revenue-marketplace Apply owner, not as a
    Job Hunter subfeature. PASS = one bounded owner observes current official opportunities, lets the
    model judge truthful fit, submits only through an identity-bound effect fence, reads the official
