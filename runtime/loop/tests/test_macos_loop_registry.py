@@ -91,6 +91,7 @@ class MacosLoopRegistryTest(unittest.TestCase):
         for label in (
             "ai.anicca.fleet-daily",
             "ai.anicca.freelancer-bid-watch",
+            "ai.anicca.job-search-observability",
             "ai.anicca.probe-rollback-1782857566-85245-proactive",
         ):
             with self.subTest(label=label):
