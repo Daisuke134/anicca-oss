@@ -118,7 +118,7 @@ echo "$OUT" | tail -30
 SIGS_JSON=$(printf '%s' "$OUT" | node "$SKILL_DIR/lib/parse-pass.mjs")
 if [ -n "$SIGS_JSON" ]; then
   SIG=$(printf '%s' "$SIGS_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const a=JSON.parse(s);process.stdout.write(a.at(-1)||"")}catch{}})')
-  REC=$(env -i PATH="$PATH" HOME="$HOME" SOLANA_RPC_URL="${SOLANA_RPC_URL:-}" SIGS_JSON="$SIGS_JSON" WALLET="$OWN_WALLET" EARN_LEDGER="$LEDGER" WAKE_ID="${WAKE_ID:-$(date -u +%s)}" node "$SKILL_DIR/lib/record-swap.mjs" 2>/dev/null || true)
+  REC=$(env -i PATH="$PATH" HOME="$HOME" SOLANA_RPC_URL="${SOLANA_RPC_URL:-}" SIGS_JSON="$SIGS_JSON" WALLET="$OWN_WALLET" EARN_LEDGER="$LEDGER" WAKE_ID="${WAKE_ID:-$(date -u +%s)}" LIFE_MANAGER_REPO="${ANICCA_REPO:-$SKILL_DIR/../../..}" LM_FINANCIAL_RECORDS_DIR="${LM_FINANCIAL_RECORDS_DIR:-${CFO_STATE_DIR:-$HOME/.local/state/life-manager/life-manager-cfo-hourly}/financial-records}" LM_CFO_SUBJECT_ID="${LM_CFO_SUBJECT_ID:-${LM_UID:-local}}" node "$SKILL_DIR/lib/record-swap.mjs" 2>/dev/null || true)
   echo "[sol-trade] record-swap -> ${REC:-noop}"
   # FIND-007: parse record-swap's own status and degrade to a narrate-only trace line for
   # anything that isn't an actual ledger append (recorded/duplicate) -- never brick the pass,

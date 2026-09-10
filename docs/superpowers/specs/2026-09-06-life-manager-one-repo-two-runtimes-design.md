@@ -373,10 +373,13 @@ This checklist does not reorder the established implementation sequence below. T
   principal recovery is still excluded from revenue, replay remains idempotent, and the focused projection,
   accounting and command suite passes 17/17. Solana Trade's prerequisite accounting repair is also complete: a
   multi-transaction Jupiter round trip now verifies every signature and sums every transaction's USDC delta instead
-  of misclassifying the final sale proceeds as profit; the focused parser/recorder suite passes 14/14 and the shell
+  of misclassifying the final sale proceeds as profit. That verified net result now reaches the common FinancialRecord
+  store as exact six-decimal USDC business revenue or cost, carries every Solana receipt reference, skips zero-net
+  cycles, and repairs a missing common record even when the legacy ledger already contains the trade. Stable trade
+  timestamps make replay byte-identical. The focused parser/recorder/projection suite passes 20/20 and the shell
   entrypoint parses. Its wider integration harness stops safely because an isolated worktree deliberately lacks the
-  production state directory. Remaining inside this atom: project that exact Solana round-trip result into the
-  common store, add realized Yield, and cover receipt-backed compute, hosted cloud, storage, network and API costs.
+  production state directory. Remaining inside this atom: add realized Yield and cover receipt-backed compute,
+  hosted cloud, storage, network and API costs.
 - [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
 - [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,

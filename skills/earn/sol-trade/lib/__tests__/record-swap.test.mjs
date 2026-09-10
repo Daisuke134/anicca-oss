@@ -143,3 +143,16 @@ test("multi-transaction round trip records the sum, not only the sale proceeds",
   assert.deepEqual(result.signatures, [SIG, SIG_2]);
   assert.equal((await readLedger(ledger))[0].net_usdc, 0.2);
 });
+
+test("a legacy duplicate still repairs a missing common FinancialRecord", async () => {
+  const ledger = await tmpFile();
+  await recordSwap({ sig: SIG, wallet: WALLET, ledger }, { fetchImpl: fetchFor({ delta: 0.2 }) });
+  let financialCalls = 0;
+  const result = await recordSwap({ sig: SIG, wallet: WALLET, ledger }, {
+    fetchImpl: fetchFor({ delta: 0.2 }),
+    recordFinancial: async (value) => { financialCalls += 1; return { ok: true, value }; },
+  });
+  assert.equal(result.status, "duplicate");
+  assert.equal(financialCalls, 1);
+  assert.equal((await readLedger(ledger)).length, 1);
+});
