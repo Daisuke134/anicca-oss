@@ -3056,22 +3056,6 @@
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/x402-sell"
     },
-    "x402-monitor": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "financial",
-      "effect_class": "none",
-      "entrypoint": "services/x402-endpoint/monitor.sh",
-      "label": "ai.anicca.x402-monitor",
-      "log_root": "~/.local/state/life-manager/x402-monitor/logs",
-      "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/x402-monitor"
-    },
     "x402-research-serve": {
       "cadence": {
         "keep_alive": true
@@ -3135,22 +3119,6 @@
       "log_root": "~/.local/state/life-manager/x402-sell/logs",
       "provider_route": "deterministic",
       "state_root": "~/.local/state/life-manager/x402-sell"
-    },
-    "x402-tunnel": {
-      "cadence": {
-        "keep_alive": true
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "domain": "financial",
-      "effect_class": "none",
-      "entrypoint": "services/x402-endpoint/tunnel.sh",
-      "label": "ai.anicca.x402-tunnel",
-      "log_root": "~/.local/state/life-manager/x402-tunnel/logs",
-      "provider_route": "deterministic",
-      "state_root": "~/.local/state/life-manager/x402-tunnel"
     }
   },
   "retired_labels": [
@@ -3167,6 +3135,8 @@
     "ai.anicca.freelancer-bid-watch",
     "ai.anicca.freelancer-revenue-application",
     "ai.anicca.freelancer-revenue-work-sync",
+    "ai.anicca.x402-monitor",
+    "ai.anicca.x402-tunnel",
     "ai.anicca.hf-gig-release-watch",
     "ai.anicca.job-search-browser",
     "ai.anicca.job-search-camofox",

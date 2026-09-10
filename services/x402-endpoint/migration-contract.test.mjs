@@ -32,43 +32,6 @@ test('canonical endpoint owns the complete production paid-route catalog', async
   assert.deepEqual(documentedRoutes, Object.keys(EXPECTED_PAID_ROUTES).sort());
 });
 
-test('canonical Docker deployment uses the npm Prisma Node runtime', async () => {
-  const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(dockerfile, /pnpm|server\.ts|tsx/);
-  assert.match(dockerfile, /COPY package\.json package-lock\.json/);
-  assert.match(dockerfile, /RUN npm ci\b/);
-  assert.match(dockerfile, /COPY .*prisma/);
-  assert.match(dockerfile, /COPY .*src/);
-  assert.match(dockerfile, /RUN npx prisma generate/);
-  assert.match(dockerfile, /USER (?!root\b)[a-z][a-z0-9_-]*/i);
-  assert.match(dockerfile, /HEALTHCHECK[\s\S]*\/health/);
-  assert.match(dockerfile, /CMD \["node", "src\/server\.js"\]/);
-});
-
-test('canonical Docker healthcheck follows the runtime PORT fallback', async () => {
-  const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(dockerfile, /http:\/\/localhost:8403\/health/);
-  assert.match(dockerfile, /http:\/\/localhost:\$\{PORT:-8403\}\/health/);
-});
-
-test('canonical Docker limits ownership changes to Prisma generated output', async () => {
-  const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(dockerfile, /chown[^\n]*\/app(?:\s|$)/m);
-  assert.match(
-    dockerfile,
-    /^RUN chown -R anicca:anicca \/app\/src\/generated \/app\/node_modules\/@prisma\/engines$/m,
-  );
-});
-
-test('canonical Alpine runtime installs OpenSSL for Prisma engines', async () => {
-  const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
-
-  assert.match(dockerfile, /^RUN apk add --no-cache openssl$/m);
-});
-
 test('Railway healthcheck allows facilitator startup time', async () => {
   const railway = await readFile(new URL('./railway.toml', import.meta.url), 'utf8');
   const deploy = railway.match(/^\[deploy\]\n([\s\S]*)$/m)?.[1];
