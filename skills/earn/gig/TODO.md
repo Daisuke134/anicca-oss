@@ -2478,7 +2478,7 @@ from the chat, and two of them contradict what this cursor had previously report
     The next unresolved atom remains `LANCERS-REPLY-ACTION-1`; CrowdWorks Paid separately remains
     open because its fresh PASS still reports `official_contract_detail_required` with observed `0`.
 
-31b. [ ] `LANCERS-REPLY-ACTION-1` Complete the live scheduling request through the same shared
+31b. [x] `LANCERS-REPLY-ACTION-1` Complete the live scheduling request through the same shared
     Reply lifecycle. Official thread `pyrite` asks the seller to choose a 30-minute preliminary
     meeting through the supplied scheduling URL. The existing seller message promises to book but
     no booking/calendar receipt exists. PASS = the loop opens the exact link, chooses a truthful free
@@ -2487,19 +2487,16 @@ from the chat, and two of them contradict what this cursor had previously report
     the receipt once; the following wake performs no duplicate booking or reply. Google login/session
     transport and the provider's link ceremony stay adapter-specific.
 
-    Current measured state is partial, not PASS. Shared `external_action` lifecycle/resume support and
-    the thin Lancers booking adapter are in main through PR `#4882`; launchd-safe Calendar binary and
-    private keyring injection fixes are in main through PRs `#4884` and `#4886`; provider timestamp
-    preservation is in main through PR `#4889`. Production release
-    `f6f60d3fa90037009d65651c967f345cb83df2c8` created exactly one booking for the durable
-    `2026-09-11 17:10–17:40 JST` intent and official `/api/my-bookings` readback finds exactly one
-    matching booking. The owner's official Google Calendar still has no matching event, so the loop
-    correctly withheld the buyer-visible completion message and ended
-    `external_booking_readback_unavailable`. Booking replay remains fenced. Two old-SHA runs ended
-    `143` when release building overlapped their next natural wake; neither is acceptance evidence.
-    Before closing this atom, create/read back the missing Calendar event through the shared Calendar
-    policy, send/read back the one Lancers completion message, report once, then obtain consecutive
-    natural replay-zero terminals from one installed SHA with no `143`.
+    Production release `e9e4b8bab02ef1853851aee0ed9996ce1ec2323f` closes the action. The first
+    natural terminal `18d3eddad1c7f1b0-514` resumed the durable intent, retained exactly one booking,
+    created and read back the matching owner Calendar event through the shared Calendar policy, sent
+    and read back one buyer-visible completion message, and ended `pass` with aggregate `effect=1`,
+    `readback=7`, `failed=0`, and `pending=1`. The pending item is a different thread's durable
+    `reply_facts_required`, not this action. The next natural terminal `18d3ee72046099c8-18045` ran
+    from the same installed SHA, ended `pass`, kept the booking and completion effect at one, and
+    reported this thread as verified `replay_zero` with aggregate `effect=0`, `readback=7`, and
+    `failed=0`. No acceptance wake ended `120`, `143`, `ENOSPC`, or `OSError`; no Mac, Aqua,
+    loginwindow, or browser restart occurred.
 
 31c. [ ] `CROWDWORKS-REPLY-ACTION-2` Complete the newly observed hiring questionnaire through the
     same shared Reply lifecycle. The official `cw_agent` thread says that answers in marketplace
