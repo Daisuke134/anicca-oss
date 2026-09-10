@@ -11,11 +11,19 @@ SPEC.loader.exec_module(adapter_module)
 
 
 def test_observation_uses_official_thread_and_message_ids():
-    row = {"thread_id": 303996182, "id": 425906697}
+    row = {"thread_id": 303996182, "id": 425906697, "proposal_status": "proposed"}
     observed = adapter_module.CrowdWorksReplyAdapter._observation(row)
     assert observed["provider"] == "crowdworks"
     assert observed["thread_id"] == "303996182"
     assert observed["latest_event_id"] == "425906697"
+    assert observed["decision_version"] == "official-actions-v1"
+
+
+def test_only_officially_proposed_threads_reopen_old_no_effect_state():
+    ordinary = adapter_module.CrowdWorksReplyAdapter._observation(
+        {"thread_id": 1, "id": 2, "proposal_status": "rejected"}
+    )
+    assert "decision_version" not in ordinary
 
 
 def test_owner_enters_shared_reply_kernel():
