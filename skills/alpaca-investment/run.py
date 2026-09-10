@@ -14,11 +14,13 @@ from alpaca_cli import (CLI_OPERATIONS, SAFE_ERROR_CODES, find_order_by_client_i
                         read_allocator_snapshot, read_campaign_snapshot, submit_order)
 from campaign import CANDIDATE_REF, SYMBOLS, exit_order, reconcile
 from control import control_fence, read_control
-from effect_store import mark_started, reconcile_started, record_no_trade, seal
+from effect_store import (mark_started, reconcile_started, record_no_trade, seal,
+                          unresolved_intent_count)
 from reporter import deliver, deliver_control, deliver_failure
 from position_manager import choose as choose_position, exit_order as live_exit_order
 from review_status import read_receipt as read_application_status
 from review_status import refresh as refresh_application_status
+from risk_policy import evaluate_entry
 
 
 def _atomic_json(path: Path, value: dict) -> None:
@@ -267,11 +269,28 @@ def main(*, attempt: int = 0, wake_id=None) -> int:
                             "reconciliation":reconciliation,"status":"killed" if current_control["killed"] else "paused",
                             "telegram_message_id":telegram["message_id"]}, separators=(",", ":")))
                         return 0
+                    # Re-read official slots under the exclusive effect fence so two
+                    # overlapping wakes cannot both act on the same stale snapshot.
+                    fresh = read_allocator_snapshot(credentials_path=credentials_path,
+                        cli_path=cli_path, risk_day_path=state / "risk-day.json")
+                    if (fresh.get("open_orders") != 0 or unresolved_intent_count(
+                            state / "receipts.jsonl") != 0 or
+                            (live_positions and fresh.get("positions") != 1) or
+                            (not live_positions and fresh.get("positions") != 0)):
+                        raise ValueError("investment_effect_fence_rejected")
+                    if mode == "live" and not live_positions and not evaluate_entry(
+                            fresh.get("risk"), order.get("notional_usd"))["approved"]:
+                        raise ValueError("investment_effect_fence_rejected")
                     sealed = seal(state / "receipts.jsonl", decision, order)
-                    mark_started(state / "receipts.jsonl", sealed)
+                    if not mark_started(state / "receipts.jsonl", sealed):
+                        raise ValueError("investment_effect_already_started")
                     effect_attempted = True
-                    submit_order(credentials_path=credentials_path, cli_path=cli_path,
-                                 client_order_id=sealed["client_order_id"], order=order, mode=mode)
+                    acknowledgement = submit_order(credentials_path=credentials_path, cli_path=cli_path,
+                        client_order_id=sealed["client_order_id"], order=order, mode=mode)
+                    if mode == "live" and not live_positions:
+                        _atomic_json(state / "live-owned-position.json", {
+                            "client_order_id": sealed["client_order_id"], "effect_id": sealed["effect_id"],
+                            "symbol": "BTCUSD", "submitted_at": acknowledgement.get("submitted_at")})
                 stage = "allocation_reconcile"
                 reconcile_started(state / "receipts.jsonl", lambda value: find_order_by_client_id(
                     credentials_path=credentials_path, cli_path=cli_path, client_order_id=value))

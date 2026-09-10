@@ -60,7 +60,8 @@ def control_fence(root: Path):
     lock_descriptor = os.open(root / ".control.lock", os.O_RDWR | os.O_CREAT, 0o600)
     try:
         os.fchmod(lock_descriptor, 0o600)
-        fcntl.flock(lock_descriptor, fcntl.LOCK_SH)
+        # Effecting wakes must serialize with each other as well as pause/kill.
+        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
         yield read_control(root / "control.json")
     finally:
         os.close(lock_descriptor)

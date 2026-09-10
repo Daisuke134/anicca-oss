@@ -13,12 +13,21 @@ def choose(snapshot: dict[str, Any], observation: dict[str, Any], state: Path,
            runner: Path, workdir: Path) -> dict[str, Any]:
     positions = [row for row in observation.get("positions", [])
                  if row.get("symbol") != "USDCUSD"]
+    try:
+        ownership = json.loads((state / "live-owned-position.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as error:
+        raise ValueError("live_position_not_owned") from error
+    if (ownership.get("symbol") != "BTCUSD" or not isinstance(ownership.get("client_order_id"), str)
+            or not ownership["client_order_id"].startswith("lm-ai-")):
+        raise ValueError("live_position_not_owned")
     if len(positions) != 1 or positions[0].get("symbol") != "BTCUSD" \
             or snapshot.get("open_orders") != 0 or snapshot.get("unresolved_intents") != 0:
         raise ValueError("live_position_gate_rejected")
     try:
         qty = Decimal(str(positions[0]["qty"]))
-        if not qty.is_finite() or qty <= 0 or qty.as_tuple().exponent < -9:
+        allocated = Decimal(str(snapshot["risk"]["allocated_capital_usd"]))
+        if (not qty.is_finite() or qty <= 0 or qty.as_tuple().exponent < -9
+                or not allocated.is_finite() or allocated <= 0 or allocated > Decimal("100")):
             raise ValueError
     except (InvalidOperation, KeyError, TypeError, ValueError) as error:
         raise ValueError("live_position_gate_rejected") from error
