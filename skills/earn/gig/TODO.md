@@ -376,6 +376,29 @@ Fresh cross-owner handoff audit:
   Promote the existing Apply work and evidence instead of duplicating it; keep completed Reply/Paid
   extraction and stopped Storefront work recorded, monitored and available for their later turns.
 
+Current read-only stop-point snapshot (no repair authorized in this checkpoint):
+
+- CrowdWorks Apply is **not healthy**: its latest business output is `account_ensure_failed` at
+  `2026-09-10T23:00:05Z`, and the owner terminal is `entrypoint_exit_1`. Earlier verified proposals
+  remain real receipts, but intermittent success is not continuous acceptance.
+- CrowdWorks Reply currently reports observed `24`, readback `22`, failed `0`, pending `2`, effect
+  `0`. It is live but not fully closed while the two durable pending items remain.
+- CrowdWorks Paid currently reports two official contracts: funded `63570481` and escrow-waiting
+  `63568785`. The buyer Google Form for the funded contract has one confirmed contract-bound receipt;
+  its hash and timestamp remained unchanged on the next wake, so **no duplicate Form submission
+  occurred**. Delivery is still absent. The latest aggregate is observed `2`, failed `1`, pending `1`
+  because the funded item timed out during repeated official reads.
+- The next Paid speed repair is already merged to main as `61f9722c3f6ceb4af3429fc31a51405e2c0a535b`,
+  but it is not installed. Release creation collided with a legitimate concurrent release build lock
+  owned by PID `20297`, which was cutting the already-installed prior SHA `1cb762d1`. The lock was not
+  stolen and no production target was changed after Dais requested this stop-point report.
+- Coconala Apply and Paid have recent PASS terminals; Coconala Reply and Storefront have recent
+  `entrypoint_exit_1` terminals and therefore are not currently accepted as continuously healthy.
+  Lancers Apply/Storefront/Paid have recent process PASS terminals, but Paid still has zero contracts
+  and JPY 0, while Reply reports observed `8`, readback `7`, failed `0`, pending `1`; this is not proof
+  of revenue. Mercor Apply/Reply/Paid have recent process PASS terminals, but those terminals alone do
+  not prove a new accepted contract or payment.
+
 Current live Apply acceptance audit:
 
 - **Coconala:** five-minute cadence and consecutive natural no-inventory PASS terminals are
