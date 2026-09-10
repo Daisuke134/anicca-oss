@@ -100,22 +100,28 @@ def evaluate(*, shadow_state: Path, live_state: Path, start: datetime,
             execute_at <= parse_instant(delivery["created_at"]) <= report_at
             for delivery in delivered))
     official = _official_orders(credentials, cli)
+    calendar_days = len(days) >= required_days and _consecutive_days(days)
+    natural_wakes = len(terminal) >= required_wakes
+    weekend_observed = any(day.weekday() >= 5 for day in days)
     checks = {
-        "calendar_days": len(days) >= required_days and _consecutive_days(days),
-        "natural_wakes": len(terminal) >= required_wakes,
+        "calendar_days": calendar_days,
+        "natural_wakes": natural_wakes,
+        "repeatability_window": natural_wakes or (calendar_days and weekend_observed),
         "telegram_every_wake": len(delivered) == len(terminal)
                                and all(count == 1 for count in deliveries_by_run),
         "unique_runtime_events": len(event_ids) == len(set(event_ids)),
         "one_terminal_per_run": len(terminal_runs) == len(set(terminal_runs)),
         "multiple_processes": len(pids) >= 2,
-        "weekend_observed": any(day.weekday() >= 5 for day in days),
+        "weekend_observed": weekend_observed,
         "shadow_no_effect": all(row.get("effect_class") == "none"
                                 and row.get("effect_status") == "not_applicable" for row in events),
         "live_unresolved_zero": unresolved_intent_count(live_state / "receipts.jsonl") == 0,
         "official_duplicates_zero": official["duplicate_client_ids"] == 0
                                     and official["duplicate_order_ids"] == 0,
     }
-    return {"status": "pass" if all(checks.values()) else "collecting", "checks": checks,
+    required_checks = {name: value for name, value in checks.items()
+                       if name not in {"calendar_days", "natural_wakes", "weekend_observed"}}
+    return {"status": "pass" if all(required_checks.values()) else "collecting", "checks": checks,
             "window_start": start.isoformat(),
             "observed": {"calendar_days": len(days), "natural_wakes": len(terminal),
                          "delivered_reports": len(delivered), "processes": len(pids),

@@ -20,7 +20,7 @@ class RepeatabilityTest(unittest.TestCase):
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         events = []
         for index in range(wakes):
-            at = start + timedelta(days=index % days, seconds=index)
+            at = start + timedelta(days=index % days, seconds=index * 2)
             run = f"run-{index}-{100 + index % 3}"
             events.append({"event_id": f"execute-{index}", "run_id": run,
                            "phase": "execute", "status": "running", "timestamp": at.isoformat(),
@@ -37,7 +37,7 @@ class RepeatabilityTest(unittest.TestCase):
                          "attempt_count INTEGER NOT NULL,provider_message_id TEXT,created_at TEXT NOT NULL,"
                          "claimed_at TEXT,delivered_at TEXT,last_error_code TEXT)")
         for index in range(wakes):
-            at = start + timedelta(days=index % days, seconds=index)
+            at = start + timedelta(days=index % days, seconds=index * 2)
             database.execute("INSERT INTO telegram_outbox VALUES (?,?,?,?,?,?,?,?,?,?)",
                              (f"alpaca-wake:{index}", "hash", "fixture", "delivered", 1, str(index),
                               at.isoformat(), None, (at + timedelta(seconds=1)).isoformat(), None))
@@ -55,6 +55,30 @@ class RepeatabilityTest(unittest.TestCase):
         self.assertEqual(result["status"], "pass")
         self.assertEqual(result["window_start"], start.isoformat())
         self.assertTrue(all(result["checks"].values()))
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_one_hundred_wakes_pass_without_thirty_days(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 100, 1)
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue(result["checks"]["repeatability_window"])
+        self.assertFalse(result["checks"]["calendar_days"])
+
+    @patch.object(repeatability, "_official_orders", return_value={
+        "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
+    def test_thirty_consecutive_days_pass_without_one_hundred_wakes(self, _official):
+        with tempfile.TemporaryDirectory() as directory:
+            shadow, live, start = self.fixture(Path(directory), 30, 30)
+            result = repeatability.evaluate(
+                shadow_state=shadow, live_state=live, start=start, required_days=30,
+                required_wakes=100, credentials=Path("c"), cli=Path("a"))
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue(result["checks"]["repeatability_window"])
+        self.assertFalse(result["checks"]["natural_wakes"])
 
     @patch.object(repeatability, "_official_orders", return_value={
         "count": 2, "duplicate_client_ids": 0, "duplicate_order_ids": 0})
