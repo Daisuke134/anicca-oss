@@ -145,7 +145,7 @@ class CrowdWorksReplyAdapter:
                   "thread_id": _text(row.get("thread_id")),
                   "latest_event_id": _text(row.get("id")), "observed_at": _now()}
         if row.get("proposal_status") == "proposed":
-            result["decision_version"] = "official-actions-v2"
+            result["decision_version"] = "official-actions-v3"
         return result
 
     def _open_thread_page(self, thread_id: str) -> None:
@@ -232,7 +232,7 @@ class CrowdWorksReplyAdapter:
 
     def _external_form_action(self, thread_id: str) -> dict[str, Any] | None:
         conversation = self.conversations.get(thread_id) or self._detail(thread_id)
-        if not conversation or conversation[-1].get("role") != "buyer":
+        if not conversation:
             return None
         links = sorted({link for row in conversation if row.get("role") == "buyer"
                         for link in row.get("links", []) if self._google_form_url(link)})
