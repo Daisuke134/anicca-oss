@@ -20,7 +20,9 @@ from runtime.loop.runtime_event import append_runtime_event, build_runtime_event
 
 
 def prepare_loop_run(registry: dict, loop_id: str, release_root: Path, *,
-                     active_run_ids: set[str], now: float | None = None) -> tuple[list[str], dict]:
+                     active_run_ids: set[str], now: float | None = None,
+                     state_root: str | None = None,
+                     log_root: str | None = None) -> tuple[list[str], dict]:
     validate_registry(registry)
     entry = registry["loops"].get(loop_id)
     if not isinstance(entry, dict):
@@ -31,7 +33,7 @@ def prepare_loop_run(registry: dict, loop_id: str, release_root: Path, *,
     totals = {"evaluated_runs": 0, "removed_runs": 0, "reclaimed_bytes": 0,
               "preserved_runs": 0, "protected_deletions": 0, "errors": 0}
     seen = set()
-    for value in (entry["state_root"], entry["log_root"]):
+    for value in (state_root or entry["state_root"], log_root or entry["log_root"]):
         root = Path(os.path.expanduser(value)).resolve()
         if root in seen:
             continue
@@ -143,17 +145,22 @@ def main(argv: list[str] | None = None) -> int:
         entry = registry.get("loops", {}).get(loop_id)
         if not isinstance(entry, dict):
             raise ValueError(f"unknown loop id: {loop_id}")
+        loop_state_root = Path(os.path.expanduser(
+            os.environ.get("LIFE_MANAGER_STATE_ROOT", entry["state_root"])))
+        loop_log_root = os.path.expanduser(
+            os.environ.get("LIFE_MANAGER_LOG_ROOT", entry["log_root"]))
         current = Path("~/loops/current").expanduser()
         item_lock = _label_apply_lock_path(current, entry["label"])
         with _apply_lock(current, item_lock):
             active = {value for value in os.environ.get("LIFE_MANAGER_ACTIVE_RUN_IDS", "").split(",") if value}
             command, cleanup = prepare_loop_run(
-                registry, loop_id, release_root, active_run_ids=active, now=time.time())
-            receipt = Path(os.path.expanduser(entry["state_root"])) / "cleanup-latest.json"
+                registry, loop_id, release_root, active_run_ids=active, now=time.time(),
+                state_root=str(loop_state_root), log_root=loop_log_root)
+            receipt = loop_state_root / "cleanup-latest.json"
             _atomic_json(receipt, {"version": 1, "loop_id": loop_id,
                                   "release_sha": manifest["sha"], **cleanup})
             run_id = os.environ.get("LIFE_MANAGER_RUN_ID") or f"{time.time_ns():x}-{os.getpid()}"
-            event_path = Path(os.path.expanduser(entry["state_root"])) / "events.jsonl"
+            event_path = loop_state_root / "events.jsonl"
             try:
                 append_runtime_event(event_path, build_runtime_start_event(
                     loop_id=loop_id, domain=entry["domain"], run_id=run_id,
@@ -162,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
                 ))
             except (OSError, ValueError) as error:
                 print(f"lm-loop-run: start event failed: {error}", file=sys.stderr)
-            scratch = reset_loop_scratch(Path(os.path.expanduser(entry["state_root"])), loop_id)
+            scratch = reset_loop_scratch(loop_state_root, loop_id)
         try:
             memory_receipt = scratch / "memory-admission.json"
             started_ns = time.time_ns()

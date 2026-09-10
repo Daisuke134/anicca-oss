@@ -32,7 +32,15 @@ def _is_immutable_release_working_directory(value: object) -> bool:
 def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> bytes:
     executable = str(release_root / entry["entrypoint"])
     loop_runner = str(release_root / "bin/lm-loop-run")
+    state_root = os.path.expanduser(entry["state_root"])
     log_root = os.path.expanduser(entry["log_root"])
+    life_manager_home = os.environ.get("LIFE_MANAGER_HOME")
+    if life_manager_home and loop_id == "agent-economy-loop":
+        state_root = str(Path(life_manager_home).expanduser() / "agent-economy")
+        log_root = str(Path(state_root) / "logs")
+    elif life_manager_home and loop_id == "compute-proxy":
+        state_root = str(Path(life_manager_home).expanduser() / "agent-economy/compute-proxy")
+        log_root = str(Path(state_root) / "logs")
     value = {
         "Label": entry["label"],
         "ProgramArguments": [loop_runner, loop_id, str(release_root)],
@@ -41,7 +49,8 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "LIFE_MANAGER_LOOP_ID": loop_id,
             "LIFE_MANAGER_REPO": str(release_root),
             "LIFE_MANAGER_RELEASE_SHA": release_sha,
-            "LIFE_MANAGER_STATE_ROOT": os.path.expanduser(entry["state_root"]),
+            "LIFE_MANAGER_STATE_ROOT": state_root,
+            "LIFE_MANAGER_LOG_ROOT": log_root,
         },
         "StandardOutPath": str(Path(log_root) / "launchd.out.log"),
         "StandardErrorPath": str(Path(log_root) / "launchd.err.log"),
@@ -155,7 +164,7 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
             "LIFE_MANAGER_REPO": str(release_root),
         })
     if loop_id == "agent-economy-loop":
-        agent_economy_state = os.path.expanduser(entry["state_root"])
+        agent_economy_state = state_root
         agent_economy_home = str(Path(agent_economy_state) / "instance")
         earn_state = str(Path(agent_economy_home) / "state/skills/earn")
         value["EnvironmentVariables"].update({
@@ -176,8 +185,13 @@ def _plist(loop_id: str, entry: dict, release_root: Path, release_sha: str) -> b
         node = shutil.which("node")
         if not node or not Path(node).is_absolute():
             raise ValueError("compute-proxy: managed node executable is unavailable")
+        compute_home = (
+            str(Path(life_manager_home).expanduser() / "agent-economy/instance")
+            if life_manager_home
+            else os.path.expanduser(entry["state_root"])
+        )
         value["EnvironmentVariables"].update({
-            "ANICCA_HOME": os.path.expanduser(entry["state_root"]),
+            "ANICCA_HOME": compute_home,
             "COMPUTE_PROXY_PORT": "18402",
             "LIFE_MANAGER_NODE": node,
         })

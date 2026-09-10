@@ -215,6 +215,18 @@ def _release_from_plist(path: Path) -> str | None:
     return None
 
 
+def _state_root_from_plist(path: Path, fallback: str) -> str:
+    try:
+        with path.open("rb") as handle:
+            plist = plistlib.load(handle)
+        value = (plist.get("EnvironmentVariables") or {}).get("LIFE_MANAGER_STATE_ROOT")
+        if isinstance(value, str) and Path(value).is_absolute():
+            return value
+    except Exception:
+        pass
+    return os.path.expanduser(fallback)
+
+
 def collect_live(registry: dict, *, full_inventory: bool = True
                  ) -> tuple[dict, dict, dict, set[str], set[str]]:
     loaded = parse_loaded(_launchctl("list"))
@@ -231,8 +243,10 @@ def collect_live(registry: dict, *, full_inventory: bool = True
     event_cache: dict[Path, dict[str | None, dict]] = {}
     for loop_id, entry in registry["loops"].items():
         label = entry["label"]
-        releases[label] = _release_from_plist(plist_dir / f"{label}.plist")
-        event = _last_event(entry["state_root"], loop_id, event_cache)
+        plist_path = plist_dir / f"{label}.plist"
+        releases[label] = _release_from_plist(plist_path)
+        event = _last_event(
+            _state_root_from_plist(plist_path, entry["state_root"]), loop_id, event_cache)
         if event:
             events[loop_id] = event
     return loaded, disabled, events, releases, installed
@@ -512,7 +526,9 @@ def apply_live(release_root: Path, agents_dir: Path, launchctl_safe: Path,
                 event = build_install_event(
                     loop_id=item["loop_id"], domain=entry["domain"], release_sha=release_sha,
                     provider=entry["provider_route"], effect_class=entry["effect_class"])
-                event_writer(Path(os.path.expanduser(entry["state_root"])) / "events.jsonl", event)
+                installed_plist = plistlib.loads(item["plist_bytes"])
+                installed_state = installed_plist["EnvironmentVariables"]["LIFE_MANAGER_STATE_ROOT"]
+                event_writer(Path(installed_state) / "events.jsonl", event)
                 result["install_event_id"] = event["event_id"]
                 results.append(result)
         except RuntimeError as exc:

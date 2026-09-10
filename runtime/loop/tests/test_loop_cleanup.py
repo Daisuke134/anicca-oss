@@ -102,6 +102,32 @@ class LoopCleanupTest(unittest.TestCase):
             self.assertFalse((state/'runs/old').exists())
             self.assertGreaterEqual(receipt['reclaimed_bytes'],128)
 
+    def test_loop_run_cleanup_uses_installed_runtime_root_override(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = root / 'bin/job.sh'
+            entry.parent.mkdir()
+            entry.write_text('#!/bin/sh\n')
+            entry.chmod(0o755)
+            home = root / 'home'
+            default_state = home / 'default-state'
+            custom_state = root / 'custom-state'
+            custom_log = root / 'custom-log'
+            completed(default_state, 'must-stay', 16)
+            completed(custom_state, 'remove', 16)
+            registry = {"schema_version": 2, "loops": {"job": {
+                "label": "ai.anicca.job", "domain": "system", "entrypoint": "bin/job.sh",
+                "cadence": {"run_at_load": True}, "effect_class": "none",
+                "state_root": "~/default-state", "log_root": "~/default-state/logs",
+                "cleanup": {"max_runs": 1, "max_age_days": 1},
+                "provider_route": "deterministic"}}}
+            with mock.patch.dict(os.environ, {"HOME": str(home)}):
+                prepare_loop_run(
+                    registry, "job", root, active_run_ids=set(), now=time.time() + 172800,
+                    state_root=str(custom_state), log_root=str(custom_log))
+            self.assertTrue((default_state / 'runs/must-stay').exists())
+            self.assertFalse((custom_state / 'runs/remove').exists())
+
     def test_loop_run_preserves_python_adapter_argv(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
