@@ -2559,6 +2559,21 @@ from the chat, and two of them contradict what this cursor had previously report
     only provider IDs, limits and state. Do not repurpose the onboarding owner profile, listing catalog
     or CrowdWorks JSON as a second source.
 
+    Active-account audit prevents applying the marketplace persona blindly. Mercor has managed Apply,
+    Reply and Paid owners and uses the private factual resume because it is a candidate/job platform,
+    not a seller-profile storefront; it needs truthful resume-field readback rather than the Coconala
+    commercial handle. Its current Apply terminal is pass despite process `last_exit=120`, Reply is
+    currently failed with `entrypoint_exit_2`, and Paid is pass. Upwork's recorded official profile is
+    published and 100% complete with no validation error, but available Connects and free application
+    capacity are both zero; it already records an authentic owner photo, so do not overwrite that with
+    the shared illustrated persona unless official policy/readback permits it. Freelancer.com has no
+    managed repo owner: the two registry labels are external and absent from the current GUI domain,
+    while the only repo implementation is a legacy public read-only watcher for four old bids with an
+    OpenClaw notification. Therefore substep (4) means: retain and officially read Mercor's factual
+    candidate profile, retain Upwork's already-complete provider-compliant profile while recording the
+    zero-Connects acquisition blocker, and defer Freelancer profile projection until its Apply owner is
+    repo-owned. Do not call those three a uniform profile mutation.
+
 30b. [ ] `APPLY-ACCEPTANCE-ALL-1` Prove Apply works continuously after profile parity. Run natural
     provider owners without restarting browsers. Coconala must observe an eligible posting or retain
     exact official zero-eligible evidence; Lancers must reconcile its saved uncertain proposal before
