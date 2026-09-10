@@ -10293,3 +10293,11 @@ read-only auth inspectorをowner idle時にLuma `/home`へ実行し、`authentic
 一方、production discovery sourceは`LUMA_DISCOVERY_URL = https://luma.com/tokyo?k=p`、workflowも`TOKYO_DISCOVER_URL`へ固定され、global discoveryは実装されていない。一wakeのdetail inspectionは最大6件で1分rotationする。したがってDaisが求めるglobal tech eventを候補に含める現在契約には不足がある。Tokyo inventory内ではfree/open候補を発見しているが直近はCalendar conflictで除外され、過去にcalendar-free候補へ進んだ実行ではform schema、required profile/private value、最近はeffect_unknown後のofficial absentで実登録に至っていない。
 
 最新自然wake `wake-24d32ea9b4a7ac02ef75737a`のLuma auditは`19/6/6/2/0`でLuma Submit 0。terminal `effect_unknown`はLumaではなくKokuchPro Harness由来で、同候補はreconciliation storeに保存済みである。よってLumaの根本問題は単一の認証切れではなく、`Tokyo-only discovery + bounded 6-detail slice + Calendar conflict + form/action verification未成立`の複合である。CG-44の次の修正対象は、globalを含む複数の公式Luma discovery surfaceをbounded/idempotentに統合し、その後calendar-free live candidateで既存のofficial readback→Calendar→Telegram→bundle contractを実測することとする。固定TODO順は変えない。
+
+### O1B-25進捗551（Tokyo-only再確定 / Fundraiser現状と要求補正）
+
+Daisの明示訂正によりLuma discovery scopeはTokyo-onlyを正とし、global追加をCG-44から撤回する。`https://luma.com/tokyo?k=p`は要求どおりであり欠陥ではない。CG-44の残作業は、Tokyo inventoryのcalendar-free候補でLuma form/action境界を通し、official registered/pending、Calendar exact 1、Telegram message/photo、durable bundleを同一eventで成立させることに限定する。イベント適合性はmodel判断、provider state・Calendar conflict・dedupe・receiptはshared deterministic componentで扱う。
+
+Fundraiserのproduction label `ai.anicca.fundraiser`はimmutable release `25e45d35…`、`StartInterval=1800`、runs 29、latest exit 0。application ledgerは24件で、最新のverified successはLiberty VenturesとProgressive Ventures、official completion readback、PNG、Telegram photo IDs `73593`・`73760`を保存している。失敗receiptもselector mapping、60秒founder video不足、Continue非遷移など具体的blockerを保存している。したがって新規accelerator応募と成功Telegramは実作動しているが、全wakeの成功・失敗・候補なしをTelegramへ必ず報告するacceptance、次wake duplicate submit 0、継続的に新しいprogramへcursorが進むnatural proofは未完である。
+
+固定順序は維持し、Connector closure後のFundraiser atomは、(1) 30分cadenceを維持、(2) 新規候補list/cursor、(3) applied ledgerによる重複排除、(4) 最大限の実応募、(5) official completion readback、(6) success/failure/no-candidate全wake Telegram、(7) natural replay-zero、(8) cleanup、の実測を完了条件とする。1時間cadenceへの変更は要求されず、現行30分は「毎時以上」の頻度を満たす。
