@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 
 HERE = Path(__file__).resolve().parent
+REPO_ROOT = Path(os.environ.get("LIFE_MANAGER_RELEASE_ROOT") or HERE.parents[3]).resolve()
 JST = timezone(timedelta(hours=9))
 EXTERNAL_CDP_URL = "http://127.0.0.1:9222"
 BOOKING_ORIGIN = "https://yoyaku.triplek-rh.workers.dev"
@@ -383,6 +384,25 @@ class LancersReplyAdapter:
         return any(self._event_busy(event, start, end)
                    for event in self._calendar_events(start - timedelta(minutes=1), end + timedelta(minutes=1)))
 
+    def _create_calendar_event(self, slot: Mapping[str, str], meet_link: str) -> None:
+        account = str(self._candidate().get("application_email") or "")
+        policy = REPO_ROOT / "skills/_shared/lib/gcal-policy.sh"
+        if not account or not meet_link.startswith("https://meet.google.com/") or not policy.is_file():
+            raise work_sync.SourceFailure("calendar_event_payload_invalid")
+        completed = subprocess.run(
+            ["/bin/bash", str(policy), "create",
+             "--summary", "Lancers 事前打ち合わせ",
+             "--from", str(slot["start"]), "--to", str(slot["end"]),
+             "--location", meet_link,
+             "--description", "Lancersの予約ページで確定したオンライン打ち合わせです。",
+             "--skip-travel", "--check-conflict", "--account", account],
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120, check=False,
+            env={**os.environ, "GOG_ACCOUNT": account,
+                 "GOG_KEYRING_PASSWORD": _private_env_value("GOG_KEYRING_PASSWORD")},
+        )
+        if completed.returncode != 0 or '"main_id"' not in completed.stdout:
+            raise work_sync.SourceFailure("calendar_event_create_unavailable")
+
     def _book(self, url: str, slot: Mapping[str, str]) -> None:
         page = self._external_page(url)
         try:
@@ -404,9 +424,10 @@ class LancersReplyAdapter:
             if not isinstance(url, str) or not isinstance(slot, Mapping) or not isinstance(body, str):
                 raise work_sync.SourceFailure("external_booking_payload_invalid")
             bookings, slots = self._booking_snapshot(url)
-            booked = any(_same_instant(item.get("slot_start"), slot.get("start"))
-                         and _same_instant(item.get("slot_end"), slot.get("end")) for item in bookings)
-            if not booked:
+            booking = next((item for item in bookings
+                            if _same_instant(item.get("slot_start"), slot.get("start"))
+                            and _same_instant(item.get("slot_end"), slot.get("end"))), None)
+            if booking is None:
                 provider_slot = next((item for item in slots
                                       if _same_instant(item.get("start"), slot.get("start"))
                                       and _same_instant(item.get("end"), slot.get("end"))), None)
@@ -414,10 +435,15 @@ class LancersReplyAdapter:
                     raise work_sync.SourceFailure("external_booking_slot_unavailable")
                 self._book(url, provider_slot)
                 bookings, _slots = self._booking_snapshot(url)
-                booked = any(_same_instant(item.get("slot_start"), slot.get("start"))
-                             and _same_instant(item.get("slot_end"), slot.get("end")) for item in bookings)
-            if not booked or not self._calendar_contains(slot):
+                booking = next((item for item in bookings
+                                if _same_instant(item.get("slot_start"), slot.get("start"))
+                                and _same_instant(item.get("slot_end"), slot.get("end"))), None)
+            if booking is None:
                 raise work_sync.SourceFailure("external_booking_readback_unavailable")
+            if not self._calendar_contains(slot):
+                self._create_calendar_event(slot, str(booking.get("meet_link") or ""))
+            if not self._calendar_contains(slot):
+                raise work_sync.SourceFailure("calendar_event_readback_unavailable")
             if not self._reply_exists(intent["thread_id"], body):
                 self._post_reply(intent["thread_id"], intent["effect_key"], body)
             return

@@ -277,3 +277,26 @@ def test_external_action_posts_provider_slot_format(monkeypatch, tmp_path):
     adapter.mutate(intent)
 
     assert posted == [provider_slot]
+
+
+def test_booked_action_creates_missing_calendar_event_before_reply(monkeypatch, tmp_path):
+    adapter = adapter_module.LancersReplyAdapter(tmp_path / "state.json")
+    slot = {"start": "2026-09-11T08:10:00.000Z", "end": "2026-09-11T08:40:00.000Z"}
+    bookings = [{"slot_start": slot["start"], "slot_end": slot["end"],
+                 "meet_link": "https://meet.google.com/abc-defg-hij"}]
+    calendar = []
+    replies = []
+    monkeypatch.setattr(adapter, "_booking_snapshot", lambda _url: (bookings, []))
+    monkeypatch.setattr(adapter, "_calendar_contains", lambda _slot: bool(calendar))
+    monkeypatch.setattr(adapter, "_create_calendar_event",
+                        lambda received, link: calendar.append((dict(received), link)))
+    monkeypatch.setattr(adapter, "_reply_exists", lambda *_args: replies[-1] if replies else None)
+    monkeypatch.setattr(adapter, "_post_reply", lambda *_args: replies.append("message-1"))
+    intent = {"action": "external_action", "thread_id": "9064025", "effect_key": "key",
+              "payload": {"url": "https://yoyaku.triplek-rh.workers.dev/?lid=test",
+                          "slot": slot, "completion_body": "予約しました。"}}
+
+    adapter.mutate(intent)
+
+    assert calendar == [(slot, "https://meet.google.com/abc-defg-hij")]
+    assert replies == ["message-1"]
