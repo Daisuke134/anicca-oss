@@ -170,6 +170,38 @@ class LiveCanaryTest(unittest.TestCase):
             self.assertEqual(ownership["status"], "entry_pending")
             self.assertEqual(ownership["symbol"], "BTCUSD")
 
+    def test_cloud_fence_rechecks_official_slots_before_submit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stale, occupied = snapshot(), snapshot()
+            occupied["positions"] = 1
+            first = self.common([{"status": "absent", "verified": False}], None)
+            with self.env(root, "cloud"), first[0], first[1], first[2], first[3], \
+                    first[4] as submit, first[5], patch.object(
+                        live_canary, "read_allocator_snapshot",
+                        side_effect=[stale, occupied]):
+                with self.assertRaisesRegex(ValueError, "live_canary_gate_rejected"):
+                    live_canary.main()
+            submit.assert_not_called()
+            self.assertFalse((root / "state/live-owned-position.json").exists())
+
+    def test_verified_replay_never_rolls_closing_ownership_back_to_open(self):
+        verified = {"status": "verified", "verified": True,
+                    "order": {"filled_qty": "0.00002"},
+                    "position": {"symbol": "BTCUSDC", "qty": "0.00001995"}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sealed = effect_store.seal(root / "state/receipts.jsonl",
+                live_canary._decision("cloud"), live_canary.ORDER)
+            closing = {"entry_client_order_id": sealed["client_order_id"],
+                "entry_effect_id": sealed["effect_id"], "entry_filled_qty": "0.00002",
+                "owned_qty": "0.00001995", "close_client_order_id": "close-one",
+                "close_effect_id": "close-effect", "status": "closing", "symbol": "BTCUSD"}
+            live_canary._write_result(root / "state/live-owned-position.json", closing)
+            live_canary._write_cloud_ownership(root / "state", sealed, verified)
+            self.assertEqual(json.loads(
+                (root / "state/live-owned-position.json").read_text()), closing)
+
     def test_submit_boundary_rejects_every_nonfrozen_shape(self):
         expected = dict(live_canary.ORDER)
         changes = {"asset_class": "us_equity", "notional_usd": "2.01", "side": "sell",

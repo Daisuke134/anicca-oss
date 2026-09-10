@@ -90,6 +90,22 @@ def _write_cloud_ownership(state: Path, sealed: dict[str, str], result: dict | N
     marker = {"entry_client_order_id": sealed["client_order_id"],
               "entry_effect_id": sealed["effect_id"], "entry_filled_qty": "0",
               "status": "entry_pending", "symbol": "BTCUSD"}
+    path = state / "live-owned-position.json"
+    try:
+        current = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        current = None
+    except json.JSONDecodeError as error:
+        raise ValueError("live_canary_ownership_invalid") from error
+    if current is not None:
+        if (current.get("entry_client_order_id") != sealed["client_order_id"]
+                or current.get("entry_effect_id") != sealed["effect_id"]):
+            raise ValueError("live_canary_ownership_invalid")
+        if current.get("status") in {"closing", "closed"}:
+            return
+        if current.get("status") not in {"entry_pending", "open"}:
+            raise ValueError("live_canary_ownership_invalid")
+        marker = current
     if result and result.get("status") == "verified":
         try:
             filled = Decimal(str(result["order"]["filled_qty"]))
@@ -100,9 +116,10 @@ def _write_cloud_ownership(state: Path, sealed: dict[str, str], result: dict | N
                 raise ValueError
         except (InvalidOperation, KeyError, TypeError, ValueError) as error:
             raise ValueError("live_canary_ownership_invalid") from error
-        marker.update({"entry_filled_qty": str(filled), "owned_qty": str(owned),
-                       "status": "open"})
-    _write_result(state / "live-owned-position.json", marker)
+        if marker.get("status") == "entry_pending":
+            marker.update({"entry_filled_qty": str(filled), "owned_qty": str(owned),
+                           "status": "open"})
+    _write_result(path, marker)
 
 
 def _output(sealed: dict[str, str], result: dict, submitted: bool, deployment: str) -> int:
@@ -147,6 +164,11 @@ def main() -> int:
         with control_fence(state) as control:
             if control["paused"] or control["killed"]:
                 raise ValueError("live_canary_control_rejected")
+            fresh = read_allocator_snapshot(
+                credentials_path=credentials, cli_path=cli,
+                risk_day_path=state / "risk-day.json")
+            fresh["unresolved_intents"] = unresolved_intent_count(ledger)
+            _gate(fresh, state)
             if deployment == "cloud":
                 _write_cloud_ownership(state, sealed)
             if mark_started(ledger, sealed):
