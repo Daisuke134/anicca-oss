@@ -109,12 +109,12 @@ function materializeMobileStarterPack({ product, identity, packRoot, privateRoot
   const root = fs.realpathSync(requestedRoot);
   const target = path.resolve(root, workspace, "source");
   requireValue(target.startsWith(`${root}${path.sep}`), "workspace escapes private root");
+  const parent = ensureManagedDirectory(root, workspace);
   if (fs.existsSync(target)) {
     requireValue(sameOutput(target, files), "conflicting workspace");
     return Object.freeze({ state: "replayed", product_id: product.product_id,
       template_id: product.source.template_id, workspace_rel: `${workspace}/source` });
   }
-  const parent = ensureManagedDirectory(root, workspace);
   const stage = `${target}.stage-${process.pid}`;
   requireValue(!fs.existsSync(stage), "starter stage already exists");
   try {

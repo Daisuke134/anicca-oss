@@ -98,8 +98,9 @@ test("rejects symlinks and conflicting existing output without replacing it", (t
 test("rejects a symlink in the managed workspace parent chain", (t) => {
   const root = privateRoot(t);
   const outside = privateRoot(t);
-  fs.symlinkSync(outside, path.join(root, "mobile-products"));
+  materializeMobileStarterPack({ product: generated, identity, packRoot, privateRoot: outside });
+  fs.symlinkSync(path.join(outside, "mobile-products"), path.join(root, "mobile-products"));
   assert.throws(() => materializeMobileStarterPack({ product: generated, identity, packRoot, privateRoot: root }),
     /workspace directory must not be a symlink/);
-  assert.equal(fs.existsSync(path.join(outside, generated.product_id, "source", "project.yml")), false);
+  assert.equal(fs.existsSync(path.join(outside, generated.workspace_rel, "source", "project.yml")), true);
 });
