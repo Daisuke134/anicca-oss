@@ -1,0 +1,20 @@
+name: {{PRODUCT_NAME}}
+options:
+  bundleIdPrefix: {{BUNDLE_ID}}
+targets:
+  {{PRODUCT_NAME}}:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [Sources]
+    resources: [Resources]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: {{BUNDLE_ID}}
+      GENERATE_INFOPLIST_FILE: YES
+  {{PRODUCT_NAME}}Tests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [Tests]
+    dependencies:
+      - target: {{PRODUCT_NAME}}

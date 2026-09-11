@@ -918,6 +918,12 @@ future product run exercises them without changing this architecture acceptance 
     Manager repository owns only the reusable factory/templates/adapters. Existing products may remain in their own
     canonical Git repositories and register a source descriptor; they are not copied into the Life Manager source
     tree merely for visual consolidation.
+    - [x] A first-party `ios-swiftui-v1` starter pack and deterministic materializer now create the minimal SwiftUI,
+      XcodeGen, XCTest and asset-catalog structure under the generated product's private managed workspace. The
+      materializer verifies the manifest and every SHA before writing, rejects traversal/symlinks/imported products,
+      stages then atomically renames, replays identical output and preserves conflicting output. It performs no
+      build, signing, App Store or Postiz effect. Focused Mobile tests pass 11/11. Product-specific icon and
+      screenshot generators plus optional downloadable pack transport remain open under this parent item.
   - [ ] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
     `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
     `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and
