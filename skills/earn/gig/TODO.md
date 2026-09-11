@@ -97,6 +97,17 @@ readback; it does not mean that the marketplace is already producing new net cas
 | Upwork | **Off; zero Connects and account-policy/identity state prevent safe resume.** A low cadence does not fix zero capacity or policy risk. | **Off.** | **Off.** | **Not active.** | No active acquisition or revenue chain. |
 | AudioBabel and later providers | **Not implemented.** | **Not implemented.** | **Not implemented.** Human recordings use the shared handoff contract when needed. | **Capability-dependent.** | Candidates only; no earnings claim. |
 
+Latest CrowdWorks Paid observation: the first retry on `a53e5fdc` failed before item processing at
+`provider_inventory`. The next natural retry traversed inventory but still found no visible
+milestone textarea for `63570481`; the initial contract route remains on the Message tab, while the
+official completion control is under the To-do tab. It also observed `63583795` beyond its former
+escrow-only state and failed while composing its required form answer. No effect occurred for either
+item. The next implementation atom is therefore provider-specific: open the official To-do surface
+before selecting the bound milestone form, keep the confirmed Google Form receipt as a hard no-repost
+fence, and treat form-answer composition failure as durable per-item retry rather than losing sibling
+work. A read-only probe was deliberately cancelled while queued behind Apply's provider-browser lock;
+it produced no provider action and did not delay the next Paid owner.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
