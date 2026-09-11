@@ -280,6 +280,8 @@ class MercorPassContractTests(unittest.TestCase):
         skill = (ROOT.parents[1] / "skills" / "mercor" / "SKILL.md").read_text()
         self.assertIn("30-minute", skill)
         self.assertIn("every ready listing", skill)
+        self.assertIn("material required language, location, domain, or seniority contradiction", skill)
+        self.assertIn("Missing or preferred evidence remains eligible medium", skill)
         self.assertNotIn("existing hourly Job Hunter loop", skill)
         self.assertNotIn("submit exactly one new listing", skill)
         spec = (
