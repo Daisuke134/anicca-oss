@@ -357,8 +357,14 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
     selected = []
 
     class Control:
+        def __init__(self, owner, visible=False):
+            self.owner, self.visible = owner, visible
+
+        def is_visible(self):
+            return self.visible
+
         def fill(self, value):
-            selected.append(("fill", value))
+            selected.append(("fill", self.owner, value))
 
         def count(self):
             return 1
@@ -367,20 +373,29 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
             return False
 
         def click(self):
-            selected.append(("click", None))
+            selected.append(("click", self.owner))
 
     class Form:
-        def count(self):
-            return 1
+        def __init__(self, owner, visible):
+            self.owner, self.visible = owner, visible
 
         def locator(self, selector):
-            selected.append(("control", selector))
-            return Control()
+            selected.append(("control", self.owner, selector))
+            return Control(self.owner, self.visible if selector.startswith("textarea") else False)
+
+    class Forms:
+        values = [Form("visible", True), Form("hidden", False)]
+
+        def count(self):
+            return len(self.values)
+
+        def nth(self, index):
+            return self.values[index]
 
     class Page:
         def locator(self, selector):
             selected.append(("form", selector))
-            return Form()
+            return Forms()
 
         def wait_for_load_state(self, *args, **kwargs):
             selected.append(("readback-wait", None))
@@ -392,8 +407,10 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
 
     adapter._complete_once(funded(), {"milestone_id": "13798056"})
 
-    assert ("form", 'form[action="/milestones/13798056/complete"]:visible') in selected
-    assert ("click", None) in selected
+    assert ("form", 'form[action="/milestones/13798056/complete"]') in selected
+    assert any(row[:2] == ("fill", "visible") for row in selected)
+    assert ("click", "visible") in selected
+    assert not any(row[:2] == ("fill", "hidden") for row in selected)
 
 
 def test_paid_form_receipts_are_isolated_by_contract_binding(tmp_path):
