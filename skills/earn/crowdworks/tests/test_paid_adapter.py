@@ -352,6 +352,50 @@ def test_prepared_form_receipt_fences_replay_before_any_second_post(tmp_path):
         adapter._submit_form_once(funded())
 
 
+def test_milestone_completion_targets_only_the_visible_duplicate_form():
+    module = load()
+    selected = []
+
+    class Control:
+        def fill(self, value):
+            selected.append(("fill", value))
+
+        def count(self):
+            return 1
+
+        def is_disabled(self):
+            return False
+
+        def click(self):
+            selected.append(("click", None))
+
+    class Form:
+        def count(self):
+            return 1
+
+        def locator(self, selector):
+            selected.append(("control", selector))
+            return Control()
+
+    class Page:
+        def locator(self, selector):
+            selected.append(("form", selector))
+            return Form()
+
+        def wait_for_load_state(self, *args, **kwargs):
+            selected.append(("readback-wait", None))
+
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
+    adapter.page = Page()
+    adapter._goto_contract = lambda work_id: selected.append(("contract", work_id))
+    adapter._compose_text = lambda **kwargs: "Googleフォームへの回答を完了しました。"
+
+    adapter._complete_once(funded(), {"milestone_id": "13798056"})
+
+    assert ("form", 'form[action="/milestones/13798056/complete"]:visible') in selected
+    assert ("click", None) in selected
+
+
 def test_paid_form_receipts_are_isolated_by_contract_binding(tmp_path):
     module = load()
     binding = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)._form_binding(
