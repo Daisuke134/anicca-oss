@@ -102,14 +102,23 @@ class CoconalaReplyAdapter:
 
     def _read_thread(self, thread_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         url = f"https://coconala.com/mypage/direct_message/{thread_id}"
-        with reply_browser.CoconalaCdpReplyBrowser(
-            self.cdp_helper, url, hidden=True, background=False,
-        ) as browser:
-            result = browser.read_before()
-            if not isinstance(browser.raw, dict):
-                raise RuntimeError("coconala_thread_dom_missing")
-            self._raw_threads[thread_id] = browser.raw
-            return result
+        for attempt in range(2):
+            try:
+                with reply_browser.CoconalaCdpReplyBrowser(
+                    self.cdp_helper, url, hidden=True, background=False,
+                ) as browser:
+                    result = browser.read_before()
+                    if not isinstance(browser.raw, dict):
+                        raise RuntimeError("coconala_thread_dom_missing")
+                    self._raw_threads[thread_id] = browser.raw
+                    return result
+            except RuntimeError as error:
+                if (
+                    str(error) != "authenticated tab did not finish navigation"
+                    or attempt == 1
+                ):
+                    raise
+        raise AssertionError("unreachable")
 
     def _send(self, thread_id: str, body: str, expected_event: str) -> dict[str, str]:
         url = f"https://coconala.com/mypage/direct_message/{thread_id}"

@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import pytest
 
 
 MODULE = Path(__file__).parents[1] / "scripts" / "coconala_reply_adapter.py"
@@ -118,6 +119,97 @@ def test_default_runtime_paths_stay_inside_the_release(tmp_path):
         adapter_module.REPO_ROOT / "skills/browser/scripts/cdp_default_tab.py"
     )
     assert adapter.cdp_helper.is_file()
+
+
+def test_read_thread_retries_only_pre_effect_navigation_timeout(monkeypatch, tmp_path):
+    attempts = []
+    closed = []
+
+    class Browser:
+        raw = {"messages": [{"message_id": "m1"}]}
+
+        def __init__(self, *_args, **_kwargs):
+            attempts.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            closed.append(self)
+            return None
+
+        def read_before(self):
+            if len(attempts) == 1:
+                raise RuntimeError("authenticated tab did not finish navigation")
+            return ({
+                "conversation": [{"side": "buyer", "message_id": "m1", "body": "質問"}],
+            }, {"last_sender": "buyer"})
+
+    monkeypatch.setattr(adapter_module.reply_browser, "CoconalaCdpReplyBrowser", Browser)
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+    )
+
+    context, bounded = adapter._read_thread("12")
+
+    assert len(attempts) == 2
+    assert closed == attempts
+    assert context["conversation"][-1]["message_id"] == "m1"
+    assert bounded["last_sender"] == "buyer"
+
+
+def test_read_thread_does_not_retry_non_navigation_failure(monkeypatch, tmp_path):
+    attempts = []
+
+    class Browser:
+        def __init__(self, *_args, **_kwargs):
+            attempts.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read_before(self):
+            raise RuntimeError("coconala_conversation_invalid")
+
+    monkeypatch.setattr(adapter_module.reply_browser, "CoconalaCdpReplyBrowser", Browser)
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+    )
+
+    with pytest.raises(RuntimeError, match="coconala_conversation_invalid"):
+        adapter._read_thread("12")
+
+    assert len(attempts) == 1
+
+
+def test_read_thread_propagates_second_navigation_timeout(monkeypatch, tmp_path):
+    attempts = []
+
+    class Browser:
+        def __init__(self, *_args, **_kwargs):
+            attempts.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read_before(self):
+            raise RuntimeError("authenticated tab did not finish navigation")
+
+    monkeypatch.setattr(adapter_module.reply_browser, "CoconalaCdpReplyBrowser", Browser)
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+    )
+
+    with pytest.raises(RuntimeError, match="authenticated tab did not finish navigation"):
+        adapter._read_thread("12")
+
+    assert len(attempts) == 2
 
 
 def test_coconala_build_passes_shared_grounding_to_semantic_judge(monkeypatch, tmp_path):
