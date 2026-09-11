@@ -93,6 +93,29 @@ def test_exact_verified_apply_receipt_is_jst_application_date_fallback(tmp_path)
     assert adapter._receipt_application_date(funded()["title"], "305139864") == "2026-09-09"
 
 
+def test_proposal_timeout_falls_through_to_verified_receipt_lookup():
+    module = load()
+    closed = []
+
+    class Proposal:
+        def close(self):
+            closed.append(True)
+
+    class Context:
+        def new_page(self):
+            return Proposal()
+
+    class Browser:
+        contexts = [Context()]
+
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
+    adapter.browser = Browser()
+    adapter._goto = lambda *args: (_ for _ in ()).throw(module.CrowdWorksPaidProposalTimeout())
+
+    assert adapter._proposal_application_date("305139864") is None
+    assert closed == [True]
+
+
 def test_ambiguous_or_nonexact_apply_receipt_never_supplies_date(tmp_path):
     module = load()
     valid = {"record_type": "application_receipt", "platform": "crowdworks", "status": "verified",

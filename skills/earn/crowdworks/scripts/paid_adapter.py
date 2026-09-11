@@ -271,7 +271,10 @@ class CrowdWorksPaidAdapter:
     def _proposal_application_date(self, proposal_id: str) -> str | None:
         proposal = self.browser.contexts[0].new_page()
         try:
-            self._goto(proposal, f"https://crowdworks.jp/proposals/{proposal_id}", "proposal")
+            try:
+                self._goto(proposal, f"https://crowdworks.jp/proposals/{proposal_id}", "proposal")
+            except CrowdWorksPaidProposalTimeout:
+                return None
             route = urlsplit(str(proposal.url))
             if (route.scheme, route.netloc, route.path, route.query, route.fragment) != (
                     "https", "crowdworks.jp", f"/proposals/{proposal_id}", "", ""):
