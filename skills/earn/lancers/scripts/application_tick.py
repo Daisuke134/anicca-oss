@@ -219,10 +219,17 @@ def _record_terminal_block(
         if marker in terminal:
             if marker not in claims:
                 claims.add(marker)
-                shared._write_state(path, claims, pending)
+            entry = pending.get(marker)
+            if entry is not None:
+                if not isinstance(entry, Mapping) or entry.get("project_id") != project_id:
+                    raise RuntimeError("state_invalid")
+                pending.pop(marker)
+            shared._write_state(path, claims, pending)
             return
         if marker in claims:
-            raise RuntimeError("state_invalid")
+            entry = pending.get(marker)
+            if not isinstance(entry, Mapping) or entry.get("project_id") != project_id:
+                raise RuntimeError("state_invalid")
         observed_at = now()
         if not isinstance(observed_at, str) or not observed_at.strip():
             raise RuntimeError("state_invalid")
@@ -233,6 +240,7 @@ def _record_terminal_block(
         }
         _write_terminal_state(path, terminal)
         claims.add(marker)
+        pending.pop(marker, None)
         shared._write_state(path, claims, pending)
 
 
@@ -438,6 +446,23 @@ def _provider_terminal_blocked(page: Any) -> bool:
                 return True
     except Exception:
         pass
+    get_by_text = getattr(page, "get_by_text", None)
+    if callable(get_by_text):
+        try:
+            removed = (
+                "閲覧制限",
+                "利用規約・仕事依頼ガイドライン細則違反のため削除しました",
+            )
+            if all(
+                any(
+                    exact.nth(index).is_visible()
+                    for index in range(_count(exact))
+                )
+                for exact in (get_by_text(text, exact=True) for text in removed)
+            ):
+                return True
+        except Exception:
+            pass
     return False
 
 
@@ -981,6 +1006,26 @@ def run_live_tick(
             ),
             {},
             ) if pending_claim else {}
+            pending_readback: Mapping[str, object] = {}
+            if pending_claim:
+                pending_readback = (
+                    readback_override(None, str(project_id))
+                    if readback_override is not None
+                    else _production_readback(page, None, str(project_id), proposal_reader)
+                )
+                if not pending_readback:
+                    try:
+                        _production_prepare(page, str(project_id), proposed_amount_minor, delivery_due_on)
+                    except RuntimeError as exc:
+                        if str(exc) == TERMINAL_STATE_STATUS:
+                            try:
+                                _record_terminal_block(
+                                    state_path, str(project_id),
+                                    now or (lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")),
+                                )
+                            except Exception:
+                                return TickResult(ok=False, error="state_invalid", project_id=str(project_id))
+                            return TickResult(ok=False, error=TERMINAL_STATE_STATUS, project_id=str(project_id))
             if not pending_claim:
                 try:
                     _production_prepare(page, str(project_id), proposed_amount_minor, delivery_due_on)
@@ -1017,7 +1062,7 @@ def run_live_tick(
             submitter = submitter_override or (lambda opportunity, text, amount, due: _production_submitter(page, opportunity, text, amount, due, proposal_reader))
 
             def readback(proposal: Optional[str], project: str) -> Mapping[str, object]:
-                browser_value = readback_override(proposal, project) if readback_override is not None else _production_readback(page, proposal, project, proposal_reader)
+                browser_value = readback_override(proposal, project) if readback_override is not None else (pending_readback or _production_readback(page, proposal, project, proposal_reader))
                 identity = _strict_identity(browser_value, project, proposal)
                 terms = pending_terms if pending_claim else {
                     "project_id": project, "amount_minor": proposed_amount_minor,
