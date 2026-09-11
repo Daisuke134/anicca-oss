@@ -1120,7 +1120,13 @@ const server = http.createServer(async (req, res) => {
             if (claim.status === "claimed" && String(claim.chat_id) !== String(u.chatId)) throw new Error("telegram actor claim failed");
             row = await rowByChatId(u.chatId, SUPA_URL, SUPA_KEY);
             if (!row || !row.uid) throw new Error("telegram actor unavailable");
-            await ensureCloudAgentEconomy(row.uid);
+            // Agent Economy is additive. A stale/replanned runtime job must never prevent the
+            // primary Telegram onboarding path from issuing a fresh Calendar consent link.
+            try {
+              await ensureCloudAgentEconomy(row.uid);
+            } catch (error) {
+              console.error(`[telegram] agent economy setup deferred: ${error && error.message ? error.message : "unknown error"}`);
+            }
             if (claim.status === "replayed") {
               res.writeHead(200); res.end("ok");
               return;
