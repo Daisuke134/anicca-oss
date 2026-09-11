@@ -116,6 +116,14 @@ open-ended Google Form answers remain model-owned. Focused tests (`33`) and fres
 pass. Dependency-complete release `20260911T171048-fda5f8e6` is installed only for CrowdWorks Paid
 with receipt `f5ed4e159585505a5189f5ac`; natural official effect/readback remains the active acceptance.
 
+The first `fda5f8e6` natural run stopped at provider inventory because the optional proposal page
+timed out before the existing verified-Apply-receipt application-date fallback could run. PR `#5020`,
+merged as main `b436a2a9`, catches only `CrowdWorksPaidProposalTimeout` in that optional lookup and
+continues to the exact title/proposal-id/verified receipt fallback; route, DOM and receipt errors
+still fail closed. Focused tests (`34`) and fresh review pass. Release
+`20260911T173411-b436a2a9` is installed only for CrowdWorks Paid with receipt
+`56e4e4b2e2e2ad40790947cb`; natural effect/readback remains open.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
