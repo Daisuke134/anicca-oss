@@ -355,6 +355,7 @@ def test_prepared_form_receipt_fences_replay_before_any_second_post(tmp_path):
 def test_milestone_completion_targets_only_the_visible_duplicate_form():
     module = load()
     selected = []
+    page = None
 
     class Control:
         def __init__(self, owner, visible=False):
@@ -374,6 +375,11 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
 
         def click(self):
             selected.append(("click", self.owner))
+            if self.owner == "todo-tab":
+                page.todo_open = True
+
+        def wait_for(self, **kwargs):
+            selected.append(("wait", self.owner, kwargs))
 
     class Form:
         def __init__(self, owner, visible):
@@ -384,7 +390,9 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
             return Control(self.owner, self.visible if selector.startswith("textarea") else False)
 
     class Forms:
-        values = [Form("visible", True), Form("hidden", False)]
+        @property
+        def values(self):
+            return [Form("visible", page.todo_open), Form("hidden", False)]
 
         def count(self):
             return len(self.values)
@@ -393,21 +401,37 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
             return self.values[index]
 
     class Page:
+        todo_open = False
+
         def locator(self, selector):
             selected.append(("form", selector))
+            if selector.endswith(':visible'):
+                return Control("visible-textarea", self.todo_open)
             return Forms()
+
+        def get_by_text(self, text, exact=False):
+            selected.append(("tab", text, exact))
+            return FormsForTab()
 
         def wait_for_load_state(self, *args, **kwargs):
             selected.append(("readback-wait", None))
 
+    class FormsForTab:
+        def count(self):
+            return 1
+
+        def nth(self, index):
+            return Control("todo-tab", True)
+
     adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
-    adapter.page = Page()
+    page = Page()
+    adapter.page = page
     adapter._goto_contract = lambda work_id: selected.append(("contract", work_id))
-    adapter._compose_text = lambda **kwargs: "Googleフォームへの回答を完了しました。"
 
     adapter._complete_once(funded(), {"milestone_id": "13798056"})
 
     assert ("form", 'form[action="/milestones/13798056/complete"]') in selected
+    assert ("click", "todo-tab") in selected
     assert any(row[:2] == ("fill", "visible") for row in selected)
     assert ("click", "visible") in selected
     assert not any(row[:2] == ("fill", "hidden") for row in selected)
