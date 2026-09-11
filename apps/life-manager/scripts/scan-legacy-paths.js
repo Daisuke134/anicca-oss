@@ -46,6 +46,7 @@ const SCAN_ROOTS = [
   "skills/tools/telegram-user",
   "skills/life-manager",
   "skills/earn/marketing-engine",
+  "skills/earn/capafy-marketing",
   "skills/earn/clip",
   "skills/earn/x402-sell",
   "runtime",
@@ -73,6 +74,7 @@ const V0_TREE_TOKEN = "life-manager" + "-v0";
 // username or as part of another name (the products monorepo) does not match.
 const ANICCA_ROOT_TOKEN = "ani" + "cca";
 const ANICCA_OSS_TOKEN = ANICCA_ROOT_TOKEN + "-oss";
+const HOME_SKILL_STORE_TOKEN = "\\.(?:claude|agents|open" + "claw)/skills";
 // Absolute home-dir literal. The username segment itself is exempt
 // (hasLegacyAniccaRoot's isUsername), so the legacy checkout must appear as
 // the NEXT segment.
@@ -91,6 +93,10 @@ const PATTERNS = [
     ),
   },
   { id: "legacy-oss-code-root", regex: new RegExp(ANICCA_OSS_TOKEN + "\\b") },
+  {
+    id: "home-skill-source",
+    regex: new RegExp("(?:\\$\\{?HOME\\}?|~|" + ABS_HOME_PREFIX + ")/" + HOME_SKILL_STORE_TOKEN + "/"),
+  },
 ];
 
 // file: repo-relative path. lineIncludes: substring the matching line must

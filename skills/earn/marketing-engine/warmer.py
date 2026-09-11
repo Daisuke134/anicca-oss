@@ -30,9 +30,10 @@ Usage: warmer.py [path-to-clip-accounts.json]   (defaults to ~/.cloak/clip-accou
 """
 import sys, os, json, subprocess, shutil, datetime, time, urllib.request
 
-ENSURE_PY = os.path.expanduser("~/.claude/skills/ig-account-warmer/scripts/ensure_warmup_browser.py")
-WARM_PY = os.path.expanduser("~/.claude/skills/ig-account-warmer/scripts/warm.py")
-PY = "/opt/homebrew/bin/python3"
+HERE = os.path.dirname(os.path.abspath(__file__))
+ENSURE_PY = os.path.join(HERE, "instagram", "ensure_warmup_browser.py")
+WARM_PY = os.path.join(HERE, "instagram", "warm.py")
+PY = sys.executable
 PROMOTE_DAY = 3
 
 

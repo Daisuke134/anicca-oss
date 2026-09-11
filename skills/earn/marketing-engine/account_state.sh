@@ -3,8 +3,8 @@
 resolve_ig_account_field() {
   local state_file="$1"
   local field="$2"
-  local python_bin="${IG_ACCOUNT_STATE_PYTHON:-/opt/homebrew/bin/python3}"
-  [ -x "$python_bin" ] || python_bin="$(command -v python3)"
+  local python_bin="${IG_ACCOUNT_STATE_PYTHON:-$(command -v python3 2>/dev/null)}"
+  [ -n "$python_bin" ] || { printf '%s\n' 'python3 is required' >&2; return 2; }
   "$python_bin" - "$state_file" "$field" <<'PY' 2>/dev/null
 import json
 import sys
@@ -43,8 +43,8 @@ PY
 
 count_ig_usable_accounts() {
   local state_file="$1"
-  local python_bin="${IG_ACCOUNT_STATE_PYTHON:-/opt/homebrew/bin/python3}"
-  [ -x "$python_bin" ] || python_bin="$(command -v python3)"
+  local python_bin="${IG_ACCOUNT_STATE_PYTHON:-$(command -v python3 2>/dev/null)}"
+  [ -n "$python_bin" ] || { printf '%s\n' 'python3 is required' >&2; return 2; }
   "$python_bin" - "$state_file" <<'PY' 2>/dev/null
 import json
 import sys
@@ -88,8 +88,8 @@ resolve_ig_started_warming() {
 ig_warming_day() {
   local started_warming="${1:-}"
   local today="${2:-}"
-  local python_bin="${IG_ACCOUNT_STATE_PYTHON:-/opt/homebrew/bin/python3}"
-  [ -x "$python_bin" ] || python_bin="$(command -v python3)"
+  local python_bin="${IG_ACCOUNT_STATE_PYTHON:-$(command -v python3 2>/dev/null)}"
+  [ -n "$python_bin" ] || { printf '%s\n' 'python3 is required' >&2; return 2; }
   "$python_bin" - "$started_warming" "$today" <<'PY' 2>/dev/null
 import datetime
 import sys

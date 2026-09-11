@@ -39,7 +39,7 @@ def cdp_call(port: int):
             return json.loads(result.stdout)
         return call
     os.environ["CDP_PORT"] = str(port)
-    sys.path.insert(0, str(Path.home() / ".agents/skills/ig-account-create/scripts"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "browser/scripts"))
     import cdp  # type: ignore
 
     def call(operation: str, **payload):

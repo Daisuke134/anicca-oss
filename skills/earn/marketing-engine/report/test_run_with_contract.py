@@ -54,7 +54,7 @@ class RunWithContractTests(unittest.TestCase):
     def test_quarantine_never_executes_command(self):
         marker = self.root / "must-not-exist"
         result = run_with_contract.execute(
-            runner_id="clip",
+            runner_id="capafy",
             command=["/usr/bin/touch", str(marker)],
             state_root=self.root / "state",
             evidence_root=self.root / "evidence",

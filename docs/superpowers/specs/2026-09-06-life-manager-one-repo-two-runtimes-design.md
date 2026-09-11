@@ -557,7 +557,15 @@ This checklist does not reorder the established implementation sequence below. T
     Clip block is removed without changing daily-driver or Gig session care, the stale test member
     is removed, and producer metadata now describes only the retained on-demand repository-owned
     media helper. Browser/Gig-session tests pass 18/18, Marketing wiring passes 4/4, and the OSS and
-    dependency fences pass. No running Gig Work business logic is changed.
+    dependency fences pass. A third fresh review found the final active home-skill dependency in
+    Mobile/Capafy account provisioning and warming: a prompt referenced
+    `~/.claude/skills/ig-account-create`, while the deterministic warmer executed
+    `~/.claude/skills/ig-account-warmer`. The prompt now names the existing repository CDP/profile
+    tools, the two required warmer scripts live below the shared Marketing Engine and resolve the
+    same repository CDP plus the active Python interpreter, and the stale OpenClaw env fallback is
+    absent. Capafy's session verifier also uses the repository CDP. The scanner covers Capafy and
+    rejects `.claude/.agents/.openclaw/skills` source paths; Marketing reports pass 74/74 and focused
+    Capafy/warmup portability passes 24/24. No running Gig Work business logic is changed.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.

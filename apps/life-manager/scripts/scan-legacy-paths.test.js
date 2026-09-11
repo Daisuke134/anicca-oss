@@ -27,6 +27,7 @@ const LEGACY_ANICCA_OSS_LINE = 'START="${HOME}/' + "anicca" + '-oss/services/fac
 const ABS_HOME = "/" + "Users/dais";
 const LEGACY_ANICCA_ABS_LINE = `DIR="${ABS_HOME}/` + "anicca" + '/skills/earn/x402-sell/state"';
 const LEGACY_ANICCA_ABS_OSS_LINE = `START="${ABS_HOME}/` + "anicca" + '-oss/services/facilitator/start.sh"';
+const HOME_SKILL_SOURCE_LINE = 'TOOL="${HOME}/.' + 'claude/skills/example/run.py"';
 
 function plantedRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "lm-legacy-scan-"));
@@ -99,6 +100,16 @@ test("the scanner detects absolute home literals of the legacy anicca code roots
   );
 });
 
+test("the scanner detects a home-directory skill source dependency", () => {
+  const root = plantedRepo();
+  fs.writeFileSync(path.join(root, "src", "boot.sh"), `#!/bin/bash\n${HOME_SKILL_SOURCE_LINE}\n`);
+  const result = scanLegacyPaths({ root, roots: ["src"] });
+  assert.deepEqual(
+    result.violations.map((violation) => violation.pattern),
+    ["home-skill-source"],
+  );
+});
+
 test("the allowlist is pinned to exact file plus line content, not blanket files", () => {
   for (const entry of ALLOWLIST) {
     assert.ok(entry.file && entry.lineIncludes && entry.reason, JSON.stringify(entry));
@@ -133,6 +144,7 @@ test("the scan scope covers the runtime roots the Life Manager actually loads", 
     "skills/tools/telegram-user",
     "skills/life-manager",
     "skills/earn/marketing-engine",
+    "skills/earn/capafy-marketing",
     "skills/earn/clip",
     "skills/earn/x402-sell",
     "runtime",

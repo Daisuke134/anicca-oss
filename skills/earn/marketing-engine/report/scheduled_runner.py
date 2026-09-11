@@ -25,7 +25,7 @@ def load_registry(path: pathlib.Path = REGISTRY_PATH) -> dict[str, dict]:
         raise run_contract.ContractError("unsupported runner registry schema")
     runners = body.get("runners")
     if not isinstance(runners, dict) or set(runners) != set(run_contract.RUNNERS):
-        raise run_contract.ContractError("runner registry must contain exactly the eight lanes")
+        raise run_contract.ContractError("runner registry must match the runner contract")
     for runner_id, item in runners.items():
         if not isinstance(item.get("command"), list) or not item["command"]:
             raise run_contract.ContractError(f"{runner_id} command is required")

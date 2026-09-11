@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Gate 6 final-run and Telegram-delivery evidence for all eight lanes."""
+"""Verify Gate 6 final-run and Telegram-delivery evidence for every current lane."""
 
 from __future__ import annotations
 
