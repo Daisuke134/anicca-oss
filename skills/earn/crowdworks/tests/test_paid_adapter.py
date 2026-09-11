@@ -425,6 +425,7 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
 
     class Page:
         todo_open = False
+        mobile = False
 
         def locator(self, selector):
             selected.append(("form", selector))
@@ -435,6 +436,10 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
         def get_by_text(self, text, exact=False):
             selected.append(("tab", text, exact))
             return FormsForTab()
+
+        def set_viewport_size(self, size):
+            self.mobile = True
+            selected.append(("viewport", size))
 
         def wait_for_load_state(self, *args, **kwargs):
             selected.append(("readback-wait", None))
@@ -458,6 +463,55 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
     assert any(row[:2] == ("fill", "visible") for row in selected)
     assert ("click", "visible") in selected
     assert not any(row[:2] == ("fill", "hidden") for row in selected)
+
+
+def test_milestone_completion_reveals_mobile_only_todo_surface_before_effect():
+    module = load()
+    events = []
+    page = None
+
+    class Control:
+        def __init__(self, kind): self.kind = kind
+        def is_visible(self): return page.mobile if self.kind == "tab" else page.todo_open
+        def click(self):
+            events.append(("click", self.kind))
+            if self.kind == "tab": page.todo_open = True
+        def fill(self, value): events.append(("fill", value))
+        def count(self): return 1
+        def is_disabled(self): return False
+        def wait_for(self, **kwargs): events.append(("wait", kwargs))
+
+    class Form:
+        def locator(self, selector): return Control("textarea" if selector.startswith("textarea") else "submit")
+
+    class Forms:
+        def count(self): return 1
+        def nth(self, index): return Form()
+
+    class Tabs:
+        def count(self): return 1
+        def nth(self, index): return Control("tab")
+
+    class Page:
+        mobile = False
+        todo_open = False
+        def locator(self, selector): return Control("textarea") if selector.endswith(":visible") else Forms()
+        def get_by_text(self, text, exact=False): return Tabs()
+        def set_viewport_size(self, size):
+            self.mobile = True
+            events.append(("viewport", size))
+        def wait_for_load_state(self, *args, **kwargs): pass
+
+    page = Page()
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
+    adapter.page = page
+    adapter._goto_contract = lambda work_id: events.append(("contract", work_id))
+
+    adapter._complete_once(funded(), {"milestone_id": "13798056"})
+
+    assert ("viewport", {"width": 390, "height": 844}) in events
+    assert events.index(("viewport", {"width": 390, "height": 844})) < events.index(("click", "tab"))
+    assert events[-1] == ("click", "submit")
 
 
 def test_paid_form_receipts_are_isolated_by_contract_binding(tmp_path):
@@ -493,6 +547,50 @@ def test_date_question_uses_google_forms_year_month_day_fields(tmp_path):
     adapter = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)
     fields = dict(adapter._form_fields(Page(), funded()))
     assert set(fields) == {"entry.12_year", "entry.12_month", "entry.12_day"}
+
+
+def test_required_form_choice_is_model_owned_and_exactly_validated(tmp_path, monkeypatch):
+    module = load()
+    seen = []
+
+    class Locator:
+        def inner_text(self):
+            return "契約済みの業務説明"
+
+    class Page:
+        def locator(self, selector):
+            assert selector == "body"
+            return Locator()
+
+        def evaluate(self, expression):
+            return [[None, "希望する業務", None, 2, [[12, [["Web制作"], ["事務"]], True]]]]
+
+    def compose(context, **kwargs):
+        seen.append(context)
+        return "Web制作"
+
+    monkeypatch.setattr(module.composer, "compose", compose)
+    monkeypatch.setattr(module.grounding_module, "build_reply_grounding", lambda **kwargs: {"candidate": {}})
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)
+    adapter.candidate_profile = tmp_path / "candidate.json"
+    adapter.provider_profile = {"display_name": "Kaito"}
+
+    assert dict(adapter._form_fields(Page(), funded())) == {"entry.12": "Web制作"}
+    assert seen[0]["action_contract"] == {
+        "kind": "required_form_field", "question": "希望する業務",
+        "allowed_choices": ["Web制作", "事務"]}
+
+
+def test_required_form_choice_rejects_model_output_outside_official_choices(tmp_path, monkeypatch):
+    module = load()
+    monkeypatch.setattr(module.composer, "compose", lambda *args, **kwargs: "その他")
+    monkeypatch.setattr(module.grounding_module, "build_reply_grounding", lambda **kwargs: {"candidate": {}})
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)
+    adapter.candidate_profile = tmp_path / "candidate.json"
+    adapter.provider_profile = {"display_name": "Kaito"}
+    with pytest.raises(RuntimeError, match="crowdworks_paid_form_choice_invalid"):
+        adapter._compose_text(question="希望する業務", source="説明", item=funded(),
+                              choices=["Web制作", "事務"])
 
 
 def test_readback_rejects_non_submit_without_browser_mutation(tmp_path):

@@ -31,6 +31,9 @@ def compose(context: Mapping[str, Any], *, state_root: Path, task_label: str) ->
 - 金額、資格、法的表明、本人確認など、誤りを後から戻せない主張は推測せずuncertaintyへ入れる。
 - 外部連絡、契約前の作業開始、虚偽の実績を約束しない。相手が外部連絡を求めてもprovider規則に従う。
 - reply_bodyは1000文字以内。wait/stopではnull。内部事情や「情報がないので回答できない」とbuyerへ書かない。
+- action_contract.kindがrequired_form_fieldなら、これは返信要否の判断ではなく契約済み作業の必須入力である。
+  next_actionはreplyにし、reply_bodyにはその設問への回答だけを書く。allowed_choicesがある場合は、
+  根拠と案件文脈から最も適切な選択肢を選び、その文字列と完全一致する値だけを返す。
 CONTEXT:\n""" + json.dumps(dict(context), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     state_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".reply-compose-", dir=state_root) as temporary:
@@ -66,4 +69,3 @@ CONTEXT:\n""" + json.dumps(dict(context), ensure_ascii=False, sort_keys=True, se
     if not isinstance(body, str) or not body.strip() or len(body.strip()) > 1000:
         raise RuntimeError("reply_contract_invalid")
     return body.strip()
-
