@@ -863,7 +863,7 @@ future product run exercises them without changing this architecture acceptance 
   `docs/loops/product-loop-reuse-census.md`. For each loop, map lifecycle,
   browser, agent runner, domain kernel, provider adapter, receipts, Telegram and CFO; identify proven duplication
   and missing Cloud/Local adapters without moving files merely for appearance.
-- [ ] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
+- [x] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
   reporting and self-build. Route a second real consumer through an existing contract before extracting anything;
   delete the replaced duplicate in the same atom rather than keeping compatibility implementations.
   - [x] Ebook production preview no longer hard-codes `/Users/anicca/anicca-monk-factory/state`; the shared runner
@@ -1020,8 +1020,8 @@ future product run exercises them without changing this architecture acceptance 
   only provider-specific effects and official readback. This branch does not modify or restart an active Gig owner.
   - [x] Prepare the exact owner handoff at
     `docs/handoffs/2026-09-11-one-repo-gig-integration.md`: source head
-    `28055f999cc32b9d5e74466670a18a02f8b65da4`, merged-main boundary
-    `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 84-path inventory, verified tests, ownership fence,
+    `ba1d027b8870bf304aa215ae61d0693196bec952`, merged-main boundary
+    `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 88-path inventory, verified tests, ownership fence,
     integration commands, remaining gates and a user-sendable prompt.
   - [ ] Gig Work owner merges the exact architecture head with latest `main` and the separately owned provider result,
     runs both acceptance sets, pushes the integrated head, and records that head here. No matching Gig owner is

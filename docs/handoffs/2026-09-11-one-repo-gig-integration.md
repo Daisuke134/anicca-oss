@@ -4,13 +4,13 @@
 
 - Repository: `Daisuke134/life-manager`
 - Source branch: `chore/one-repo-finalize-20260911`
-- Architecture source head: `28055f999cc32b9d5e74466670a18a02f8b65da4`
+- Architecture source head: `ba1d027b8870bf304aa215ae61d0693196bec952`
 - Main merged through: `5c007ea4752eb8b9cdfae5c49750d39296e93484`
-- Divergence at handoff: `origin/main...source` = 0 behind / 35 ahead
-- Exact changed-file inventory (84 paths):
+- Divergence at handoff: `origin/main...source` = 0 behind / 38 ahead
+- Exact changed-file inventory (88 paths):
 
   ```bash
-  git diff --name-only 5c007ea4752eb8b9cdfae5c49750d39296e93484...28055f999cc32b9d5e74466670a18a02f8b65da4
+  git diff --name-only 5c007ea4752eb8b9cdfae5c49750d39296e93484...ba1d027b8870bf304aa215ae61d0693196bec952
   ```
 
 The source branch owns the shared architecture, Mobile App bootstrap/assets/registry, ebook asset and HeyGen
@@ -28,6 +28,9 @@ runtime. CrowdWorks changes visible in merge commits came from `origin/main`, no
   975/975, eval and panel-privacy 24/24. Current source adds crash-safe HeyGen creation/download recovery and
   Telegram send-once claims; focused ebook tests pass 13/13, Local/Cloud acceptance passes 46/46, common contracts
   pass 15/15, and host-neutral lifecycle tests pass 392/392.
+- Final structural fixes at reviewed source head `ba1d027b8870bf304aa215ae61d0693196bec952` pass Local
+  credential/catalog tests 10/10, HeyGen rename-after-crash recovery and runner tests 9/9, and the OSS dependency
+  fence. Fresh read-only Astra review reports no P0/P1/P2 issue and returns `SHIP`.
 - `ARCH-13f` and `ARCH-13g` are complete in the architecture spec.
 - No active Gig Work loop was stopped, restarted, or directly edited.
 
@@ -36,7 +39,7 @@ runtime. CrowdWorks changes visible in merge commits came from `origin/main`, no
 1. Preserve the separately owned, currently running Coconala/Lancers/CrowdWorks work. Do not replace its state,
    receipts, browser profiles, or provider readback with files from this branch.
 2. Start from latest `origin/main`, then merge exact architecture source head
-   `28055f999cc32b9d5e74466670a18a02f8b65da4` and the separately owned Gig Work result. The commit containing this
+   `ba1d027b8870bf304aa215ae61d0693196bec952` and the separately owned Gig Work result. Commits containing this
    handoff is documentation-only on top of that source boundary.
 3. Resolve only real overlaps. The architecture branch's public 14-loop descriptions and
    `apps/life-manager/config/product-loop-catalog.json` must reflect the final Gig installers honestly; the Gig owner
@@ -53,6 +56,7 @@ runtime. CrowdWorks changes visible in merge commits came from `origin/main`, no
 
 ```bash
 node --test \
+  apps/life-manager/lib/telegram-credentials.test.js \
   apps/life-manager/lib/product-onboarding.test.js \
   apps/life-manager/lib/mobile-product-bootstrap.test.js \
   apps/life-manager/lib/mobile-product-registry.test.js \
@@ -66,16 +70,17 @@ provider-owned suite is fixed by that owner; it must not be hidden by weakening 
 
 ## Remaining gates after the merge
 
-1. Repeat `ARCH-13h` clean Local and fresh Cloud fixture acceptance on the integrated Gig result.
-2. Final zero-reference and open-handle census for `~/.openclaw` and `~/.hermes`.
-3. Delete those two regenerable legacy directories only when that census is zero and protected state is outside them.
-4. Final latest-main verification, PR/main integration, and handover.
+1. Repeat the affected `ARCH-13h` checks on the integrated Gig result.
+2. Retain `~/.openclaw` and `~/.hermes`: the latest read-only census found no matching process, but the directories
+   still contain credentials, sessions, ledgers, protected state and Gig compatibility owned outside this branch.
+   They are not public clean-clone dependencies and must not be bulk-deleted as regenerable cache.
+3. Final latest-main verification, PR/main integration, and handover.
 
 ## User-sendable prompt
 
 > You own the active Gig Work result. Integrate it without restarting or overwriting running Coconala/Lancers/
 > CrowdWorks state. In `Daisuke134/life-manager`, start from latest `origin/main`, merge exact architecture head
-> `28055f999cc32b9d5e74466670a18a02f8b65da4` from branch `chore/one-repo-finalize-20260911`, then merge your
+> `ba1d027b8870bf304aa215ae61d0693196bec952` from branch `chore/one-repo-finalize-20260911`, then merge your
 > separately owned Gig result. Read
 > `docs/handoffs/2026-09-11-one-repo-gig-integration.md` and
 > `docs/superpowers/specs/2026-09-06-life-manager-one-repo-two-runtimes-design.md` first. Preserve provider-specific
