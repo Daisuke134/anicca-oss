@@ -457,7 +457,7 @@ This checklist does not reorder the established implementation sequence below. T
     Fresh clone `d829416e52e8d8db8461b3dd77f803599aafd174` passed the OSS fence, installation into an empty
     temporary HOME with daemon installation disabled, all 975/975 app tests, evaluation and panel-privacy checks;
     the checkout remained clean and the installer created the private runtime environment without LaunchAgents.
-  - [ ] `AE-UX-12e` Census executable Mobile App Loops and all other product-loop paths; migrate or delete every
+  - [x] `AE-UX-12e` Census executable Mobile App Loops and all other product-loop paths; migrate or delete every
     remaining OpenClaw, Hermes, another-checkout, worktree and Dais-absolute source dependency. External products
     such as Postiz remain allowed only behind repository-owned provider adapters and user-supplied credentials.
     - [x] All 18 registered Mobile App jobs resolve one repository-owned manifest and shared publication,
@@ -473,7 +473,7 @@ This checklist does not reorder the established implementation sequence below. T
       wallet is now instance configuration rather than a checked-in personal address; missing wallet, Stripe key or
       Stripe CLI yields a side-effect-free `setup_required` result. Focused portability and safe-setup checks, the
       legacy scanner and OSS verifier pass.
-    - [ ] Remove or migrate the remaining non-Gig executable dependencies found by the final source census,
+    - [x] Remove or migrate the remaining non-Gig executable dependencies found by the final source census,
       starting with repository-registered/runtime-referenced paths. Historical plans, evidence, provider package
       format names and explicit legacy-rejection checks are not runtime dependencies and must not be rewritten merely
       to make a text search empty.
