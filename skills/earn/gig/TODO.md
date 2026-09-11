@@ -184,6 +184,25 @@ Focused/shared tests (`307`) and fresh read-only review pass. Immutable release
 waiting for Apply's provider-browser lock, before it connected to CDP or opened a page; it caused no
 provider action and was not left ahead of Paid. Natural effect/readback remains open.
 
+The next `ce77fc24a8` natural terminal reached the public Form content and failed `63583795` as
+`reply_facts_required`; the official questions are NDA agreement, two scenario email-writing tasks,
+elapsed minutes, provider display name, bound contract URL, desired role and application date.
+Scenario wording is reversible task content, so the shared required-field contract now directs the
+model to complete it from source plus reasonable ordinary assumptions instead of creating a human
+gate; irreversible identity, qualification, money and legal facts remain protected. For `63570481`,
+the server-rendered navigation remained desktop because the shared session's device cookie is `pc`.
+The adapter now clones authenticated storage into a short-lived isolated mobile context, changes only
+the clone's device cookie/user agent, and preserves the canonical browser session unchanged. The same
+exact tab/form/submit cardinality fences remain. Focused/shared tests (`308`) pass; fresh review and
+production acceptance are open.
+
+During that wake the host reached 317 MiB free and `tempfile` could not create a working directory.
+Cleanup removed only two unreferenced reproducible releases, Codex temporary/archive data and
+Codex/Claude session transcripts older than two days; active/rollback releases, current sessions,
+credentials, provider state, receipts and browser sessions were preserved. Free space is now 6.3 GiB
+and the control-plane status command works again. This is host recovery evidence, not Paid business
+acceptance.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
