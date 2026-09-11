@@ -145,6 +145,16 @@ P0/P1. Main-derived immutable release `20260911T181920-a3ff1e89` is installed on
 `crowdworks-revenue-paid` with receipt `151136cb08674a747e1428ee`; natural official
 effect/readback and the following replay-zero remain the active acceptance.
 
+The first natural wake from `a3ff1e8927` ended at `2026-09-11T09:40:46Z` with matching
+installed/event SHA, `observed=3`, `actionable=3`, `effect=0`, `readback=0`, `failed=2`,
+`pending=1`. Contract `63583795` passed the new model-owned choice composition and exposed the next
+pre-POST boundary, `google_form_route_invalid`; an independent read-only redirect check proves the
+same short URL reaches the exact official `docs.google.com/forms/d/e/<id>/viewform`. Contract
+`63570481` still reports `crowdworks_paid_todo_surface_unavailable`, so viewport alone is not accepted
+as the final fix. No form, milestone or duplicate effect occurred. The next atom is to wait boundedly
+for the exact official Google Form redirect and to capture the actual authenticated contract control
+once the provider browser owner is free; do not broaden selectors from a guess.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
