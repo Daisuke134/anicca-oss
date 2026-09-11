@@ -835,6 +835,11 @@ tenant. The same `/setup`, `/enable`, `/disable`, `/status` and financial-report
 Execute this follow-up in the fixed order below. Do not alter this order without Dais explicitly saying to reorder
 it:
 
+This cleanup establishes the reusable structure, portable contracts, documented product model and focused tests.
+It does **not** submit a new build to App Store Connect, publish through Postiz, create a live app, or require a live
+end-to-end business effect. Those providers remain behind the verified adapters and existing production owners; a
+future product run exercises them without changing this architecture acceptance gate.
+
 - [x] `ARCH-13a` Reclaim disk from `~/.openclaw` and `~/.hermes` now that Life Manager executable source dependency
   is zero. First classify exact contents and open handles. Delete cloneable source checkouts, caches, logs, generated
   artifacts and obsolete backups; preserve credentials, sessions, ledgers, receipts, `memory/`, `state/*.jsonl` and
@@ -865,7 +870,7 @@ it:
     back to `~/.local/share/life-manager/ebook-assets`, and Telegram preview branding is `Life Manager:::`. Focused
     portability tests pass. Historical renderer-evaluation fixtures and legacy scheduler retirement tooling remain
     evidence/migration utilities and must not become production runtime dependencies.
-  - [ ] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
+  - [x] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
     After the user enables the loop, the agent selects and validates an opportunity, creates a new repository-owned
     project from the shared app-factory template, generates product identity and initial assets, builds/tests/signs,
     guides only the unavoidable Apple account/KYC/contract steps, submits through App Store Connect, measures
@@ -897,6 +902,10 @@ it:
     therefore use the same build, release, marketing, measurement, receipt and improvement contracts. Dais's current
     reference products are `Daisuke134/anicca-products` subdirectory `aniccaios` and the independent
     `Daisuke134/honne-ai` repository; their local checkout locations are discovery evidence, never public defaults.
+    The repository now owns a tested `mobile-product-registry` boundary for generated and imported products. It
+    derives one managed relative workspace, rejects local absolute paths, writes the private registry atomically with
+    private modes, treats identical registration as replay-safe, and fails closed on conflicting duplicates. This
+    structural atom intentionally does not create or submit a live app.
   - [ ] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
     SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
     video or existing application. Before public release, generated product identity and marketing creative must be
@@ -926,10 +935,11 @@ it:
   CrowdWorks result. Those providers must converge on `skills/_shared/marketplace-core` one contract at a time—
   application, reply, storefront, paid work/delivery, financial record and Telegram—while their directories retain
   only provider-specific effects and official readback. This branch does not modify or restart an active Gig owner.
-- [ ] `ARCH-13h` Pass final acceptance from a clean user and a fresh tenant: one QR/bot, host selection, at least one
-  representative loop per shared domain on both supported hosts, identical logical receipts/Telegram output,
-  provider-owned effect readback, replay-zero, dependency fence, focused tests, fresh review and merged-main
-  verification.
+- [ ] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one QR/bot contract, host
+  selection, representative registry/config resolution for every shared domain on both supported hosts, identical
+  logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
+  verification. Do not make a new App Store submission, Postiz publication, payment or other live provider effect
+  merely to close this cleanup.
 
 ## 7. Acceptance
 
