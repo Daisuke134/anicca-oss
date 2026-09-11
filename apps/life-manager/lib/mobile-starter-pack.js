@@ -54,6 +54,7 @@ function expectedFiles(packRoot, product, identity) {
 
 function sameOutput(target, files) {
   if (!fs.existsSync(target)) return false;
+  requireValue(!fs.lstatSync(target).isSymbolicLink(), "conflicting workspace");
   const actual = [];
   const visit = (directory, prefix = "") => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -70,6 +71,21 @@ function sameOutput(target, files) {
   return files.every((item) => fs.readFileSync(path.join(target, item.relative), "utf8") === item.content);
 }
 
+function ensureManagedDirectory(root, relativeParent) {
+  requireValue(fs.existsSync(root), "private root must exist");
+  const rootStat = fs.lstatSync(root);
+  requireValue(rootStat.isDirectory() && !rootStat.isSymbolicLink(), "private root must be a regular directory");
+  let current = root;
+  for (const segment of relativeParent.split("/")) {
+    current = path.join(current, segment);
+    if (!fs.existsSync(current)) fs.mkdirSync(current, { mode: 0o700 });
+    const stat = fs.lstatSync(current);
+    requireValue(stat.isDirectory() && !stat.isSymbolicLink(), "workspace directory must not be a symlink");
+    requireValue(fs.realpathSync(current).startsWith(`${root}${path.sep}`), "workspace directory escapes private root");
+  }
+  return current;
+}
+
 function materializeMobileStarterPack({ product, identity, packRoot, privateRoot }) {
   requireValue(product?.schema_version === "mobile.product.v1" && product.origin === "generated",
     "starter pack requires a generated product");
@@ -81,7 +97,10 @@ function materializeMobileStarterPack({ product, identity, packRoot, privateRoot
   const workspace = safeRelative(product.workspace_rel, "workspace");
   requireValue(workspace === `mobile-products/${product.product_id}`, "workspace does not match product");
   const files = expectedFiles(path.resolve(packRoot), product, identity);
-  const root = path.resolve(privateRoot);
+  const requestedRoot = path.resolve(privateRoot);
+  requireValue(fs.existsSync(requestedRoot) && !fs.lstatSync(requestedRoot).isSymbolicLink(),
+    "private root must be a regular directory");
+  const root = fs.realpathSync(requestedRoot);
   const target = path.resolve(root, workspace, "source");
   requireValue(target.startsWith(`${root}${path.sep}`), "workspace escapes private root");
   if (fs.existsSync(target)) {
@@ -89,8 +108,7 @@ function materializeMobileStarterPack({ product, identity, packRoot, privateRoot
     return Object.freeze({ state: "replayed", product_id: product.product_id,
       template_id: product.source.template_id, workspace_rel: `${workspace}/source` });
   }
-  const parent = path.dirname(target);
-  fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
+  const parent = ensureManagedDirectory(root, workspace);
   const stage = `${target}.stage-${process.pid}`;
   requireValue(!fs.existsSync(stage), "starter stage already exists");
   try {
