@@ -201,6 +201,50 @@ def test_active_contract_timeout_has_bounded_stage_specific_name():
     adapter.close()
 
 
+def test_contract_navigation_timeout_retries_once_on_fresh_page():
+    module = load()
+    calls = []
+
+    class Page:
+        url = "https://crowdworks.jp/contracts/63570481"
+
+        def __init__(self, fails):
+            self.fails = fails
+
+        def set_default_timeout(self, timeout):
+            calls.append(("timeout", timeout))
+
+        def goto(self, url, **kwargs):
+            calls.append(("goto", url))
+            if self.fails:
+                raise module.PlaywrightTimeoutError("provider text")
+
+        def close(self):
+            calls.append(("close", self.fails))
+
+    pages = [Page(True), Page(False)]
+
+    class Context:
+        def new_page(self):
+            return pages.pop(0)
+
+    context = Context()
+
+    class Browser:
+        contexts = [context]
+
+    class Runtime:
+        def stop(self):
+            pass
+
+    adapter = module.CrowdWorksPaidAdapter(
+        account_id="7145638", connection_factory=lambda: (Runtime(), Browser()))
+    adapter._goto_contract("63570481")
+    assert [call[0] for call in calls] == ["timeout", "goto", "close", "timeout", "goto"]
+    assert not pages
+    adapter.close()
+
+
 def test_observation_keeps_adapter_account_identity():
     module = load()
     adapter = module.CrowdWorksPaidAdapter(account_id="different-account")
