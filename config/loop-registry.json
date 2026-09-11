@@ -663,9 +663,9 @@
       "effect_class": "none",
       "entrypoint": "bin/citizen-refill-launchd",
       "label": "ai.anicca.citizen-refill",
-      "log_root": "~/.anicca/logs",
+      "log_root": "~/.local/state/life-manager/agent-economy/instance/logs",
       "provider_route": "deterministic",
-      "state_root": "~/.anicca"
+      "state_root": "~/.local/state/life-manager/agent-economy/instance"
     },
     "claude-projects-backup": {
       "cadence": {

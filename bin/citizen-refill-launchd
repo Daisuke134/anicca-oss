@@ -1,11 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-# launchd does not inherit the managed shell environment. Load it here, then
-# deliberately restore Franklin's funded home: ~/.openclaw/.env belongs to the
-# operator service and sets ANICCA_HOME to a different agent.
-source "$HOME/.openclaw/.env"
-export ANICCA_HOME="${REFILL_ANICCA_HOME:-$HOME/.blockrun}"
+# launchd does not inherit the managed shell environment. Load only Life Manager's
+# private environment, then select this instance's repository-owned wallet home.
+LIFE_MANAGER_STATE_HOME="${LIFE_MANAGER_STATE_HOME:-$HOME/.local/state/life-manager}"
+LIFE_MANAGER_ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$LIFE_MANAGER_STATE_HOME/.env}"
+if [ -f "$LIFE_MANAGER_ENV_FILE" ]; then
+  set -a
+  source "$LIFE_MANAGER_ENV_FILE"
+  set +a
+fi
+export LIFE_MANAGER_ENV_FILE
+export ANICCA_HOME="${LIFE_MANAGER_WALLET_HOME:-${REFILL_ANICCA_HOME:-$LIFE_MANAGER_STATE_HOME/agent-economy/instance}}"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-exec /opt/homebrew/bin/node "$REPO_ROOT/bin/citizen-refill" --live
+NODE_BIN="${LIFE_MANAGER_NODE:-$(command -v node || true)}"
+[ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ] || { echo "citizen-refill: node executable not found" >&2; exit 1; }
+exec "$NODE_BIN" "$REPO_ROOT/bin/citizen-refill" --live
