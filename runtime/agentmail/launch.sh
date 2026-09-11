@@ -12,5 +12,6 @@ if [ -f "$ENV_FILE" ]; then
   set +a
 fi
 cd "$(dirname "$0")" || exit 1
-NODE="${NODE_BIN:-/opt/homebrew/bin/node}"
+NODE="${NODE_BIN:-$(command -v node 2>/dev/null || true)}"
+[ -n "$NODE" ] && [ -x "$NODE" ] || { echo '{"status":"setup_required","missing":"node"}' >&2; exit 2; }
 exec "$NODE" webhook-server.ts
