@@ -43,21 +43,23 @@ skills/earn/marketing-engine/
 ├── ebook_runner.py
 ├── registry/ebook-packs/
 │   ├── ebook-ja-watercolor.json     # watercolor-monk; obou_anicca
-│   └── ebook-en-anicca-monk.json    # omniavatar-monk; monk_anicca / anicca_en
+│   └── ebook-en-anicca-monk.json    # HeyGen Avatar IV; monk_anicca / anicca_en
+├── ebook-asset-packs/default-v1/    # redistributable manifest-pinned starter assets
 ├── render_eval/
+│   ├── watercolor_candidate.py
+│   └── heygen_candidate.py          # durable create intent + provider receipt/reconciliation
 ├── publish/
 ├── measure/
 └── report/
 ```
 
-The current English repository manifest selects free-only OmniAvatar, but this is
-stale configuration: the product decision is HeyGen for the English Anicca Monk.
-The working HeyGen scripts, session profile, captions and product assets currently
-live under the protected `/Users/anicca/anicca-monk-factory`. ARCH-13f must copy the
-required executable source into a repository-owned HeyGen provider adapter, provide
-a redistributable SHA-verified starter asset pack, keep credentials/session/renders
-as private host data, replace the stale manifest, and reject every Dais-absolute
-source path. The protected legacy factory is not moved or deleted during migration.
+The English pack selects the repository-owned HeyGen Avatar IV adapter. Executable
+source, neutral captions/manuscripts and the SHA-verified `default-v1` starter pack
+are all tracked here. The adapter records a durable effect intent before HeyGen
+creation, resumes download from a stored provider video ID, and refuses an automatic
+second create when delivery is uncertain. Credentials, provider sessions, generated
+renders and per-user product state remain private host data outside Git. The protected
+legacy monk factory is neither moved nor read as an executable or asset dependency.
 
 The primary Mobile App onboarding does not ask for an app repository. Most users do
 not have one. The loop creates a new product repository/workspace from the shared
