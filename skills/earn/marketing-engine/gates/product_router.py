@@ -23,10 +23,22 @@ ACCOUNT_FIELDS = {
 RENDERER_FIELDS = {
     "schema_version", "renderer_id", "kind", "languages", "status",
 }
+PRODUCT_ID_ALIASES = {
+    "aniccaios": "anicca-ios",
+    "honne": "honne-ai",
+}
 
 
 class RoutingError(ValueError):
     pass
+
+
+def canonical_product_id(product_id: object) -> object:
+    """Map identifiers emitted by the predecessor runtime at read boundaries."""
+
+    if not isinstance(product_id, str):
+        return product_id
+    return PRODUCT_ID_ALIASES.get(product_id, product_id)
 
 
 def require(condition: bool, message: str) -> None:

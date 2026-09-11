@@ -14,8 +14,14 @@ import fcntl
 import hashlib
 import json
 import pathlib
+import sys
 from collections import Counter
 from typing import Callable, Iterable
+
+
+ENGINE_ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ENGINE_ROOT / "gates"))
+from product_router import canonical_product_id  # noqa: E402
 
 
 SCHEMA_VERSION = "marketing.owner-report.v1"
@@ -189,7 +195,11 @@ def _semantic_event(event: dict) -> dict:
 
 
 def _scoped(rows: list[tuple[int, dict]], product_id: str) -> list[tuple[int, dict]]:
-    return [(index, row) for index, row in rows if row.get("product_id") == product_id]
+    return [
+        (index, row)
+        for index, row in rows
+        if canonical_product_id(row.get("product_id")) == product_id
+    ]
 
 
 def _before(row: dict, as_of: dt.datetime) -> bool:
@@ -233,7 +243,7 @@ def _matching_identity(
         if (native_id and row.get("native_post_id") == native_id) or (
             postiz_id and row.get("postiz_post_id") == postiz_id
         ):
-            bound = row.get("product_id")
+            bound = canonical_product_id(row.get("product_id"))
             if bound is not None and bound != product_id:
                 raise OwnerReportError(
                     f"cross-product publication identity for {native_id or postiz_id}"

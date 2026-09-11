@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 import tempfile
@@ -50,6 +51,29 @@ class CampaignTokenContractTest(unittest.TestCase):
 
 
 class CampaignLedgerContractTest(unittest.TestCase):
+    def test_legacy_product_replay_preserves_existing_campaign_token(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "campaigns.jsonl"
+            legacy = {
+                "schema_version": 1,
+                "product_id": "aniccaios",
+                "publication_id": "postiz:legacy",
+                "campaign_token": attribution._campaign_token_for_identifier(
+                    "aniccaios", "postiz:legacy"
+                ),
+                "owned_url": "https://aniccaai.com/go/legacy",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }
+            path.write_text(json.dumps(legacy) + "\n")
+            replay = attribution.register_campaign(
+                path=path,
+                product_id="anicca-ios",
+                publication_id="postiz:legacy",
+                base_url="https://aniccaai.com",
+            )
+            self.assertEqual(replay, legacy)
+            self.assertEqual(len(path.read_text().splitlines()), 1)
+
     def test_registration_is_idempotent_and_state_is_not_openclaw(self):
         self.assertNotIn(".openclaw", str(attribution.DEFAULT_STATE))
         with tempfile.TemporaryDirectory() as directory:

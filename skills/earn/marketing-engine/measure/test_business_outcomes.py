@@ -4,6 +4,7 @@ import gzip
 import importlib.util
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -216,6 +217,26 @@ class AnalyticsAndSnapshotContractTest(unittest.TestCase):
             outcomes.validate_snapshots([{**row, "product_id": "other"}], {"anicca-ios"})
         with self.assertRaisesRegex(ValueError, "duplicate snapshot"):
             outcomes.validate_snapshots([row, dict(row)], {"anicca-ios"})
+
+    def test_upsert_migrates_legacy_snapshot_identity_without_duplication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "business-outcomes.jsonl"
+            legacy = {
+                "schema_version": 1,
+                "snapshot_id": "aniccaios:2026-07-30",
+                "product_id": "aniccaios",
+                "business_date": "2026-07-30",
+                "sources": {"revenuecat": outcomes.unavailable_source("fixture")},
+            }
+            current = {
+                **legacy,
+                "snapshot_id": "anicca-ios:2026-07-30",
+                "product_id": "anicca-ios",
+            }
+            path.write_text(json.dumps(legacy) + "\n")
+            self.assertEqual(outcomes.upsert_snapshots(path, [current]), 0)
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+            self.assertEqual(rows, [current])
 
     def test_gate5_verifier_requires_four_scoped_products_and_no_fake_installs(self):
         rows = []

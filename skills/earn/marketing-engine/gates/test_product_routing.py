@@ -4,7 +4,7 @@ import tempfile
 import unittest
 import subprocess
 
-from product_router import RoutingError, load_registry
+from product_router import RoutingError, canonical_product_id, load_registry
 from variation import create_plan, eligible_hooks
 
 
@@ -12,6 +12,11 @@ ENGINE = pathlib.Path(__file__).resolve().parent.parent
 
 
 class ProductRegistryTest(unittest.TestCase):
+    def test_predecessor_product_ids_normalize_only_at_read_boundary(self):
+        self.assertEqual(canonical_product_id("aniccaios"), "anicca-ios")
+        self.assertEqual(canonical_product_id("honne"), "honne-ai")
+        self.assertEqual(canonical_product_id("ebook-ja"), "ebook-ja")
+
     def test_registry_schemas_are_valid_draft_2020_12(self):
         import jsonschema
         schemas = {}

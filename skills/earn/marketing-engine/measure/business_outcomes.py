@@ -17,6 +17,7 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
 import time
 from decimal import Decimal, InvalidOperation
 import urllib.error
@@ -26,6 +27,8 @@ from typing import Any, Iterable
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "gates"))
+from product_router import canonical_product_id  # noqa: E402
 DEFAULT_ENV = Path.home() / ".local" / "state" / "life-manager" / ".env"
 
 
@@ -295,9 +298,10 @@ def summarize_mixpanel_export(lines: Iterable[str]) -> dict[str, int]:
 def validate_snapshots(rows: list[dict[str, Any]], products: set[str]) -> None:
     seen: set[str] = set()
     for row in rows:
-        if row.get("product_id") not in products:
+        product_id = canonical_product_id(row.get("product_id"))
+        if product_id not in products:
             raise ValueError(f"unknown product: {row.get('product_id')}")
-        snapshot_id = row.get("snapshot_id")
+        snapshot_id = f"{product_id}:{row.get('business_date')}"
         if snapshot_id in seen:
             raise ValueError(f"duplicate snapshot: {snapshot_id}")
         seen.add(snapshot_id)
@@ -735,10 +739,14 @@ def upsert_snapshots(path: Path, new_rows: list[dict[str, Any]]) -> int:
     old: list[dict[str, Any]] = []
     if path.exists():
         old = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    by_id = {row["snapshot_id"]: row for row in old}
+
+    def logical_id(row: dict[str, Any]) -> str:
+        return f"{canonical_product_id(row.get('product_id'))}:{row.get('business_date')}"
+
+    by_id = {logical_id(row): row for row in old}
     before = len(by_id)
     for row in new_rows:
-        by_id[row["snapshot_id"]] = row
+        by_id[logical_id(row)] = row
     rows = sorted(by_id.values(), key=lambda row: row["snapshot_id"])
     validate_snapshots(rows, set(PRODUCTS))
     path.parent.mkdir(parents=True, exist_ok=True)

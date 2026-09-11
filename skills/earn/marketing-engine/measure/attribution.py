@@ -19,6 +19,8 @@ import urllib.parse
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "gates"))
+from product_router import canonical_product_id  # noqa: E402
 DEFAULT_STATE = ROOT / "state" / "publication-campaigns.jsonl"
 PRODUCT_PREFIXES = {
     "anicca-ios": "ai",
@@ -28,8 +30,8 @@ PRODUCT_PREFIXES = {
 }
 
 
-def campaign_token(product_id: str, publication_id: str) -> str:
-    prefix = PRODUCT_PREFIXES.get(product_id)
+def _campaign_token_for_identifier(product_id: str, publication_id: str) -> str:
+    prefix = PRODUCT_PREFIXES.get(canonical_product_id(product_id))
     if prefix is None:
         raise ValueError(f"unknown product: {product_id}")
     if not publication_id.strip():
@@ -37,6 +39,12 @@ def campaign_token(product_id: str, publication_id: str) -> str:
     digest = hashlib.sha256(f"{product_id}\0{publication_id}".encode()).digest()
     opaque = base64.b32encode(digest).decode().lower().rstrip("=")[:20]
     return f"{prefix}_{opaque}"
+
+
+def campaign_token(product_id: str, publication_id: str) -> str:
+    if product_id not in PRODUCT_PREFIXES:
+        raise ValueError(f"unknown product: {product_id}")
+    return _campaign_token_for_identifier(product_id, publication_id)
 
 
 def build_owned_redirect(base_url: str, token: str) -> str:
@@ -70,7 +78,10 @@ def register_campaign(
     same_publication = [row for row in rows if row["publication_id"] == publication_id]
     if same_publication:
         row = same_publication[0]
-        if row["product_id"] != product_id or row["campaign_token"] != token:
+        if canonical_product_id(row["product_id"]) != product_id:
+            raise ValueError("publication campaign remap refused")
+        expected = _campaign_token_for_identifier(row["product_id"], publication_id)
+        if row["campaign_token"] != expected:
             raise ValueError("publication campaign remap refused")
         return row
     collision = [row for row in rows if row["campaign_token"] == token]

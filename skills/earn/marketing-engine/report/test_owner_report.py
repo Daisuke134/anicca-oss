@@ -304,6 +304,15 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertTrue(events, f"no {kind} event for {product_id}")
         return events[0]
 
+    def test_legacy_rows_remain_visible_to_canonical_product_reports(self):
+        rows = [
+            (0, {"product_id": "aniccaios", "value": "old"}),
+            (1, {"product_id": "anicca-ios", "value": "new"}),
+            (2, {"product_id": "honne", "value": "other"}),
+        ]
+        scoped = owner_report._scoped(rows, "anicca-ios")
+        self.assertEqual([row["value"] for _, row in scoped], ["old", "new"])
+
     def test_action_names_product_and_contains_exact_native_url(self):
         event = self.event("action", "anicca-ios")
         text = owner_report.render_japanese(event)
