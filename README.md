@@ -84,10 +84,13 @@ factory and redistributable starter assets, then builds, submits, improves and
 markets it. Supplying an existing app is an optional import path, not onboarding.
 The 18 current publication jobs all resolve their product through
 [`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
-before a runner starts. That portable registry pins the public Git remote, optional
-subdirectory, and exact revision for each reference app; it contains no local path
-or credential. Publication jobs validate this identity but do not clone or build app
-source. Source materialization belongs to the build/release stage.
+before a runner starts. That portable registry pins a credential-free HTTPS Git
+location, optional subdirectory, exact revision, and an honest `public` or `private`
+access label for each reference app; it contains no local path or credential. Anicca
+is anonymously fetchable. The current Honne source is private and requires private
+Git access only at its build/release stage. Publication jobs validate identity but do
+not fetch or build either app, so the open-source publication loop does not depend on
+that private source. New users generate their own app from the repository-owned starter pack.
 
 Local/self-hosted and Cloud/hosted are two ways to run this same catalog, not
 additional Product Loops. Local runs selected loops on the user's device and stores

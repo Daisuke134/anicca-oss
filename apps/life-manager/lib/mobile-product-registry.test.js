@@ -31,6 +31,7 @@ test("generated and imported apps share one portable product registry", (t) => {
       git_remote: "https://github.com/Daisuke134/anicca-products.git",
       subdirectory: "aniccaios",
       revision: "a9ab8a17c7dee9af8c3f2ad752a902ce26e7d1d3",
+      access: "public",
     },
   });
 
@@ -51,6 +52,7 @@ test("same registration is idempotent and a conflicting duplicate fails closed",
     source: {
       git_remote: "https://github.com/Daisuke134/honne-ai.git",
       revision: "b57928bb13ef1f9a1e774e4bca2467e3059c9eac",
+      access: "private",
     },
   };
   const first = registerMobileProduct(registryFile, item);
@@ -66,23 +68,28 @@ test("local paths and malformed source descriptors are rejected", (t) => {
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-local",
     origin: "imported",
-    source: { git_remote: "/Users/anicca/anicca-project", revision: "a".repeat(40) },
+    source: { git_remote: "/Users/anicca/anicca-project", revision: "a".repeat(40), access: "private" },
   }), /git_remote/);
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-windows-local",
     origin: "imported",
-    source: { git_remote: "https://example.com/app.git", revision: "a".repeat(40), subdirectory: "C:\\Users\\owner\\app" },
+    source: { git_remote: "https://example.com/app.git", revision: "a".repeat(40), subdirectory: "C:\\Users\\owner\\app", access: "public" },
   }), /subdirectory/);
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "mutable-ref",
     origin: "imported",
-    source: { git_remote: "https://example.com/app.git", revision: "main" },
+    source: { git_remote: "https://example.com/app.git", revision: "main", access: "public" },
   }), /revision/);
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "credential-remote",
     origin: "imported",
-    source: { git_remote: "https://token@example.com/app.git", revision: "a".repeat(40) },
+    source: { git_remote: "https://token@example.com/app.git", revision: "a".repeat(40), access: "private" },
   }), /credentials/);
+  assert.throws(() => registerMobileProduct(registryFile, {
+    product_id: "missing-access",
+    origin: "imported",
+    source: { git_remote: "https://example.com/app.git", revision: "a".repeat(40) },
+  }), /source access/);
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-generated",
     origin: "generated",

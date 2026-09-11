@@ -37,7 +37,8 @@ function normalizeSource(origin, raw) {
   requireValue(remote.protocol === "https:", "git_remote must be an absolute HTTPS URL");
   requireValue(!remote.username && !remote.password, "git_remote must not contain credentials");
   requireValue(PINNED_REVISION.test(String(raw.revision || "")), "revision must be a full commit SHA");
-  const source = { git_remote: remote.toString(), revision: raw.revision };
+  requireValue(["public", "private"].includes(raw.access), "source access must be public or private");
+  const source = { git_remote: remote.toString(), revision: raw.revision, access: raw.access };
   if (raw.subdirectory !== undefined) source.subdirectory = portableRelative(raw.subdirectory, "subdirectory");
   return Object.freeze(source);
 }

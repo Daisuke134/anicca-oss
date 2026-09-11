@@ -65,9 +65,11 @@ Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware li
 
 現在の18件のpublication jobは、runner開始前に
 [`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
-からproductを解決します。このportable registryには各reference appの公開Git remote、任意のsubdirectory、
-固定revisionだけを置き、ローカルpathやcredentialは置きません。publication jobはidentityを検証するだけで、
-app sourceのclone/buildは行いません。source materializationはbuild/release stageが担当します。
+からproductを解決します。このportable registryにはcredentialを含まないHTTPS Git location、任意のsubdirectory、
+固定revision、正直な`public` / `private` access labelだけを置き、ローカルpathやcredentialは置きません。
+Aniccaは匿名取得可能です。現在のHonne sourceはprivateで、build/release stageだけがprivate Git accessを必要とします。
+publication jobはidentityを検証するだけでsourceをfetch/buildしないため、open-sourceのpublication loopはそのprivate
+sourceへ依存しません。新規ユーザーのappはrepo所有starter packから生成します。
 
 Mobile Appの既定体験は、appもrepositoryも持っていない状態から始まります。Life Managerがproduct opportunityを選定し、共通factoryと再配布可能なstarter assetから新しいapp workspaceを作り、build・提出・改善・marketingまで進めます。既存appの指定は任意のimportであり、onboarding要件ではありません。
 

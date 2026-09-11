@@ -914,8 +914,10 @@ future product run exercises them without changing this architecture acceptance 
       registry. Historical JSONL evidence is intentionally immutable. The remaining bootstrap work is the generated
       product and build/release materialization path, not another publication registry.
     - [x] Connect all 18 current Mobile App publication jobs to the repository-owned Product Registry at their one
-      shared command boundary. Register Anicca iOS (`anicca-products/aniccaios`) and Honne (`honne-ai`) with public
-      HTTPS remotes and fetchable pinned commits; export their canonical ID, origin and portable workspace relation
+      shared command boundary. Register Anicca iOS (`anicca-products/aniccaios`) and Honne (`honne-ai`) with
+      credential-free HTTPS locations, pinned commits and explicit source-access labels. Anicca is anonymously
+      fetchable; Honne is currently private and requires private Git access only at the build/release stage. Export
+      their canonical ID, origin and portable workspace relation
       before runner execution, and fail closed when registration is missing. The publication path deliberately does
       not clone or build app source; materialization remains owned by the build/release stage and therefore cannot add
       network or filesystem effects to an existing scheduled marketing job.
