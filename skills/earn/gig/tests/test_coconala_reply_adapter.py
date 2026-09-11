@@ -121,6 +121,65 @@ def test_default_runtime_paths_stay_inside_the_release(tmp_path):
     assert adapter.cdp_helper.is_file()
 
 
+def test_inventory_retries_transient_incomplete_coverage(monkeypatch, tmp_path):
+    observations = []
+
+    def inspect(*_args, **_kwargs):
+        observations.append(True)
+        if len(observations) == 1:
+            raise adapter_module.snapshot.CollectorUnhealthy(
+                "inbox_pagination_terminal_unproven"
+            )
+        return {
+            "url": adapter_module.snapshot.MESSAGES_URL,
+            "title": "メッセージ",
+            "container_present": True,
+            "coverage_complete": True,
+            "termination_reason": "pagination_end",
+            "pagination_pages": 1,
+            "page_counts": [1],
+            "pagination_container_present": True,
+            "pagination_current_present": True,
+            "pagination_terminal_proven": True,
+            "pagination_current_page": 1,
+            "pagination_highest_page": 1,
+            "pagination_next_present": False,
+            "cards_count": 1,
+            "cards": [{
+                "talkroom_url": "https://coconala.com/mypage/direct_message/12",
+                "last_message_identity_sha256": "a" * 64,
+            }],
+        }
+
+    monkeypatch.setattr(adapter_module.snapshot, "inspect_page_with_retry", inspect)
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path,
+    )
+
+    rows = adapter._read_inventory()
+
+    assert len(observations) == 2
+    assert rows[0]["talkroom_id"] == "12"
+
+
+def test_inventory_does_not_retry_non_transient_collector_failure(monkeypatch, tmp_path):
+    observations = []
+
+    def inspect(*_args, **_kwargs):
+        observations.append(True)
+        raise adapter_module.snapshot.CollectorUnhealthy("login_redirect")
+
+    monkeypatch.setattr(adapter_module.snapshot, "inspect_page_with_retry", inspect)
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path,
+    )
+
+    with pytest.raises(adapter_module.snapshot.CollectorUnhealthy, match="login_redirect"):
+        adapter._read_inventory()
+
+    assert len(observations) == 1
+
+
 def test_read_thread_retries_only_pre_effect_navigation_timeout(monkeypatch, tmp_path):
     attempts = []
     closed = []
