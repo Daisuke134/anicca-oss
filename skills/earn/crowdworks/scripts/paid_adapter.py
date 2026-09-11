@@ -430,18 +430,24 @@ class CrowdWorksPaidAdapter:
             raise RuntimeError("crowdworks_paid_form_metadata_invalid")
         return items
 
-    def _compose_text(self, *, question: str, source: str, item: Mapping[str, Any]) -> str:
+    def _compose_text(self, *, question: str, source: str, item: Mapping[str, Any],
+                      choices: list[str] | None = None) -> str:
         if self.candidate_profile is None or self.provider_profile is None or self.state_path is None:
             raise RuntimeError("crowdworks_paid_form_profile_unavailable")
         grounding = grounding_module.build_reply_grounding(candidate_profile_path=self.candidate_profile,
                                                            provider_profile=self.provider_profile)
         body = composer.compose({"board": {"title": item["title"]}, "grounding": grounding,
             "conversation": [{"role": "buyer", "body": "契約済み業務のGoogleフォームに記載する文章を作成してください。設問: " + question + "\n業務説明: " + source}],
+            "action_contract": {"kind": "required_form_field", "question": question,
+                                "allowed_choices": list(choices or [])},
             "provider_rules": {"outside_contact_before_approval": "forbidden"}},
             state_root=self.state_path / "compose", task_label="crowdworks-paid-form")
         if not isinstance(body, str) or not body.strip():
             raise RuntimeError("crowdworks_paid_form_composition_unavailable")
-        return body.strip()
+        value = body.strip()
+        if choices and value not in choices:
+            raise RuntimeError("crowdworks_paid_form_choice_invalid")
+        return value
 
     def _form_fields(self, page: Any, item: Mapping[str, Any]) -> list[tuple[str, str]]:
         started = time.monotonic()
@@ -454,9 +460,8 @@ class CrowdWorksPaidAdapter:
                 continue
             title, choices = question["title"], entry["choices"]
             if choices:
-                value = next((choice for choice in choices if choice in item["title"]), choices[0] if len(choices) == 1 else None)
-                if value is None:
-                    raise RuntimeError("crowdworks_paid_form_choice_ambiguous")
+                value = choices[0] if len(choices) == 1 else self._compose_text(
+                    question=title, source=source, item=item, choices=choices)
             elif "登録名" in title:
                 value = _text(provider.get("display_name"), "crowdworks_paid_form_profile_unavailable")
             elif "やり取り" in title and "リンク" in title:

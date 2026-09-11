@@ -495,6 +495,50 @@ def test_date_question_uses_google_forms_year_month_day_fields(tmp_path):
     assert set(fields) == {"entry.12_year", "entry.12_month", "entry.12_day"}
 
 
+def test_required_form_choice_is_model_owned_and_exactly_validated(tmp_path, monkeypatch):
+    module = load()
+    seen = []
+
+    class Locator:
+        def inner_text(self):
+            return "契約済みの業務説明"
+
+    class Page:
+        def locator(self, selector):
+            assert selector == "body"
+            return Locator()
+
+        def evaluate(self, expression):
+            return [[None, "希望する業務", None, 2, [[12, [["Web制作"], ["事務"]], True]]]]
+
+    def compose(context, **kwargs):
+        seen.append(context)
+        return "Web制作"
+
+    monkeypatch.setattr(module.composer, "compose", compose)
+    monkeypatch.setattr(module.grounding_module, "build_reply_grounding", lambda **kwargs: {"candidate": {}})
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)
+    adapter.candidate_profile = tmp_path / "candidate.json"
+    adapter.provider_profile = {"display_name": "Kaito"}
+
+    assert dict(adapter._form_fields(Page(), funded())) == {"entry.12": "Web制作"}
+    assert seen[0]["action_contract"] == {
+        "kind": "required_form_field", "question": "希望する業務",
+        "allowed_choices": ["Web制作", "事務"]}
+
+
+def test_required_form_choice_rejects_model_output_outside_official_choices(tmp_path, monkeypatch):
+    module = load()
+    monkeypatch.setattr(module.composer, "compose", lambda *args, **kwargs: "その他")
+    monkeypatch.setattr(module.grounding_module, "build_reply_grounding", lambda **kwargs: {"candidate": {}})
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)
+    adapter.candidate_profile = tmp_path / "candidate.json"
+    adapter.provider_profile = {"display_name": "Kaito"}
+    with pytest.raises(RuntimeError, match="crowdworks_paid_form_choice_invalid"):
+        adapter._compose_text(question="希望する業務", source="説明", item=funded(),
+                              choices=["Web制作", "事務"])
+
+
 def test_readback_rejects_non_submit_without_browser_mutation(tmp_path):
     module = load()
     adapter = module.CrowdWorksPaidAdapter(account_id="7145638", state_path=tmp_path)
