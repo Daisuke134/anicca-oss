@@ -566,6 +566,13 @@ This checklist does not reorder the established implementation sequence below. T
     absent. Capafy's session verifier also uses the repository CDP. The scanner covers Capafy and
     rejects `.claude/.agents/.openclaw/skills` source paths; Marketing reports pass 74/74 and focused
     Capafy/warmup portability passes 24/24. No running Gig Work business logic is changed.
+    Final correction routes verified x402 compute expenses through the existing local Financial Transition wrapper,
+    so Agent Economy compute costs use the same durable CFO Telegram outbox as the other local financial writers
+    instead of stopping at the JSONL ledger. Compute-proxy and financial-transition checks pass 13/13. The retained
+    Capafy account-state contract no longer names the deleted Clip launchers, supplies the repository root required
+    by the shared provision renderer and validates the renderer's Gmail plus-address contract; its checks pass 36/36.
+    This correction changes source and tests only, does not start or restart a loop, and does not change running Gig
+    Work business logic.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.

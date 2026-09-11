@@ -10,6 +10,7 @@ import { BlockrunClient } from "@blockrun/llm";
 import { loadEvmKey } from "../../skills/earn/lib/resolve-identity.mjs";
 import { normalizeRequestBody } from "./model-map.mjs";
 import financialStoreModule from "../../apps/life-manager/lib/financial-record-store.js";
+import financialTransitionModule from "../../apps/life-manager/lib/financial-transition-local.js";
 import costObserverModule from "../../apps/life-manager/lib/x402-cost-observer.js";
 // #28: compute-pay with THIS instance's own gated per-instance key — never a borrowed legacy key.
 const pk = loadEvmKey();
@@ -17,8 +18,11 @@ if (pk) process.env.BASE_CHAIN_WALLET_KEY = pk;
 const br = new BlockrunClient();
 const financialDirectory = process.env.LM_FINANCIAL_RECORDS_DIR
   || path.join(process.env.CFO_STATE_DIR || path.join(os.homedir(), ".local", "state", "life-manager", "life-manager-cfo-hourly"), "financial-records");
-const costObserver = costObserverModule.createX402CostObserver({
+const financialStore = financialTransitionModule.createLocalFinancialTransitionStore({
   store: financialStoreModule.createJsonlFinancialRecordStore({ directoryPath: financialDirectory }),
+});
+const costObserver = costObserverModule.createX402CostObserver({
+  store: financialStore,
   subjectId: process.env.LM_CFO_SUBJECT_ID || process.env.LM_UID || "local",
 });
 const providerFetch = br.fetchWithTimeout.bind(br);
