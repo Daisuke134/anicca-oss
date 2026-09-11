@@ -133,6 +133,18 @@ Paid: make the adapter expose the official delivery control, let the model selec
 from the client's explicit form choices through the shared action lifecycle, then prove both official
 effects/readbacks and the following replay-zero with `failed=0`.
 
+PR `#5021`, merged as main `a3ff1e8927`, routes every required Google Form field through the shared
+model composer with an explicit action contract. Multiple-choice answers must exactly match one
+official option or the adapter fails before POST; Form parsing, provider selectors and mutation stay
+in the thin CrowdWorks adapter. When the desktop contract page hides the official To-do surface, the
+adapter re-renders only its dedicated page at the provider's narrow layout, then requires one visible
+exact `やること` control, one bound visible milestone textarea and one enabled named submit before
+effect. The existing confirmed receipt remains a hard no-repost fence. Focused/shared tests (`305`),
+runtime tests (`392`) and registry tests (`15`) pass; two fresh read-only reviews report SHIP with no
+P0/P1. Main-derived immutable release `20260911T181920-a3ff1e89` is installed only for
+`crowdworks-revenue-paid` with receipt `151136cb08674a747e1428ee`; natural official
+effect/readback and the following replay-zero remain the active acceptance.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
