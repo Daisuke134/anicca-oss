@@ -32,6 +32,15 @@ class LatenessEntrypointContractTest(unittest.TestCase):
             self.assertIn(f'LOOP_STATE_DIR / "{name}"', checker)
         self.assertNotIn('parent.parent / "state"', checker)
 
+        for relative in (
+            "arrival.py",
+            "gcal_departures.py",
+            "route_lookup.py",
+            "renraku.py",
+        ):
+            helper = (ROOT / "skills/anicca-life-manager/scripts" / relative).read_text()
+            self.assertNotIn("/opt/homebrew/bin", helper, relative)
+
 
 if __name__ == "__main__":
     unittest.main()
