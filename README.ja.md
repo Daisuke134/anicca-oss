@@ -36,7 +36,7 @@ receiptのない試行を「完了」と報告しません。
 | 9 | Fundraiser | `fundraiser` | accelerator、fellowship、grant、投資家受付を発見し条件を満たせば応募 |
 | 10 | Connector | `life-manager-connector-native` | event発見・応募・登録確認・Calendar/Telegram receipt報告 |
 | 11 | Life Manager Cloud | Railway上の`apps/life-manager` | 常時稼働web、Telegram、reminder、schedule、hosted-agent面 |
-| 12 | Life Manager Mobile Apps | Anicca iOS、Honne、その他の`life-manager-anicca-*` / `life-manager-honne-*` build・marketing・distribution・metrics job | Life Manager所有のiOS app群をbuild・運用し、product-awareな共通componentで各appをmarketing・計測する |
+| 12 | Mobile App Loops | Anicca iOS、Honne、その他の`life-manager-anicca-*` / `life-manager-honne-*` product job | product accountとappの作成、build・署名・公開、継続改善、Postizまたはnative provider adapterによるmarketing配信、成果計測、検証済み収益のCFO連携までを一つのmobile-app lifecycleとして運用する。現時点では共通のmarketing・配信・計測・receipt経路をrepo内で所有し、app作成・署名・release・iterationは同じE2E loopへ統合中。 |
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Capafyという別productの販売・outcome・audience-growth workflowを運用 |
 | 14 | CFO | `life-manager-cfo-hourly` | 全earning loopのverified revenue、cash flow、残高、payout、財務報告を照合 |
 

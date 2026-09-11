@@ -15,8 +15,8 @@ available and end suffering for humans and, ultimately, all living beings.
 
 [Open Life Manager](https://aniccaai.com/lm) · [Start in Telegram](https://t.me/LifeManagerBotbot?start=lp) · [View the source](https://github.com/Daisuke134/life-manager)
 
-The repository is open source. The Investment Loop has a portable Docker self-host path that keeps its durable
-state on the owner's machine; other Life Manager loops are still converging on that clean-host contract. Use the paid monthly cloud service when you want an
+The repository is open source. Local runs repository-owned processes and durable state directly on the owner's
+computer; Docker and Docker Compose are not required. Use the paid monthly cloud service when you want an
 always-on manager with only a phone. Both surfaces use the same core from this repository
 and converge on the same state, evidence, and human-readable reporting contracts. Life
 Manager never guarantees wealth or investment returns, and it never reports an attempted action as completed
@@ -42,7 +42,7 @@ implement and support these 14 loops.
 | 9 | Fundraiser | `fundraiser` | Discovers accelerators, fellowships, grants, and public investor intakes and applies when eligible |
 | 10 | Connector | `life-manager-connector-native` | Finds eligible events, applies, verifies registration, and reports Calendar and Telegram receipts |
 | 11 | Life Manager Cloud | `apps/life-manager` on Railway | Runs the always-on web, Telegram, reminder, scheduling, and hosted-agent surface |
-| 12 | Life Manager Mobile Apps | Anicca iOS, Honne, and the other `life-manager-anicca-*` / `life-manager-honne-*` build, marketing, distribution, and metrics jobs | Builds and operates the portfolio of Life Manager-owned iOS apps, then markets and measures each app through shared product-aware components |
+| 12 | Mobile App Loops | Anicca iOS, Honne, and the other `life-manager-anicca-*` / `life-manager-honne-*` product jobs | Runs the owned mobile-app lifecycle: create the product account and app, build and sign releases, publish them, continuously improve the apps, distribute marketing content through Postiz or a native provider adapter, measure outcomes, and feed verified revenue back into CFO. Today the repository owns the shared product-aware marketing, distribution, measurement, and receipt path; app creation, signing, release, and iteration are still being unified into the same end-to-end loop. |
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Operates Capafy's separate product, sales, outcome, and audience-growth workflows |
 | 14 | CFO | `life-manager-cfo-hourly` | Reconciles verified revenue, cash flow, balances, payouts, and financial reports across the earning loops |
 
@@ -82,10 +82,6 @@ and effects, stable client-order IDs, durable receipts, reconciliation, and one
 Telegram report every five minutes. It never treats a deposit as profit or promises
 returns.
 
-For a new computer, use the secret-free Docker package and begin in `shadow`:
-
-[`skills/alpaca-investment/self-host/README.md`](skills/alpaca-investment/self-host/README.md)
-
 Run and inspect one finite pass from a checkout:
 
 ```bash
@@ -94,7 +90,7 @@ LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py
 ```
 
 The repository's managed macOS path installs only from an immutable main-derived
-release through `lm-loop apply`; the Docker path uses a named durable volume. Never
+release through `lm-loop apply`. Never
 run two live writers for one Alpaca account. A successful process is not proof of
 profit: use the reported account, position, order, fee, slippage, and net-P&L
 readbacks.
@@ -109,10 +105,10 @@ automation is denied. That is evidence about a provider boundary, not a complete
 to stop the general-agent work. Approved providers must reuse the same agent, commerce state, capabilities, and
 money-effect contract; their differences belong in a small provider manifest and official readback adapter.
 
-The architecture is converging by copying and adapting proven boundaries from
+The architecture uses repository-owned wake, scheduling, Telegram, browser, state, effect, receipt, and outbox
+boundaries. It also adapts useful design ideas from
 [DeepAgentsJS/LangGraph](https://github.com/langchain-ai/deepagentsjs) for the specialist harness and durable state,
 [browser-use](https://github.com/browser-use/browser-use) for the website-tool contract,
-[OpenClaw](https://github.com/openclaw/openclaw) for the current local wake and channels, and
 [Steel](https://github.com/steel-dev/steel-browser) for the hosted browser backend. Existing Life Manager
 `EffectIntent` and `ConnectorOutbox` rails remain the only path for irreversible money actions. The completion
 signal is an official `banked` receipt—not an application, click, model claim, contract, or pending balance.
