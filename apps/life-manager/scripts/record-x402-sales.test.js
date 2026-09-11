@@ -336,7 +336,7 @@ test("ledger receiver is bound by its canonical external-inflows filename", asyn
   assert.equal(writes, 0);
 });
 
-test("launchd wiring uses absolute executables, a bounded timeout, and five-minute cadence", () => {
+test("launchd wiring uses shared portable executables, a bounded timeout, and five-minute cadence", () => {
   const boot = readFileSync(join(__dirname, "x402-sale-ledger-boot.sh"), "utf8");
   const installer = readFileSync(join(__dirname, "install-x402-sale-ledger-launchd.sh"), "utf8");
   const plist = readFileSync(
@@ -344,7 +344,9 @@ test("launchd wiring uses absolute executables, a bounded timeout, and five-minu
     "utf8",
   );
 
-  assert.match(boot, /\/opt\/homebrew\/bin\/timeout 240 \/opt\/homebrew\/bin\/node/);
+  assert.match(boot, /portable-runtime\.sh/);
+  assert.match(boot, /LM_TIMEOUT_RUNNER" 240 "\$LM_NODE/);
+  assert.doesNotMatch(boot, /\/opt\/homebrew\/bin\/(?:timeout|node)/);
   assert.doesNotMatch(boot, /(?:^|[;&|]\s*)timeout\s/);
   assert.match(boot, /LIFE_MANAGER_ENV_FILE:-\$\{HOME\}\/\.local\/state\/life-manager\/\.env/);
   assert.doesNotMatch(boot, /\.openclaw/);
