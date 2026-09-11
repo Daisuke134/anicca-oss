@@ -340,7 +340,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ws", required=True)
     parser.add_argument("--gmail-account", required=True)
-    parser.add_argument("--gog", default="/opt/homebrew/bin/gog")
+    parser.add_argument("--gog", default=os.environ.get("JOB_SEARCH_GOG", "gog"))
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     previous_gmail = None

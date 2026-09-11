@@ -186,7 +186,7 @@ def extract_verification_target_from_gmail(
     thread_id: str,
     message_id: str,
     credential_store: Path,
-    gog: str = "/opt/homebrew/bin/gog",
+    gog: str = "gog",
 ) -> VerificationTarget:
     completed = subprocess.run(
         [

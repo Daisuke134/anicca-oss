@@ -422,7 +422,7 @@ def _gmail_threads(account: str) -> list[dict[str, Any]]:
     )
     completed = subprocess.run(
         [
-            "/opt/homebrew/bin/gog",
+            os.environ.get("JOB_SEARCH_GOG", "gog"),
             "gmail",
             "search",
             "--account",
@@ -447,7 +447,7 @@ def _gmail_threads(account: str) -> list[dict[str, Any]]:
 def _gmail_thread(account: str, thread_id: str) -> dict[str, Any]:
     completed = subprocess.run(
         [
-            "/opt/homebrew/bin/gog",
+            os.environ.get("JOB_SEARCH_GOG", "gog"),
             "gmail",
             "thread",
             "get",

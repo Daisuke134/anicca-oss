@@ -123,7 +123,7 @@ def query_busy_intervals(
     *,
     account: str,
     slots: list[CandidateSlot],
-    executable: str = "/opt/homebrew/bin/gog",
+    executable: str = "gog",
 ) -> list[tuple[datetime, datetime]]:
     if not slots:
         raise SchedulingError("candidate slots are required")
@@ -236,7 +236,7 @@ def find_interview_event(
     *,
     account: str,
     thread_id: str,
-    executable: str = "/opt/homebrew/bin/gog",
+    executable: str = "gog",
     now: datetime | None = None,
 ) -> dict[str, Any] | None:
     account = _clean(account, name="account", maximum=254)
@@ -278,7 +278,7 @@ def ensure_interview_event(
     company: str,
     role: str,
     slot: CandidateSlot,
-    executable: str = "/opt/homebrew/bin/gog",
+    executable: str = "gog",
     now: datetime | None = None,
     existing_event: dict[str, Any] | None | object = _UNSET,
 ) -> dict[str, str]:
@@ -406,8 +406,8 @@ def confirm_interview_slot(
     candidate_name: str,
     raw_slots: list[dict[str, Any]],
     now: datetime,
-    calendar_executable: str = "/opt/homebrew/bin/gog",
-    gmail_executable: str = "/opt/homebrew/bin/gog",
+    calendar_executable: str = "gog",
+    gmail_executable: str = "gog",
     allow_self_recipient: bool = False,
 ) -> dict[str, Any]:
     if is_excluded_employer(company):
