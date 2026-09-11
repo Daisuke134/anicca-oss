@@ -1285,7 +1285,7 @@ const server = http.createServer(async (req, res) => {
                     calendarCallbackPath: "/telegram/oauth/calendar",
                     calendarCallbackParams: { lang: u.languageCode },
                     startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY, connectedAccountId: row.calendar_connected_account_id }),
-                    disconnectCalendar: (scope) => composioCalendarDisconnect(scope, { composioKey: COMPOSIO_KEY }),
+                    disconnectCalendar: (scope) => composioCalendarDisconnect(scope, { composioKey: COMPOSIO_KEY, connectedAccountId: row.calendar_connected_account_id }),
                   } : null,
                 });
                 const result = dispatched.result;

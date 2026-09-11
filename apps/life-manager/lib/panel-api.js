@@ -817,6 +817,7 @@ function currentCalendarAccounts(scope, items) {
 }
 
 async function composioCalendarStatus(scope, opts = {}) {
+  if (opts.connectedAccountId) return composioCalendarAccountStatus(scope, opts.connectedAccountId, opts);
   if (!opts.composioKey) throw new Error("provider_unavailable");
   const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts?user_ids=${encodeURIComponent(scope.uid)}&toolkit_slugs=googlecalendar`, { headers: { "x-api-key": opts.composioKey } });
   if (!response.ok) throw new Error("provider_failed");
@@ -838,10 +839,18 @@ async function composioCalendarAccounts(scope, opts = {}) {
 }
 
 async function composioCalendarDisconnect(scope, opts = {}) {
-  const accounts = await composioCalendarAccounts(scope, opts);
-  if (accounts.length === 0) return { provider: "calendar", state: "action_required" };
-  if (accounts.length !== 1 || !accounts[0].id) throw new Error("provider_ambiguous");
-  const account = accounts[0];
+  let account;
+  if (opts.connectedAccountId) {
+    const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3.1/connected_accounts/${encodeURIComponent(opts.connectedAccountId)}`, { headers: { "x-api-key": opts.composioKey } });
+    if (!response.ok) throw new Error("provider_failed");
+    account = await jsonOr(response, {});
+    if (!exactCalendarAccount(scope, account)) throw new Error("provider_ownership");
+  } else {
+    const accounts = await composioCalendarAccounts(scope, opts);
+    if (accounts.length === 0) return { provider: "calendar", state: "action_required" };
+    if (accounts.length !== 1 || !accounts[0].id) throw new Error("provider_ambiguous");
+    account = accounts[0];
+  }
   if (account.status !== "ACTIVE" || account.is_disabled === true || account.enabled === false) return { provider: "calendar", state: "action_required" };
   const response = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts/${encodeURIComponent(account.id)}/status`, {
     method: "PATCH",
@@ -849,12 +858,16 @@ async function composioCalendarDisconnect(scope, opts = {}) {
     body: JSON.stringify({ enabled: false }),
   });
   if (!response.ok) throw new Error("provider_failed");
-  const readback = await composioCalendarAccounts(scope, opts);
-  if (readback.length !== 1 || !sameDisabledCalendarAccount(readback[0], account.id)) {
+  const readback = opts.connectedAccountId
+    ? await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3.1/connected_accounts/${encodeURIComponent(account.id)}`, { headers: { "x-api-key": opts.composioKey } }).then((value) => value.ok ? jsonOr(value, {}) : null)
+    : await composioCalendarAccounts(scope, opts).then((items) => items.length === 1 ? items[0] : null);
+  if (!sameDisabledCalendarAccount(readback, account.id)) {
     const rollback = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts/${encodeURIComponent(account.id)}/status`, { method: "PATCH", headers: { "x-api-key": opts.composioKey, "content-type": "application/json" }, body: JSON.stringify({ enabled: true }) });
     if (!rollback.ok) throw new Error("provider_rollback_failed");
-    const restored = await composioCalendarAccounts(scope, opts);
-    if (restored.length !== 1 || !sameEnabledCalendarAccount(restored[0], account.id)) throw new Error("provider_rollback_failed");
+    const restored = opts.connectedAccountId
+      ? await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3.1/connected_accounts/${encodeURIComponent(account.id)}`, { headers: { "x-api-key": opts.composioKey } }).then((value) => value.ok ? jsonOr(value, {}) : null)
+      : await composioCalendarAccounts(scope, opts).then((items) => items.length === 1 ? items[0] : null);
+    if (!sameEnabledCalendarAccount(restored, account.id)) throw new Error("provider_rollback_failed");
     throw new Error("provider_readback_failed");
   }
   return { provider: "calendar", state: "action_required" };
@@ -1111,9 +1124,9 @@ async function handlePanelApiRequest(req, res, opts = {}) {
       const command = validateCommand(await readJson(req));
       const execute = opts.executeCommandImpl || executeUserCommand;
       const store = commandStore;
-      const commandUser = command.type === "connection.start" && typeof store.readUser === "function" ? await store.readUser(scope) : null;
+      const commandUser = ["connection.start", "connection.disconnect"].includes(command.type) && typeof store.readUser === "function" ? await store.readUser(scope) : null;
       const providerOpts = { ...opts, composioKey: opts.composioKey || process.env.COMPOSIO_API_KEY };
-      const result = await execute(scope, command, { ...providerOpts, store, idempotencyKey: key, composioAuthConfig: opts.composioAuthConfig || process.env.COMPOSIO_GCAL_AUTH_CONFIG, startCalendarConnection: opts.startCalendarConnection || ((value) => composioCalendarStart(value, { ...providerOpts, connectedAccountId: commandUser && commandUser.calendar_connected_account_id })), disconnectCalendar: opts.disconnectCalendar || ((value) => composioCalendarDisconnect(value, providerOpts)) });
+      const result = await execute(scope, command, { ...providerOpts, store, idempotencyKey: key, composioAuthConfig: opts.composioAuthConfig || process.env.COMPOSIO_GCAL_AUTH_CONFIG, startCalendarConnection: opts.startCalendarConnection || ((value) => composioCalendarStart(value, { ...providerOpts, connectedAccountId: commandUser && commandUser.calendar_connected_account_id })), disconnectCalendar: opts.disconnectCalendar || ((value) => composioCalendarDisconnect(value, { ...providerOpts, connectedAccountId: commandUser && commandUser.calendar_connected_account_id })) });
       sendJson(res, 200, result);
     } catch (error) { sendJson(res, error.status || 502, { error: error.message === "invalid_action" ? "invalid_action" : "command_failed" }); }
     return;
@@ -1125,7 +1138,7 @@ async function handlePanelApiRequest(req, res, opts = {}) {
 
   if (endpoint === "control-center") {
     const store = commandStore;
-    const model = await buildControlCenter(scope, { ...opts, store, nowMs, calendarStatus: opts.calendarStatus || ((value) => composioCalendarStatus(value, { ...opts, composioKey: opts.composioKey || process.env.COMPOSIO_API_KEY })) });
+    const model = await buildControlCenter(scope, { ...opts, store, nowMs, calendarStatus: opts.calendarStatus || (async (value) => { const user = await store.readUser(value); return composioCalendarStatus(value, { ...opts, composioKey: opts.composioKey || process.env.COMPOSIO_API_KEY, connectedAccountId: user && user.calendar_connected_account_id }); }) });
     sendPanelSection(res, endpoint, { ...model, csrf: scope.csrf || csrfToken(session) }, opts);
     return;
   }

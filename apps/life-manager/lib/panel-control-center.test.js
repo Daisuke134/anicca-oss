@@ -164,6 +164,19 @@ test("PANEL-0 Composio disconnect fails closed on ambiguous ownership or ACTIVE 
   await assert.rejects(composioCalendarDisconnect({ uid: "u-a", chatId: "101" }, { composioKey: "test-key", fetchImpl: async () => sequence.shift() }), /provider_readback_failed/);
 });
 
+test("PANEL-0 selected Calendar status and disconnect ignore stale sibling accounts", async () => {
+  const { composioCalendarAccountStatus } = require("./panel-api.js");
+  const requests = [];
+  const active = { id: "ca-selected", user_id: "u-a", toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false, enabled: true };
+  const disabled = { ...active, status: "INACTIVE", is_disabled: true, enabled: false };
+  const sequence = [active, {}, disabled];
+  const fetchImpl = async (url, init = {}) => { requests.push({ url: String(url), init }); const body = sequence.shift(); return { ok: true, json: async () => body }; };
+  assert.equal(await composioCalendarAccountStatus({ uid: "u-a", chatId: "101" }, "ca-selected", { composioKey: "k", fetchImpl: async () => ({ ok: true, json: async () => active }) }), "ACTIVE");
+  assert.deepEqual(await composioCalendarDisconnect({ uid: "u-a", chatId: "101" }, { composioKey: "k", connectedAccountId: "ca-selected", fetchImpl }), { provider: "calendar", state: "action_required" });
+  assert.ok(requests.every(({ url }) => !url.includes("user_ids=")), "selected-account operations never enumerate stale siblings");
+  assert.equal(requests.filter(({ init }) => init.method === "PATCH").length, 1);
+});
+
 test("PANEL-0 Composio reconnect enables the scoped inactive account and requires ACTIVE readback", async () => {
   const requests = [], response = (items) => ({ ok: true, json: async () => ({ items }) });
   const sequence = [response([{ id: "ca-user-a", user_id: "u-a", toolkit: { slug: "googlecalendar" }, status: "INACTIVE", is_disabled: true, enabled: false }]), { ok: true, json: async () => ({}) }, response([{ id: "ca-user-a", user_id: "u-a", toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false, enabled: true }])];
