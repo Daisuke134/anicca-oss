@@ -1052,7 +1052,9 @@ future product run exercises them without changing this architecture acceptance 
     share one repository-owned Telegram credential check: the shipped placeholders or a missing private chat ID stay
     `setup_required`, and daemon registration is skipped until both values are configured. The same check is exposed
     through `./install.sh plan`; `.env.example` declares both values. Local credential/planner/installer tests pass
-    11/11. A HeyGen replay whose provider receipt and renamed non-empty output already exist now atomically completes
+    12/12. The verifier uses the exact shared Local sender contract (`TELEGRAM_BOT_TOKEN` plus
+    `TELEGRAM_CHAT_ID`/`TELEGRAM_ALERT_CHAT_ID`); hosted aliases cannot unlock Local startup. A HeyGen replay whose
+    provider receipt and renamed non-empty output already exist now atomically completes
     the durable receipt without a second create or download; its focused renderer/runner tests pass 9/9. The catalog
     and this spec consistently call the Local prerequisite private Telegram credentials, not pairing. No daemon,
     Telegram message, HeyGen render or Gig workload was started by these tests.

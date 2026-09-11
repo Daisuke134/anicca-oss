@@ -17,13 +17,20 @@ function fixture(contents) {
 
 test("placeholder or incomplete Telegram credentials fail closed", () => {
   assert.equal(hasTelegramCredentials(fixture(
-    "TELEGRAM_BOT_TOKEN=1234567890:YOUR-BOT-TOKEN\nTELEGRAM_CHAT_ID=YOUR-TELEGRAM-CHAT-ID\n",
+    "TELEGRAM_BOT_TOKEN=fixture:YOUR-BOT-TOKEN\nTELEGRAM_CHAT_ID=YOUR-TELEGRAM-CHAT-ID\n",
   ), {}), false);
   assert.equal(hasTelegramCredentials(fixture("TELEGRAM_BOT_TOKEN=real-token\n"), {}), false);
 });
 
 test("private Telegram token and chat ID satisfy the local requirement", () => {
   assert.equal(hasTelegramCredentials(fixture(
-    "TELEGRAM_BOT_TOKEN=real-token\nTELEGRAM_CHAT_ID=-1001234567890\n",
+    "TELEGRAM_BOT_TOKEN=real-token\nTELEGRAM_CHAT_ID=private-chat-fixture\n",
   ), {}), true);
+});
+
+test("hosted Telegram aliases do not satisfy the private Local sender contract", () => {
+  assert.equal(hasTelegramCredentials(fixture(""), {
+    LM_TELEGRAM_BOT_TOKEN: "hosted-token",
+    LM_ADMIN_TELEGRAM_CHAT_ID: "hosted-chat",
+  }), false);
 });

@@ -27,10 +27,9 @@ function hasTelegramCredentials(file, environment = process.env) {
   for (const [key, value] of Object.entries(environment)) {
     if (String(value || "").trim()) values[key] = value;
   }
-  const token = values.TELEGRAM_BOT_TOKEN || values.LM_TELEGRAM_BOT_TOKEN;
+  const token = values.TELEGRAM_BOT_TOKEN;
   const chat = values.TELEGRAM_CHAT_ID
-    || values.TELEGRAM_ALERT_CHAT_ID
-    || values.LM_ADMIN_TELEGRAM_CHAT_ID;
+    || values.TELEGRAM_ALERT_CHAT_ID;
   return isConfigured(token) && isConfigured(chat);
 }
 
