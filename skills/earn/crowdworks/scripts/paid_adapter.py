@@ -489,8 +489,8 @@ class CrowdWorksPaidAdapter:
 
     def _complete_once(self, item: Mapping[str, Any], payload: Mapping[str, Any]) -> None:
         self._goto_contract(_text(item.get("work_id")))
-        selector = f'form[action="/milestones/{_text(payload.get("milestone_id"))}/complete"]'
-        form = self.page.locator(selector).last
+        selector = f'form[action="/milestones/{_text(payload.get("milestone_id"))}/complete"]:visible'
+        form = self.page.locator(selector)
         if form.count() != 1:
             raise RuntimeError("crowdworks_paid_milestone_unavailable")
         form.locator('textarea[name="message[body]"]').fill(self._compose_text(question="納品完了報告", source="Googleフォームの回答を完了しました。", item=item))
