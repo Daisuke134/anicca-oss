@@ -114,7 +114,7 @@ async function sendStage(token, chatId, row, base, opts = {}) {
 
 // payout_destination rides along so the webhook can see a pending wallet-address intake (13d-a)
 // without a second round trip on every typed message.
-const SEL = "uid,name,telegram_chat_id,tg_onboard_stage,calendar_provider,gmail_account_id,gmail_skipped,email,phone,home_address,payout_destination";
+const SEL = "uid,name,telegram_chat_id,tg_onboard_stage,calendar_provider,calendar_connected_account_id,gmail_account_id,gmail_skipped,email,phone,home_address,payout_destination";
 async function saveField(uid, patch, supaUrl, supaKey) {
   await fetch(`${supaUrl}/rest/v1/lm_users?uid=eq.${encodeURIComponent(uid)}`, {
     method: "PATCH",

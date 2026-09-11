@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 from typing import Any, Mapping
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlsplit
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
@@ -34,6 +34,7 @@ planner = _load("crowdworks_reply_planner", SHARED / "reply_planner.py")
 grounding_module = _load("crowdworks_reply_grounding", SHARED / "reply_grounding.py")
 composer = _load("crowdworks_reply_composer", SHARED / "reply_composer.py")
 profile_module = _load("crowdworks_reply_profile", HERE / "profile.py")
+google_form = _load("crowdworks_reply_google_form", HERE / "google_form.py")
 
 
 def _now() -> str:
@@ -228,13 +229,7 @@ class CrowdWorksReplyAdapter:
 
     @staticmethod
     def _google_form_url(url: str) -> bool:
-        parsed = urlsplit(url)
-        if parsed.scheme != "https":
-            return False
-        if parsed.netloc == "forms.gle":
-            return bool(parsed.path.strip("/"))
-        return (parsed.netloc == "docs.google.com"
-                and re.fullmatch(r"/forms/d/e/[^/]+/viewform", parsed.path) is not None)
+        return google_form.is_google_form_url(url)
 
     def _external_form_action(self, thread_id: str) -> dict[str, Any] | None:
         conversation = self.conversations.get(thread_id) or self._detail(thread_id)
@@ -346,69 +341,24 @@ class CrowdWorksReplyAdapter:
     def _form_receipt_path(self, url_sha256: str) -> Path:
         if self.state_path is None:
             raise RuntimeError("google_form_state_unavailable")
-        return self.state_path.parent / "external-actions" / f"{url_sha256}.json"
+        return google_form.receipt_path(self.state_path.parent, url_sha256)
 
     @staticmethod
     def _write_json(path: Path, value: Mapping[str, Any]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(dict(value), ensure_ascii=False, sort_keys=True),
-                             encoding="utf-8")
-        temporary.replace(path)
+        google_form.write_json(path, value)
 
     def _submit_google_form(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         url = _text(payload.get("url"))
         url_sha256 = _text(payload.get("url_sha256"))
         if not self._google_form_url(url) or hashlib.sha256(url.encode()).hexdigest() != url_sha256:
             raise RuntimeError("google_form_intent_invalid")
-        receipt_path = self._form_receipt_path(url_sha256)
-        if receipt_path.exists():
-            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-            if (isinstance(receipt, Mapping)
-                    and receipt.get("url_sha256") == url_sha256
-                    and receipt.get("confirmation_sha256")):
-                return receipt
-            if isinstance(receipt, Mapping) and receipt.get("status") == "prepared":
-                raise RuntimeError("google_form_submission_uncertain")
-            raise RuntimeError("google_form_receipt_invalid")
-        form = self.browser.contexts[0].new_page()
-        try:
-            form.goto(url, wait_until="domcontentloaded", timeout=20_000)
-            form.wait_for_timeout(4_000)
-            raw = form.evaluate("window.FB_PUBLIC_LOAD_DATA_ && window.FB_PUBLIC_LOAD_DATA_[1][1]")
-            answers = self._question_answers(self._form_items(raw))
-            action = str(form.locator("form").get_attribute("action") or "")
-            parsed = urlsplit(action)
-            if (parsed.scheme != "https" or parsed.netloc != "docs.google.com"
-                    or re.fullmatch(r"/forms/d/e/[^/]+/formResponse", parsed.path) is None):
-                raise RuntimeError("google_form_action_invalid")
-            fields = []
-            for name in ("fvv", "draftResponse", "pageHistory", "fbzx"):
-                locator = form.locator(f'input[name="{name}"]')
-                if locator.count() == 1:
-                    fields.append((name, str(locator.input_value())))
-            fields.extend(answers)
-            self._write_json(receipt_path, {
-                "version": 1, "status": "prepared", "url_sha256": url_sha256,
-                "prepared_at": _now(),
-            })
-            response = self.browser.contexts[0].request.post(
-                action, data=urlencode(fields), headers={
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Referer": form.url,
-                }, timeout=30_000,
-            )
-            body = response.text()
-            if response.status != 200 or not any(marker in body for marker in (
-                    "回答を記録しました", "Your response has been recorded")):
-                raise RuntimeError("google_form_submission_unverified")
-            receipt = {"version": 1, "status": "confirmed", "url_sha256": url_sha256,
-                       "confirmation_sha256": hashlib.sha256(body.encode()).hexdigest(),
-                       "observed_at": _now()}
-            self._write_json(receipt_path, receipt)
-            return receipt
-        finally:
-            form.close()
+        if self.state_path is None:
+            raise RuntimeError("google_form_state_unavailable")
+        return google_form.submit_once(
+            browser=self.browser, state_root=self.state_path.parent, url=url, url_sha256=url_sha256,
+            answer_fields=lambda form: self._question_answers(
+                self._form_items(form.evaluate("window.FB_PUBLIC_LOAD_DATA_ && window.FB_PUBLIC_LOAD_DATA_[1][1]"))),
+        )
 
     def _send_reply_once(self, thread_id: str, body: str) -> None:
         rows = self._detail(thread_id)

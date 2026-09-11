@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 PYTHON="${LIFE_MANAGER_PYTHON:-$HOME/.local/share/life-manager/venv/bin/python}"
+LOCK_PYTHON="${LIFE_MANAGER_LOCK_PYTHON:-/usr/bin/python3}"
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:?LIFE_MANAGER_STATE_ROOT is required}"
 
 if [[ ! -x "$PYTHON" ]]; then
@@ -10,9 +11,12 @@ if [[ ! -x "$PYTHON" ]]; then
   exit 69
 fi
 
-exec "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/paid_kernel.py" \
+exec "$LOCK_PYTHON" "$ROOT/skills/browser/scripts/run_with_file_lock.py" \
+  "$STATE_ROOT/provider-browser.lock" -- \
+  "$PYTHON" "$ROOT/skills/_shared/marketplace-core/scripts/paid_kernel.py" \
   --provider-adapter "$ROOT/skills/earn/crowdworks/scripts/paid_adapter.py" \
   --state-root "$STATE_ROOT/paid" \
   --output "$STATE_ROOT/paid-latest.json" \
   -- \
-  --account-id 7145638
+  --account-id 7145638 \
+  --state-path "$STATE_ROOT/paid"

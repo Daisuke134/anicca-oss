@@ -128,6 +128,7 @@ async function routeCallbackData(data, handlers = {}, log = console.log) {
   const prefix = String(data || "").split(":", 1)[0];
   if (prefix === "ask" && typeof handlers.ask === "function") return handlers.ask(data);
   if (prefix === "gmail" && typeof handlers.gmail === "function") return handlers.gmail(data);
+  if (prefix === "calendar" && typeof handlers.calendar === "function") return handlers.calendar(data);
   if (prefix === "discovery" && typeof handlers.discovery === "function") return handlers.discovery(data);
   if (prefix === "payout" && typeof handlers.payout === "function") return handlers.payout(data);
   if (prefix === "diet" && typeof handlers.diet === "function") return handlers.diet(data);
