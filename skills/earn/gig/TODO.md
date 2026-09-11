@@ -194,14 +194,19 @@ the server-rendered navigation remained desktop because the shared session's dev
 The adapter now clones authenticated storage into a short-lived isolated mobile context, changes only
 the clone's device cookie/user agent, and preserves the canonical browser session unchanged. The same
 exact tab/form/submit cardinality fences remain. Focused/shared tests (`308`) pass; fresh review and
-production acceptance are open.
+fresh review report SHIP with no P0/P1. PR `#5023` is merged as main `02b935865c`; immutable release
+`20260911T194651-02b93586` is cut and ready. It is deliberately not installed while the preceding
+`ce77fc24a8` natural wake is still running: no owner is killed or restarted merely to promote code.
+After that wake reaches a natural terminal, apply only this target, then require official Form and
+CrowdWorks milestone effect/readback plus the following replay-zero before closing the atom.
 
 During that wake the host reached 317 MiB free and `tempfile` could not create a working directory.
 Cleanup removed only two unreferenced reproducible releases, Codex temporary/archive data and
 Codex/Claude session transcripts older than two days; active/rollback releases, current sessions,
-credentials, provider state, receipts and browser sessions were preserved. Free space is now 6.3 GiB
-and the control-plane status command works again. This is host recovery evidence, not Paid business
-acceptance.
+credentials, provider state, receipts and browser sessions were preserved. The cleanup recovered
+6.3 GiB at completion; the later readback shows 3.8 GiB free while the long Paid wake and release
+work are active, and the control-plane status command works. This is host recovery evidence, not
+Paid business acceptance.
 
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
