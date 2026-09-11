@@ -47,9 +47,18 @@ def test_shared_apply_context_preserves_verified_facts_and_maximize_policy(tmp_p
     assert value["policy"]["ranking"]["weak_fit_disposition"] == (
         "rank_later_not_reject"
     )
+    assert value["policy"]["ranking"]["band_definitions"] == {
+        "high": "strong_verified_overlap_and_no_material_contradiction",
+        "medium": "credible_verified_overlap_with_missing_or_weak_evidence",
+        "low": "explicit_language_location_domain_or_seniority_contradiction",
+    }
     assert value["policy"]["person_bound_step"]["scope"] == "candidate_local_pending"
     assert value["policy"]["person_bound_step"]["pass_behavior"] == (
         "continue_other_candidates_without_waiting"
+    )
+    assert value["policy"]["person_bound_step"]["notify_bands"] == ["high", "medium"]
+    assert value["policy"]["person_bound_step"]["low_fit_disposition"] == (
+        "skip_person_bound_step_without_notification_and_continue"
     )
     assert [fact["id"] for fact in value["verified_facts"]] == ["education", "marketing"]
     assert "application_email" not in value["candidate"]

@@ -85,6 +85,13 @@ Pass order:
    satisfies this application.
    If a new interview, assessment, camera/screen-share ceremony or other person-bound
    step is required, first finish all reversible automated steps.
+   Follow `shared_apply_context.policy.ranking.band_definitions`: general software or AI
+   overlap alone never makes a senior/specialist role high when the posting contains a
+   material seniority, language, location, or domain contradiction. For a low-band
+   candidate with a person-bound step, do not notify the operator; record
+   `low_fit_person_bound_skipped` and continue. This does not reject ready low-band
+   applications that need no person: submit those truthfully after higher expected-value
+   candidates within the bounded scan.
    Never open or enter a person-bound step. The application summary is sufficient evidence when it names the
    exact remaining step and shows it as required or `Not done`.
    Do not click an interview or assessment step, `Test screenshare`, camera, microphone, recording, or full-screen

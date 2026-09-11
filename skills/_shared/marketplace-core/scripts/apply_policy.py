@@ -21,6 +21,11 @@ POLICY = {
             "absence_of_contradictory_requirements",
         ],
         "bands": ["high", "medium", "low"],
+        "band_definitions": {
+            "high": "strong_verified_overlap_and_no_material_contradiction",
+            "medium": "credible_verified_overlap_with_missing_or_weak_evidence",
+            "low": "explicit_language_location_domain_or_seniority_contradiction",
+        },
         "weak_fit_disposition": "rank_later_not_reject",
         "evidence": "cite_posting_text_and_verified_facts",
     },
@@ -29,6 +34,8 @@ POLICY = {
         "disposition": "notify_human_with_exact_job_url_action_then_resume",
         "scope": "candidate_local_pending",
         "pass_behavior": "continue_other_candidates_without_waiting",
+        "notify_bands": ["high", "medium"],
+        "low_fit_disposition": "skip_person_bound_step_without_notification_and_continue",
     },
     "candidate_failure": "record_and_continue",
 }
