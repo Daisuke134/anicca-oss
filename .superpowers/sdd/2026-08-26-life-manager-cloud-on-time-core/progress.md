@@ -28,6 +28,7 @@ Current atom: **Task 7 Step 2 recovery — real actor Google consent and provide
 - PR #4997 / merge `fe529db72d23c61a747f61860a69312c8d92c9c2`で、exact link account binding → callback exact-account claim → tenant selected ID → Calendar execution pin → safe reconnectを実装。focused Node 91/91、migrationの一時PostgreSQL tenant/ACL/replay検証、全required CI、fresh read-only reviewがPASS。
 - Production Supabaseへ`2026-09-11-lm-calendar-account-binding.sql`だけを適用し、対象2列・3 RPCの存在、`anon execute=false`、`service_role execute=true`をreadback。production Railway `Anicca / life-call`はbuild `fe529db72d23c61a747f61860a69312c8d92c9c2`、`/health ok=true`を実測。
 - Production `/start`再実測で、unrelated Agent Economyの既存runtime jobが`max_attempts`差分で衝突し、Calendar link発行前にwebhook処理を中断する第2原因を検出。`/start`ではAgent Economy初期化をbest-effortへ隔離し、明示的な`economy:setup`経路とruntime loop本体は変更しない。
+- PR #5000 / production build `0c59b4f4a6ad75bdd79d0b306ff128bc8d8f03bb`で第2原因も修正。collision再現を含むHTTP回帰、全required CI、`/health ok=true`、MTProto user sessionからの実`/start`返信をPASS。既存接続済みuserは`ready`を維持し、productionのlegacy unpinned Calendar userは1件だけで、次の`/start`がfresh consent link生成を所有する。
 - 次の一手は同じTelegram chatで`/start` → 新しい「Google Calendarをつなぐ」→ 本人のGoogle同意 → Telegramへ戻り接続結果と予定件数を確認。期限切れの古いボタンは再利用しない。母親側のblock/archive/deleteは不要。
 
 ### Google Cloud cost incident closeout
