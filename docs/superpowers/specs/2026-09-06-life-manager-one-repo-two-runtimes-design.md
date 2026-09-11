@@ -1066,6 +1066,11 @@ future product run exercises them without changing this architecture acceptance 
     `ba1d027b8870bf304aa215ae61d0693196bec952` passes the affected credential/catalog tests 10/10, HeyGen
     renderer/runner tests 9/9, OSS dependency fence, Bash/Python syntax and diff check. A fresh read-only Astra review
     finds no P0/P1/P2 issue and returns `SHIP` for that exact head.
+  - [x] Final reviewed architecture head `9ba3ab03d985e648c63342a4c8f2d1062bd396f1` merged through PR #5025 as
+    main commit `990347590b1049e1fcfaf7e4589d5442589e29a1`. Before merge, the integrated shared marketplace,
+    changed CrowdWorks and HeyGen fixtures passed 318/318; Local/Cloud onboarding and Telegram credentials passed
+    10/10; OSS verification and diff check passed; fresh read-only review returned `SHIP`. The merge introduced no
+    content delta beyond that reviewed tree.
 
 ## 7. Acceptance
 
