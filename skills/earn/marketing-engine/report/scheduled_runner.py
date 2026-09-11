@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Canonical entrypoint for the eight Gate 6 runner lanes."""
+"""Canonical entrypoint for the current Marketing Engine runner lanes."""
 
 from __future__ import annotations
 

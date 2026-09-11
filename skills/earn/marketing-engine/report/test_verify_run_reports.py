@@ -11,7 +11,7 @@ import verify_run_reports
 
 
 class VerifyRunReportsTests(unittest.TestCase):
-    def test_verifies_one_evidenced_delivery_for_all_eight(self):
+    def test_verifies_one_evidenced_delivery_for_every_current_runner(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             state = root / "state"
@@ -36,7 +36,7 @@ class VerifyRunReportsTests(unittest.TestCase):
                     "status": "delivered", "chat_id": 42, "message_ids": [index]})
             verdict = verify_run_reports.verify(state, expected)
             self.assertTrue(verdict["passed"])
-            self.assertEqual(verdict["runners_verified"], 8)
+            self.assertEqual(verdict["runners_verified"], len(run_contract.RUNNERS))
             self.assertEqual(verdict["duplicate_final_keys"], [])
             self.assertEqual(verdict["duplicate_delivery_keys"], [])
             self.assertEqual(verdict["would_resend"], [])

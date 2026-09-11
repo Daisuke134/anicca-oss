@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""cadence-evidence.py — REQ-LV-104: gathers REAL evidence (ledger reads, file mtimes) for each of
-the 7 Cadence Contract loops (clip/affiliate/video/gig/bounty/pm-earner/founder-loop) and calls the
+"""cadence-evidence.py — REQ-LV-104: gathers REAL evidence (ledger reads, file mtimes) for each
+current Cadence Contract loop and calls the
 pure `cadence.py` dispatcher on it. This is the IMPURE side of the purity boundary — cadence.py
 itself never touches a file; this module is the only thing that does, and its job is narrowly
 "read a real timestamp/value, hand it to the pure function," never "decide what health means."
@@ -51,7 +51,7 @@ def _gig_ts_to_jst_date(ts):
     offset). Genuine parsing of a fixed, machine-generated timestamp format — not judgment. Never
     crashes: null/missing/unparseable input returns None (skipped, same tolerant-parse convention as
     every other ledger reader in this codebase). Does NOT modify the EXISTING _epoch_to_jst_date
-    (clip/affiliate/video, numeric-epoch-only) — this is a new, separate function scoped to gig's
+    (clip/affiliate, numeric-epoch-only) — this is a new, separate function scoped to gig's
     evidence-gathering only.
     """
     if isinstance(ts, (int, float)) and not isinstance(ts, bool):
@@ -116,14 +116,6 @@ def _event_dates_from_ts_rows(rows, ts_field="ts"):
 
 def _clip_ledger_path():
     return os.environ.get("EARN_LEDGER") or os.path.expanduser("~/.local/state/life-manager/state/clip-earn-ledger.jsonl")
-
-
-def _video_metrics_path():
-    override = os.environ.get("EARN_VIDEO_METRICS_PATH")
-    if override:
-        return override
-    handle = os.environ.get("EARN_VIDEO_HANDLE", "money_blueprintdaily")
-    return os.path.expanduser(f"~/.cloak/earn-video-metrics-{handle}.jsonl")
 
 
 def _affiliate_metrics_path():
@@ -203,7 +195,6 @@ def _gig_row_exists_event_dates():
 LEDGER_PATH_FOR_LOOP = {
     "clip": _clip_ledger_path,
     "affiliate": _affiliate_metrics_path,
-    "video": _video_metrics_path,
 }
 
 
@@ -215,7 +206,7 @@ def _row_exists_event_dates(loop):
         return dates
     # FALLBACK (clip's existing ledger predates this feature and carries no per-row `ts` field —
     # see self_heal.py's ledger writer, confirmed 2026-07-08). The new metrics/funnel files this
-    # feature introduces for affiliate/video/gig (REQ-LV-013/015) DO carry `ts`; this branch only
+    # feature introduces for affiliate/gig (REQ-LV-013/015) DO carry `ts`; this branch only
     # ever fires for a ledger with real rows but none of them timestamped, so the file's own mtime
     # is the most honest single-day signal available — never fabricates a date beyond "this file
     # was genuinely written on this JST calendar day."
@@ -224,108 +215,6 @@ def _row_exists_event_dates(loop):
         if m is not None:
             return {_epoch_to_jst_date(m)}
     return dates
-
-
-def _video_state_path():
-    override = os.environ.get("EARN_VIDEO_STATE_PATH")
-    if override:
-        return override
-    handle = os.environ.get("EARN_VIDEO_HANDLE", "money_blueprintdaily")
-    return os.path.expanduser(f"~/.cloak/earn-video-{handle}.json")
-
-
-def _video_audit_path():
-    override = os.environ.get("EARN_VIDEO_AUDIT_PATH")
-    if override:
-        return override
-    handle = os.environ.get("EARN_VIDEO_HANDLE", "money_blueprintdaily")
-    return os.path.expanduser(f"~/.cloak/earn-video-audit-{handle}.jsonl")
-
-
-def _read_json(path):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {}
-
-
-# ★★★ GUARDED EXIT-CRITERIA INVARIANT (self-heal.md root cause #1, fixed 2026-07-11) ★★★
-# commit ab4a39a4 (a self-fix pass) originally made _video_warmup_attempt_event_dates() count ANY
-# S1_warmup audit line — including "INCOMPLETE...day NOT advanced" — as the day's contracted work
-# done. That is Goodhart's law in code: it stopped the daily false-misfire alert by lowering the
-# bar the alert measures against, not by fixing why warmup wasn't progressing. Real production data
-# proved it: state.warmup_day sat at 4 for 4 straight days (07-08..07-11) while this function still
-# reported ✅posted-today (streak=2) every one of those days — a genuinely stalled loop read as
-# healthy. See docs/superpowers/evidence/self-heal.md for the full incident.
-#
-# THE INVARIANT THIS FILE MUST NEVER VIOLATE AGAIN: a day where the warmup did NOT actually advance
-# (state.warmup_day did not increase) must NEVER be counted as cadence-met, no matter how the browser
-# session's outcome is worded. "The loop tried" is not "the loop's contracted work happened" — only
-# _video_warmup_advanced_event_dates() (exit-criteria: real day-advance) may feed cadence's
-# event_dates. Any change that widens this back toward "any attempt counts" is a bar-lowering change
-# and requires fresh-context (Opus) adversary review before merge — self-fix must NOT loosen this
-# unilaterally. test_cadence_evidence.py's "day NOT advanced -> met=false" fixture locks this in;
-# do not edit that assertion without the same review.
-def _video_warmup_attempted_event_dates():
-    """Diagnostic-only: every JST date carrying ANY real 'S1_warmup' audit line, regardless of
-    outcome (success, incomplete, deferred-browser, ban-backoff). Proves the loop drove a real
-    browser session that day. NEVER used to satisfy cadence on its own — see the GUARDED INVARIANT
-    above. Exposed in gather_evidence()'s evidence dict purely so a human/adversary reading
-    `cadence-evidence.py status video` output can see "attempted but did not advance" instead of the
-    old invisible-diagnosis failure mode (self-heal.md root cause #2)."""
-    dates = set()
-    for row in _read_jsonl_rows(_video_audit_path()):
-        if not isinstance(row, dict):
-            continue
-        if row.get("transition") != "S1_warmup":
-            continue
-        d = row.get("date")
-        if isinstance(d, str) and d:
-            dates.add(d)
-    return dates
-
-
-def _video_warmup_advanced_event_dates():
-    """Exit-criteria check (self-heal.md fix #1): a JST date counts toward cadence ONLY if that
-    day's audit ledger shows warmup_day actually advanced — never merely "a browser session ran".
-    run.sh (the ONLY writer of this ledger) emits exactly one literal template on the success path,
-    `DID="warmup day→$(wday) (real reels watched=$WATCHED)"` (skills/earn/video/run.sh) — every other
-    outcome (INCOMPLETE/deferred/STOPPED) explicitly says the day was NOT advanced. Matching the
-    literal 'day→' arrow this one template writes is parsing a fixed machine format the same
-    deterministic bash code always produces (never an LLM judgment call — the building-effective-
-    agents rule's carve-out for parsing, not judgment), and is a positive allowlist match (fail-
-    closed): an unrecognized future outcome string does NOT count as advanced by default, it must
-    explicitly earn the 'day→' marker. Never fabricates a date beyond what the ledger recorded."""
-    dates = set()
-    for row in _read_jsonl_rows(_video_audit_path()):
-        if not isinstance(row, dict):
-            continue
-        if row.get("transition") != "S1_warmup":
-            continue
-        did = row.get("did")
-        if not isinstance(did, str) or "day→" not in did:
-            continue
-        d = row.get("date")
-        if isinstance(d, str) and d:
-            dates.add(d)
-    return dates
-
-
-def _video_row_exists_event_dates():
-    """video's cadence source is normally the strict real-POST ledger (_row_exists_event_dates,
-    REQ-LV-013) — correct once the account is actually posting. While state.status == 'warming'
-    (still bootstrapping), a day where warmup GENUINELY ADVANCED
-    (_video_warmup_advanced_event_dates — the exit-criteria fix, NOT mere attempt) satisfies the day
-    instead; the moment warmup completes and status flips away from 'warming', this reverts to the
-    strict post-based check unconditionally, so a stalled or lazy POST-posting account is still
-    caught. See the GUARDED INVARIANT comment above _video_warmup_attempted_event_dates: this must
-    stay 'advanced', never regress to 'attempted'."""
-    post_dates = _row_exists_event_dates("video")
-    state = _read_json(_video_state_path())
-    if state.get("status") == "warming":
-        return post_dates | _video_warmup_advanced_event_dates()
-    return post_dates
 
 
 def _bounty_funnel_path():
@@ -396,18 +285,6 @@ def gather_evidence(loop: str, today_jst_date: str, now_epoch_seconds: float) ->
     if loop in ("clip", "affiliate"):
         return {"event_dates": sorted(_row_exists_event_dates(loop))}
 
-    if loop == "video":
-        # event_dates drives cadence_met (exit-criteria: advanced-only, see GUARDED INVARIANT
-        # above _video_warmup_attempted_event_dates). attempted_dates/advanced_dates are NOT
-        # consumed by cadence.py's pure row-exists dispatch — they ride along purely so a human or
-        # adversary reading this JSON directly sees "attempted but did not advance" instead of the
-        # old invisible-diagnosis failure mode (self-heal.md root cause #2).
-        return {
-            "event_dates": sorted(_video_row_exists_event_dates()),
-            "warmup_attempted_dates": sorted(_video_warmup_attempted_event_dates()),
-            "warmup_advanced_dates": sorted(_video_warmup_advanced_event_dates()),
-        }
-
     if loop == "gig":
         return {"event_dates": sorted(_gig_row_exists_event_dates())}
 
@@ -442,13 +319,6 @@ def evidence_by_date_for_streak(loop: str, today_jst_date: str, window_days: int
     out = {}
     if loop in ("clip", "affiliate"):
         dates = _row_exists_event_dates(loop)
-        for i in range(window_days):
-            d = (today - datetime.timedelta(days=i)).isoformat()
-            out[d] = {"event_dates": [d] if d in dates else []}
-        return out
-
-    if loop == "video":
-        dates = _video_row_exists_event_dates()
         for i in range(window_days):
             d = (today - datetime.timedelta(days=i)).isoformat()
             out[d] = {"event_dates": [d] if d in dates else []}

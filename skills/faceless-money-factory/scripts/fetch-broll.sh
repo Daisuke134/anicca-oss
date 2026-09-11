@@ -5,8 +5,8 @@
 # clips are also cached into the library so it grows over time (more visual variety each day).
 set -uo pipefail
 QUERY="${1:-money}"; OUT="${2:?out_dir required}"; N="${3:-8}"
-SK="$HOME/.claude/skills/faceless-money-factory"
-LIB="$SK/assets/broll-library"
+SK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+LIB="${FACELESS_VIDEO_BROLL_ROOT:-$HOME/.local/state/life-manager/faceless-money-factory/broll-library}"
 mkdir -p "$OUT" "$LIB"
 
 # 1) try Mixkit fresh fetch (query + finance fallback categories), 1080p, with hard timeouts

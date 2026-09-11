@@ -49,7 +49,7 @@ import { getToolDefinitions } from "../prompt.mjs";
 
 const ALL_SLOTS = [
   "report", "cook", "self/spawn", "self/spawn-child", "self/issue-dev", "self/coordinate",
-  "economy/gig", "economy/ubi", "x402_sell", "earn/clip", "earn/clip-producer", "earn/video",
+  "economy/gig", "economy/ubi", "x402_sell", "earn/clip", "earn/clip-producer",
   "yield", "hl_trade", "token_launch", "earn/sol-trade", "earn/polymarket-trade",
 ];
 const CAPITAL_SLOTS = new Set(["yield", "hl_trade", "token_launch", "earn/sol-trade", "earn/polymarket-trade"]);

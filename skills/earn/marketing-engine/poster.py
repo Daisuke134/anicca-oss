@@ -442,7 +442,7 @@ def verify_only_main(
 ):
     # SHARED-1 (INV-3): read-only replacement for post_reel.py's browser-DOM --verify-only mode —
     # returns the account's current reel/post hrefs via the instagrapi private API (no browser DOM
-    # read needed). Used by self_heal.py and earn/video/run.sh to reconcile a possibly-landed post
+    # read needed). Used by self_heal.py to reconcile a possibly-landed post
     # without risking a double-post. NEVER posts; the shape ({"ok", "reels"}) matches what those two
     # callers already parse from the old post_reel.py verify-only JSON.
     res = {"handle": handle, "verify_only": True, "ok": False, "reels": []}

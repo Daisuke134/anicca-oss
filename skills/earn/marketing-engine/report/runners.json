@@ -26,11 +26,6 @@
       "product_ids": [],
       "quarantine_reason": "publisher_quarantined_until_gate_12"
     },
-    "video": {
-      "command": ["/bin/bash", "{repo}/skills/earn/video/run.sh"],
-      "product_ids": ["ebook-en"],
-      "quarantine_reason": "publisher_quarantined_until_gate_12"
-    },
     "self-improve": {
       "command": ["/bin/bash", "{repo}/skills/earn/self-improve/run_evolve.sh"],
       "product_ids": [],

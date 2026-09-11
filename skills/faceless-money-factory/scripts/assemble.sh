@@ -7,7 +7,9 @@
 set -euo pipefail
 VOICE="${1:?voice.mp3 required}"; BROLL="${2:?broll_dir required}"; OUT="${3:?out.mp4 required}"; LANG_CODE="${4:-en}"
 export PATH="$HOME/.local/bin:$PATH"
-SK="$HOME/.claude/skills/faceless-money-factory"
+SK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+PYTHON_BIN="${LIFE_MANAGER_PYTHON:-$(command -v python3 2>/dev/null)}"
+[ -n "$PYTHON_BIN" ] || { echo "python3 is required" >&2; exit 2; }
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
 # 1) voice beats (whisper segments)
@@ -16,7 +18,7 @@ JSON="$WORK/$(basename "${VOICE%.*}").json"
 [ -s "$JSON" ] || { echo "WHISPER_FAILED" >&2; exit 3; }
 
 # 2) one vertical b-roll segment per beat, clip cycled, looped to exact beat length
-python3 - "$JSON" "$BROLL" "$WORK" <<'PY'
+"$PYTHON_BIN" - "$JSON" "$BROLL" "$WORK" <<'PY'
 import json, sys, os, subprocess, glob
 segs = json.load(open(sys.argv[1]))["segments"]
 broll = sorted(glob.glob(os.path.join(sys.argv[2], "*.mp4")))

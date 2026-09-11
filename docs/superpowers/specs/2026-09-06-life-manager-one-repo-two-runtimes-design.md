@@ -500,11 +500,17 @@ This checklist does not reorder the established implementation sequence below. T
         was already repository-owned; its wrapper now resolves portable Python, declares its two Python dependencies
         in `skills/earn/clip/requirements.txt` and returns truthful `setup_required` rather than cloning another
         repository into `~/.cache`. Clip shell tests pass, its Python suite passes 67/67 and the OSS verifier passes.
-      - [ ] Delete quarantined Clip/Video external-source implementations if they have no supported return path, or
-        move the required implementation into this repository before re-enabling them. The Clip producer dependency
-        is now repository-owned; retirement of the obsolete scheduled Clip owner and the separate legacy Video
-        earning slot remains before this combined atom can close. The current 18 Mobile App jobs are not this legacy
-        Video slot and remain intact.
+      - [x] Delete quarantined Clip/Video external-source implementations if they have no supported return path, or
+        move the required implementation into this repository before re-enabling them. The useful Clip media
+        pipeline remains and is repository-owned; its obsolete quarantined daily scheduled owner is moved from the
+        managed registry to `retired_labels`. The separate dormant `money_blueprintdaily` Video earning slot, its
+        quarantined Marketing runner and its dead health/cadence ownership are deleted because they depended on
+        missing `~/.claude/skills` implementations and are not one of the formal fourteen Product Loops. The reusable
+        faceless renderer remains, now resolves its own repository code and Life Manager state/env with zero
+        OpenClaw/Hermes/external-skill path. The current 18 Mobile App jobs are not this retired legacy Video slot and
+        remain intact. Marketing report tests pass 74/74, macOS registry tests pass 67/67, affected Agent Economy and
+        cadence/health suites pass, and the OSS verifier passes. Installed `ai.anicca.clip-loop` retirement is applied
+        only from the eventual reviewed main-derived release, not from this source worktree.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
       and report legacy roots; this cleanup branch does not edit their running business logic.
   - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and

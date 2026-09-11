@@ -105,22 +105,6 @@
         "launchdLabel": "ai.anicca.clip-core-healthcheck",
         "maxAgeSeconds": 5400
       }
-    },
-    {
-      "id": "earn/video",
-      "instrumented": true,
-      "traceFile": null,
-      "minRun": 20,
-      "selfFixTarget": "video",
-      "escalateEveryHrs": 24,
-      "probe": {
-        "kind": "heartbeat",
-        "heartbeatPath": ".openclaw/state/.video-core-last-pass",
-        "sessionSocket": "/tmp/anicca-video-tmux.sock",
-        "sessionName": "anicca-video-core",
-        "launchdLabel": "ai.anicca.video-core-healthcheck",
-        "maxAgeSeconds": 21600
-      }
     }
   ],
   "portfolios": [
@@ -140,8 +124,7 @@
       "id": "WORK",
       "memberIds": [
         "economy/gig",
-        "earn/clip",
-        "earn/video"
+        "earn/clip"
       ]
     },
     {

@@ -31,7 +31,7 @@ by design」、`ANICCA_BRAIN=claude-p`での切替オプションあり)なの�
 cloneして起動しても同じloopが使える想定。ただし完全な汎用ハーネス化は `docs/EXECUTION-ORDER.md` 上
 `LATER`(未着手)扱い。
 
-## 1. TIER 1: claude-p (human-funded) — 5つの常駐loop
+## 1. TIER 1: claude-p (human-funded) — 現行の常駐loop
 
 全て同一パターン: `tmux -S /tmp/anicca-<name>-tmux.sock new-session -d -s anicca-<name>-core` で
 `claude -p` を常駐起動 → 起動直後に1パス実行 → その後 `CronCreate`(下記2.1参照)で自己登録した
@@ -41,7 +41,6 @@ cronが後続passを駆動 → tmuxセッションは stay idle。
 |---|---|---|---|---|---|---|---|
 | **clip** | `anicca-clip-core` | `skills/earn/clip/clip-cli.sh` | `clip-healthcheck.sh` | なし(`~/.claude/skills/earn-clip-rewards/scripts/pipeline.py`を利用、`ai.anicca.clip-producer.plist`AM3:17で別途daily) | `clip/run.sh` | 毎時7分 | USDC(IG per-view報酬、founder wallet) |
 | **affiliate** | `anicca-affiliate-core` | `affiliate/affiliate-cli.sh` | `affiliate-healthcheck.sh` | `affiliate/producer.sh` | `affiliate/run.sh` | 毎日08:41 JST | ¥(Amazon Associates JP `aniccaai-22`) |
-| **video** | `anicca-video-core` | `video/video-cli.sh` | `video-healthcheck.sh` | なし | `video/run.sh` | 4時間毎(23分) | USDC(`money_blueprintdaily`専用アカウント) |
 | **bounty** | `anicca-bounty-core` | `bounty/bounty-cli.sh` | `bounty-healthcheck.sh` | なし | `bounty/run.sh` | 毎日09:29 JST | USD(Algora GitHub bounty、マージ+実支払のみ計上) |
 | **gig** | 4 direct launchd owners | なし | shared registry `launchd-ledger` probe | 各owner自身 | `gig/run.sh`(read-only集約) | owner別60–300秒 | ¥(ココナラ→Daisの三菱UFJ銀行、human-funded) |
 
@@ -75,7 +74,7 @@ USDC残高取得 → tier決定(brain modelの格)
 | self/issue-dev | `skills/self/issue-dev/` | ★self-heal本体、下記3節参照★ |
 | cook | `skills/cook/` | 新しいearn手法をweb探索 |
 | yield / hl_trade / x402_sell / token_launch | `skills/earn/`(共通run.sh、strategy引数で分岐) | 各種money戦略 |
-| earn/gig, earn/clip, earn/video, earn/bounty | `skills/earn/<name>/` | claude-p側と**同じコード**、`ANICCA_INSTANCE=clawrouter`で分離 |
+| earn/gig, earn/clip, earn/bounty | `skills/earn/<name>/` | Life Manager repo内の同じコードをinstance stateだけ分離して実行 |
 | earn/pm-trade, earn/defi-yield | (2026-07-04時点でregistryから削除済み、"wiring"段階に後退) | 独自strategy実装が本日削除され開発中に戻った |
 
 ## 3. self-heal / self-improve の仕組み(Sutando由来)

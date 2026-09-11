@@ -14,13 +14,6 @@
     "boundary_tz": "Asia/Tokyo",
     "source": "~/.cloak/affiliate-metrics.jsonl (REQ-LV-014)"
   },
-  "video": {
-    "kind": "row-exists",
-    "cadence": "1/day",
-    "unit": "reel",
-    "boundary_tz": "Asia/Tokyo",
-    "source": "~/.cloak/earn-video-metrics-<handle>.jsonl"
-  },
   "gig": {
     "kind": "row-exists",
     "cadence": "1/day",

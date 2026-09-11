@@ -237,17 +237,6 @@
       "risk": "safe",
       "riskNote": "anicca-agent-economy REQ-201: deterministic local media pipeline (download/whisper/crop/caption); deploys no funds."
     },
-    "earn/video": {
-      "track": "A",
-      "dir": "skills/earn/video",
-      "entrypoint": "run.sh",
-      "status": "dormant",
-      "owner": "video",
-      "spec": "2026-06-29-earn-video-slot-vcsdd-spec (ROUND-8 OVERALL PASS)",
-      "summary": "LOCAL: faceless-video earn slot. ONE bounded transition/wake (create->warmup->affiliate@day7->post->record). Warmup = dedicated anti-throttle CloakBrowser (real distinct reels). Post = live+verified (published+post_url). record_earn = fail-closed on-chain only. No human, no fake-success. Launcher: video-cli.sh (--model sonnet, tmux sock /tmp/anicca-video-tmux.sock, cron 23 */4 * * *).",
-      "risk": "safe",
-      "riskNote": "anicca-agent-economy REQ-201: faceless-video creation/posting pipeline; deploys no funds."
-    },
     "earn/audit": {
       "track": "A",
       "dir": "skills/earn/audit",

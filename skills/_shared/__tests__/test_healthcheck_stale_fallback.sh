@@ -25,7 +25,6 @@ PASS=0; FAIL=0
 TARGETS=(
   "clip:$ANICCA_HOME/skills/earn/clip/clip-healthcheck.sh:/tmp/anicca-clip-tmux.sock:anicca-clip-core:\$HOME/.local/state/life-manager/state/.clip-core-last-pass:\$HOME/.local/state/life-manager/state/.clip-core-last-start:\$HOME/.local/state/life-manager/logs/clip-core-healthcheck.log:\$HOME/.local/state/life-manager/state/.clip-core-restart-log:/tmp/.clip-healthcheck.lock:bash \"\$LIFE_MANAGER_REPO/skills/earn/clip/clip-cli.sh\" --restart"
   "clip-promote:$ANICCA_HOME/skills/earn/clip-promote/clip-promote-healthcheck.sh:/tmp/anicca-clip-promote-tmux.sock:anicca-clip-promote-core:\$HOME/.local/state/life-manager/state/.clip-promote-core-last-pass:\$HOME/.local/state/life-manager/state/.clip-promote-core-last-start:\$HOME/.local/state/life-manager/logs/clip-promote-core-healthcheck.log:\$HOME/.local/state/life-manager/state/.clip-promote-core-restart-log:/tmp/.clip-promote-healthcheck.lock:bash \"\$LIFE_MANAGER_REPO/skills/earn/clip-promote/clip-promote-cli.sh\" --restart"
-  "video:$ANICCA_HOME/skills/earn/video/video-healthcheck.sh:/tmp/anicca-video-tmux.sock:anicca-video-core:\$HOME/.local/state/life-manager/state/.video-core-last-pass:\$HOME/.local/state/life-manager/state/.video-core-last-start:\$HOME/.local/state/life-manager/logs/video-core-healthcheck.log:\$HOME/.local/state/life-manager/state/.video-core-restart-log:/tmp/.video-healthcheck.lock:bash \"\$LIFE_MANAGER_REPO/skills/earn/video/video-cli.sh\" --restart"
 )
 
 check() { # $1=desc $2=cond(0/1) $3=name

@@ -22,7 +22,7 @@ NODE=/opt/homebrew/bin/node
 [ -x "$NODE" ] || NODE=node
 [ -x "$PY" ] || PY=python3
 # SHARED-1 (INV-5): posting reads go through poster.py (earn/marketing-engine), the free
-# instagrapi-based poster -- shares the same self-healed venv as earn/clip and earn/video.
+# instagrapi-based poster -- shares the same self-healed venv as earn/clip.
 INSTA_VENV="$HOME/.cache/instagrapi-venv"
 INSTA_PY="$INSTA_VENV/bin/python"
 INSTA_POSTER="$LIFE_MANAGER_REPO/skills/earn/marketing-engine/poster.py"

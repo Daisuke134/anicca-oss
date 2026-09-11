@@ -3,7 +3,7 @@
 web composer was a structural dead end -- IG silently dropped its automated posts).
 
 Verifies poster.py's single-JSON-print contract: every caller (earn/clip's run.sh,
-self_heal.py, earn/video's run.sh, earn/clip-promote's run.sh) parses stdout expecting EXACTLY
+self_heal.py and earn/clip-promote's run.sh parse stdout expecting EXACTLY
 ONE JSON line per invocation. main()'s early-return sites (login-fail, dry-mode-success,
 verify-only) and verify_only_main() are exercised here with instagrapi mocked out (no real
 network/browser), mirroring the mocking style the retired post_reel.py test used.

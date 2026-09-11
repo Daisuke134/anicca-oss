@@ -683,26 +683,6 @@
       "provider_route": "shared-agent-runner",
       "state_root": "~/.local/state/life-manager/claude-projects-backup"
     },
-    "clip-loop": {
-      "adapter": "python",
-      "cadence": {
-        "start_interval_seconds": 86400
-      },
-      "cleanup": {
-        "max_age_days": 14,
-        "max_runs": 100
-      },
-      "command": [
-        "clip"
-      ],
-      "domain": "growth",
-      "effect_class": "publish",
-      "entrypoint": "skills/earn/marketing-engine/report/scheduled_runner.py",
-      "label": "ai.anicca.clip-loop",
-      "log_root": "~/.local/state/life-manager/clip-loop/logs",
-      "provider_route": "shared-agent-runner",
-      "state_root": "~/.local/state/life-manager/clip-loop"
-    },
     "daily-nl-report": {
       "cadence": {
         "calendar_interval": {
@@ -3130,6 +3110,7 @@
     "ai.anicca.cfo-daily",
     "ai.anicca.citizens-diff-monitor",
     "ai.anicca.clawrouter",
+    "ai.anicca.clip-loop",
     "ai.anicca.dd-keepalive-healthcheck",
     "ai.anicca.fleet-daily",
     "ai.anicca.freelancer-bid-watch",

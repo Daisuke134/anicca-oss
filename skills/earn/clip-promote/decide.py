@@ -1,6 +1,6 @@
 """decide.py — PURE state-machine decision for the earn/clip-promote slot (promote.fun USDC-Solana
 per-view clipping). No I/O, no browser: given the pipeline state + now (epoch seconds), return the ONE
-transition this wake should run. Testable in isolation (tests/test_decide.py). Mirrors earn/video/decide.py.
+transition this wake should run. Testable in isolation (tests/test_decide.py).
 
 The clip-promote lifecycle (one campaign-clip item at a time, then free the slot for the next):
   SELECT    no active item            → pick an ACTIVE, IG-eligible, not-already-clipped campaign

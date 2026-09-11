@@ -12,12 +12,14 @@ SCRIPT_FILE="${1:?script_file required — the agent writes the fresh script fir
 LANG_CODE="${2:-en}"
 DRAFT_ONLY="${DRAFT_ONLY:-1}"
 export PATH="$HOME/.local/bin:$PATH"
-_AH="${ANICCA_HOME:-}"; set -a; [ -f "$HOME/.hermes/.env" ] && . "$HOME/.hermes/.env"; [ -f "$HOME/.local/state/life-manager/.env" ] && . "$HOME/.local/state/life-manager/.env"; [ -n "$_AH" ] && ANICCA_HOME="$_AH"; unset _AH; set +a   # for edge-tts proxy / gog keyring only
+SK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+LIFE_MANAGER_REPO="${LIFE_MANAGER_REPO:-$(cd "$SK/../.." && pwd -P)}"
+. "$LIFE_MANAGER_REPO/skills/_shared/lib/load-instance-env.sh"
 : "${GOG_KEYRING_PASSWORD:?GOG_KEYRING_PASSWORD is required}"
 export GOG_KEYRING_PASSWORD
-SK="$HOME/.claude/skills/faceless-money-factory"; S="$SK/scripts"
-[ -d "$S" ] || SK="$(cd "$(dirname "$0")/.." && pwd)"; S="$SK/scripts"
-OUT="$SK/state/renders"; mkdir -p "$OUT"
+S="$SK/scripts"
+OUT="${FACELESS_VIDEO_OUTPUT_ROOT:-$HOME/.local/state/life-manager/faceless-money-factory/renders}"
+mkdir -p "$OUT"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 
 [ -s "$SCRIPT_FILE" ] || { echo "EMPTY_SCRIPT ($SCRIPT_FILE)" >&2; exit 2; }
