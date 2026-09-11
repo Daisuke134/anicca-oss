@@ -117,7 +117,7 @@ if [ ! -f "$ANICCA_HOME/.env" ]; then
     : > "$ANICCA_HOME/.env"
   fi
   chmod 600 "$ANICCA_HOME/.env"
-  yellow "  ✎ created $ANICCA_HOME/.env — fill in 1 fuel key + wallet before first wake."
+  yellow "  ✎ created $ANICCA_HOME/.env — add only the provider credentials for loops you choose."
 else
   green "  ✓ $ANICCA_HOME/.env  (preserved)"
 fi
@@ -129,11 +129,10 @@ if [ ! -f "$ANICCA_HOME/identity/genesis.md" ]; then
     cp "$REPO_ROOT/identity/genesis.md" "$ANICCA_HOME/identity/genesis.md"
   else
     cat > "$ANICCA_HOME/identity/genesis.md" <<'GENESIS'
-You are Life Manager — a self-funding agent. Every wake costs USDC; idle time is death. Your one job
-every waking moment is to EARN — grow your USDC net worth with no human in the loop. You always
-have a job: deploy idle USDC into the best safe stable yield (Aave / Beefy / Morpho). Do not rest
-long until your net worth rises. Use a frontier model (a free model cannot earn). call run_skill
-slot "earn" each wake; keep an honest ledger.
+You are Life Manager's Agent Economy citizen. Use only your own isolated wallet, start on free
+compute, keep an honest receipt ledger, and never count attempted or pending revenue as earned.
+Paid compute is allowed only after verified external revenue covers the configured reserve and cap.
+Call run_skill slot "earn" on each wake and fail closed when identity, authority or funds are absent.
 GENESIS
   fi
   green "  ✓ $ANICCA_HOME/identity/genesis.md  (hustle genesis)"
@@ -220,26 +219,29 @@ echo
 # ─── 6. summary ────────────────────────────────────────────────────────
 cyan "[6/6] done."
 echo
-green "Installed:"
+green "Installed and verified:"
 cat <<EOM
-  DEFAULT = FULLY LOCAL + FREE. No server key, no API key required. Life Manager pays
-  its OWN compute via ClawRouter/BlockRun (USDC x402) from its OWN wallet — like
-  Franklin. You provide only this device (shelter); Life Manager buys its own food.
+  This default self-host install prepares one isolated Agent Economy citizen and starts
+  only Agent Economy when daemon installation is enabled. It does not silently start all
+  14 product loops. Re-running ./install.sh preserves the citizen, wallet and private state.
 
-  Agent Economy starts automatically when daemon installation is enabled. It uses the
-  isolated citizen and wallet created above. Re-running ./install.sh preserves both.
+  Agent Economy starts on repository-owned free compute. Paid compute remains disabled
+  until verified external revenue belongs to this citizen and passes reserve/session caps.
+  Sending owner funds is neither required nor treated as earned revenue.
 
-  1. (OPTIONAL) Unlock frontier models / more earning: send USDC to the wallet
-     address printed at startup — the loop then lets ClawRouter pick a paid model.
-     Or set ANICCA_BRAIN=claude-p to drive the loop with Claude Code instead.
-  2. (OPTIONAL) Life Manager keys: GEMINI_API_KEY, TWILIO_*, GOOGLE_API_KEY,
-     AGENTMAIL_API_KEY — only for phone wake-calls / lateness alerts.
+  Other product loops need their own provider account, credentials, KYC or browser login.
+  Supported guided installers today:
+    ./install.sh coconala
+    ./install.sh connector
+    ./install.sh fundraiser
+    ./install.sh job-hunter
 
-  # FUTURE (cloud, not active): once Conway is available, the same body can run
-  # on a droplet where Life Manager ALSO pays its own server cost — see README "Cloud".
+  Inspect every registered runtime job without starting it:
+    ./bin/lm-loop status all
+    ./bin/lm-loop doctor
 
-  Slots are declared in skills/registry.json. To enable a reserved slot, drop its
-  implementation into its dir and flip status to "live" — no install.sh edit.
+  The hosted Cloud product is already active. Local and Cloud use this same repository,
+  but only loops with a proven host adapter and configured tenant are started on that host.
 
   Repo: https://github.com/Daisuke134/life-manager
 EOM
