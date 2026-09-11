@@ -313,6 +313,40 @@ class OwnerReportRendererTest(unittest.TestCase):
         scoped = owner_report._scoped(rows, "anicca-ios")
         self.assertEqual([row["value"] for _, row in scoped], ["old", "new"])
 
+    def test_legacy_daily_delivery_replays_without_sending_again(self):
+        current = self.event("product_daily", "anicca-ios")
+        legacy = {
+            **current,
+            "product_id": "aniccaios",
+            "message_key": current["message_key"].replace("anicca-ios", "aniccaios"),
+        }
+        (self.root / "owner-reports.jsonl").write_text(json.dumps(legacy) + "\n")
+        delivery = {
+            "schema_version": owner_report.DELIVERY_SCHEMA_VERSION,
+            "message_key": legacy["message_key"],
+            "status": "delivered",
+            "message_ids": [77],
+            "receipt": {"status": "delivered", "message_ids": [77]},
+        }
+        (self.root / "owner-report-deliveries.jsonl").write_text(
+            json.dumps(delivery) + "\n"
+        )
+
+        replay = self.event("product_daily", "anicca-ios")
+        self.assertEqual(replay["message_key"], legacy["message_key"])
+        self.assertEqual(replay["product_id"], "anicca-ios")
+        sent = []
+        receipt = owner_report.deliver(
+            replay,
+            owner_report.OwnerReportStore(
+                self.root / "owner-reports.jsonl",
+                self.root / "owner-report-deliveries.jsonl",
+            ),
+            lambda _text: sent.append(True) or {"status": "delivered", "message_ids": [88]},
+        )
+        self.assertEqual(sent, [])
+        self.assertEqual(receipt["message_ids"], [77])
+
     def test_action_names_product_and_contains_exact_native_url(self):
         event = self.event("action", "anicca-ios")
         text = owner_report.render_japanese(event)

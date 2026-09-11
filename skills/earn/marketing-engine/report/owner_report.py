@@ -264,11 +264,13 @@ def _existing_owner_report(
     for row in load_jsonl(pathlib.Path(root) / "owner-reports.jsonl"):
         if (
             row.get("kind") == kind
-            and row.get("product_id") == product_id
+            and canonical_product_id(row.get("product_id")) == product_id
             and row.get("message_key") == message_key
         ):
             try:
-                return _validate_event(row)
+                normalized = copy.deepcopy(row)
+                normalized["product_id"] = canonical_product_id(row.get("product_id"))
+                return _validate_event(normalized)
             except OwnerReportError:
                 continue
     return None
@@ -287,12 +289,14 @@ def _existing_owner_report_for_evidence(
         refs = row.get("evidence_refs")
         if (
             row.get("kind") == kind
-            and row.get("product_id") == product_id
+            and canonical_product_id(row.get("product_id")) == product_id
             and isinstance(refs, list)
             and evidence_ref in refs
         ):
             try:
-                return _validate_event(row)
+                normalized = copy.deepcopy(row)
+                normalized["product_id"] = canonical_product_id(row.get("product_id"))
+                return _validate_event(normalized)
             except OwnerReportError:
                 continue
     return None
@@ -693,6 +697,12 @@ def _daily_events(root: pathlib.Path, product_id: str, as_of: dt.datetime) -> li
     rows = _scoped(_indexed_rows(root, "business-outcomes.jsonl"), product_id)
     latest = _latest(rows, as_of, "business_date", "observed_at")
     if latest is None:
+        evidence_ref = "state/business-outcomes.jsonl#no_business_snapshot"
+        existing = _existing_owner_report_for_evidence(
+            root, kind="product_daily", product_id=product_id, evidence_ref=evidence_ref
+        )
+        if existing is not None:
+            return [existing]
         return [_event(
             kind="product_daily",
             product_id=product_id,
@@ -714,17 +724,23 @@ def _daily_events(root: pathlib.Path, product_id: str, as_of: dt.datetime) -> li
                 "money_reason": "no_business_snapshot",
                 "sources": {},
             },
-            evidence_refs=["state/business-outcomes.jsonl#no_business_snapshot"],
+            evidence_refs=[evidence_ref],
         )]
     index, row = latest
     facts = _business_facts(row)
+    evidence_ref = _ref("business-outcomes.jsonl", index)
+    existing = _existing_owner_report_for_evidence(
+        root, kind="product_daily", product_id=product_id, evidence_ref=evidence_ref
+    )
+    if existing is not None:
+        return [existing]
     return [_event(
         kind="product_daily",
         product_id=product_id,
         as_of=as_of,
         message_key=f"product_daily:{product_id}:{facts.get('business_date') or facts.get('snapshot_id')}",
         facts=facts,
-        evidence_refs=[_ref("business-outcomes.jsonl", index)],
+        evidence_refs=[evidence_ref],
     )]
 
 
@@ -1233,9 +1249,15 @@ class OwnerReportStore:
             for existing in self._reports():
                 if existing.get("message_key") != checked["message_key"]:
                     continue
-                if _canonical(_semantic_event(existing)) != _canonical(_semantic_event(checked)):
+                normalized = copy.deepcopy(existing)
+                normalized["product_id"] = canonical_product_id(existing.get("product_id"))
+                try:
+                    normalized = _validate_event(normalized)
+                except OwnerReportError:
                     raise ConflictError(f"conflicting replay for {checked['message_key']}")
-                return copy.deepcopy(existing)
+                if _canonical(_semantic_event(normalized)) != _canonical(_semantic_event(checked)):
+                    raise ConflictError(f"conflicting replay for {checked['message_key']}")
+                return normalized
             self.report_path.parent.mkdir(parents=True, exist_ok=True)
             with self.report_path.open("a", encoding="utf-8") as handle:
                 handle.write(_canonical(checked) + "\n")
