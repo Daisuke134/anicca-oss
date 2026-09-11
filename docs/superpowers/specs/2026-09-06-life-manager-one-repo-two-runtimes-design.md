@@ -1026,7 +1026,7 @@ future product run exercises them without changing this architecture acceptance 
   - [ ] Gig Work owner merges the exact architecture head with latest `main` and the separately owned provider result,
     runs both acceptance sets, pushes the integrated head, and records that head here. No matching Gig owner is
     registered in the current `lm` agmsg team, so delivery is via the checked-in prompt rather than an assumed agent.
-- [ ] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one canonical Cloud QR/bot
+- [x] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one canonical Cloud QR/bot
   contract, explicit Local-install/Cloud-`/start` entrypoints, representative registry/config resolution for every
   shared domain on both supported hosts, identical
   logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
@@ -1058,8 +1058,10 @@ future product run exercises them without changing this architecture acceptance 
     the durable receipt without a second create or download; its focused renderer/runner tests pass 9/9. The catalog
     and this spec consistently call the Local prerequisite private Telegram credentials, not pairing. No daemon,
     Telegram message, HeyGen render or Gig workload was started by these tests.
-  - [ ] Merge latest `main`, repeat the affected acceptance gates on the resulting head, obtain a fresh read-only
-    Astra `SHIP`, and record the reviewed pushed head before closing `ARCH-13h`.
+  - [x] Latest `origin/main` is already an ancestor (behind 0). Pushed head
+    `ba1d027b8870bf304aa215ae61d0693196bec952` passes the affected credential/catalog tests 10/10, HeyGen
+    renderer/runner tests 9/9, OSS dependency fence, Bash/Python syntax and diff check. A fresh read-only Astra review
+    finds no P0/P1/P2 issue and returns `SHIP` for that exact head.
 
 ## 7. Acceptance
 
