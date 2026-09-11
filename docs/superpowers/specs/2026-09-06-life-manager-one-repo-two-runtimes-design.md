@@ -511,8 +511,10 @@ This checklist does not reorder the established implementation sequence below. T
         remain intact. Marketing report tests pass 74/74, macOS registry tests pass 67/67, affected Agent Economy and
         cadence/health suites pass, and the OSS verifier passes. Installed `ai.anicca.clip-loop` retirement is applied
         only from the eventual reviewed main-derived release, not from this source worktree.
-    - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
-      and report legacy roots; this cleanup branch does not edit their running business logic.
+    - [x] Integrate the separately owned Gig work after its owner removes the protected Coconala/Lancers browser
+      and report legacy roots. The cleanup branch merged current `origin/main` after the owner's Lancers terminal
+      reconciliation and Mercor ranking changes landed; the merge changed no Coconala/Lancers runtime file in this
+      branch and this cleanup did not operate their running jobs.
   - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
     start/status controls without claiming that all 14 loops can run before their provider credentials/KYC exist.
     README and README.ja now map every product loop to its user setup and current start path, explicitly distinguish
