@@ -58,8 +58,8 @@ Life Managerはwebsite固有botの集合ではありません。1つのdurable g
 Commerce state、capability、money-effect contractを複製せず、差分は小さいprovider manifestとofficial readback adapterだけにします。
 
 architectureは、specialist harnessとdurable stateに[DeepAgentsJS/LangGraph](https://github.com/langchain-ai/deepagentsjs)、website tool
-contractに[browser-use](https://github.com/browser-use/browser-use)、現在のlocal wake/channelに
-[OpenClaw](https://github.com/openclaw/openclaw)、hosted browser backendには
+contractに[browser-use](https://github.com/browser-use/browser-use)、local wake/channelにはこのrepositoryの
+`runtime/loop`と共通Telegram transport、hosted browser backendには
 [Steel](https://github.com/steel-dev/steel-browser)の実証済み境界をcopy+tweakして収束させます。取り消せないmoney actionは既存Life Managerの
 `EffectIntent`と`ConnectorOutbox`だけを通します。完了条件は応募、click、modelの自己申告、契約、pending balance
 ではなく、公式`banked` receiptです。
@@ -84,6 +84,21 @@ founder証言ではLife Managerはapproximately $1,000の収益を生み出し�
 [Telegram で始める](https://t.me/LifeManagerBotbot?start=lp)、または [Web アプリ](https://aniccaai.com/lm)を開きます。常時稼働のサービスが scheduler・connector・認証付き `/panel` を回し、あなたは Telegram で話しかけ、Telegram に証拠つきで返ってきます。
 
 ### ローカルloopを確認・運用する
+
+一度cloneし、独立したAgent Economy citizenを準備して、daemonを入れずにruntimeを確認できます。
+
+```bash
+git clone https://github.com/Daisuke134/life-manager.git
+cd life-manager
+LIFE_MANAGER_INSTALL_DAEMON=0 ./install.sh
+./bin/lm-loop status all
+./bin/lm-loop doctor
+```
+
+default installerが14本すべてを黙って開始することはありません。provider account、credential、KYC、
+browser loginが未設定のloopは`setup_required`のままです。guided installerが現在あるのは
+`./install.sh coconala`、`connector`、`fundraiser`、`job-hunter`で、その他のloopの現在の境界は上の
+14-loop catalogに記載します。
 
 現在のproduction Mac runtimeはDockerではなく、pushed `main`から作るimmutable releaseを
 `bin/lm-loop`とmacOS `launchd`で直接実行します。state、credential、log、browser profile、receiptは

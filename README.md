@@ -181,6 +181,21 @@ authenticated `/panel`; you talk to it in Telegram and it reports back there wit
 
 ### Run it yourself — local (your machine holds the data)
 
+Clone once, prepare one isolated Agent Economy citizen, and inspect the runtime without installing a daemon:
+
+```bash
+git clone https://github.com/Daisuke134/life-manager.git
+cd life-manager
+LIFE_MANAGER_INSTALL_DAEMON=0 ./install.sh
+./bin/lm-loop status all
+./bin/lm-loop doctor
+```
+
+The default installer does not silently start all 14 product loops. Each provider-backed loop remains
+`setup_required` until its account, credentials, KYC or browser login is configured. Guided installers currently
+exist for `./install.sh coconala`, `connector`, `fundraiser`, and `job-hunter`; the README catalog states the current
+boundary for the other product loops.
+
 To start the Job Hunter loop on an Apple Silicon Mac:
 
 ```bash
@@ -217,8 +232,8 @@ jq -r '.loops | keys[]' config/loop-registry.json
 
 Installing an effectful loop is an operator action performed from an immutable
 release after its credentials and host capabilities are configured; cloning the
-repository never starts every loop automatically. The repository does contain an
-retired the unused Docker Compose profile; neither the current Mac production loops
+repository never starts every loop automatically. The repository has retired the
+unused Docker Compose profile; neither the current Mac production loops
 nor the selling cloud product require Docker or Compose.
 
 ### Self-funding is part of the Financial Organ
