@@ -262,16 +262,12 @@ Normal use has no Agent Economy start command.
   reported as a scoped capability limitation; it never blocks unrelated no-human lanes or becomes a hidden shared
   credential.
 
-The target `./install.sh` auto-start and Cloud `/economy` behavior are not current claims. Today Local has a
-registry-managed `agent-economy-loop`, but its public one-command installation and realtime Telegram lifecycle
-are incomplete. The current documented manual path is `./install.sh` followed by
-`ANICCA_BRAIN=claude-p ./start-local.sh node runtime/loop/index.mjs`; the one-shot
-`skills/agent-economy/run.sh` only reconciles and prints status. Cloud has the shared capability worker, daily
-Financial Manager delivery, and the user-facing Investment `/invest` surface; it does not yet run the complete
-Agent Economy citizen daemon or understand `/economy`. Investment is the only dedicated loop surface currently
-proven against loop state in the Cloud product; `/gig` and `/crowd` surfaces also exist but their live-state readers
-are not connected. Investment's current Cloud execution is dry-run with zero broker calls, and it is not the Cloud
-worker's only background capability.
+This setup behavior is implemented. Local `./install.sh` idempotently creates the citizen and wallet and installs
+the Agent Economy owner when daemon installation is enabled. Cloud `/start` provisions the tenant-scoped citizen,
+encrypted signer reference and initial job; the shared capability worker completes bounded wakes and schedules the
+next wake, and `/economy` projects the current receipt-backed status and emergency pause. The production and focused
+acceptance evidence is recorded in `AE-UX-03` through `AE-UX-05` and `AE-UX-12g`. None of that evidence claims live
+profit or a self-funded compute purchase.
 
 #### Telegram reporting contract
 
