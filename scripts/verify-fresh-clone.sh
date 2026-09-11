@@ -34,13 +34,11 @@ export HOME="$VERIFY_ROOT/home"
 export npm_config_cache="$VERIFY_ROOT/npm-cache"
 mkdir -p "$HOME"
 
-run npm --prefix "$CLONE" ci --no-audit --no-fund
 run npm --prefix "$CLONE" run verify:oss
 run env \
   LIFE_MANAGER_HOME="$RUNTIME" \
   LIFE_MANAGER_INSTALL_DAEMON=0 \
   bash "$CLONE/install.sh"
-run npm --prefix "$CLONE/apps/life-manager" ci --no-audit --no-fund
 run npm --prefix "$CLONE/apps/life-manager" test
 run npm --prefix "$CLONE/apps/life-manager" run eval
 run npm --prefix "$CLONE/apps/life-manager" run eval:panel-privacy
