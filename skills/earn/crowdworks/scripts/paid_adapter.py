@@ -490,13 +490,26 @@ class CrowdWorksPaidAdapter:
     def _complete_once(self, item: Mapping[str, Any], payload: Mapping[str, Any]) -> None:
         self._goto_contract(_text(item.get("work_id")))
         selector = f'form[action="/milestones/{_text(payload.get("milestone_id"))}/complete"]'
-        forms = self.page.locator(selector)
-        visible = [forms.nth(index) for index in range(forms.count())
-                   if forms.nth(index).locator('textarea[name="message[body]"]').is_visible()]
+        def visible_forms():
+            forms = self.page.locator(selector)
+            return [forms.nth(index) for index in range(forms.count())
+                    if forms.nth(index).locator('textarea[name="message[body]"]').is_visible()]
+
+        visible = visible_forms()
+        if not visible:
+            tabs = self.page.get_by_text("やること", exact=True)
+            visible_tabs = [tabs.nth(index) for index in range(tabs.count()) if tabs.nth(index).is_visible()]
+            if len(visible_tabs) != 1:
+                raise RuntimeError("crowdworks_paid_todo_surface_unavailable")
+            visible_tabs[0].click()
+            self.page.locator(f'{selector} textarea[name="message[body]"]:visible').wait_for(
+                state="visible", timeout=15_000)
+            visible = visible_forms()
         if len(visible) != 1:
             raise RuntimeError("crowdworks_paid_milestone_unavailable")
         form = visible[0]
-        form.locator('textarea[name="message[body]"]').fill(self._compose_text(question="納品完了報告", source="Googleフォームの回答を完了しました。", item=item))
+        form.locator('textarea[name="message[body]"]').fill(
+            "Googleフォームへの回答を完了しました。ご確認のほどよろしくお願いいたします。")
         # The official form has duplicate milestone forms in the DOM.  Fence the
         # effect to the selected milestone's named submit control, rather than a
         # same-looking generic submit input.
