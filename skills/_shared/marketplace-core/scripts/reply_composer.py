@@ -34,6 +34,9 @@ def compose(context: Mapping[str, Any], *, state_root: Path, task_label: str) ->
 - action_contract.kindがrequired_form_fieldなら、これは返信要否の判断ではなく契約済み作業の必須入力である。
   next_actionはreplyにし、reply_bodyにはその設問への回答だけを書く。allowed_choicesがある場合は、
   根拠と案件文脈から最も適切な選択肢を選び、その文字列と完全一致する値だけを返す。
+  課題内の人物名、状況、表現など後から訂正可能な不足は、sourceと通常の業務慣行から合理的に
+  仮定して回答を完成させ、uncertaintyで停止しない。資格、本人確認、金額、法的表明など誤りを
+  後から戻せない本人事実だけは推測しない。
 CONTEXT:\n""" + json.dumps(dict(context), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     state_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".reply-compose-", dir=state_root) as temporary:

@@ -149,6 +149,14 @@ class CrowdWorksPaidAdapter:
     def runtime(self, value) -> None:
         self._local.runtime = value
 
+    @property
+    def owned_context(self):
+        return getattr(self._local, "owned_context", None)
+
+    @owned_context.setter
+    def owned_context(self, value) -> None:
+        self._local.owned_context = value
+
     def _open(self) -> None:
         if self.page is not None:
             return
@@ -177,6 +185,36 @@ class CrowdWorksPaidAdapter:
         if (parsed.scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment) != (
                 "https", "crowdworks.jp", f"/contracts/{work_id}", "", ""):
             raise RuntimeError("crowdworks_paid_contract_unavailable")
+
+    def _switch_to_narrow_contract(self, work_id: str) -> None:
+        """Clone auth into a short-lived mobile context without changing shared cookies."""
+        contexts = getattr(self.browser, "contexts", ())
+        if len(contexts) != 1:
+            raise RuntimeError("crowdworks_paid_browser_unavailable")
+        state = contexts[0].storage_state()
+        if not isinstance(state, Mapping) or not isinstance(state.get("cookies"), list):
+            raise RuntimeError("crowdworks_paid_browser_state_invalid")
+        copied = json.loads(json.dumps(state))
+        found_device = False
+        for cookie in copied["cookies"]:
+            if (isinstance(cookie, dict) and cookie.get("name") == "mobylette_device"
+                    and str(cookie.get("domain") or "").lstrip(".") == "crowdworks.jp"):
+                cookie["value"] = "sp"
+                found_device = True
+        self.owned_context = self.browser.new_context(
+            storage_state=copied, viewport={"width": 390, "height": 844}, is_mobile=True,
+            user_agent=("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
+                        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 "
+                        "Mobile/15E148 Safari/604.1"))
+        if not found_device:
+            self.owned_context.add_cookies([{"name": "mobylette_device", "value": "sp",
+                                             "domain": "crowdworks.jp", "path": "/",
+                                             "secure": True, "sameSite": "None"}])
+        if self.page is not None:
+            self.page.close()
+        self.page = self.owned_context.new_page()
+        self.page.set_default_timeout(15_000)
+        self._goto_contract(work_id)
 
     @staticmethod
     def _row_from_list(raw: Mapping[str, Any]) -> dict[str, str]:
@@ -511,12 +549,10 @@ class CrowdWorksPaidAdapter:
 
             visible_tabs = visible_todo_tabs()
             if not visible_tabs:
-                # CrowdWorks exposes the same official To-do surface only in its
-                # narrow layout for some contracts.  Re-rendering the current
-                # contract is pre-effect; exact control cardinality still fences
-                # the subsequent provider mutation.
-                self.page.set_viewport_size({"width": 390, "height": 844})
-                self._goto_contract(_text(item.get("work_id")))
+                # Server-rendered mobile navigation depends on both the device
+                # cookie and user agent.  Use an isolated cloned context so the
+                # shared authenticated browser remains unchanged.
+                self._switch_to_narrow_contract(_text(item.get("work_id")))
                 visible = visible_forms()
                 visible_tabs = visible_todo_tabs() if not visible else []
             if visible:
@@ -590,6 +626,10 @@ class CrowdWorksPaidAdapter:
             try: self.page.close()
             except Exception: pass
         self.page = self.browser = None
+        if self.owned_context is not None:
+            try: self.owned_context.close()
+            except Exception: pass
+        self.owned_context = None
         if self.runtime is not None:
             try: self.runtime.stop()
             except Exception: pass
