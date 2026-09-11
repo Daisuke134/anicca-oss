@@ -877,12 +877,40 @@ it:
     never be the default onboarding requirement. Every generated app is a separate product repository/workspace;
     Life Manager owns the reusable factory, adapters, receipts and orchestration rather than hard-coding Dais's
     `~/anicca-project` paths.
+    Two entry paths converge on one Product Registry and the same lifecycle:
+
+    ```mermaid
+    flowchart TD
+      S[Enable Mobile App Loop] --> E{Existing app?}
+      E -->|No, default| O[Research opportunity and create app repository/workspace]
+      E -->|Yes, optional| I[Import Git remote plus subdirectory and revision]
+      O --> R[Product Registry]
+      I --> R
+      R --> B[Build, test and sign]
+      B --> A[App Store Connect submission]
+      A --> M[Shared Postiz/native marketing]
+      M --> Q[Usage, review and revenue receipts]
+      Q --> T[Telegram and CFO]
+      Q --> P[Improve and resubmit]
+      P --> B
+    ```
+
+    The registry stores a portable source descriptor (`git_remote`, optional `subdirectory`, pinned revision), not
+    a Dais-machine path. On Local, Life Manager materializes each product under its managed product workspace; on
+    Cloud, the tenant worker materializes the same descriptor in tenant-scoped storage. Generated and imported apps
+    therefore use the same build, release, marketing, measurement, receipt and improvement contracts. Dais's current
+    reference products are `Daisuke134/anicca-products` subdirectory `aniccaios` and the independent
+    `Daisuke134/honne-ai` repository; their local checkout locations are discovery evidence, never public defaults.
   - [ ] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
     SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
     video or existing application. Before public release, generated product identity and marketing creative must be
     differentiated from the starter pack; user-provided assets remain an optional override. App source and generated
     assets live with that generated product, while credentials, signing material, receipts and mutable state remain
     in the user's private Life Manager stores.
+    Each managed product workspace owns its generated Xcode source, app assets and App Store metadata. The Life
+    Manager repository owns only the reusable factory/templates/adapters. Existing products may remain in their own
+    canonical Git repositories and register a source descriptor; they are not copied into the Life Manager source
+    tree merely for visual consolidation.
   - [ ] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
     `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
     `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and
