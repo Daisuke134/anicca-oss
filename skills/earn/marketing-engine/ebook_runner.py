@@ -6,6 +6,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -22,13 +23,33 @@ from skills._shared.telegram import TelegramClient  # noqa: E402
 from attribution import campaign_token  # noqa: E402
 
 
+WATERCOLOR_CLIP_NAMES = (
+    "jp_kling_clip_02.mp4", "jp_kling_clip_03.mp4", "jp_kling_clip_05.mp4",
+    "jp_kling_clip_07.mp4", "jp_kling_clip_08.mp4", "jp_kling_clip_10.mp4",
+)
+
+
+def default_asset_root() -> Path:
+    configured = os.environ.get("LM_EBOOK_ASSET_ROOT")
+    if configured:
+        return Path(configured).expanduser()
+    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    return data_home / "life-manager/ebook-assets"
+
+
+def watercolor_clip_paths(asset_root: Path) -> list[Path]:
+    clips = Path(asset_root) / "watercolor-monk/clips"
+    return [clips / name for name in WATERCOLOR_CLIP_NAMES]
+
+
 def require(value: bool, message: str) -> None:
     if not value:
         raise ValueError(message)
 
 
 def run(*, engine: Path, product: str, slot_at: str, script_id: str, ledger_path: Path,
-        state_root: Path, render_output: Path | None = None, telegram_preview: bool = False) -> dict:
+        state_root: Path, render_output: Path | None = None, telegram_preview: bool = False,
+        asset_root: Path | None = None) -> dict:
     packs = load_ebook_packs(engine)
     pack = next((item for item in packs.values() if item["product_id"] == product), None)
     require(pack is not None, "ebook product pack missing")
@@ -56,14 +77,12 @@ def run(*, engine: Path, product: str, slot_at: str, script_id: str, ledger_path
         path.write_text(encoded, encoding="utf-8")
     if render_output is not None:
         require(product == "ebook-ja", "EN rendering remains blocked on free OmniAvatar runtime")
-        clips = [Path("/Users/anicca/anicca-monk-factory/state") / name for name in (
-            "jp_kling_clip_02.mp4", "jp_kling_clip_03.mp4", "jp_kling_clip_05.mp4",
-            "jp_kling_clip_07.mp4", "jp_kling_clip_08.mp4", "jp_kling_clip_10.mp4")]
+        clips = watercolor_clip_paths(asset_root or default_asset_root())
         rendered = render_watercolor(script=script["body"], output=render_output, clips=clips)
         receipt.update({"state": "rendered", "render": rendered})
         if telegram_preview:
             message = TelegramClient.from_env().send_video(
-                rendered["output"], caption=(f"OpenClaw::: Ebook Seller JA candidate — {script['hook']} | "
+                rendered["output"], caption=(f"Life Manager::: Ebook Seller JA candidate — {script['hook']} | "
                                              f"free watercolor | SHA {rendered['sha256']} | not posted yet"))
             receipt["telegram_preview"] = message
         path.write_text(json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -90,12 +109,14 @@ def main() -> None:
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--state-root", type=Path, required=True)
     parser.add_argument("--render-output", type=Path)
+    parser.add_argument("--asset-root", type=Path, help="immutable ebook asset pack root")
     parser.add_argument("--telegram-preview", action="store_true")
     args = parser.parse_args()
     print(json.dumps(run(engine=HERE, product=args.product, slot_at=args.slot_at,
                          script_id=args.script_id, ledger_path=args.ledger,
                          state_root=args.state_root, render_output=args.render_output,
-                         telegram_preview=args.telegram_preview), ensure_ascii=False, sort_keys=True))
+                         telegram_preview=args.telegram_preview,
+                         asset_root=args.asset_root), ensure_ascii=False, sort_keys=True))
 
 
 if __name__ == "__main__":

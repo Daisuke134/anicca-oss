@@ -93,7 +93,8 @@ reconciliation and health jobs.
 8. Job Hunter
 9. Fundraiser
 10. Connector
-11. Life Manager Cloud
+11. Self-Build / Product Improvement — verified feedback and product evidence become reviewed Life Manager changes;
+    Cloud is a runtime host, not a Product Loop
 12. Mobile App Loops — Anicca iOS, Honne and the other owned mobile apps; product-account creation, app factory,
     build/sign/release, continuous iteration, Postiz or native-provider marketing, measurement and CFO revenue feedback
 13. Capafy
@@ -834,18 +835,26 @@ tenant. The same `/setup`, `/enable`, `/disable`, `/status` and financial-report
 Execute this follow-up in the fixed order below. Do not alter this order without Dais explicitly saying to reorder
 it:
 
-- [ ] `ARCH-13a` Reclaim disk from `~/.openclaw` and `~/.hermes` now that Life Manager executable source dependency
+- [x] `ARCH-13a` Reclaim disk from `~/.openclaw` and `~/.hermes` now that Life Manager executable source dependency
   is zero. First classify exact contents and open handles. Delete cloneable source checkouts, caches, logs, generated
   artifacts and obsolete backups; preserve credentials, sessions, ledgers, receipts, `memory/`, `state/*.jsonl` and
   anything with a current non-Life-Manager owner. Report exact bytes removed and retained reasons. Do not delete the
   protected `~/.cloak` store.
-- [ ] `ARCH-13b` Correct the product/runtime taxonomy in README, README.ja and this spec: Local/self-hosted and
+  Read-only ownership checks found active non-Life-Manager Python/Chromium processes holding the OpenClaw browser
+  venv and logs, active Gig launch declarations retaining OpenClaw browser/profile compatibility, and Hermes stores
+  containing Agent Economy ledgers plus Gig profiles. Those owned paths, credentials, sessions, receipts, memory and
+  state were retained. Exactly 10,812 KiB of unowned regenerateable cache was deleted from `.openclaw/cache`,
+  `.openclaw/.pytest_cache`, `.hermes/cache`, `.hermes/image_cache` and `.hermes/audio_cache`; all five paths were
+  verified absent. `~/.cloak` was not touched. Whole-directory deletion remains forbidden while those other owners
+  exist; Life Manager itself has no executable source dependency on either directory.
+- [x] `ARCH-13b` Correct the product/runtime taxonomy in README, README.ja and this spec: Local/self-hosted and
   Cloud/hosted are the two runtime choices; replace Product Loop 11 `Life Manager Cloud` with the verified
   Self-Build/Product Improvement loop definition while keeping exactly fourteen Product Loops.
-- [ ] `ARCH-13c` Refine `skills/loop-development/SKILL.md` with the canonical folder/ownership template, the one
+- [x] `ARCH-13c` Refine `skills/loop-development/SKILL.md` with the canonical folder/ownership template, the one
   Local/Cloud business implementation rule, mandatory shared Telegram/CFO/receipt paths and the provider-adapter
   boundary. Remove or override any stale rule that names OpenClaw/Hermes as a Local runtime dependency.
-- [ ] `ARCH-13d` Produce a read-only reuse census for all fourteen Product Loops. For each loop, map lifecycle,
+- [x] `ARCH-13d` Produce a read-only reuse census for all fourteen Product Loops in
+  `docs/loops/product-loop-reuse-census.md`. For each loop, map lifecycle,
   browser, agent runner, domain kernel, provider adapter, receipts, Telegram and CFO; identify proven duplication
   and missing Cloud/Local adapters without moving files merely for appearance.
 - [ ] `ARCH-13e` Integrate the separately owned Gig Work result from latest `main`. Coconala, Lancers and CrowdWorks
@@ -855,6 +864,35 @@ it:
 - [ ] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
   reporting and self-build. Route a second real consumer through an existing contract before extracting anything;
   delete the replaced duplicate in the same atom rather than keeping compatibility implementations.
+  - [x] Ebook production preview no longer hard-codes `/Users/anicca/anicca-monk-factory/state`; the shared runner
+    and standalone watercolor renderer resolve one explicit `--asset-root` / `LM_EBOOK_ASSET_ROOT` contract, falling
+    back to `~/.local/share/life-manager/ebook-assets`, and Telegram preview branding is `Life Manager:::`. Focused
+    portability tests pass. Historical renderer-evaluation fixtures and legacy scheduler retirement tooling remain
+    evidence/migration utilities and must not become production runtime dependencies.
+  - [ ] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
+    After the user enables the loop, the agent selects and validates an opportunity, creates a new repository-owned
+    project from the shared app-factory template, generates product identity and initial assets, builds/tests/signs,
+    guides only the unavoidable Apple account/KYC/contract steps, submits through App Store Connect, measures
+    reviews/usage/revenue, iterates the app and markets it. Importing an existing app path remains optional and may
+    never be the default onboarding requirement. Every generated app is a separate product repository/workspace;
+    Life Manager owns the reusable factory, adapters, receipts and orchestration rather than hard-coding Dais's
+    `~/anicca-project` paths.
+  - [ ] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
+    SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
+    video or existing application. Before public release, generated product identity and marketing creative must be
+    differentiated from the starter pack; user-provided assets remain an optional override. App source and generated
+    assets live with that generated product, while credentials, signing material, receipts and mutable state remain
+    in the user's private Life Manager stores.
+  - [ ] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
+    `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
+    `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and
+    browser session remain private host state; the loop reports `setup_required` only for unavoidable account access,
+    never because source code exists outside this repository.
+  - [ ] `ARCH-13f-ebook-assets` Publish or provision a versioned, redistributable default ebook asset pack for both
+    Japanese and English products. A clean user starts without preparing characters, clips, captions or a book file;
+    the installer fetches/copies the declared pack, verifies every SHA, and the loop may generate differentiated
+    derivatives. Repository manifests contain no Dais-absolute paths. Mutable renders, publication receipts and
+    account state stay outside Git under the Life Manager state/data roots.
 - [ ] `ARCH-13g` Make onboarding expose the same product model on both hosts. Local uses clone/install plus pairing
   and selected-loop setup; Cloud uses Telegram `/start` plus hosted tenant provisioning. A loop without required
   credentials/KYC remains visibly `setup_required`; onboarding must not use `start all` as a shortcut.

@@ -11,6 +11,19 @@ import pathlib
 import subprocess
 import tempfile
 
+WATERCOLOR_CLIP_NAMES = (
+    "jp_kling_clip_02.mp4", "jp_kling_clip_03.mp4", "jp_kling_clip_05.mp4",
+    "jp_kling_clip_07.mp4", "jp_kling_clip_08.mp4", "jp_kling_clip_10.mp4",
+)
+
+
+def default_asset_root() -> pathlib.Path:
+    configured = os.environ.get("LM_EBOOK_ASSET_ROOT")
+    if configured:
+        return pathlib.Path(configured).expanduser()
+    data_home = pathlib.Path(os.environ.get("XDG_DATA_HOME", pathlib.Path.home() / ".local/share"))
+    return data_home / "life-manager/ebook-assets"
+
 
 FFMPEG = os.environ.get("FFMPEG_BIN", "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg")
 
@@ -123,11 +136,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--script", required=True)
+    parser.add_argument("--asset-root", type=pathlib.Path)
     args = parser.parse_args()
-    state = pathlib.Path("/Users/anicca/anicca-monk-factory/state")
-    clips = [state / name for name in (
-        "jp_kling_clip_02.mp4", "jp_kling_clip_03.mp4", "jp_kling_clip_05.mp4",
-        "jp_kling_clip_07.mp4", "jp_kling_clip_08.mp4", "jp_kling_clip_10.mp4")]
+    clips_root = (args.asset_root or default_asset_root()) / "watercolor-monk/clips"
+    clips = [clips_root / name for name in WATERCOLOR_CLIP_NAMES]
     print(json.dumps(render(script=args.script, output=args.output, clips=clips),
                      ensure_ascii=False, sort_keys=True))
 
