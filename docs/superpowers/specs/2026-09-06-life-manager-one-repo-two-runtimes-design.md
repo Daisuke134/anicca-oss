@@ -795,6 +795,74 @@ The detailed unchecked lines above and below roll up into exactly these two rema
 
 - Writer retirement evidence is merged in PR #4810 as `257d56a801fdf729416e21f1ef8a405eba89e7cb`. All eight named exact-head CI jobs passed. Final read-only review confirmed that the post-review delta contained only the two latest-main Alpaca files; Writer artifacts were byte-identical and Gig, Coconala and Lancers had zero task-owned changes.
 
+### 6.3 `ARCH-13` — one product, two hosts, one reusable loop architecture
+
+Life Manager has exactly two supported hosting choices, not two code products. **Local / self-hosted** runs on the
+user's device and stores private runtime state locally. **Cloud / hosted** is operated by Life Manager and stores
+tenant-isolated state in hosted services, so the user does not keep a computer running. Both hosts execute the same
+loop objective, model/tool contract, domain kernel, provider adapter, receipt schema, Telegram renderer and CFO
+projection. Only scheduling, persistence, secret storage and browser execution are host adapters.
+
+Cloud is therefore a runtime surface, not a Product Loop. The current catalog item named `Life Manager Cloud` must
+be reconciled with the existing repository-owned `life-manager-selfbuild` / `life-manager-dev` owners and the
+product intent. Unless contrary historical evidence is found, keep the formal count at fourteen and rename item 11
+to **Life Manager Self-Build Loop**: observe user feedback, failures and usage; create an isolated change; verify it;
+and produce a reviewed PR/release that improves the Life Manager product. It never patches a mutable production
+release directly.
+
+Every loop uses the same four-layer boundary already defined by `skills/loop-development/SKILL.md`:
+
+1. `runtime/loop` owns host-neutral lifecycle, admission, finite execution, retry/backoff, idempotency, runtime
+   events, effect receipts and recovery.
+2. A shared domain kernel owns behavior proven common to two or more providers, such as Marketplace application,
+   reply, storefront, paid-work and financial transitions.
+3. A thin provider adapter owns only provider API/DOM/session vocabulary, authentication projection and official
+   effect readback.
+4. An individual loop owns only its objective, right-altitude model context and durable cursor. Judgment remains in
+   the model; deterministic code owns tools, permissions, arithmetic, ledgers and verification.
+
+Do not copy a Coconala, Lancers, CrowdWorks, publishing, marketing or financial primitive into another loop. Reuse
+the existing shared primitive first; extract new shared code only when a second real consumer proves the duplicate.
+Local and Cloud may not maintain separate business implementations.
+
+Use one Telegram bot identity and one canonical QR/link. After `/start`, the user chooses Local or Cloud; optional
+deep links may preselect `start=local` or `start=cloud`, but both resolve to the same bot, account and conversation.
+Two bots or two unrelated chats would split history, support and product identity without providing runtime
+isolation. Local setup returns a pairing token/command for the user's instance; Cloud setup provisions the hosted
+tenant. The same `/setup`, `/enable`, `/disable`, `/status` and financial-report concepts apply to both hosts.
+
+Execute this follow-up in the fixed order below. Do not alter this order without Dais explicitly saying to reorder
+it:
+
+- [ ] `ARCH-13a` Reclaim disk from `~/.openclaw` and `~/.hermes` now that Life Manager executable source dependency
+  is zero. First classify exact contents and open handles. Delete cloneable source checkouts, caches, logs, generated
+  artifacts and obsolete backups; preserve credentials, sessions, ledgers, receipts, `memory/`, `state/*.jsonl` and
+  anything with a current non-Life-Manager owner. Report exact bytes removed and retained reasons. Do not delete the
+  protected `~/.cloak` store.
+- [ ] `ARCH-13b` Correct the product/runtime taxonomy in README, README.ja and this spec: Local/self-hosted and
+  Cloud/hosted are the two runtime choices; replace Product Loop 11 `Life Manager Cloud` with the verified
+  Self-Build/Product Improvement loop definition while keeping exactly fourteen Product Loops.
+- [ ] `ARCH-13c` Refine `skills/loop-development/SKILL.md` with the canonical folder/ownership template, the one
+  Local/Cloud business implementation rule, mandatory shared Telegram/CFO/receipt paths and the provider-adapter
+  boundary. Remove or override any stale rule that names OpenClaw/Hermes as a Local runtime dependency.
+- [ ] `ARCH-13d` Produce a read-only reuse census for all fourteen Product Loops. For each loop, map lifecycle,
+  browser, agent runner, domain kernel, provider adapter, receipts, Telegram and CFO; identify proven duplication
+  and missing Cloud/Local adapters without moving files merely for appearance.
+- [ ] `ARCH-13e` Integrate the separately owned Gig Work result from latest `main`. Coconala, Lancers and CrowdWorks
+  must converge on `skills/_shared/marketplace-core` one contract at a time—application, reply, storefront, paid
+  work/delivery, financial record and Telegram—while their directories retain only provider-specific effects and
+  official readback. Do not modify or restart an active Gig owner outside its current task lease.
+- [ ] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
+  reporting and self-build. Route a second real consumer through an existing contract before extracting anything;
+  delete the replaced duplicate in the same atom rather than keeping compatibility implementations.
+- [ ] `ARCH-13g` Make onboarding expose the same product model on both hosts. Local uses clone/install plus pairing
+  and selected-loop setup; Cloud uses Telegram `/start` plus hosted tenant provisioning. A loop without required
+  credentials/KYC remains visibly `setup_required`; onboarding must not use `start all` as a shortcut.
+- [ ] `ARCH-13h` Pass final acceptance from a clean user and a fresh tenant: one QR/bot, host selection, at least one
+  representative loop per shared domain on both supported hosts, identical logical receipts/Telegram output,
+  provider-owned effect readback, replay-zero, dependency fence, focused tests, fresh review and merged-main
+  verification.
+
 ## 7. Acceptance
 
 Complete means all of the following are measured:
