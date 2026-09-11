@@ -699,7 +699,7 @@ def resolve_provider_profiles(
 
 
 def codex_attempt_started_work(stdout: str) -> bool:
-    """Treat any non-error Codex item as effect-uncertain work."""
+    """Treat any non-message Codex item as effect-uncertain tool work."""
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
@@ -710,7 +710,7 @@ def codex_attempt_started_work(stdout: str) -> bool:
         if event.get("type") not in {"item.started", "item.completed"}:
             continue
         item = event.get("item")
-        if isinstance(item, dict) and item.get("type") != "error":
+        if isinstance(item, dict) and item.get("type") not in {"agent_message", "error"}:
             return True
     return False
 
@@ -1178,6 +1178,7 @@ def classify_provider_error(
             "failed to lookup address information", "could not resolve host",
             "nodename nor servname", "name or service not known", "connection refused",
             "connection reset", "network is unreachable", "stream disconnected before completion",
+            "timed out negotiating with the code-mode host",
         )) or rc == 127 or launch_error:
             return "transient_unavailable"
         return "validation_or_task_failure"
@@ -1561,7 +1562,16 @@ def run() -> int:
                 "pass_consumed_after_tokens": settlement["pass_consumed_after_tokens"],
                 "daily_consumed_after_tokens": settlement["daily_consumed_after_tokens"],
             }
-        accepted_result = schema_valid and (rc == 0 or (provider == "codex" and timed_out))
+        codex_toolhost_unavailable = (
+            provider == "codex"
+            and "timed out negotiating with the code-mode host" in stderr_text.lower()
+            and not codex_attempt_started_work(stdout_text)
+        )
+        accepted_result = (
+            schema_valid
+            and (rc == 0 or (provider == "codex" and timed_out))
+            and not codex_toolhost_unavailable
+        )
         error_class = None if accepted_result else classify_provider_error(
             rc, timed_out, stdout_text, stderr_text, launch_error, provider=provider,
         )

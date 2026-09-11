@@ -92,6 +92,24 @@ class CodexProfileBoundaryTest(unittest.TestCase):
                     stderr.write(b"Operation not permitted\n")
                     completion_path.write_text('{"ok":true}', encoding="utf-8")
                     return 127
+                if behavior == "toolhost_unavailable":
+                    stderr.write(
+                        b"ERROR codex_core::tools::router: error=timed out negotiating "
+                        b"with the code-mode host\n"
+                    )
+                    completion_path.write_text('{"ok":true}', encoding="utf-8")
+                    return 0
+                if behavior == "toolhost_unavailable_after_work":
+                    stdout.write(json.dumps({
+                        "type": "item.started",
+                        "item": {"type": "command_execution", "command": "browser mutation"},
+                    }).encode("utf-8") + b"\n")
+                    stderr.write(
+                        b"ERROR codex_core::tools::router: error=timed out negotiating "
+                        b"with the code-mode host\n"
+                    )
+                    completion_path.write_text('{"ok":true}', encoding="utf-8")
+                    return 0
                 if behavior == "unavailable":
                     stderr.write(b"connection refused\n")
                     return 1
@@ -325,6 +343,50 @@ class CodexProfileBoundaryTest(unittest.TestCase):
                 ("claude", None, "success"),
             ],
         )
+
+    def test_schema_valid_toolhost_unavailable_without_runtime_work_calls_claude_once(self):
+        message_only = json.dumps({
+            "type": "item.completed",
+            "item": {"type": "agent_message", "text": "blocked before tools"},
+        })
+        self.assertFalse(codex_attempt_started_work(message_only))
+        self.assertEqual(
+            classify_provider_error(
+                0,
+                False,
+                message_only,
+                "timed out negotiating with the code-mode host",
+                "",
+                provider="codex",
+            ),
+            "transient_unavailable",
+        )
+        status, calls = self._run_candidate_fixture(
+            {
+                ("codex", "acct1"): "toolhost_unavailable",
+                ("claude", None): "success",
+            },
+            include_claude=True,
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            calls,
+            [
+                ("codex", "acct1", "toolhost_unavailable"),
+                ("claude", None, "success"),
+            ],
+        )
+
+    def test_schema_valid_toolhost_unavailable_after_work_never_falls_back(self):
+        status, calls = self._run_candidate_fixture(
+            {
+                ("codex", "acct1"): "toolhost_unavailable_after_work",
+                ("claude", None): "success",
+            },
+            include_claude=True,
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(calls, [("codex", "acct1", "toolhost_unavailable_after_work")])
 
     def test_run_acct2_structured_quota_calls_claude_once(self):
         status, calls = self._run_candidate_fixture(
