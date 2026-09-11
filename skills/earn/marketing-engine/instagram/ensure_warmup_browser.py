@@ -23,7 +23,7 @@ def gmail_env():
 
 
 def base_gmail_account(email):
-    # plus-addressed signup inboxes (user+tag@gmail.com) deliver to the base inbox
+    # Plus-addressed signup inboxes deliver to the configured base inbox.
     local, _, domain = email.partition("@")
     return f"{local.split('+')[0]}@{domain}"
 
