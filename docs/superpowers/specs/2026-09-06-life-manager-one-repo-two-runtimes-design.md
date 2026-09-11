@@ -922,8 +922,10 @@ future product run exercises them without changing this architecture acceptance 
       XcodeGen, XCTest and asset-catalog structure under the generated product's private managed workspace. The
       materializer verifies the manifest and every SHA before writing, rejects traversal/symlinks/imported products,
       stages then atomically renames, replays identical output and preserves conflicting output. It performs no
-      build, signing, App Store or Postiz effect. Focused Mobile tests pass 11/11. Product-specific icon and
-      screenshot generators plus optional downloadable pack transport remain open under this parent item.
+      build, signing, App Store or Postiz effect. After three adversarial review rounds fixed parent/replay symlink
+      escape, noncanonical manifest paths, unsafe Swift display-name input and credential-bearing Git URLs, focused
+      Mobile tests pass 14/14 and fresh review ships. Product-specific icon and screenshot generators plus optional
+      downloadable pack transport remain open under this parent item.
   - [ ] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
     `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
     `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and
