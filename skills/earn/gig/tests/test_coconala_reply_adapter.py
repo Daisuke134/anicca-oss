@@ -108,6 +108,17 @@ def test_official_sending_restriction_is_the_only_classified_mutation_wait(tmp_p
     assert adapter.classify_mutation_error(RuntimeError("network_timeout")) is None
 
 
+def test_only_exact_navigation_timeout_is_classified_as_observation_wait(tmp_path):
+    adapter = adapter_module.CoconalaReplyAdapter(
+        state_root=tmp_path, inventory_reader=lambda: [],
+    )
+
+    assert adapter.classify_observation_error(
+        RuntimeError("authenticated tab did not finish navigation")
+    ) == {"reason": "provider_readback_temporarily_unavailable"}
+    assert adapter.classify_observation_error(RuntimeError("network_timeout")) is None
+
+
 def test_default_runtime_paths_stay_inside_the_release(tmp_path):
     adapter = adapter_module.CoconalaReplyAdapter(
         state_root=tmp_path,
