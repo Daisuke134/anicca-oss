@@ -90,6 +90,17 @@ checked-inされた`ios-swiftui-v1` packは、生成productのidentityからprod
 App Store screenshot PNGを決定的に生成し、そのhashを同じproduct workspaceへ記録して、競合outputを
 拒否します。ユーザーは初期artworkを用意する必要がありません。任意のcustom assetは、後続のproduct所有
 iterationでのみ生成assetを置き換えます。
+Life Manager onboardingは検証済みopportunityを一つのrepository所有finite bootstrapへ渡します。
+bootstrapはProduct Registryを確認し、同じstarter source/assetsを生成してreplay-safeなlifecycle
+receiptを書いた後、新規productを登録します。開発・復旧時は同じ入口を直接使えます。
+
+```bash
+node apps/life-manager/scripts/mobile-product-bootstrap.js --opportunity-file opportunity.json
+```
+
+XcodeGen、Xcode、Apple team、App Store Connect capabilityが不足する場合、receiptは不足項目を列挙した
+`setup_required`になります。揃っている場合はportableなbuild/test commandを持つ`ready_to_build`になります。
+このbootstrapはApp Store提出、Postiz投稿、収益eventを実行済みとは主張せず、実送信もしません。
 
 Local/self-hostedとCloud/hostedは同じ14 Product Loopsを動かす二つの方法であり、別のProduct Loopではありません。Localは選択したloopをuserのdeviceで動かし、private stateもそこで保持します。CloudはLife Managerのhosted infrastructure上でtenantごとに動かします。両方が同じloop実装、provider adapter、receipt、CFO event、Telegram体験を使い、異なるのはscheduler、secret保存、durable state、browser transportだけです。
 

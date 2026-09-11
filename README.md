@@ -105,6 +105,19 @@ App Icon and App Store screenshot PNGs from the generated product identity, reco
 their hashes in that product workspace, and refuses conflicting output. Users do not
 need to supply initial artwork; optional custom assets replace the generated assets
 only in a later product-owned iteration.
+Life Manager onboarding passes a validated opportunity to one finite repository-owned
+bootstrap. It checks the Product Registry, materializes the same starter source and
+assets, writes a replay-safe lifecycle receipt, and then registers a new product. The same entrypoint is
+available for development and recovery:
+
+```bash
+node apps/life-manager/scripts/mobile-product-bootstrap.js --opportunity-file opportunity.json
+```
+
+The receipt reports `setup_required` with the exact missing XcodeGen, Xcode, Apple
+team, or App Store Connect capability. When they are present it reports
+`ready_to_build` with portable build/test commands. It neither claims nor performs an
+App Store submission, Postiz publication, or revenue event.
 The 18 current publication jobs all resolve their product through
 [`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
 before a runner starts. That portable registry pins a credential-free HTTPS Git

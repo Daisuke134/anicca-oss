@@ -871,14 +871,15 @@ future product run exercises them without changing this architecture acceptance 
     `~/.local/share/life-manager/ebook-assets`. Telegram preview branding is `Life Manager:::`. Focused
     portability tests pass. Historical renderer-evaluation fixtures and legacy scheduler retirement tooling remain
     evidence/migration utilities and must not become production runtime dependencies.
-  - [ ] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
-    After the user enables the loop, the agent selects and validates an opportunity, creates a new repository-owned
-    project from the shared app-factory template, generates product identity and initial assets, builds/tests/signs,
-    guides only the unavoidable Apple account/KYC/contract steps, submits through App Store Connect, measures
-    reviews/usage/revenue, iterates the app and markets it. Importing an existing app path remains optional and may
-    never be the default onboarding requirement. Every generated app is a separate product repository/workspace;
-    Life Manager owns the reusable factory, adapters, receipts and orchestration rather than hard-coding Dais's
-    `~/anicca-project` paths.
+  - [x] `ARCH-13f-mobile-bootstrap` Complete the structural foundation for the primary Mobile App experience to start
+    with no existing app or repository. The finite bootstrap accepts one validated opportunity from the agent or
+    onboarding layer, creates a repository-owned project from the shared app-factory template, generates its product
+    identity and initial assets, and exposes truthful build/signing/App Store setup requirements through one lifecycle
+    receipt. Importing an existing app path remains optional and may never be the default onboarding requirement.
+    Every generated app is a separate product repository/workspace; Life Manager owns the reusable factory, adapters,
+    receipts and orchestration rather than hard-coding Dais's `~/anicca-project` paths. Per Dais's explicit scope,
+    executing a live Xcode build, account/KYC, signing, App Store submission, measurement, iteration and marketing is
+    future provider work and is not a completion gate for this repository-cleanup atom.
     Two entry paths converge on one Product Registry and the same lifecycle:
 
     ```mermaid
@@ -907,13 +908,13 @@ future product run exercises them without changing this architecture acceptance 
     derives one managed relative workspace, rejects local absolute paths, writes the private registry atomically with
     private modes and a single-writer lock, requires imported sources to pin a full commit SHA, treats identical
     registration as replay-safe, and fails closed on conflicting duplicates. This structural atom intentionally does
-    not create or submit a live app. The parent item remains open until generated products and the build/release stage
-    consume the same registry and shared materialization boundary.
+    not create or submit a live app. The bootstrap and build/release preflight consume this same registry and shared
+    materialization boundary.
     - [x] Canonicalize the two current app identifiers as `anicca-ios` and `honne-ai` across the active Mobile App job
       inventory and repository-owned Marketing Engine products, accounts, intelligence sources, measurement and owner
       reporting. A focused contract test proves all 18 Mobile App jobs use identifiers present in the Marketing Engine
-      registry. Historical JSONL evidence is intentionally immutable. The remaining bootstrap work is the generated
-      product and build/release materialization path, not another publication registry.
+      registry. Historical JSONL evidence is intentionally immutable. The generated product and build/release
+      preparation path reuse that registry rather than creating another publication registry.
     - [x] Connect all 18 current Mobile App publication jobs to the repository-owned Product Registry at their one
       shared command boundary. Register Anicca iOS (`anicca-products/aniccaios`) and Honne (`honne-ai`) with
       credential-free HTTPS locations, pinned commits and explicit source-access labels. Anicca is anonymously
@@ -922,6 +923,20 @@ future product run exercises them without changing this architecture acceptance 
       before runner execution, and fail closed when registration is missing. The publication path deliberately does
       not clone or build app source; materialization remains owned by the build/release stage and therefore cannot add
       network or filesystem effects to an existing scheduled marketing job.
+    - [x] Add one finite repository-owned bootstrap boundary for the default generated-product path. It accepts a
+      validated opportunity selected upstream, validates the portable product identity, checks for an existing
+      Product Registry entry, materializes the existing `ios-swiftui-v1` starter plus generated assets, writes one
+      deterministic secret-free lifecycle receipt beside the product workspace, and only then registers a new product.
+      A failed pre-registration attempt never leaves a partial registry entry and retains verified prepared source or
+      receipt for safe replay rather than deleting mutable paths. Identical replay returns the same receipt; conflicting
+      opportunity evidence or output fails closed.
+      Build/release preparation consumes that same registry/workspace and reports the exact missing XcodeGen, Xcode,
+      Apple team and App Store Connect capabilities as `setup_required`; when present it returns portable build/test
+      commands as `ready_to_build`. The thin CLI uses XDG private state/data roots and requires no existing app or Git
+      repository. Focused Mobile tests pass 30/30. Per Dais's explicit cleanup scope, this structural atom does not run
+      a live Xcode build, sign/upload an app, create an App Store account, submit through App Store Connect, publish via
+      Postiz, send Telegram, or invent a CFO/revenue event; those provider effects remain gated by their official future
+      stages and readback.
   - [x] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
     SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
     video or existing application. Before public release, generated product identity and marketing creative must be
