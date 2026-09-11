@@ -469,6 +469,23 @@ Current read-only stop-point snapshot (no repair authorized in this checkpoint):
   evidence of logout or a provider-side rejection. Production acceptance remains unchecked until a
   complete pushed-main release containing PR `#4995` is installed only on Apply and reaches a natural
   official receipt plus following replay-zero.
+  Target-only apply subsequently moved the loaded argv to dependency-complete release
+  `20260911T092238-fe529db7` without restarting the browser, Mac, loginwindow, Aqua, Reply or Paid.
+  Its first natural wake `18d41d4e3f954fb0-63838` passed profile loading and reached final status
+  persistence, then failed with exit `120` when `tempfile.mkstemp` could not create the atomic
+  `application-owner.json` replacement. The Data volume showed about 1.7 GiB available and 100%
+  capacity at inspection time; the same-directory atomic-write probe and the central disk-cleanup
+  owner's immediately preceding natural terminal both pass. The transaction file and official
+  application ledger did not change, so this wake proves neither an application nor a duplicate.
+  The next natural wake determines whether this was transient write pressure; repeated failure must
+  retain the exact `OSError` errno instead of losing its representation during stderr teardown.
+  The following natural parent wake `18d41d9e94331ae8-1832` then ended PASS on the same installed
+  release with exit `0`: profile loading succeeded, 38 official jobs were inspected, 33 were
+  off-topic, two were truthfully non-workable, no row was unreadable, and no eligible open job was
+  found. Its effect delta is zero, the transaction remains empty and the application ledger is
+  unchanged. This accepts the complete-release/lock/profile execution path and proves no duplicate;
+  it does not close the fresh-effect gate, which remains a live monitor until an eligible job yields
+  one official application receipt and the next natural wake replays it at zero.
 - CrowdWorks Reply currently reports observed `24`, readback `22`, failed `0`, pending `2`, effect
   `0`. It is live but not fully closed while the two durable pending items remain.
 - CrowdWorks Paid currently reports two official contracts: funded `63570481` and escrow-waiting
