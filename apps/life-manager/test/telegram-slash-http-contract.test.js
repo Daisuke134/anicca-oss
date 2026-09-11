@@ -49,6 +49,7 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
   const userRow = {
     uid: "u1", name: "Fixture", telegram_chat_id: "100", tg_onboard_stage: "done",
     calendar_provider: "composio_gcal", gmail_account_id: null, gmail_skipped: true,
+    calendar_connected_account_id: "ca-u1",
     email: "fixture@example.com", phone: "+819012345678", home_address: "Tokyo home",
     notifications_enabled: true, paid: true, payout_destination: null,
   };
@@ -219,8 +220,15 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     if (url.pathname === "/rest/v1/rpc/create_lm_telegram_oauth_state" && method === "POST") {
       return response(200, true);
     }
+    if (url.pathname === "/rest/v1/rpc/attach_lm_panel_oauth_account" && method === "POST") {
+      return response(200, true);
+    }
     if (url.pathname === "/rest/v1/rpc/claim_lm_telegram_oauth_state" && method === "POST") {
-      return response(200, startedRow ? [{ uid: startedRow.uid, chat_id: startedRow.telegram_chat_id }] : []);
+      return response(200, startedRow ? [{ uid: startedRow.uid, chat_id: startedRow.telegram_chat_id, connected_account_id: "ca-started" }] : []);
+    }
+    if (url.pathname === "/rest/v1/rpc/sync_lm_panel_calendar_connection" && method === "POST") {
+      if (startedRow) Object.assign(startedRow, { calendar_provider: "composio_gcal", calendar_connected_account_id: "ca-started" });
+      return response(200, true);
     }
     if (url.pathname === "/rest/v1/rpc/sync_lm_panel_calendar_status" && method === "POST") {
       if (startedRow) startedRow.calendar_provider = "composio_gcal";
@@ -231,7 +239,13 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     }
     if (url.hostname === "backend.composio.dev" && url.pathname === "/api/v3/connected_accounts/link" && method === "POST") {
       telegramCalendarCallback = JSON.parse(init.body || "{}").callback_url;
-      return response(200, { redirect_url: "https://accounts.google.com/o/oauth2/auth?state=fixture" });
+      return response(200, { redirect_url: "https://accounts.google.com/o/oauth2/auth?state=fixture", connected_account_id: "ca-started" });
+    }
+    if (url.hostname === "backend.composio.dev" && url.pathname === "/api/v3.1/connected_accounts/ca-started" && method === "GET") {
+      return response(200, { id: "ca-started", user_id: startedRow.uid, toolkit: { slug: "googlecalendar" }, status: calendarActive ? "ACTIVE" : "INITIATED", is_disabled: false, enabled: true });
+    }
+    if (url.hostname === "backend.composio.dev" && url.pathname === "/api/v3.1/tools/execute/GOOGLECALENDAR_EVENTS_LIST" && method === "POST") {
+      return response(200, { successful: true, data: { items: [{ id: "event-1" }] } });
     }
     throw new Error(`unexpected fetch ${method} ${url}`);
   };
@@ -510,7 +524,8 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     assert.doesNotMatch(errors.join("\n"), /fixture-token|chat_id=200|token=|description/i);
     assert.equal(await message("200", "/start"), 200);
     assert.equal(sent.length, sentBeforeFailure + 2, "a new explicit /start recovers after the failed delivery");
-    assert.match(lastSent().text, /自宅の住所/, "the recovered connected actor receives the next Telegram question");
+    assert.match(lastSent().text, /ライフマネージャー/, "a user without an exactly bound account receives a fresh Calendar link");
+    assert.ok(lastSent().reply_markup.inline_keyboard[0][0].url, "the recovery is actionable in the same chat");
   } finally {
     console.log = originalConsoleLog;
     global.fetch = originalFetch;

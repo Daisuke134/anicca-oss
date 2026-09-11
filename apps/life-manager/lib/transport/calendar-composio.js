@@ -7,23 +7,58 @@ const { recordCost } = require("../ledger.js");
 
 const COMPOSIO_EXEC = "https://backend.composio.dev/api/v3/tools/execute";
 
-async function exec(tool, uid, args, apiKey) {
-  const r = await fetch(`${COMPOSIO_EXEC}/${tool}`, {
+async function selectedAccountId(uid, apiKey, opts = {}) {
+  if (typeof opts.resolveConnectedAccountId === "function") return opts.resolveConnectedAccountId(uid);
+  const base = opts.supaUrl || process.env.SUPABASE_URL;
+  const key = opts.supaKey || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) return null;
+  const r = await (opts.fetchImpl || fetch)(`${base}/rest/v1/lm_users?uid=eq.${encodeURIComponent(uid)}&select=calendar_connected_account_id&limit=1`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+  if (!r.ok) throw new Error("calendar account lookup failed");
+  const rows = await r.json();
+  const selected = Array.isArray(rows) && rows[0] ? rows[0].calendar_connected_account_id || null : null;
+  if (selected) return selected;
+  const accountsResponse = await (opts.fetchImpl || fetch)(`https://backend.composio.dev/api/v3/connected_accounts?user_ids=${encodeURIComponent(uid)}&toolkit_slugs=googlecalendar`, { headers: { "x-api-key": apiKey } });
+  if (!accountsResponse.ok) throw new Error("calendar account lookup failed");
+  const accountsBody = await accountsResponse.json();
+  const active = (Array.isArray(accountsBody.items) ? accountsBody.items : []).filter((item) => item && String(item.user_id || item.userId || item.connection?.user_id) === String(uid)
+    && String(item.toolkit_slug || item.toolkit?.slug || item.toolkit?.slug_name) === "googlecalendar"
+    && item.status === "ACTIVE" && item.is_disabled !== true && (item.enabled === undefined || item.enabled === true));
+  if (active.length !== 1 || !active[0].id) throw new Error("calendar account is not uniquely bound");
+  const saved = await (opts.fetchImpl || fetch)(`${base}/rest/v1/lm_users?uid=eq.${encodeURIComponent(uid)}&calendar_connected_account_id=is.null`, {
+    method: "PATCH",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "content-type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ calendar_connected_account_id: active[0].id }),
+  });
+  if (!saved.ok) throw new Error("calendar account backfill failed");
+  const readback = await (opts.fetchImpl || fetch)(`${base}/rest/v1/lm_users?uid=eq.${encodeURIComponent(uid)}&select=calendar_connected_account_id&limit=1`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+  const readbackRows = readback.ok ? await readback.json() : [];
+  if (!Array.isArray(readbackRows) || readbackRows[0]?.calendar_connected_account_id !== active[0].id) throw new Error("calendar account backfill conflict");
+  return active[0].id;
+}
+
+async function exec(tool, uid, args, apiKey, opts) {
+  const connectedAccountId = await selectedAccountId(uid, apiKey, opts);
+  const r = await (opts.fetchImpl || fetch)(`${COMPOSIO_EXEC}/${tool}`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: uid, arguments: args }),
+    body: JSON.stringify({ user_id: uid, ...(connectedAccountId ? { connected_account_id: connectedAccountId } : {}), arguments: args }),
   });
   return r.json();
 }
 
-function makeComposioCalendar({ apiKey, recordCall } = {}) {
+function makeComposioCalendar(opts = {}) {
+  const { apiKey, recordCall } = opts;
   const key = apiKey || process.env.COMPOSIO_API_KEY;
   const ledger = recordCall || ((uid, tool) => {
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
     return recordCost({ uid, kind: "composio_call", quantity: 1, unit: "call", estUsd: 0, meta: { tool } });
   });
   const execute = async (tool, uid, args) => {
-    const result = await exec(tool, uid, args, key);
+    const result = await exec(tool, uid, args, key, opts);
     await Promise.resolve(ledger(uid, tool)).catch(() => false);
     return result;
   };

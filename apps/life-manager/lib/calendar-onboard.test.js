@@ -26,6 +26,7 @@ function jsonResponse(body, status = 200) {
 function fixture({ active = false, status = active ? "ACTIVE" : "MISSING", redirect = "https://provider.example/consent" } = {}) {
   const calls = { assert: [], start: [], status: [], sync: [], oauth: [], states: [] };
   const store = {
+    async readUser() { return { uid: SCOPE.uid, telegram_chat_id: SCOPE.chatId, calendar_connected_account_id: active ? "ca-current" : null }; },
     async assertCurrentScope(scope) {
       calls.assert.push({ ...scope });
       return scope.uid === SCOPE.uid && scope.chatId === SCOPE.chatId;
@@ -37,6 +38,10 @@ function fixture({ active = false, status = active ? "ACTIVE" : "MISSING", redir
     async createOAuthState(scope, state) {
       calls.states.push({ scope: { ...scope }, state: { ...state } });
       return true;
+    },
+    async attachOAuthAccount(scope, stateHash, connectedAccountId) {
+      calls.states.at(-1).connectedAccountId = connectedAccountId;
+      return Boolean(scope.uid === SCOPE.uid && stateHash && connectedAccountId);
     },
   };
   const opts = {
@@ -55,7 +60,7 @@ function fixture({ active = false, status = active ? "ACTIVE" : "MISSING", redir
     },
     startCalendarOAuthImpl: async (scope, stateToken) => {
       calls.oauth.push({ scope: { ...scope }, stateToken });
-      return { redirectUrl: redirect };
+      return { redirectUrl: redirect, connectedAccountId: "ca-current" };
     },
   };
   return { calls, store, opts };
@@ -331,10 +336,11 @@ test("existing OAuth callback remains atomic and accepts only ACTIVE readback", 
       sessionScopeImpl: async () => ({ ...SCOPE }),
       commandStore: {
         assertCurrentScope: async () => true,
-        claimOAuthState: async (scope, hash) => { claimCalls++; assert.deepEqual(scope, SCOPE); assert.equal(hash.length, 64); return claimed; },
+        claimPanelOAuthAccount: async (scope, hash) => { claimCalls++; assert.deepEqual(scope, SCOPE); assert.equal(hash.length, 64); return claimed ? "ca-a" : null; },
+        syncCalendarConnection: async () => true,
       },
       composioKey: "provider-key",
-      fetchImpl: async () => { providerCalls++; return jsonResponse({ items: providerStatus === "ACTIVE" ? [{ id: "ca-a", user_id: SCOPE.uid, toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false, enabled: true }] : [] }); },
+      composioCalendarAccountStatusImpl: async (_scope, id) => { providerCalls++; assert.equal(id, "ca-a"); return providerStatus; },
     });
     assert.equal(response.status, expectedStatus);
     assert.equal(claimCalls, 1);
@@ -350,26 +356,27 @@ test("existing OAuth callback replay, expiry, and cross-scope claims produce no 
   let providerReads = 0;
   const store = {
     assertCurrentScope: async () => true,
-    claimOAuthState: async (scope, stateHash) => {
+    claimPanelOAuthAccount: async (scope, stateHash) => {
       claimCount++;
       assert.equal(scope.uid, SCOPE.uid);
       assert.equal(scope.chatId, SCOPE.chatId);
       assert.equal(stateHash, crypto.createHash("sha256").update(stateToken).digest("hex"));
-      return claimCount === 1;
+      return claimCount === 1 ? "ca-a" : null;
     },
+    syncCalendarConnection: async () => true,
   };
   const run = async (sessionScope = SCOPE) => {
     const response = { status: 0, headers: {}, writeHead(status, headers = {}) { this.status = status; this.headers = headers; }, setHeader() {}, end() {} };
     await handlePanelOAuthCallback({ method: "GET", url: `/panel/oauth/calendar?state=${stateToken}`, headers: { cookie: `__Host-lm_panel_session=${SESSION}` } }, response, {
       sessionScopeImpl: async () => ({ ...sessionScope }), commandStore: store, composioKey: "provider-key",
-      fetchImpl: async () => { providerReads++; return jsonResponse({ items: [{ id: "ca-a", user_id: SCOPE.uid, toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false, enabled: true }] }); },
+      composioCalendarAccountStatusImpl: async (_scope, id) => { providerReads++; assert.equal(id, "ca-a"); return "ACTIVE"; },
     });
     return response.status;
   };
   assert.equal(await run(), 303);
   assert.equal(await run(), 403, "the same state is rejected after the first atomic claim");
   assert.equal(providerReads, 1);
-  const expiredStore = { assertCurrentScope: async () => true, claimOAuthState: async () => false };
+  const expiredStore = { assertCurrentScope: async () => true, claimPanelOAuthAccount: async () => null };
   const expired = { status: 0, writeHead(status) { this.status = status; }, setHeader() {}, end() {} };
   await handlePanelOAuthCallback({ method: "GET", url: `/panel/oauth/calendar?state=${stateToken}`, headers: { cookie: `__Host-lm_panel_session=${SESSION}` } }, expired, {
     sessionScopeImpl: async () => ({ ...SCOPE }), commandStore: expiredStore, composioKey: "provider-key",
@@ -380,7 +387,7 @@ test("existing OAuth callback replay, expiry, and cross-scope claims produce no 
   await handlePanelOAuthCallback({ method: "GET", url: `/panel/oauth/calendar?state=${stateToken}`, headers: { cookie: `__Host-lm_panel_session=${SESSION}` } }, cross, {
     sessionScopeImpl: async () => ({ uid: "u-b", chatId: "202" }), commandStore: {
       assertCurrentScope: async () => true,
-      claimOAuthState: async () => false,
+      claimPanelOAuthAccount: async () => null,
     }, composioKey: "provider-key", fetchImpl: async () => { throw new Error("provider must not be read"); },
   });
   assert.equal(cross.status, 403);
@@ -393,12 +400,13 @@ test("Telegram OAuth callback needs no browser cookie and returns to the exact c
   const response = { status: 0, headers: {}, writeHead(status, headers = {}) { this.status = status; this.headers = headers; }, end() {} };
   await handleTelegramOAuthCallback({ method: "GET", url: `/telegram/oauth/calendar?state=${stateToken}&lang=ja-JP`, headers: {} }, response, {
     commandStore: {
-      claimTelegramOAuthState: async (stateHash) => { calls.push(["claim", stateHash]); return { uid: "u-tg", chat_id: "303" }; },
+      claimTelegramOAuthState: async (stateHash) => { calls.push(["claim", stateHash]); return { uid: "u-tg", chat_id: "303", connected_account_id: "ca-current" }; },
       assertCurrentScope: async (scope) => { calls.push(["scope", scope]); return true; },
-      syncCalendarStatus: async (scope, status) => { calls.push(["sync", scope, status]); return true; },
+      syncCalendarConnection: async (scope, status, id) => { calls.push(["sync", scope, status, id]); return true; },
     },
     composioKey: "provider-key",
-    composioCalendarStatusImpl: async (scope) => { calls.push(["provider", scope]); return "ACTIVE"; },
+    composioCalendarAccountStatusImpl: async (scope, id) => { calls.push(["provider", scope, id]); return "ACTIVE"; },
+    composioCalendarEventCountImpl: async (scope, id) => { calls.push(["events", scope, id]); return 2; },
     sendMessage: async (chatId, text) => { calls.push(["send", chatId, text]); return { ok: true, result: { message_id: 44 } }; },
     telegramReturnUrl: "https://t.me/LifeManagerBotbot",
   });
@@ -407,7 +415,7 @@ test("Telegram OAuth callback needs no browser cookie and returns to the exact c
   assert.equal(calls[0][0], "claim");
   assert.equal(calls[0][1], crypto.createHash("sha256").update(stateToken).digest("hex"));
   assert.deepEqual(calls.find(([kind]) => kind === "scope")[1], { uid: "u-tg", chatId: "303" });
-  assert.deepEqual(calls.find(([kind]) => kind === "sync").slice(1), [{ uid: "u-tg", chatId: "303" }, "ACTIVE"]);
+  assert.deepEqual(calls.find(([kind]) => kind === "sync").slice(1), [{ uid: "u-tg", chatId: "303" }, "ACTIVE", "ca-current"]);
   assert.deepEqual(calls.find(([kind]) => kind === "send").slice(1, 2), ["303"]);
   assert.match(calls.find(([kind]) => kind === "send")[2], /自宅の住所/);
 });
@@ -485,4 +493,16 @@ test("Telegram OAuth callback migration is hash-only, tenant-bound, one-time, an
   assert.match(migration, /UPDATE public\.lm_users SET home_address[\s\S]*INSERT INTO public\.lm_panel_preferences[\s\S]*notifications_enabled/i);
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.complete_lm_telegram_home[\s\S]*FROM PUBLIC, anon, authenticated/i);
   assert.doesNotMatch(migration, /raw_state|CREATE TABLE/i);
+});
+
+test("Calendar account binding migration ties both callbacks and the selected account to one tenant", () => {
+  const migration = fs.readFileSync(path.join(__dirname, "../migrations/2026-09-11-lm-calendar-account-binding.sql"), "utf8");
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS calendar_connected_account_id text/i);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS connected_account_id text/i);
+  assert.match(migration, /attach_lm_panel_oauth_account[\s\S]*state\.uid = p_uid[\s\S]*state\.chat_id = p_chat_id/i);
+  assert.match(migration, /claim_lm_panel_oauth_account[\s\S]*used_at IS NULL[\s\S]*expires_at > now\(\)/i);
+  assert.match(migration, /claim_lm_telegram_oauth_state[\s\S]*connected_account_id IS NOT NULL/i);
+  assert.match(migration, /sync_lm_panel_calendar_connection[\s\S]*telegram_chat_id::text = p_chat_id/i);
+  assert.equal((migration.match(/FROM PUBLIC, anon, authenticated/gi) || []).length, 4);
+  assert.equal((migration.match(/TO service_role/gi) || []).length, 4);
 });

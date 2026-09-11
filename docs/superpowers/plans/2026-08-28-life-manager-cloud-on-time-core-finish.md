@@ -719,6 +719,15 @@ Current official readback: `https://aniccaai.com/life-manager` renders one QR th
 
 The actor opens the bot, receives the `web_app` button, and completes Calendar consent, home, notifications, phone skip or phone+explicit call choice. Do not use Supabase Google login.
 
+Measured recovery atom, before continuing Step 2:
+
+- [ ] Persist the exact `connected_account_id` returned by the current Composio link in the single-use OAuth state.
+- [ ] Accept the callback only when that same account is exact-owner Google Calendar ACTIVE; an unrelated older ACTIVE account must not advance onboarding.
+- [ ] Persist the selected account ID on the tenant and pin every Composio Calendar read/write to it, with legacy users retaining the current user-id fallback until they reconnect.
+- [ ] Make `reconnect calendar` / `カレンダーを再接続` create and verify a new connection instead of re-enabling or silently reusing the old one; switch only after successful readback.
+- [ ] Telegram reports the real seven-day event count. Zero events shows `このまま進む` and `別のGoogleアカウントをつなぐ`; it does not claim that autofill is ready.
+- [ ] Re-run the affected real actor from the same chat. Require a fresh Google button, exact-account callback, Calendar read success, home prompt only after verification, and no block/archive/chat deletion.
+
 - [ ] **Step 3: Read server truth**
 
 Read back one new `lm_users` row and its `lm_panel_preferences` row by the verified Telegram binding. Require distinct UID from Dais, Calendar ACTIVE, home non-empty, notifications true, correct phone/call branch, `trial_expires_at = core_completion + 3 days`, and `paid=false`.
