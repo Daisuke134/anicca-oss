@@ -489,10 +489,13 @@ class CrowdWorksPaidAdapter:
 
     def _complete_once(self, item: Mapping[str, Any], payload: Mapping[str, Any]) -> None:
         self._goto_contract(_text(item.get("work_id")))
-        selector = f'form[action="/milestones/{_text(payload.get("milestone_id"))}/complete"]:visible'
-        form = self.page.locator(selector)
-        if form.count() != 1:
+        selector = f'form[action="/milestones/{_text(payload.get("milestone_id"))}/complete"]'
+        forms = self.page.locator(selector)
+        visible = [forms.nth(index) for index in range(forms.count())
+                   if forms.nth(index).locator('textarea[name="message[body]"]').is_visible()]
+        if len(visible) != 1:
             raise RuntimeError("crowdworks_paid_milestone_unavailable")
+        form = visible[0]
         form.locator('textarea[name="message[body]"]').fill(self._compose_text(question="納品完了報告", source="Googleフォームの回答を完了しました。", item=item))
         # The official form has duplicate milestone forms in the DOM.  Fence the
         # effect to the selected milestone's named submit control, rather than a
