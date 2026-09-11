@@ -241,8 +241,10 @@ def run_wake(*, adapter: PaidAdapter, decide: Callable[[dict[str, Any]], Mapping
             try:
                 items.append(future.result())
             except Exception as error:
+                error_detail = str(error).strip() or type(error).__name__
                 items.append({"work_id": row["work_id"], "status": "failed",
-                              "reason": type(error).__name__, "effect": 0,
+                              "reason": type(error).__name__, "error_detail": error_detail,
+                              "effect": 0,
                               "readback": 0, "failed": 1})
     return {
         "status": "ok",
