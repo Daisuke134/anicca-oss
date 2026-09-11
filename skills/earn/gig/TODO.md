@@ -211,6 +211,17 @@ read-only review reports SHIP with no P0/P1. Immutable release `20260911T201256-
 only for CrowdWorks Paid with receipt `eb220f91a7231f2a1c79fbfa`. The next natural installed-SHA
 terminal remains the active acceptance; code, tests and installation are not an official effect.
 
+The first natural terminal from installed main `5c007ea475` matched the installed/event SHA and
+proved the bounded contract-navigation recovery: inventory again observed all three contracts
+instead of failing at `provider_inventory`. It produced no external effect; both funded candidates
+`63583795` and `63570481` still failed at the separate exact boundary
+`crowdworks_paid_todo_surface_unavailable`, and `63568785` remained durable
+`awaiting_client_escrow`. A queued read-only DOM probe was cancelled before lock acquisition because
+the natural CrowdWorks Apply owner held the shared provider-browser lease; no browser connection,
+page GET, click, fill or submit occurred. Do not stop Apply or bypass the lease. Capture the real
+To-do control only when the owner is naturally free, then retain the exact milestone/form/effect
+fences.
+
 During that wake the host reached 317 MiB free and `tempfile` could not create a working directory.
 Cleanup removed only two unreferenced reproducible releases, Codex temporary/archive data and
 Codex/Claude session transcripts older than two days; active/rollback releases, current sessions,
