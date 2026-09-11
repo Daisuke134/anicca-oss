@@ -159,6 +159,7 @@ def test_one_failed_decision_does_not_stop_ready_sibling(tmp_path: Path) -> None
     assert result["failed"] == 1
     assert result["items"][0] == {
         "work_id": "bad", "status": "failed", "reason": "RuntimeError",
+        "error_detail": "private detail must not enter aggregate",
         "effect": 0, "readback": 0, "failed": 1,
     }
 
