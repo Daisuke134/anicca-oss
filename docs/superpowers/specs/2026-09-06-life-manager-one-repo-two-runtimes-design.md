@@ -473,6 +473,10 @@ This checklist does not reorder the established implementation sequence below. T
       wallet is now instance configuration rather than a checked-in personal address; missing wallet, Stripe key or
       Stripe CLI yields a side-effect-free `setup_required` result. Focused portability and safe-setup checks, the
       legacy scanner and OSS verifier pass.
+    - [ ] Remove or migrate the remaining non-Gig executable dependencies found by the final source census,
+      starting with repository-registered/runtime-referenced paths. Historical plans, evidence, provider package
+      format names and explicit legacy-rejection checks are not runtime dependencies and must not be rewritten merely
+      to make a text search empty.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
       and report legacy roots; this cleanup branch does not edit their running business logic.
   - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
@@ -492,7 +496,13 @@ This checklist does not reorder the established implementation sequence below. T
     its latest receipt through Telegram provider message `76577`. Neither test nor production evidence claims live
     profit or a self-funded compute purchase.
   - [ ] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
-    one-command claims in README, README.ja, installer output and active operational documentation.
+    one-command claims in README, README.ja, installer output and active operational documentation. Preserve the
+    formal fourteen-loop catalog and its plain-language descriptions. For **Mobile App Loops**, document one
+    product-aware lifecycle—account/app creation, build/sign/release, iteration, Postiz or native-provider
+    distribution, measurement, revenue receipt and CFO handoff—while continuing to label the currently missing
+    app-factory guided installer and build/sign/release orchestration as unfinished. This cleanup proves the existing
+    registered Mobile jobs are repository-owned and portable; it does not falsely claim or build the entire future
+    mobile factory as a side task.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.
