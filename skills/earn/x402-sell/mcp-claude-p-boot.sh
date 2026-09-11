@@ -10,5 +10,6 @@ export X402_PORT="8412"
 export PORT="8092"
 PIDS="$(lsof -ti tcp:8092 2>/dev/null || true)"; [ -n "$PIDS" ] && kill $PIDS 2>/dev/null || true
 sleep 1
-/opt/homebrew/bin/tailscale funnel --bg --https=8443 --set-path=/mcp http://127.0.0.1:8092/mcp >/dev/null 2>&1 || true
+TAILSCALE_BIN="${LIFE_MANAGER_TAILSCALE:-$(command -v tailscale 2>/dev/null || true)}"
+[ -z "$TAILSCALE_BIN" ] || "$TAILSCALE_BIN" funnel --bg --https=8443 --set-path=/mcp http://127.0.0.1:8092/mcp >/dev/null 2>&1 || true
 exec /usr/bin/env node "$DIR/mcp-server.mjs"

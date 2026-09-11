@@ -10,7 +10,8 @@
 set -uo pipefail
 Q="${1:-}"
 [ -n "$Q" ] || { echo "error: empty query"; exit 1; }
-FC="/opt/homebrew/bin/firecrawl"
+FC="${LIFE_MANAGER_FIRECRAWL:-$(command -v firecrawl 2>/dev/null || true)}"
+[ -n "$FC" ] && [ -x "$FC" ] || { echo '{"status":"setup_required","missing":"firecrawl"}' >&2; exit 2; }
 # Use firecrawl's SEARCH API (purpose-built, not bot-blocked like scraping google/ddg directly).
 OUT=$("$FC" search "$Q" 2>/dev/null | grep -vE '^\s*$' | head -60)
 echo "# Research brief: $Q"

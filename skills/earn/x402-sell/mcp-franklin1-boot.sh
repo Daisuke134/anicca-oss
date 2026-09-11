@@ -12,5 +12,6 @@ PIDS="$(lsof -ti tcp:8090 2>/dev/null || true)"; [ -n "$PIDS" ] && kill $PIDS 2>
 sleep 1
 # Preserve franklin1's existing `/` shop on :443 and add only the `/mcp` mount. Including the
 # backend path is required because Funnel strips the public mount prefix before proxying.
-/opt/homebrew/bin/tailscale funnel --bg --https=443 --set-path=/mcp http://127.0.0.1:8090/mcp >/dev/null 2>&1 || true
+TAILSCALE_BIN="${LIFE_MANAGER_TAILSCALE:-$(command -v tailscale 2>/dev/null || true)}"
+[ -z "$TAILSCALE_BIN" ] || "$TAILSCALE_BIN" funnel --bg --https=443 --set-path=/mcp http://127.0.0.1:8090/mcp >/dev/null 2>&1 || true
 exec /usr/bin/env node "$DIR/mcp-server.mjs"
