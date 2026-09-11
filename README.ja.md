@@ -80,6 +80,10 @@ publication jobはidentityを検証するだけでsourceをfetch/buildしない�
 sourceへ依存しません。新規ユーザーのappはrepo所有starter packから生成します。
 
 Mobile Appの既定体験は、appもrepositoryも持っていない状態から始まります。Life Managerがproduct opportunityを選定し、共通factoryと再配布可能なstarter assetから新しいapp workspaceを作り、build・提出・改善・marketingまで進めます。既存appの指定は任意のimportであり、onboarding要件ではありません。
+checked-inされた`ios-swiftui-v1` packは、生成productのidentityからproduct固有のApp Iconと
+App Store screenshot PNGを決定的に生成し、そのhashを同じproduct workspaceへ記録して、競合outputを
+拒否します。ユーザーは初期artworkを用意する必要がありません。任意のcustom assetは、後続のproduct所有
+iterationでのみ生成assetを置き換えます。
 
 Local/self-hostedとCloud/hostedは同じ14 Product Loopsを動かす二つの方法であり、別のProduct Loopではありません。Localは選択したloopをuserのdeviceで動かし、private stateもそこで保持します。CloudはLife Managerのhosted infrastructure上でtenantごとに動かします。両方が同じloop実装、provider adapter、receipt、CFO event、Telegram体験を使い、異なるのはscheduler、secret保存、durable state、browser transportだけです。
 

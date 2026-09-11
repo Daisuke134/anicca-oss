@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const { generateMobileProductAssets } = require("./mobile-product-assets.js");
 
 const SYMBOL = /^[A-Za-z][A-Za-z0-9]{0,63}$/u;
 const BUNDLE_ID = /^[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+){2,}$/u;
@@ -44,9 +45,11 @@ function expectedFiles(packRoot, product, identity) {
   requireValue(fs.lstatSync(manifestFile).isFile(), "starter manifest must be a regular file");
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
   requireValue(manifest?.schema_version === "mobile.starter-pack.v1"
-    && manifest.template_id === product.source.template_id && Array.isArray(manifest.files), "starter manifest invalid");
+    && manifest.template_id === product.source.template_id
+    && JSON.stringify(manifest.generators) === JSON.stringify(["mobile-product-assets.v1"])
+    && Array.isArray(manifest.files), "starter manifest invalid");
   const seen = new Set();
-  return manifest.files.map((item) => {
+  const files = manifest.files.map((item) => {
     const relative = safeRelative(item.path, "starter file path");
     requireValue(!seen.has(relative), "starter file path duplicated");
     seen.add(relative);
@@ -54,8 +57,19 @@ function expectedFiles(packRoot, product, identity) {
     const source = path.join(packRoot, relative);
     requireValue(fs.lstatSync(source).isFile(), "starter input must be a regular file");
     requireValue(digest(source) === item.sha256, `starter hash mismatch: ${relative}`);
-    return { relative, content: render(fs.readFileSync(source, "utf8"), identity) };
+    return { relative, content: Buffer.from(render(fs.readFileSync(source, "utf8"), identity), "utf8") };
   });
+  for (const item of generateMobileProductAssets({
+    productId: product.product_id,
+    displayName: identity.displayName,
+  })) {
+    const relative = safeRelative(item.relative, "generated asset path");
+    requireValue(!seen.has(relative), "generated asset path duplicated");
+    requireValue(Buffer.isBuffer(item.content) && item.content.length > 0, "generated asset is empty");
+    seen.add(relative);
+    files.push({ relative, content: item.content });
+  }
+  return files;
 }
 
 function sameOutput(target, files) {
@@ -74,7 +88,7 @@ function sameOutput(target, files) {
   visit(target);
   const expected = files.map((item) => item.relative).sort();
   if (JSON.stringify(actual.sort()) !== JSON.stringify(expected)) return false;
-  return files.every((item) => fs.readFileSync(path.join(target, item.relative), "utf8") === item.content);
+  return files.every((item) => fs.readFileSync(path.join(target, item.relative)).equals(item.content));
 }
 
 function ensureManagedDirectory(root, relativeParent) {

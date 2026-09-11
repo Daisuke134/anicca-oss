@@ -35,6 +35,9 @@ test("materializes a verified starter into the managed product workspace", (t) =
   const rendered = fs.readFileSync(path.join(target, "Sources/App.swift"), "utf8");
   assert.match(rendered, /struct FocusBloomApp/);
   assert.doesNotMatch(rendered, /\{\{/);
+  const project = fs.readFileSync(path.join(target, "project.yml"), "utf8");
+  assert.match(project, /sources: \[Sources, Resources\]/u);
+  assert.match(project, /ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon/u);
   assert.doesNotMatch(JSON.stringify(result), /\/Users\/|credential|signing/iu);
   assert.equal(materializeMobileStarterPack({ product: generated, identity, packRoot, privateRoot: root }).state, "replayed");
 });

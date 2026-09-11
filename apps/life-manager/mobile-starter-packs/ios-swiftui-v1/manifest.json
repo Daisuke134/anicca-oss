@@ -1,12 +1,13 @@
 {
   "schema_version": "mobile.starter-pack.v1",
   "template_id": "ios-swiftui-v1",
+  "generators": ["mobile-product-assets.v1"],
   "files": [
     {"path": "Resources/Assets.xcassets/AccentColor.colorset/Contents.json", "sha256": "ac2e7a5de74177ab4192e9acdd548373c4c9d9f2dee0aa55988f141146c30d74"},
     {"path": "Resources/Assets.xcassets/Contents.json", "sha256": "f5fb0e1f3a8142892ed092efb5955c1c2cc537003a89ad7bbdb9dade7fe8985f"},
     {"path": "Sources/App.swift", "sha256": "12c8002f7d9a8af57dd4d1aadf49e1ca6585c28438c9555f42c36634074f9021"},
     {"path": "Sources/ContentView.swift", "sha256": "1a460fb2fda683629c027abf48736ebd4f75c02ac54ca7b03f3fd049988d90fb"},
     {"path": "Tests/AppTests.swift", "sha256": "c774a45aa7ce5bdf1c0423df7b5e19b027ad3e4ac560675426dfcf56db2de72a"},
-    {"path": "project.yml", "sha256": "2daed18aba905a9d40ac769e6b14316e626034660a251136f97eb93c566c9fbc"}
+    {"path": "project.yml", "sha256": "9dd69c72c7b7e8d6c3f920c1dc5399bc73d23eb23fd26bdbf7ef0c503713e34d"}
   ]
 }

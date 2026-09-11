@@ -921,7 +921,7 @@ future product run exercises them without changing this architecture acceptance 
       before runner execution, and fail closed when registration is missing. The publication path deliberately does
       not clone or build app source; materialization remains owned by the build/release stage and therefore cannot add
       network or filesystem effects to an existing scheduled marketing job.
-  - [ ] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
+  - [x] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
     SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
     video or existing application. Before public release, generated product identity and marketing creative must be
     differentiated from the starter pack; user-provided assets remain an optional override. App source and generated
@@ -937,8 +937,14 @@ future product run exercises them without changing this architecture acceptance 
       stages then atomically renames, replays identical output and preserves conflicting output. It performs no
       build, signing, App Store or Postiz effect. After three adversarial review rounds fixed parent/replay symlink
       escape, noncanonical manifest paths, unsafe Swift display-name input and credential-bearing Git URLs, focused
-      Mobile tests pass 14/14 and fresh review ships. Product-specific icon and screenshot generators plus optional
-      downloadable pack transport remain open under this parent item.
+      Mobile tests pass 14/14 and fresh review ships. The pack now declares the versioned
+      `mobile-product-assets.v1` generator. The dependency-free generator derives differentiated colors and geometry
+      from the portable product ID, emits a valid 1024x1024 App Icon and 1290x2796 App Store screenshot, and records
+      both SHA-256 values in product-owned metadata. The existing atomic materializer writes those binary assets with
+      the source template, replays byte-identical output and refuses conflicts or unsafe identities. Xcode selects the
+      generated AppIcon. A clean user therefore needs no initial artwork, while custom assets remain an optional later
+      product-owned iteration. Focused registry/materializer/publication tests pass 17/17; no build, signing, App Store
+      or Postiz effect was performed.
   - [x] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
     `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
     `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and

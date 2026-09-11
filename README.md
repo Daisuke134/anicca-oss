@@ -91,6 +91,11 @@ The default Mobile App journey starts from no app and no repository. Life Manage
 finds a viable product opportunity, creates a new app workspace from its shared
 factory and redistributable starter assets, then builds, submits, improves and
 markets it. Supplying an existing app is an optional import path, not onboarding.
+The checked-in `ios-swiftui-v1` pack deterministically creates product-specific
+App Icon and App Store screenshot PNGs from the generated product identity, records
+their hashes in that product workspace, and refuses conflicting output. Users do not
+need to supply initial artwork; optional custom assets replace the generated assets
+only in a later product-owned iteration.
 The 18 current publication jobs all resolve their product through
 [`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
 before a runner starts. That portable registry pins a credential-free HTTPS Git
