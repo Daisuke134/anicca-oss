@@ -155,6 +155,14 @@ as the final fix. No form, milestone or duplicate effect occurred. The next atom
 for the exact official Google Form redirect and to capture the actual authenticated contract control
 once the provider browser owner is free; do not broaden selectors from a guess.
 
+PR `#5022`, merged as main `ce77fc24a8`, adds that bounded `forms.gle` redirect wait and still
+requires the exact official Google Forms host/path before any answer, receipt preparation or POST.
+Focused/shared tests (`307`) and fresh read-only review pass. Immutable release
+`20260911T184823-ce77fc24` is installed only for CrowdWorks Paid with receipt
+`17c16b7b52a0e4149d0be044`. A read-only authenticated contract-control probe was cancelled while
+waiting for Apply's provider-browser lock, before it connected to CDP or opened a page; it caused no
+provider action and was not left ahead of Paid. Natural effect/readback remains open.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
