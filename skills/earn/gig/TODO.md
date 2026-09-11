@@ -90,17 +90,18 @@ readback; it does not mean that the marketplace is already producing new net cas
 | Marketplace | Apply | Reply | Paid | Storefront | Current revenue truth |
 |---|---|---|---|---|---|
 | Coconala | **Operational path recovered; fresh-effect gate open.** Natural run `18d41dfcd14b36c8-46829` passed from release `fe529db72`, observed 80 officially unavailable postings, produced no effect/failure/pending, and delivered Telegram `75427` once. The former restriction is lifted; the next eligible proposal still needs official application readback and following replay-zero. | **Historical business acceptance exists; fresh continuous-health readback remains required after Apply.** Do not reimplement the working shared Reply lifecycle. | **Reference lifecycle accepted.** Five-room classification, failed zero, Ryu replay-zero, formal delivery off and durable external ownership for `18180857` remain the reference evidence. Current monitoring must still surface new buyer work naturally. | **Implementation/history exists; current conversion and fresh owner acceptance remain later in the fixed order.** | Retained Coconala customer revenue exists, but no new post-recovery acquisition-to-bank receipt chain is proved yet. |
-| Lancers | **Application mutation works; one old uncertain claim remains the active atom.** Project `5600212` reconciled exactly once as proposal `27913800` with Telegram-once and replay-zero. Current natural owner terminals pass, but project `5599976` remains quarantined without proposal ID and keeps `proposal_pipeline_incomplete`; classify it from official history as already applied, authoritative absence safe to retry, or terminally unsubmittable before calling the lane fully continuous. | **Scheduling action accepted.** The `pyrite` request produced one booking, Calendar readback, buyer-visible completion and following replay-zero through the shared Reply lifecycle. Continue observing other threads. | **Empty official contract inventory only.** Runtime monitoring passes, but no real funded delivery/acceptance/payment chain exists. | **Code/history exists; current attributable order and payment are unproved.** The older state/readback branch must be reviewed against current main rather than copied. | No verified contract, payout or new bank receipt. The immediate cause is upstream conversion/contract absence, not an unbuilt second Paid kernel. |
+| Lancers | **Continuous path accepted; fresh effects continue naturally.** Project `5600212` reconciled exactly once as proposal `27913800` with Telegram-once and replay-zero. Removed project `5599976` is now classified from the authenticated official detail as provider-terminal, removed from pending without resubmission, and the installed main release `792538e9` ended natural PASS/exit `0` at `2026-09-11T01:52:01Z`. | **Scheduling action accepted.** The `pyrite` request produced one booking, Calendar readback, buyer-visible completion and following replay-zero through the shared Reply lifecycle. Continue observing other threads. | **Empty official contract inventory only.** Runtime monitoring passes, but no real funded delivery/acceptance/payment chain exists. | **Code/history exists; current attributable order and payment are unproved.** The older state/readback branch must be reviewed against current main rather than copied. | No verified contract, payout or new bank receipt. The immediate cause is upstream conversion/contract absence, not an unbuilt second Paid kernel. |
 | CrowdWorks | **Operational path accepted; fresh-effect gate open.** Full release `fe529db72` ended natural PASS `18d41d9e94331ae8-1832`, inspecting 38 postings with 33 off-topic and two not workable, effect zero and no ledger change. Earlier proposal receipts remain real; the newest official-list readbacks include proposals `305351407` and `305352578`. Gmail contains current CrowdWorks mail but no matching application-completion mail for those two jobs; mail is therefore not the acceptance authority. The authenticated `/e/proposals` list plus exact proposal detail is the official proof. The next eligible proposal still needs official receipt and replay-zero. | **Contract transition accepted; one external-form item remains durable pending.** Contracts `63570481` and `63568785` have official readback and Telegram-once. Google Form thread `304360469` has one crash-safe confirmation request and replay-zero; explicit buyer confirmation remains externally owned, so the form is not re-POSTed. | **Adapter/runtime exists but real work ownership is incomplete.** Paid must ingest the official contract state, distinguish work-startable from escrow-waiting, complete permitted work only after funding, and prove delivery/payment/replay-zero. | **No official seller-storefront capability is currently proved.** Do not invent this lane unless provider inspection shows one. | Contract opportunity exists, but accepted delivery/payment/bank receipt is not yet proved. |
 | Mercor | **Submission path accepted; fit optimization remains.** Official submissions, Telegram-once and replay-zero exist. Ranking must reduce low-acceptance contradictions while continuing feasible Japanese/software/AI applications; human interview tasks become non-blocking handoffs rather than queue stops. | **Accepted.** Consecutive natural passes cover the authenticated in-platform/application event inventory; email is not treated as a platform reply. | **Only official empty-contract monitoring is proved.** Real task preparation, human handoff when physically required, submission, acceptance and payout remain unaccepted. | **Not applicable on current official surface.** | Applications exist, but no accepted paid work or payout is proved. |
 | Freelancer.com | **Off / no managed owner.** | **Off.** | **Off.** | **Unproved.** | No active acquisition or revenue chain. |
 | Upwork | **Off; zero Connects and account-policy/identity state prevent safe resume.** A low cadence does not fix zero capacity or policy risk. | **Off.** | **Off.** | **Not active.** | No active acquisition or revenue chain. |
 | AudioBabel and later providers | **Not implemented.** | **Not implemented.** | **Not implemented.** Human recordings use the shared handoff contract when needed. | **Capability-dependent.** | Candidates only; no earnings claim. |
 
-The active atom is **Lancers Apply project `5599976` official classification**. It is inside the
-existing Apply acceptance gate and does not reorder the program. While fresh-effect gates wait for
-eligible inventory, owners continue naturally and engineering advances only where official evidence
-shows a concrete defect; waiting on an empty marketplace never blocks work on the next atom.
+The active atom is **Mercor Apply resume-fit and expected-acceptance ranking**. Lancers project
+`5599976` is closed as provider-terminal on main and production without a duplicate proposal.
+Coconala and CrowdWorks fresh-effect gates remain live monitors: their owners continue naturally and
+the first eligible opportunity must produce an official application receipt and following
+replay-zero. Waiting on empty inventory never blocks the next Apply engineering atom.
 
 ### Fixed remaining program order — current platform truth before meta-loop
 
@@ -444,12 +445,12 @@ own worktrees and resource scopes; “top to bottom” orders only this owner's 
 Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
 official contract inventories are empty. `APPLY-PROFILE-PARITY-1`, `APPLY-ACCEPTANCE-ALL-1`,
 `CROWDWORKS-REPLY-2`, `LANCERS-REPLY-ACTION-1` and `MERCOR-REPLY-2` are accepted evidence below and
-must not be reopened without new official drift. The active engineering atom is the Lancers Apply
-quarantine for project `5599976`: the owner passes and later applications continue, but this old
-intent has neither an official proposal receipt nor authoritative absence/terminal classification
-and therefore keeps `proposal_pipeline_incomplete`. Resolve that exact identity through official
-readback without a duplicate proposal. This preserves the fixed Apply -> Reply -> Paid -> Storefront
-order.
+must not be reopened without new official drift. Lancers Apply project `5599976` is closed: PRs
+`#5002` and `#5003` merged the exact provider-terminal classification and successful reconciliation,
+focused Lancers tests pass `86/86`, target-only install receipt `0b6dc4a6723b69187c890c72` points at
+main release `792538e9`, and its natural terminal is PASS/exit `0`. The saved pending identity is
+absent and no proposal was resubmitted. The active engineering atom is now Mercor Apply resume-fit
+and expected-acceptance ranking. This preserves the fixed Apply -> Reply -> Paid -> Storefront order.
 
 Historical cross-owner handoff audit (superseded where the current snapshot above differs):
 
@@ -546,6 +547,9 @@ Current live Apply acceptance audit:
   exact `/work/detail/5599976` row after a saved intent. The current blocker is therefore
   `submission_uncertain` / `proposal_pipeline_incomplete`, not browser availability. Preserve the
   intent and reconcile before retry; a process-level PASS is not an application receipt.
+  This historical blocker is now closed. Authenticated official detail classified `5599976` as
+  removed for terms/guideline violation, not as an eligible retry. Main release `792538e9` removed it
+  from pending without resubmission and ended a natural PASS/exit `0` at `2026-09-11T01:52:01Z`.
 - **CrowdWorks:** Apply is actively producing official receipts, but is not operationally accepted.
   In addition to the retained earlier receipts, current official logs verify proposals `305309712`,
   `305314740`, and `305321784`. Other wakes end `account_ensure_failed`,
