@@ -33,6 +33,8 @@ class RepositoryOwnershipTests(unittest.TestCase):
                 body = path.read_text(encoding="utf-8")
                 self.assertNotIn("/" + "Users/anicca", body, path.as_posix())
                 self.assertNotIn("profitable-claude", body, path.as_posix())
+                self.assertNotIn("." + "openclaw/.env", body, path.as_posix())
+                self.assertNotIn("." + "hermes/.env", body, path.as_posix())
 
     def test_retired_legacy_tree_is_absent(self) -> None:
         self.assertFalse(LEGACY_ROOT.exists())

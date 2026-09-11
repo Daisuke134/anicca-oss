@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # _shared/lib/load-instance-env.sh — SOURCED (never executed directly) by skill run.sh wrappers to
-# load shared per-user secrets ($HOME/.hermes/.env, $HOME/.local/state/life-manager/.env) WITHOUT letting either
+# load shared per-user secrets from the canonical Life Manager environment WITHOUT letting the
 # file's own ANICCA_HOME assignment clobber the caller's per-instance ANICCA_HOME.
 #
 # Root cause (anicca-spawn-identity-resolution-fix, 2026-07-09): $HOME is the real, SHARED macOS home
-# — every instance on one machine sources the SAME two files — while ANICCA_HOME is per-instance
-# identity. $HOME/.local/state/life-manager/.env always sets its OWN ANICCA_HOME (the OpenClaw automaton's home);
+# — every instance on one machine may source the SAME file — while ANICCA_HOME is per-instance
+# identity. The shared environment may set its own ANICCA_HOME;
 # sourcing it under `set -a` used to silently overwrite the caller's correct ANICCA_HOME wholesale,
 # which broke self/spawn/run.sh's real identity resolution in production. Hand-copying the fix into
 # each affected run.sh (self/spawn, self/spawn-child, economy/lending) let a 4th, unfixed instance
@@ -17,8 +17,8 @@
 # (or any equivalent path expression that resolves to this file — see call sites for examples).
 set -a
 _ANICCA_HOME_CALLER="${ANICCA_HOME:-}"
-[ -f "$HOME/.hermes/.env" ]   && . "$HOME/.hermes/.env"
-[ -f "$HOME/.local/state/life-manager/.env" ] && . "$HOME/.local/state/life-manager/.env"
+_LIFE_MANAGER_ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+[ -f "$_LIFE_MANAGER_ENV_FILE" ] && . "$_LIFE_MANAGER_ENV_FILE"
 [ -n "$_ANICCA_HOME_CALLER" ] && ANICCA_HOME="$_ANICCA_HOME_CALLER"
-unset _ANICCA_HOME_CALLER
+unset _ANICCA_HOME_CALLER _LIFE_MANAGER_ENV_FILE
 set +a

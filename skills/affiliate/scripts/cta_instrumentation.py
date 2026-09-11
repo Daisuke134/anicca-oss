@@ -250,7 +250,7 @@ def _env(name):
     value = os.environ.get(name, "").strip()
     if value:
         return value
-    for path in (Path("~/.config/anicca/affiliate.env"), Path("~/.openclaw/.env")):
+    for path in (Path(os.environ.get("LIFE_MANAGER_ENV_FILE", "~/.local/state/life-manager/.env")),):
         path = path.expanduser()
         if not path.is_file():
             continue

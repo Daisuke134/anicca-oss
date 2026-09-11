@@ -39,7 +39,7 @@ def _atomic(path, value):
 def _key():
     if os.environ.get("DEVTO_API_KEY", "").strip():
         return os.environ["DEVTO_API_KEY"].strip()
-    for path in (Path("~/.config/anicca/affiliate.env"), Path("~/.openclaw/.env")):
+    for path in (Path(os.environ.get("LIFE_MANAGER_ENV_FILE", "~/.local/state/life-manager/.env")),):
         path = path.expanduser()
         if not path.is_file():
             continue

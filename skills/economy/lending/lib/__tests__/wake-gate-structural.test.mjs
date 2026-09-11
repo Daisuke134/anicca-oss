@@ -53,8 +53,8 @@ test("run.sh exists, is executable, and structurally mirrors self/spawn/run.sh's
   const sharedHelperCode = fs.readFileSync(path.resolve(REPO_ROOT, "skills/_shared/lib/load-instance-env.sh"), "utf8");
   assert.match(sharedHelperCode, /set -a/, "the shared helper must load env under set -a");
   assert.match(sharedHelperCode, /set \+a/, "the shared helper must close the env-load block with set +a");
-  assert.match(sharedHelperCode, /\.hermes\/\.env/, "the shared helper must best-effort source ~/.hermes/.env");
-  assert.match(sharedHelperCode, /\.openclaw\/\.env/, "the shared helper must best-effort source ~/.local/state/life-manager/.env");
+  assert.match(sharedHelperCode, /LIFE_MANAGER_ENV_FILE/, "the shared helper must load the canonical Life Manager env");
+  assert.doesNotMatch(sharedHelperCode, /\.hermes\/\.env|\.openclaw\/\.env/, "the shared helper must not read a legacy harness env");
   assert.match(code, /exec\s+"\$NODE"\s+"\$SKILL_DIR\/scripts\/wake-gate\.mjs"\s+"\$@"/, "run.sh's own final line must exec scripts/wake-gate.mjs, handing off ALL real work");
   assert.ok(
     !/balanceUsd|surplusUsd|isBorrowerEligible|computeLenderAvailableUsd|decideLoan/.test(code),
