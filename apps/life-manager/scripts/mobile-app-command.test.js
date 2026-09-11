@@ -31,6 +31,14 @@ test("retired per-lane boot wrappers are absent", () => {
   }
 });
 
+test("the shared mobile wrapper is host portable and uses the repository timeout", () => {
+  const wrapper = fs.readFileSync(path.join(root, "apps/life-manager/scripts/mobile-app"), "utf8");
+  assert.match(wrapper, /command -v node/);
+  assert.match(wrapper, /command -v python3/);
+  assert.match(wrapper, /runtime\/run-with-timeout\.py/);
+  assert.doesNotMatch(wrapper, /\/opt\/homebrew|\/Users\/|openclaw|hermes|profitable-claude/iu);
+});
+
 test("unknown loop ids fail closed", () => {
   assert.throws(() => resolveMobileAppLoop("unknown-mobile-loop"), /manifest entry invalid/);
   assert.throws(() => resolveMobileAppLoop("../escape"), /loop id invalid/);
