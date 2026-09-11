@@ -72,7 +72,7 @@
         "skills/agent-runner/agent_runner.py": "ea32d3446d0efb9eccb3046e87cf9e99c7190edcf0b659e270a37aae689824ae"
       },
       "absorbed_files": [
-        {"source": "skills/agent-runner/agent_runner.py", "target": "runtime/agent-runner/agent_runner.py", "sha256": "edc5c52fc9b5bd414fd5e6d717817e2eb338e1332a21516f7f893cec2b1014ef"},
+        {"source": "skills/agent-runner/agent_runner.py", "target": "runtime/agent-runner/agent_runner.py", "sha256": "1bea08e8b971cb2c51b7f6f7f4d9bbd5ed9db5f8508414294a541139202870e0"},
         {"source": "skills/agent-runner/config.json", "target": "runtime/agent-runner/config.json", "sha256": "707d06bf31c4ccc6e010648eca2c47e4a019fdabc0a579a4763c593f9221effc"},
         {"source": "skills/agent-runner/context_packet.py", "target": "runtime/agent-runner/context_packet.py", "sha256": "2e3592a93d5e59c25a6a3f0e8c2576af92e36c7a2fc0cdd6d8600bed1ea756d2"},
         {"source": "skills/agent-runner/usage_report.py", "target": "runtime/agent-runner/usage_report.py", "sha256": "789c90de99efca6c15ba3714f2888dda777a7701214dd567c7ea38302eb81709"},
