@@ -204,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path not in {"/api/connect", "/api/enable-all", "/api/profile", "/api/export", "/api/uninstall"}:
+        if self.path not in {"/api/connect", "/api/profile", "/api/export", "/api/uninstall"}:
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         if self.headers.get("x-life-manager-token") != self.token:
@@ -228,14 +228,6 @@ class Handler(BaseHTTPRequestHandler):
                 if value.get("confirm") != "UNINSTALL":
                     raise ValueError("explicit uninstall confirmation required")
                 self._json(HTTPStatus.OK, _uninstall(str(value.get("integration_id") or "")))
-                return
-            if self.path == "/api/enable-all":
-                manifests = [row for row in _graph()["integrations"] if row["state"] != "ready"]
-                results = [_connect(row["integration_id"]) for row in manifests]
-                self._json(HTTPStatus.ACCEPTED, {
-                    "status": "started", "started": len(results),
-                    "integrations": [row["integration_id"] for row in results],
-                })
                 return
             length = int(self.headers.get("content-length") or 0)
             if length <= 0 or length > 8192:

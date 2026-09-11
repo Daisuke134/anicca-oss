@@ -1000,9 +1000,17 @@ future product run exercises them without changing this architecture acceptance 
     Focused tests pass 26/26, and a real local FFmpeg provision/replay plus ffprobe dimensions and durations pass.
     Existing Dais media and the protected monk factory
     remain untouched; no render, publication or running Gig effect was performed.
-- [ ] `ARCH-13g` Make onboarding expose the same product model on both hosts. Local uses clone/install plus pairing
-  and selected-loop setup; Cloud uses Telegram `/start` plus hosted tenant provisioning. A loop without required
-  credentials/KYC remains visibly `setup_required`; onboarding must not use `start all` as a shortcut.
+- [x] `ARCH-13g` Make onboarding expose the same product model on both hosts. The repository-owned
+  Cloud-deployable `apps/life-manager/config/product-loop-catalog.json` describes all 14 public Product Loops, their
+  purpose, requirements, the Local-wide Telegram pairing requirement, current Local
+  and Cloud availability, and the existing start entrypoint where one is honestly supported. The shared zero-effect
+  planner accepts an explicit non-empty selection, rejects `all`, accepts verified requirements only from provider
+  preflight adapters, returns each missing requirement as `setup_required`, and never starts work. Local exposes its
+  read-only missing-requirement view through `./install.sh plan --loop ID`; the existing guided
+  installers remain the only individual effectful entrypoints. The Local onboarding page and server no longer expose
+  the conflicting `Enable all` action/API. Cloud `/start` reads the same catalog before its existing replay-safe,
+  tenant-scoped Agent Economy citizen/job provisioning; unsupported Cloud adapters remain `setup_required` instead of
+  being advertised or started. Focused onboarding tests pass.
 - [ ] `ARCH-13e` Integrate the separately owned Gig Work result only after this branch completes ARCH-13f and
   ARCH-13g. Hand the exact pushed branch/head, changed-file boundary, tests and remaining acceptance gates to the
   Gig Work Codex. That owner merges latest `main` with this branch and its separately owned Coconala, Lancers and

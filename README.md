@@ -298,6 +298,20 @@ The default installer does not silently start all 14 product loops. Each provide
 exist for `./install.sh coconala`, `connector`, `fundraiser`, and `job-hunter`; the README catalog states the current
 boundary for the other product loops.
 
+Preview a zero-effect plan for only the loops you select. The plan reads the same
+[`apps/life-manager/config/product-loop-catalog.json`](apps/life-manager/config/product-loop-catalog.json) used by
+Cloud `/start` and lists every
+missing requirement—including Local Telegram pairing—without starting anything:
+
+```bash
+./install.sh plan --loop agent-economy
+./install.sh plan --loop connector
+```
+
+The Local setup screen likewise has no “enable all” action. A loop is started only through its listed command after
+its required setup is complete. Cloud `/start` currently provisions only the repository-owned Agent Economy citizen;
+other Cloud loops stay visibly `setup_required` until their tenant-scoped host adapter and provider setup exist.
+
 To start the Job Hunter loop on an Apple Silicon Mac:
 
 ```bash

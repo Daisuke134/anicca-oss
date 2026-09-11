@@ -177,6 +177,20 @@ browser loginが未設定のloopは`setup_required`のままです。guided inst
 `./install.sh coconala`、`connector`、`fundraiser`、`job-hunter`で、その他のloopの現在の境界は上の
 14-loop catalogに記載します。
 
+選んだloopだけの副作用ゼロplanを先に確認できます。このplanはCloud `/start`も読む
+[`apps/life-manager/config/product-loop-catalog.json`](apps/life-manager/config/product-loop-catalog.json)を使い、
+LocalのTelegram pairingを含む不足条件を表示するだけで
+何も開始しません。
+
+```bash
+./install.sh plan --loop agent-economy
+./install.sh plan --loop connector
+```
+
+Local setup画面にも「全部有効化」はありません。必要なsetup完了後、表示された個別commandからだけ開始します。
+Cloud `/start`が現在自動provisionするのはrepo所有のAgent Economy citizenだけです。その他のCloud loopは、
+tenant-scoped host adapterとprovider setupが揃うまで明示的に`setup_required`です。
+
 現在のproduction Mac runtimeはDockerではなく、pushed `main`から作るimmutable releaseを
 `bin/lm-loop`とmacOS `launchd`で直接実行します。state、credential、log、browser profile、receiptは
 checkoutとreleaseの外に置きます。
