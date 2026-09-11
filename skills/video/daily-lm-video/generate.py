@@ -263,16 +263,14 @@ def guard_unmigrated_legacy_state(args):
 
 def parser():
     here = Path(__file__).resolve().parent
-    home = Path.home()
-    m1_dir = home / "anicca-project/.claude/sol-orders/out/m1"
     parse = argparse.ArgumentParser()
     parse.add_argument("--bank", type=Path, default=Path(os.environ.get("LM_VIDEO_BANK", here / "creative-bank.jsonl")))
     video_root = default_video_root()
     parse.add_argument("--state", type=Path, default=Path(os.environ.get("LM_VIDEO_STATE", video_root / "daily-render-state.jsonl")))
     parse.add_argument("--output-dir", type=Path, default=Path(os.environ.get("LM_VIDEO_OUTPUT_DIR", video_root / "daily-renders")))
     parse.add_argument("--call-audio", type=Path, default=Path(os.environ.get("LM_VIDEO_CALL_AUDIO", video_root / "recordings/2026-07-19T23-40-35-932b3fad-2a99-49ca-8250-3a49e682ce92.mp3")))
-    parse.add_argument("--stock", type=Path, default=Path(os.environ.get("LM_VIDEO_STOCK", home / "anicca-project/.claude/skills/faceless-money-factory/assets/broll-library/lib_money_5.mp4")))
-    parse.add_argument("--telegram-proof", type=Path, default=Path(os.environ.get("LM_VIDEO_TELEGRAM_PROOF", m1_dir / "telegram-real-message-3393-crop.png")))
+    parse.add_argument("--stock", type=Path, default=Path(os.environ.get("LM_VIDEO_STOCK", video_root / "inputs/stock.mp4")))
+    parse.add_argument("--telegram-proof", type=Path, default=Path(os.environ.get("LM_VIDEO_TELEGRAM_PROOF", video_root / "inputs/telegram-proof.png")))
     parse.add_argument("--whisper-ass", type=Path, default=Path(os.environ.get("LM_VIDEO_WHISPER_ASS", video_root / "2026-07-20/2026-07-19T23-40-35-932b3fad-2a99-49ca-8250-3a49e682ce92.ass")))
     parse.add_argument("--ffmpeg-bin", default=os.environ.get("LM_VIDEO_FFMPEG", "ffmpeg"))
     parse.add_argument("--ffprobe-bin", default=os.environ.get("LM_VIDEO_FFPROBE", "ffprobe"))
