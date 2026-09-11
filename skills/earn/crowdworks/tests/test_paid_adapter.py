@@ -399,3 +399,4 @@ def test_owner_uses_shared_kernel_and_provider_adapter_state_root():
     assert "skills/earn/crowdworks/scripts/paid_adapter.py" in source
     assert '--state-root "$STATE_ROOT/paid"' in source
     assert '--state-path "$STATE_ROOT/paid"' in source
+    assert '--max-workers 1' in source
