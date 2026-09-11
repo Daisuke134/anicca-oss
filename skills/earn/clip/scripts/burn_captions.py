@@ -9,8 +9,9 @@ over the first N seconds.
 Usage:
   burn_captions.py <in.mp4> <out.mp4> [--hook "TEXT"] [--model tiny] [--lang en]
 
-Run with the SamurAIGPT venv (has faster-whisper):
-  ~/.cache/anicca-clones/AI-Youtube-Shorts-Generator/.venv/bin/python burn_captions.py ...
+Install the repository-declared dependencies, then run with the active Python:
+  python3 -m pip install -r skills/earn/clip/requirements.txt
+  python3 burn_captions.py ...
 """
 import argparse, os, subprocess, sys, tempfile
 

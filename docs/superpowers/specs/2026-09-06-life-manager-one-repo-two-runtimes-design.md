@@ -496,8 +496,15 @@ This checklist does not reorder the established implementation sequence below. T
         interpreter rather than one Mac's Homebrew path. The Capafy Python suite passes 17/17, its changed shell
         entrypoints pass syntax checks and the OSS self-contained verifier passes; no live posting or Gig runtime
         was invoked by this source-only portability atom.
+      - [x] Remove the Clip producer's external clone dependency. The actual yt-dlp/Whisper/crop/caption pipeline
+        was already repository-owned; its wrapper now resolves portable Python, declares its two Python dependencies
+        in `skills/earn/clip/requirements.txt` and returns truthful `setup_required` rather than cloning another
+        repository into `~/.cache`. Clip shell tests pass, its Python suite passes 67/67 and the OSS verifier passes.
       - [ ] Delete quarantined Clip/Video external-source implementations if they have no supported return path, or
-        move the required implementation into this repository before re-enabling them.
+        move the required implementation into this repository before re-enabling them. The Clip producer dependency
+        is now repository-owned; retirement of the obsolete scheduled Clip owner and the separate legacy Video
+        earning slot remains before this combined atom can close. The current 18 Mobile App jobs are not this legacy
+        Video slot and remain intact.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
       and report legacy roots; this cleanup branch does not edit their running business logic.
   - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and

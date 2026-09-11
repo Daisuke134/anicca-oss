@@ -4,21 +4,16 @@
 # NOT done here (that's the earn/clip slot's job). Heavy (yt-dlp + whisper + Gemini + crop +
 # burn) → run as a DAILY producer cron, separate from the hourly post loop.
 #
-# Reuses the proven engine: ~/.cache/anicca-clones/AI-Youtube-Shorts-Generator (pipeline.py,
-# burn_captions.py, verify_clip.sh) via the earn-clip-rewards skill scripts.
+# Uses the repository-owned pipeline.py, burn_captions.py and verify_clip.sh.
 #
 #   producer.sh --url <youtube_long_form>   # produce from a specific source
 #   producer.sh                              # pick a trending money/AI long-form (engine default)
 # Disk hygiene (HARD 0.26): all heavy intermediates go in a /tmp workdir, removed at the end;
 # only the final verified mp4 + caption land in ~/clips/queue.
 set -uo pipefail
-# FIX-2 (2026-07-14): the encode scripts (pipeline/burn_captions/verify_clip/export_camofox_cookies)
-# used to live in ~/.claude/skills/earn-clip-rewards/scripts, which was moved to skills.disabled-2026-07-13
-# during floor-reduction → producer broke (no new clips since 07-11). Now they live HERE, next to
-# producer.sh in the canonical earner repo (the canonical checkout), so the path can never be broken by a skill disable.
+# The encode scripts live beside this entrypoint in the immutable Life Manager release.
 SKILLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
-ENGINE="$HOME/.cache/anicca-clones/AI-Youtube-Shorts-Generator"
-PY="$ENGINE/.venv/bin/python"
+PY="${CLIP_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3 2>/dev/null)}}"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_instance_paths.sh"
 QUEUE="$CLIP_QUEUE"; mkdir -p "$QUEUE"
 POSTED="$CLIP_POSTED"; mkdir -p "$POSTED"
@@ -30,28 +25,14 @@ export GOOGLE_API_KEY="${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}"
 URL=""; [ "${1:-}" = "--url" ] && URL="${2:-}"
 emit(){ printf '{"producer":"clip","did":"%s"}\n' "$1"; }
 
-# self-heal (タスク#9、2026-07-04): disk-cleaner (1h毎) が anicca-clones 配下の
-# 24h超ファイルを消す設計だった為、engine venv が定期的に消えていた
-# (根本原因はdisk-cleaner.sh側で is_protected 追加済だが、防御的に自己修復も持つ)。
-# 人間/devが気づいて手で再clone+venv再構築する必要を無くす。
-ENGINE_REPO_URL="https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator"
-self_heal_engine() {
-  emit "engine venv missing ($PY) — self-healing: re-clone + rebuild venv"
-  rm -rf "$ENGINE"
-  if ! git clone --depth 1 "$ENGINE_REPO_URL" "$ENGINE" >/tmp/producer-selfheal-clone.log 2>&1; then
-    emit "self-heal FAILED: git clone (see /tmp/producer-selfheal-clone.log)"; exit 0
-  fi
-  if ! /opt/homebrew/bin/python3 -m venv "$ENGINE/.venv" >/tmp/producer-selfheal-venv.log 2>&1; then
-    emit "self-heal FAILED: venv create (see /tmp/producer-selfheal-venv.log)"; exit 0
-  fi
-  if ! "$PY" -m pip install --quiet -r "$ENGINE/requirements-local.txt" >/tmp/producer-selfheal-pip.log 2>&1; then
-    emit "self-heal FAILED: pip install (see /tmp/producer-selfheal-pip.log)"; exit 0
-  fi
-  emit "self-heal OK — engine venv rebuilt, continuing"
-}
-
-[ -x "$PY" ] || self_heal_engine
-[ -x "$PY" ] || { emit "self-heal ran but venv still missing ($PY)"; exit 0; }
+if [ -z "$PY" ]; then
+  printf '{"producer":"clip","status":"setup_required","missing":["python3"]}\n'
+  exit 0
+fi
+if ! "$PY" -c 'import faster_whisper, yt_dlp' >/dev/null 2>&1; then
+  printf '{"producer":"clip","status":"setup_required","missing":["faster-whisper","yt-dlp"],"install":"python3 -m pip install -r skills/earn/clip/requirements.txt"}\n'
+  exit 0
+fi
 
 # pick a trending single-speaker money/AI long-form if no url (engine's channel default).
 # Scan the channel's recent videos and skip any already produced (POSTED, QUEUE, or
