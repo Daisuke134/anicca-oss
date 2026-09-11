@@ -81,6 +81,27 @@ skills/
 └── earn/gig/TODO.md                       # fixed execution order and measured acceptance evidence
 ```
 
+### Measured shared-component convergence
+
+The target tree above is not yet the complete as-is. The table below is measured from the installed
+entrypoints and imports; it prevents “shared” from becoming an unsupported claim.
+
+| Provider | Apply | Reply | Paid | Storefront | Remaining convergence |
+|---|---|---|---|---|---|
+| Coconala | Reuses shared work-fit, transaction/reporting primitives, but still owns its mature application orchestration. | Runs `reply_kernel.py` with the Coconala adapter and shared grounding. | **Not yet on `paid_kernel.py`;** the accepted `paid_direct.py` remains the behavioral reference. | Reuses `storefront_kernel.py`, catalog and shared DOM primitives, with current production acceptance still open. | Port the proven Paid lifecycle into the shared kernel without weakening Coconala evidence or copying `paid_direct.py`; converge Apply only after a second real adapter contract proves the boundary. |
+| Lancers | Reuses shared application transaction, ledger, catalog search terms and work-fit. | Runs `reply_kernel.py` with the Lancers adapter; the registry ID is still the legacy `lancers-revenue-negotiate`. | Runs `paid_kernel.py` with a thin adapter; real funded inventory is absent. | Reuses shared catalog/DOM/form/storefront primitives, but production revenue acceptance is open. | Rename/retire the old Negotiate vocabulary without creating a second lane; prove real Paid and Storefront effects. |
+| CrowdWorks | Reuses shared work-fit, catalog and transaction primitives behind one provider browser lock. | Runs `reply_kernel.py` with shared composer/grounding and a thin adapter. | Runs `paid_kernel.py`; the adapter owns Google Form transport and official CrowdWorks mutation/readback. | No official seller catalog is proved. | Finish the current funded effects/readbacks, then generalize only the action types proven by both Reply and Paid. |
+| Mercor | Reuses shared fit policy and common runtime/reporting, but its browser/application orchestration remains provider-owned. | Runs `reply_kernel.py` with shared grounding and a thin adapter. | Runs `paid_kernel.py`; real task/payout acceptance is absent. | Not applicable on the current official surface. | Prove a real accepted task, typed human-artifact handoff when physically required, submission and payout before further extraction. |
+| Freelancer.com / Upwork / AudioBabel | No active accepted adapters. | No active accepted adapters. | No active accepted adapters. | Capability-dependent. | Add thin adapters only after official capability inspection; never copy a lane from a provider. |
+
+Reply and Paid remain separate owners even when a provider renders them on one page. They share
+observation, context, model actions, effect fencing, retry, official readback, reporting and one
+provider-scoped browser lease. Reply owns pre-funding buyer events, negotiation, scheduling, forms
+and exact contract acceptance. Paid starts only after an official funded/work-startable state and
+owns artifact production, human-deliverable handoff, delivery, inspection, payment and bank receipt.
+The shared lease plus durable work-item identity prevents collision; merging the owners would instead
+mix different permissions, retry semantics and monetary failure boundaries.
+
 ### Current execution truth — authoritative handoff snapshot
 
 This is the current cross-platform SSOT. Later incident tables are retained as dated evidence and do
