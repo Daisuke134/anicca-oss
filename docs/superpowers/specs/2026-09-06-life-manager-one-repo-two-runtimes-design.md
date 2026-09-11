@@ -551,7 +551,13 @@ This checklist does not reorder the established implementation sequence below. T
     The Marketing runner no longer points at the deleted daily script, the CEO/cadence monitors no
     longer invent Clip owners, all legacy Clip labels are retired, and the dependency scanner now
     covers the retained Clip source. Focused scanner, registry, producer, cadence and roster checks
-    pass. No running Gig Work business logic is changed.
+    pass. A second fresh review found three more stale edges: registered `session-vault` still
+    maintained old per-account Clip browsers, one Marketing wiring test still opened the deleted
+    daily script, and producer metadata still described the retired posting cron. The per-account
+    Clip block is removed without changing daily-driver or Gig session care, the stale test member
+    is removed, and producer metadata now describes only the retained on-demand repository-owned
+    media helper. Browser/Gig-session tests pass 18/18, Marketing wiring passes 4/4, and the OSS and
+    dependency fences pass. No running Gig Work business logic is changed.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.

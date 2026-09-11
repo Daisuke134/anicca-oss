@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # producer.sh — CLIP-G: the FUEL. Produce ONE fresh captioned 9:16 clip from a long-form
-# source and drop it (mp4 + caption.txt) into ~/clips/queue for the loop to post. Posting is
-# NOT done here (that's the earn/clip slot's job). Heavy (yt-dlp + whisper + Gemini + crop +
-# burn) → run as a DAILY producer cron, separate from the hourly post loop.
+# source and drop it (mp4 + caption.txt) into the configured queue. It is an on-demand media
+# preparation helper; publication and scheduling belong to current product-specific adapters.
 #
 # Uses the repository-owned pipeline.py, burn_captions.py and verify_clip.sh.
 #

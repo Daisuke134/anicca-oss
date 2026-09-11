@@ -10,9 +10,5 @@
 # sufficient; genuinely different from ig-account-create (spec 2026-07-04-openclaw-claude-p
 # -merge-design.md §8).
 #
-# 2026-07-04 タスク#2 follow-up: real-world observation showed ClawRouter picks earn/clip on
-# its own (no human/dev intervention) but only ever gets "queued_clip=none" because nothing
-# it can run_skill() actually produces content on demand. This slot closes that gap WITHOUT
-# me (Claude Code) ever running producer.sh by hand -- the automaton picks this slot itself.
 set -uo pipefail
 exec bash "$(cd "$(dirname "${BASH_SOURCE[0]}")/../clip" && pwd)/producer.sh" "$@"
