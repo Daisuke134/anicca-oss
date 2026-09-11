@@ -14,6 +14,13 @@ SPEC.loader.exec_module(MODULE)
 
 
 class WriterEnvironmentMigrationTest(unittest.TestCase):
+    def test_cli_requires_explicit_source_for_legacy_copy(self):
+        result = __import__("subprocess").run(
+            ["python3", str(SCRIPT)], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--source is required", result.stderr)
+
     def test_only_allowlisted_missing_keys_are_copied_without_changing_existing_content(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

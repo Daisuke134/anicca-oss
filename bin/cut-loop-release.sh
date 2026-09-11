@@ -46,7 +46,7 @@ SHORT="${SHA:0:8}"
 # The central disk governor owns this flag and clears it only after recovery.
 # Full exports are large producers and always defer. An explicitly sparse export may proceed only
 # when its tracked tar payload is measured below the bounded recovery ceiling before locks or mkdir.
-PRESSURE_FILE="${LIFE_MANAGER_DISK_PRESSURE_FILE:-$HOME/.openclaw/state/disk-pressure.block}"
+PRESSURE_FILE="${LIFE_MANAGER_DISK_PRESSURE_FILE:-${LIFE_MANAGER_HOST_STATE_DIR:-$HOME/.local/state/life-manager/state}/disk-pressure.block}"
 if [ -f "$PRESSURE_FILE" ]; then
   read -r -a PRESSURE_ARCHIVE_PATHS <<<"$RELEASE_PATHS"
   if [ "${#PRESSURE_ARCHIVE_PATHS[@]}" -eq 0 ]; then
