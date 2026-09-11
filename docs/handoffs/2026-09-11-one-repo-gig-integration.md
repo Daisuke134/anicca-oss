@@ -74,8 +74,9 @@ provider-owned suite is fixed by that owner; it must not be hidden by weakening 
 
 ## Remaining gates
 
-1. Retain `~/.openclaw` and `~/.hermes`: the latest read-only census found no matching process, but the directories
-   still contain credentials, sessions, ledgers, protected state and Gig compatibility owned outside this branch.
+1. Retain `~/.openclaw` and `~/.hermes`: a direct path-based read-only census confirms an active non-Life-Manager
+   Playwright driver under `.openclaw`, and the directories still contain credentials, sessions, ledgers, protected
+   state and Gig compatibility owned outside this branch.
    They are not public clean-clone dependencies and must not be bulk-deleted as regenerable cache.
 2. Final latest-main verification, PR/main integration, and handover.
 
