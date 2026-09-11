@@ -472,8 +472,11 @@ This checklist does not reorder the established implementation sequence below. T
     - [x] Agent Economy `citizen-refill` loads the Life Manager private environment, wallet and durable instance
       state rather than OpenClaw/Hermes. Its redundant standalone launchd installer/template are deleted; the
       registry remains the only scheduler authority.
-    - [ ] Migrate the remaining registered financial intake entrypoints (`sbi-usdc-monitor` and both Stripe revenue
-      jobs) from legacy source/state roots to shared Life Manager env, state, CFO and Telegram contracts.
+    - [x] Migrate the remaining registered financial intake entrypoints (`sbi-usdc-monitor` and both Stripe revenue
+      jobs) from legacy source/state roots to shared Life Manager env, state, CFO and Telegram contracts. The SBI
+      wallet is now instance configuration rather than a checked-in personal address; missing wallet, Stripe key or
+      Stripe CLI yields a side-effect-free `setup_required` result. Focused portability and safe-setup checks, the
+      legacy scanner and OSS verifier pass.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
       and report legacy roots; this cleanup branch does not edit their running business logic.
   - [ ] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
