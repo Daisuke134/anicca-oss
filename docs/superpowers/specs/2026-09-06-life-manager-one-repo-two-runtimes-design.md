@@ -1017,6 +1017,14 @@ future product run exercises them without changing this architecture acceptance 
   CrowdWorks result. Those providers must converge on `skills/_shared/marketplace-core` one contract at a time—
   application, reply, storefront, paid work/delivery, financial record and Telegram—while their directories retain
   only provider-specific effects and official readback. This branch does not modify or restart an active Gig owner.
+  - [x] Prepare the exact owner handoff at
+    `docs/handoffs/2026-09-11-one-repo-gig-integration.md`: source head
+    `e4f68d76bcffe809954c514f3e7da9bd63d27034`, merged-main boundary
+    `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 80-path inventory, verified tests, ownership fence,
+    integration commands, remaining gates and a user-sendable prompt.
+  - [ ] Gig Work owner merges the exact architecture head with latest `main` and the separately owned provider result,
+    runs both acceptance sets, pushes the integrated head, and records that head here. No matching Gig owner is
+    registered in the current `lm` agmsg team, so delivery is via the checked-in prompt rather than an assumed agent.
 - [ ] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one QR/bot contract, host
   selection, representative registry/config resolution for every shared domain on both supported hosts, identical
   logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
