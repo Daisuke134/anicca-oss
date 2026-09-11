@@ -511,6 +511,13 @@ Current live Apply acceptance audit:
   at `2026-09-10T08:29:35Z`; it officially observed 80 listings, all unavailable, with
   actionable/effect/readback/failed/pending `0` and Telegram receipt `73565`. The first eligible
   proposal plus official history readback and following replay-zero remain the gate.
+  A later natural installed-release run `18d41dfcd14b36c8-46829` also ended PASS at
+  `2026-09-11T01:16:29Z` after the immediately preceding run failed before provider mutation when
+  the shared lease heartbeat hit `ENOSPC`. The recovery run officially observed 80 listings, found
+  all 80 currently unsubmittable, recorded actionable/effect/readback/failed/pending all zero,
+  durably refreshed the lease and delivered Telegram receipt `75427`. This restores the execution
+  and reporting path without a restart or duplicate effect; the first eligible proposal and its
+  following replay-zero remain the live effect gate.
 - **Lancers:** the earlier dead-CDP diagnosis is stale. Official CDP `9227` responds and installed
   Apply release `17047aaeebfc3afc16d85cfed53401b4ca5d55f4` ended natural PASS at
   `2026-09-10T08:22:46Z`. Business acceptance still fails: current output is
