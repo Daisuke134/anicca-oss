@@ -180,7 +180,15 @@ class CrowdWorksPaidAdapter:
         self._open()
         if not re.fullmatch(r"\d+", work_id):
             raise RuntimeError("crowdworks_paid_work_invalid")
-        self._goto(self.page, f"https://crowdworks.jp/contracts/{work_id}", "contract")
+        url = f"https://crowdworks.jp/contracts/{work_id}"
+        try:
+            self._goto(self.page, url, "contract")
+        except CrowdWorksPaidContractTimeout:
+            context = self.owned_context or self.browser.contexts[0]
+            self.page.close()
+            self.page = context.new_page()
+            self.page.set_default_timeout(15_000)
+            self._goto(self.page, url, "contract")
         parsed = urlsplit(str(self.page.url))
         if (parsed.scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment) != (
                 "https", "crowdworks.jp", f"/contracts/{work_id}", "", ""):
