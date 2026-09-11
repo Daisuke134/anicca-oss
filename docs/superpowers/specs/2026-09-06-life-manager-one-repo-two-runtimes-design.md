@@ -857,10 +857,6 @@ it:
   `docs/loops/product-loop-reuse-census.md`. For each loop, map lifecycle,
   browser, agent runner, domain kernel, provider adapter, receipts, Telegram and CFO; identify proven duplication
   and missing Cloud/Local adapters without moving files merely for appearance.
-- [ ] `ARCH-13e` Integrate the separately owned Gig Work result from latest `main`. Coconala, Lancers and CrowdWorks
-  must converge on `skills/_shared/marketplace-core` one contract at a time—application, reply, storefront, paid
-  work/delivery, financial record and Telegram—while their directories retain only provider-specific effects and
-  official readback. Do not modify or restart an active Gig owner outside its current task lease.
 - [ ] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
   reporting and self-build. Route a second real consumer through an existing contract before extracting anything;
   delete the replaced duplicate in the same atom rather than keeping compatibility implementations.
@@ -924,6 +920,12 @@ it:
 - [ ] `ARCH-13g` Make onboarding expose the same product model on both hosts. Local uses clone/install plus pairing
   and selected-loop setup; Cloud uses Telegram `/start` plus hosted tenant provisioning. A loop without required
   credentials/KYC remains visibly `setup_required`; onboarding must not use `start all` as a shortcut.
+- [ ] `ARCH-13e` Integrate the separately owned Gig Work result only after this branch completes ARCH-13f and
+  ARCH-13g. Hand the exact pushed branch/head, changed-file boundary, tests and remaining acceptance gates to the
+  Gig Work Codex. That owner merges latest `main` with this branch and its separately owned Coconala, Lancers and
+  CrowdWorks result. Those providers must converge on `skills/_shared/marketplace-core` one contract at a time—
+  application, reply, storefront, paid work/delivery, financial record and Telegram—while their directories retain
+  only provider-specific effects and official readback. This branch does not modify or restart an active Gig owner.
 - [ ] `ARCH-13h` Pass final acceptance from a clean user and a fresh tenant: one QR/bot, host selection, at least one
   representative loop per shared domain on both supported hosts, identical logical receipts/Telegram output,
   provider-owned effect readback, replay-zero, dependency fence, focused tests, fresh review and merged-main
