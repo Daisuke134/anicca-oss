@@ -174,7 +174,37 @@ class _FakeBrowser:
         return self._page
 
 
+class _VisibleText:
+    def count(self) -> int:
+        return 1
+
+    def nth(self, index: int) -> "_VisibleText":
+        if index != 0:
+            raise AssertionError(index)
+        return self
+
+    def is_visible(self) -> bool:
+        return True
+
+
+class _RemovedProjectPage:
+    def get_by_text(self, text: str, *, exact: bool = False) -> _VisibleText:
+        if not exact or text not in {
+            "閲覧制限",
+            "利用規約・仕事依頼ガイドライン細則違反のため削除しました",
+        }:
+            raise AssertionError(text)
+        return _VisibleText()
+
+
 class ApplicationLoopHolTests(unittest.TestCase):
+    def test_removed_project_page_is_provider_terminal(self):
+        application_tick = _load_deployed_loop().application_tick
+
+        self.assertTrue(
+            application_tick._provider_terminal_blocked(_RemovedProjectPage())
+        )
+
     def test_default_proposal_reader_accepts_mutable_display_name(self):
         application_loop = _load_deployed_loop()
         project_id = "5585503"
@@ -290,6 +320,94 @@ class ApplicationLoopHolTests(unittest.TestCase):
         self.assertEqual(len(receipts), 1)
         self.assertEqual(receipts[0]["opportunity_external_id"], target_project_id)
         self.assertEqual(remaining_pending.keys(), {markers[other_project_id]})
+
+    def test_pending_removed_project_becomes_terminal_without_resubmission(self):
+        application_loop = _load_deployed_loop()
+        application_tick = application_loop.application_tick
+        project_id = "5599976"
+        marker = hashlib.sha256(
+            f"lancers:application:{project_id}".encode()
+        ).hexdigest()
+        state = {
+            "fingerprints": [marker],
+            "pending": {
+                marker: {
+                    "proposal_id": None,
+                    "content_sha256": hashlib.sha256(b"removed").hexdigest(),
+                    "amount_minor": 50000,
+                    "delivery_due_on": "2026-09-17",
+                    "project_id": project_id,
+                }
+            },
+        }
+        page = _FakeProposalPage(project_id=project_id, heading_text="unused")
+        browser = _FakeBrowser(page)
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "application.json"
+            state_path.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+            with patch.object(
+                application_tick, "_production_account_ready", return_value=True
+            ), patch.object(
+                application_tick, "_production_readback", return_value={}
+            ), patch.object(
+                application_tick,
+                "_production_prepare",
+                side_effect=RuntimeError("provider_terminal_blocked"),
+            ) as prepare, patch.object(
+                application_tick,
+                "_production_submitter",
+                side_effect=AssertionError("pending application must not be resubmitted"),
+            ):
+                result = application_tick.run_live_tick(
+                    project_id=project_id,
+                    proposal_text="pending reconciliation",
+                    proposed_amount_minor=50000,
+                    delivery_due_on="2026-09-17",
+                    state_path=state_path,
+                    browser_factory=lambda _url: browser,
+                    now=lambda: "2026-09-11T01:40:00Z",
+                )
+
+            persisted = json.loads(state_path.read_text(encoding="utf-8"))
+            terminal = json.loads(
+                state_path.with_name("application.terminal.json").read_text(encoding="utf-8")
+            )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.error, "provider_terminal_blocked")
+        self.assertEqual(result.project_id, project_id)
+        prepare.assert_called_once()
+        self.assertEqual(persisted["pending"], {})
+        self.assertIn(marker, persisted["fingerprints"])
+        self.assertEqual(
+            terminal["terminal_blocked"][marker]["status"],
+            "provider_terminal_blocked",
+        )
+
+    def test_reconciled_pending_terminal_is_a_successful_classification(self):
+        application_loop = _load_deployed_loop()
+        descriptor = {
+            "project_id": "5599976",
+            "amount_minor": 50000,
+            "delivery_due_on": "2026-09-17",
+        }
+        with patch.object(
+            application_loop.application_tick,
+            "run_live_tick",
+            return_value={
+                "ok": False,
+                "error": "provider_terminal_blocked",
+                "project_id": "5599976",
+            },
+        ):
+            result = application_loop._reconcile_pending(
+                descriptor, Path("/tmp/application.json")
+            )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.provider_terminal_blocked_count, 1)
+        self.assertEqual(result.provider_terminal_blocked_project_ids, ("5599976",))
 
     def test_discovery_query_rotates_by_utc_half_hour_slot(self):
         application_loop = _load_deployed_loop()

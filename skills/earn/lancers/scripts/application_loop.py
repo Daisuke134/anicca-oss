@@ -569,7 +569,7 @@ def _reconcile_pending(descriptor: Mapping[str, object], state_path: Path) -> Ap
     result = _tick_result(value, project_id)
     verified = (result,) if _provider_verified(result) else ()
     blocked = (project_id,) if _provider_terminal_blocked(result) else ()
-    return _batch_summary(result, 1, 1, verified, blocked, unresolved_project_id=None if verified or blocked else project_id, submitted=result.submitted)
+    return _batch_summary(result, 1, 1, verified, blocked, unresolved_project_id=None if verified or blocked else project_id, ok=True if verified or blocked else None, submitted=result.submitted)
 
 def run_reconcile_only(state_path: Path, output_stream: Optional[TextIO] = None) -> dict[str, object]:
     try:
