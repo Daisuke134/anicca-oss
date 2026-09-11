@@ -122,7 +122,16 @@ merged as main `b436a2a9`, catches only `CrowdWorksPaidProposalTimeout` in that 
 continues to the exact title/proposal-id/verified receipt fallback; route, DOM and receipt errors
 still fail closed. Focused tests (`34`) and fresh review pass. Release
 `20260911T173411-b436a2a9` is installed only for CrowdWorks Paid with receipt
-`56e4e4b2e2e2ad40790947cb`; natural effect/readback remains open.
+`56e4e4b2e2e2ad40790947cb`. Its natural owner wake ended without restart or duplicate external
+effect: `observed=3`, `actionable=3`, `effect=0`, `readback=0`, `failed=2`, `pending=1`.
+Contract `63570481` remains fenced by the confirmed Google Form receipt and failed only while opening
+the official CrowdWorks delivery surface (`crowdworks_paid_todo_surface_unavailable`); the form must
+not be posted again. Contract `63583795` has a different, still-unsubmitted Google Form and failed
+while producing its grounded answer (`crowdworks_paid_form_composition_unavailable`). Contract
+`63568785` remains durable `awaiting_client_escrow`. The active atom therefore remains CrowdWorks
+Paid: make the adapter expose the official delivery control, let the model select grounded answers
+from the client's explicit form choices through the shared action lifecycle, then prove both official
+effects/readbacks and the following replay-zero with `failed=0`.
 
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
