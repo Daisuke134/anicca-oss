@@ -200,6 +200,17 @@ fresh review report SHIP with no P0/P1. PR `#5023` is merged as main `02b935865c
 After that wake reaches a natural terminal, apply only this target, then require official Form and
 CrowdWorks milestone effect/readback plus the following replay-zero before closing the atom.
 
+The following `02b935865c` natural wake reached all three contracts without an external effect:
+`63583795` and `63570481` both remained `crowdworks_paid_todo_surface_unavailable`, while `63568785`
+remained durable `awaiting_client_escrow`. An earlier wake had also shown that a single pre-effect
+contract-detail navigation timeout could fail the whole inventory before any work item was emitted.
+PR `#5024`, merged as main `5c007ea475`, retries only that exact side-effect-free contract GET once
+on a fresh page in the same authenticated context; Form POST and milestone submission are not retry
+targets, and a second timeout still fails closed. CrowdWorks/shared tests (`363`) pass and fresh
+read-only review reports SHIP with no P0/P1. Immutable release `20260911T201256-5c007ea4` is installed
+only for CrowdWorks Paid with receipt `eb220f91a7231f2a1c79fbfa`. The next natural installed-SHA
+terminal remains the active acceptance; code, tests and installation are not an official effect.
+
 During that wake the host reached 317 MiB free and `tempfile` could not create a working directory.
 Cleanup removed only two unreferenced reproducible releases, Codex temporary/archive data and
 Codex/Claude session transcripts older than two days; active/rollback releases, current sessions,
