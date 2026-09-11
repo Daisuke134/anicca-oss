@@ -347,6 +347,37 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertEqual(sent, [])
         self.assertEqual(receipt["message_ids"], [77])
 
+    def test_no_snapshot_daily_key_advances_each_day(self):
+        (self.root / "business-outcomes.jsonl").unlink()
+        day_one = dt.datetime(2026, 9, 10, 12, 0, tzinfo=dt.timezone.utc)
+        day_two = day_one + dt.timedelta(days=1)
+        store = owner_report.OwnerReportStore(
+            self.root / "owner-reports.jsonl",
+            self.root / "owner-report-deliveries.jsonl",
+        )
+        sent = []
+
+        first = owner_report.build_events(
+            self.root, "product_daily", product_id="anicca-ios", as_of=day_one
+        )[0]
+        owner_report.deliver(
+            first, store, lambda _text: sent.append("day1") or {
+                "status": "delivered", "message_ids": [1]
+            }
+        )
+        second = owner_report.build_events(
+            self.root, "product_daily", product_id="anicca-ios", as_of=day_two
+        )[0]
+        receipt = owner_report.deliver(
+            second, store, lambda _text: sent.append("day2") or {
+                "status": "delivered", "message_ids": [2]
+            }
+        )
+
+        self.assertNotEqual(first["message_key"], second["message_key"])
+        self.assertEqual(sent, ["day1", "day2"])
+        self.assertEqual(receipt["message_ids"], [2])
+
     def test_action_names_product_and_contains_exact_native_url(self):
         event = self.event("action", "anicca-ios")
         text = owner_report.render_japanese(event)

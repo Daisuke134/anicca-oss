@@ -21,7 +21,7 @@ from typing import Callable, Iterable
 
 ENGINE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE_ROOT / "gates"))
-from product_router import canonical_product_id  # noqa: E402
+from product_router import PRODUCT_ID_ALIASES, canonical_product_id  # noqa: E402
 
 
 SCHEMA_VERSION = "marketing.owner-report.v1"
@@ -261,11 +261,15 @@ def _existing_owner_report(
 ) -> dict | None:
     """Return a valid canonical report already recorded for one immutable key."""
 
+    equivalent_keys = {message_key}
+    for legacy_id, canonical_id in PRODUCT_ID_ALIASES.items():
+        if product_id == canonical_id:
+            equivalent_keys.add(message_key.replace(f":{canonical_id}:", f":{legacy_id}:"))
     for row in load_jsonl(pathlib.Path(root) / "owner-reports.jsonl"):
         if (
             row.get("kind") == kind
             and canonical_product_id(row.get("product_id")) == product_id
-            and row.get("message_key") == message_key
+            and row.get("message_key") in equivalent_keys
         ):
             try:
                 normalized = copy.deepcopy(row)
@@ -698,8 +702,9 @@ def _daily_events(root: pathlib.Path, product_id: str, as_of: dt.datetime) -> li
     latest = _latest(rows, as_of, "business_date", "observed_at")
     if latest is None:
         evidence_ref = "state/business-outcomes.jsonl#no_business_snapshot"
-        existing = _existing_owner_report_for_evidence(
-            root, kind="product_daily", product_id=product_id, evidence_ref=evidence_ref
+        message_key = f"product_daily:{product_id}:no_business_snapshot:{as_of.date().isoformat()}"
+        existing = _existing_owner_report(
+            root, kind="product_daily", product_id=product_id, message_key=message_key
         )
         if existing is not None:
             return [existing]
@@ -707,7 +712,7 @@ def _daily_events(root: pathlib.Path, product_id: str, as_of: dt.datetime) -> li
             kind="product_daily",
             product_id=product_id,
             as_of=as_of,
-            message_key=f"product_daily:{product_id}:no_business_snapshot:{as_of.date().isoformat()}",
+            message_key=message_key,
             facts={
                 "business_date": None,
                 "snapshot_id": None,
