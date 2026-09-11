@@ -90,7 +90,7 @@
       "absorbed_roots": [
         {"source": "skills/anicca-booking", "target": "skills/anicca-booking", "files": 5, "inventory_sha256": "ce5c1b46422d1a564896a20069d9bacfed8595f67dc67b270f73d0ff1ceb220d"},
         {"source": "skills/capafy-autopublish", "target": "skills/capafy-autopublish", "files": 219, "inventory_sha256": "f86648b8492d5530e6ad14a8bf3efae5dce0861f99908cd65ec1d4297c543d32"},
-        {"source": "skills/_shared", "target": "skills/_shared", "files": 190, "inventory_sha256": "fff22bc210566f38753a8a3b19021aa50c5a8a0f8a5a1d846e39832e8f3b10c5"},
+        {"source": "skills/_shared", "target": "skills/_shared", "files": 190, "inventory_sha256": "02556145a46318a3af0b44f00c2945c745bd619e789803e66f457060a2a67140"},
         {"source": "skills/anicca-life-manager", "target": "skills/anicca-life-manager", "files": 19, "inventory_sha256": "fb80daf7fe986aefdcfca8bb4a50a04f7bddfb87417878dfe822530cea6ac38f"}
       ]
     },
