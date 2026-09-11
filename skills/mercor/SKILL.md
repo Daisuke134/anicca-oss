@@ -28,7 +28,7 @@ Mercor is an independent Life Manager revenue marketplace, not a Job Hunter subf
 ## Application policy
 
 - Reconcile an existing in-progress Mercor application before discovering a new listing.
-- Read the complete verified profile facts and resume text. Posting qualifications are ranking signals, not pre-submit rejection gates: answer required controls truthfully, submit when Mercor accepts those answers, and let Mercor decide eligibility.
+- Read the complete verified profile facts and resume text. Missing or preferred evidence remains eligible medium and is ranked later rather than rejected. A material required language, location, domain, or seniority contradiction is low `no_reasonable_shot`: do not submit or request a human step for it. Answer required controls truthfully, apply maximally among high/medium reasonable-shot work, and let Mercor decide eligibility.
 - Do not impersonate interviews or assessments. The Japanese Evaluator's 14-minute camera/microphone `Domain Expert Interview` is completed and the application page reads `Your application has been submitted!`; reconcile the review result and never resubmit the same application.
 - A new interview, assessment, camera, screen-share, or other person-bound step becomes candidate-local durable `needs_human`: finish reversible steps, notify the exact job/link/action once, then continue other candidates without waiting. CAPTCHA, auth failure, and ambiguous provider state are blockers rather than invented human work.
 - Count earnings only from an authoritative Mercor Earnings/contract settlement read-back; never count views, invitations, estimates, or pending offers.
