@@ -464,6 +464,18 @@ This checklist does not reorder the established implementation sequence below. T
   - [ ] `AE-UX-12e` Census executable Mobile App Loops and all other product-loop paths; migrate or delete every
     remaining OpenClaw, Hermes, another-checkout, worktree and Dais-absolute source dependency. External products
     such as Postiz remain allowed only behind repository-owned provider adapters and user-supplied credentials.
+    - [x] All 18 registered Mobile App jobs resolve one repository-owned manifest and shared publication,
+      measurement, ledger, receipt and direct Telegram components; their execution graph contains zero OpenClaw,
+      Hermes, another-checkout or Dais-absolute source references. The shared wrapper now discovers Node/Python and
+      uses the repository timeout instead of Apple-Silicon Homebrew paths. Two unreferenced Larry launchers that
+      depended on `profitable-claude` and `.openclaw` are deleted.
+    - [x] Agent Economy `citizen-refill` loads the Life Manager private environment, wallet and durable instance
+      state rather than OpenClaw/Hermes. Its redundant standalone launchd installer/template are deleted; the
+      registry remains the only scheduler authority.
+    - [ ] Migrate the remaining registered financial intake entrypoints (`sbi-usdc-monitor` and both Stripe revenue
+      jobs) from legacy source/state roots to shared Life Manager env, state, CFO and Telegram contracts.
+    - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
+      and report legacy roots; this cleanup branch does not edit their running business logic.
   - [ ] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
     start/status controls without claiming that all 14 loops can run before their provider credentials/KYC exist.
   - [ ] `AE-UX-12g` Pass isolated fresh-tenant Cloud acceptance for the repository-owned Agent Economy lifecycle,
