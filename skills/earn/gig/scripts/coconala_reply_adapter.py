@@ -93,12 +93,22 @@ class CoconalaReplyAdapter:
         self._receipts: dict[str, dict[str, str]] = {}
 
     def _read_inventory(self) -> list[dict[str, Any]]:
-        dom = snapshot.inspect_page_with_retry(
-            self.cdp_helper, snapshot.MESSAGES_URL,
-            snapshot.MESSAGES_EXPRESSION, None, hidden=True,
-        )
-        snapshot.validate_inbox_coverage(dom)
-        return snapshot.inquiries_from_dom(dom)
+        transient = {
+            "collector_unhealthy:inbox_coverage_incomplete",
+            "collector_unhealthy:inbox_pagination_terminal_unproven",
+        }
+        for attempt in range(2):
+            try:
+                dom = snapshot.inspect_page_with_retry(
+                    self.cdp_helper, snapshot.MESSAGES_URL,
+                    snapshot.MESSAGES_EXPRESSION, None, hidden=True,
+                )
+                snapshot.validate_inbox_coverage(dom)
+                return snapshot.inquiries_from_dom(dom)
+            except snapshot.CollectorUnhealthy as error:
+                if str(error) not in transient or attempt == 1:
+                    raise
+        raise AssertionError("unreachable")
 
     def _read_thread(self, thread_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         url = f"https://coconala.com/mypage/direct_message/{thread_id}"
