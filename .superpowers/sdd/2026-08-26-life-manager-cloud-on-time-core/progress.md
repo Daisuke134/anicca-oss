@@ -16,16 +16,18 @@ Baseline: focused Life Manager suite 175/175 PASS.
 6. [x] **CLOUD-08 public surface** — `anicca-products`の`/lm`と`/life-manager`をDAILY機能の真実なcopyへ更新済み。QR/deep link、本人Calendar consent、Telegram通知、phone/call optional、3日trial、Cloud userのMac不要、privacy/support/disconnectを本番でreadback済み。旧Web signup・電話必須・全予定2回電話・Maps限定・OpenClaw・whole-life・固定月額claimは0件。
 7. [x] **Full production acceptance** — physicalのGoogle Travel往復、Transit経路、Telegram provider receiptとreplay追加送信0、locationless/phone off/on、複数候補の独立処理を検証済み。online/locationlessはroute call 0、変更時はevent-versionでroute cacheを無効化し、cancelledは実行対象外。生成helperを含むcontrolled eventsはGoogle `cancelled`までreadback済み。exact deployed SHA/health、restart後永続化、Mac依存0、tenant A/B分離も記録済み。
 8. [x] **Google Cloud cost incident closure** — July/Augustをproject/service/SKU/dayで確定し、September MTD/forecast/current burnをreadback済み。原因は単一Railway scheduler内のMaps有料失敗/retryとconsumer間route重複で、abandoned Cloud runtimeではない。COST-01/02/03、¥35,000 budget alertsを本番反映し、DAILY機能を維持した。
-9. [ ] **FRIEND-BETA READY gate** — real friend UATで、未完了のComposio linkとは別の古いACTIVE接続を`/start`が採用し、Google consent未確認のままhome質問へ進む欠陥を実測した。exact connected-account binding、selected-account pin、safe reconnect、同じreal actorでのprovider readback完了後に再びREADYとする。
+9. [ ] **FRIEND-BETA READY gate** — exact connected-account binding、selected-account pin、safe reconnectはproductionへ反映済み。残る唯一のgateは、同じreal actorがTelegramの新しいボタンから本人のGoogle consentを完了し、provider readback（接続成功と予定件数）を受け取ること。母親側のchat削除・archive・blockは不要。
 
-Current atom: **Task 7 Step 2 recovery — exact Calendar connected-account binding and safe reconnect**.
+Current atom: **Task 7 Step 2 recovery — real actor Google consent and provider readback**.
 
 ### Real-friend Calendar OAuth recovery incident
 
 - Telegram `/start`の無返信は、ComposioのACTIVE + EXPIREDを曖昧扱いしたため。PR #4916 / `56474a4d0ef6052f363ca217368925cff58e7375`でEXPIREDだけを除外し、本番health一致まで完了した。
 - 続く実測で、対象tenantはOAuth stateのsuccessful claimが0でも古いComposio ACTIVEを採用し、`calendar_provider=composio_gcal`としてhome質問へ進んだ。今後7日Calendar readは成功したがevent 0、homeは未設定で、autofill成功証拠はない。
 - Root causeは、link responseの`connected_account_id`をOAuth state/tenantへ保存せず、callbackとruntimeが`user_id`配下の任意ACTIVEを真実としていたこと。`reconnect`も`connection.start`へ潰れ、disconnect後は同じaccountをenableする。
-- 次の一手はplan Task 7 Step 2の順序内で、exact link account binding → callback readback → tenant selected ID → Calendar execution pin → safe reconnect → 同じactorのprovider E2E。母親側のblock/archive/deleteは不要。
+- PR #4997 / merge `fe529db72d23c61a747f61860a69312c8d92c9c2`で、exact link account binding → callback exact-account claim → tenant selected ID → Calendar execution pin → safe reconnectを実装。focused Node 91/91、migrationの一時PostgreSQL tenant/ACL/replay検証、全required CI、fresh read-only reviewがPASS。
+- Production Supabaseへ`2026-09-11-lm-calendar-account-binding.sql`だけを適用し、対象2列・3 RPCの存在、`anon execute=false`、`service_role execute=true`をreadback。production Railway `Anicca / life-call`はbuild `fe529db72d23c61a747f61860a69312c8d92c9c2`、`/health ok=true`を実測。
+- 次の一手は同じTelegram chatで`/start` → 新しい「Google Calendarをつなぐ」→ 本人のGoogle同意 → Telegramへ戻り接続結果と予定件数を確認。期限切れの古いボタンは再利用しない。母親側のblock/archive/deleteは不要。
 
 ### Google Cloud cost incident closeout
 
