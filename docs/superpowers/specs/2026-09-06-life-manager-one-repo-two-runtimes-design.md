@@ -479,8 +479,13 @@ This checklist does not reorder the established implementation sequence below. T
       legacy scanner and OSS verifier pass.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
       and report legacy roots; this cleanup branch does not edit their running business logic.
-  - [ ] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
+  - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
     start/status controls without claiming that all 14 loops can run before their provider credentials/KYC exist.
+    README and README.ja now map every product loop to its user setup and current start path, explicitly distinguish
+    `setup_required` from completion/failure and forbid `start all` as an onboarding shortcut. The default installer
+    says it prepares only Agent Economy, lists the four actual guided installers plus read-only status/doctor, and
+    describes the already-active Cloud surface and free-first receipt-gated compute route without stale ClawRouter,
+    owner-funding or future-Cloud claims. Clean-user installer tests pass 23/23 and OSS verification passes.
   - [ ] `AE-UX-12g` Pass isolated fresh-tenant Cloud acceptance for the repository-owned Agent Economy lifecycle,
     Telegram receipt path and supported hosted loops without requiring the user's local device.
   - [ ] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
