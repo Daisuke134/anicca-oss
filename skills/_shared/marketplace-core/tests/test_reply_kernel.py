@@ -583,6 +583,65 @@ def test_readback_exception_after_intent_preserves_reconcile_fence(tmp_path):
     assert len(adapter.effects) == 1
 
 
+def test_classified_observation_error_before_intent_is_pending_with_backoff(tmp_path):
+    class TemporarilyUnreadable(Adapter):
+        def observe_one(self, _thread_id):
+            raise RuntimeError("navigation_timeout")
+
+        def classify_observation_error(self, error):
+            if str(error) == "navigation_timeout":
+                return {"reason": "provider_readback_temporarily_unavailable"}
+            return None
+
+    result = reply_kernel.run_wake(
+        adapter=TemporarilyUnreadable(),
+        decide=lambda _row: {"action": "noop", "classification": "no_reply"},
+        state_root=tmp_path,
+    )
+
+    assert result["failed"] == 0
+    assert result["pending"] == 1
+    assert result["items"][0]["reason"] == "provider_readback_temporarily_unavailable"
+    state = reply_kernel._load(next(tmp_path.glob("threads/*/state.json")))
+    assert state["status"] == "retry_wait"
+    assert state["retry_count"] == 1
+
+
+def test_classified_readback_error_after_effect_stays_pending_and_never_replays(tmp_path):
+    class TemporarilyUnreadableAfterEffect(Adapter):
+        def __init__(self):
+            super().__init__()
+            self.broken = True
+
+        def readback(self, intent):
+            if self.effects and self.broken:
+                raise RuntimeError("navigation_timeout")
+            return super().readback(intent)
+
+        def classify_observation_error(self, error):
+            if str(error) == "navigation_timeout":
+                return {"reason": "provider_readback_temporarily_unavailable"}
+            return None
+
+    adapter = TemporarilyUnreadableAfterEffect()
+    decide = lambda _row: {"action": "reply", "payload": {"body": "one"}}
+    first = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+
+    assert first["failed"] == 0
+    assert first["pending"] == 1
+    assert first["items"][0]["reason"] == "provider_readback_temporarily_unavailable"
+    assert len(adapter.effects) == 1
+    state_path = next(tmp_path.glob("threads/*/state.json"))
+    assert reply_kernel._load(state_path)["status"] == "reconcile_unknown"
+
+    adapter.broken = False
+    replay = reply_kernel.run_wake(adapter=adapter, decide=decide, state_root=tmp_path)
+    assert replay["failed"] == 0
+    assert replay["effect"] == 0
+    assert replay["items"][0]["reason"] == "replay_zero"
+    assert len(adapter.effects) == 1
+
+
 def test_chat_id_reads_declared_provider_config_without_repo_literal(tmp_path):
     config = tmp_path / "telegram.env"
     config.write_text("CROWDWORKS_REPORT_CHAT=operator-chat\n", encoding="utf-8")

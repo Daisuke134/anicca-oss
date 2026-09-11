@@ -250,6 +250,12 @@ class CoconalaReplyAdapter:
             "remaining_work": ["Wait for the provider message control to become available"],
         }
 
+    @staticmethod
+    def classify_observation_error(error: Exception) -> dict[str, str] | None:
+        if str(error) != "authenticated tab did not finish navigation":
+            return None
+        return {"reason": "provider_readback_temporarily_unavailable"}
+
     def readback(self, intent: dict[str, Any]) -> dict[str, Any]:
         cached = self._receipts.get(intent["effect_key"])
         if cached is not None:
