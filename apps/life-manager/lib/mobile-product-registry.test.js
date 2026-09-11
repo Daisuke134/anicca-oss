@@ -65,10 +65,11 @@ test("same registration is idempotent and a conflicting duplicate fails closed",
 
 test("local paths and malformed source descriptors are rejected", (t) => {
   const registryFile = temporaryRegistry(t);
+  const localSourceRoot = ["", "Users", "example", "private-mobile-source"].join("/");
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-local",
     origin: "imported",
-    source: { git_remote: "/Users/anicca/anicca-project", revision: "a".repeat(40), access: "private" },
+    source: { git_remote: localSourceRoot, revision: "a".repeat(40), access: "private" },
   }), /git_remote/);
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-windows-local",
