@@ -486,8 +486,15 @@ This checklist does not reorder the established implementation sequence below. T
     says it prepares only Agent Economy, lists the four actual guided installers plus read-only status/doctor, and
     describes the already-active Cloud surface and free-first receipt-gated compute route without stale ClawRouter,
     owner-funding or future-Cloud claims. Clean-user installer tests pass 23/23 and OSS verification passes.
-  - [ ] `AE-UX-12g` Pass isolated fresh-tenant Cloud acceptance for the repository-owned Agent Economy lifecycle,
-    Telegram receipt path and supported hosted loops without requiring the user's local device.
+  - [x] `AE-UX-12g` Pass isolated fresh-tenant Cloud acceptance for the repository-owned Agent Economy lifecycle,
+    Telegram receipt path and supported hosted loops without requiring the user's local device. On the current
+    branch, 118/118 focused checks pass across fresh citizen/job provisioning, concurrent replay convergence,
+    cross-tenant rejection, shared monorepo wake execution, free/receipt-gated-paid compute routing, tenant-scoped
+    Postgres delivery claims, Telegram provider-receipt dedupe, `/start`, tenant isolation and Railway worker
+    packaging without Docker or a local device. This preserves the earlier production evidence in `AE-UX-04/05`:
+    one real Cloud tenant provisioned an encrypted citizen and wallet, completed two natural wake cycles and exposed
+    its latest receipt through Telegram provider message `76577`. Neither test nor production evidence claims live
+    profit or a self-funded compute purchase.
   - [ ] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
     one-command claims in README, README.ja, installer output and active operational documentation.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
