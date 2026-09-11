@@ -1,6 +1,6 @@
 {
   "schema_version": "marketing.product.v1",
-  "product_id": "aniccaios",
+  "product_id": "anicca-ios",
   "type": "ios_app",
   "live_status": "app_store_live",
   "destination_url": "https://apps.apple.com/jp/app/id6755129214",

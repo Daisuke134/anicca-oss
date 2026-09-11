@@ -20,7 +20,7 @@ from typing import Callable, Iterable
 
 SCHEMA_VERSION = "marketing.owner-report.v1"
 DELIVERY_SCHEMA_VERSION = "marketing.owner-delivery.v1"
-PRODUCTS = ("aniccaios", "honne", "ebook-ja", "ebook-en")
+PRODUCTS = ("anicca-ios", "honne-ai", "ebook-ja", "ebook-en")
 KINDS = (
     "action",
     "checkpoint",

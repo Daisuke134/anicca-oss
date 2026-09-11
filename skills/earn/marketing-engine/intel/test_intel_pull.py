@@ -276,7 +276,7 @@ class PullRunTests(unittest.TestCase):
             "sources": [{
                 "id": "apple.apps", "adapter": "apple_lookup", "enabled": True,
                 "cadence": "daily", "ids": [6755129214], "country": "jp",
-                "product_ids": ["aniccaios"], "languages": ["ja"],
+                "product_ids": ["anicca-ios"], "languages": ["ja"],
             }],
         }))
 
@@ -296,7 +296,7 @@ class PullRunTests(unittest.TestCase):
     def _judgment(self, _manifest):
         return {"playbook": [], "creators": [], "ad_swipe": [{
             "schema_version": "marketing.ad-swipe.v1", "id": "store.anicca-jp.v1",
-            "platform": "app_store", "advertiser": "Anicca", "product_id": "aniccaios",
+            "platform": "app_store", "advertiser": "Anicca", "product_id": "anicca-ios",
             "source_url": "https://apps.apple.com/app/id6755129214", "source_null_reason": None,
             "captured_at": "2026-08-01T00:00:00Z", "first_seen_at": "2026-08-01T00:00:00Z",
             "last_seen_at": "2026-08-01T00:00:00Z", "impressions": None,
@@ -337,7 +337,7 @@ class PullRunTests(unittest.TestCase):
             "sources": [{
                 "id": "meta.ads", "adapter": "meta_ad_library", "enabled": True,
                 "cadence": "daily", "query": "Calm", "country": "ALL",
-                "product_ids": ["aniccaios"], "languages": ["en"],
+                "product_ids": ["anicca-ios"], "languages": ["en"],
             }],
         }))
         result = intel_pull.run_pull(

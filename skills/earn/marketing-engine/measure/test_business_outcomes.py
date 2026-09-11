@@ -206,22 +206,22 @@ class AnalyticsAndSnapshotContractTest(unittest.TestCase):
     def test_snapshot_validation_rejects_product_mismatch_and_duplicate(self):
         row = {
             "schema_version": 1,
-            "snapshot_id": "aniccaios:2026-07-30",
-            "product_id": "aniccaios",
+            "snapshot_id": "anicca-ios:2026-07-30",
+            "product_id": "anicca-ios",
             "business_date": "2026-07-30",
             "sources": {"revenuecat": outcomes.unavailable_source("fixture")},
         }
-        outcomes.validate_snapshots([row], {"aniccaios"})
+        outcomes.validate_snapshots([row], {"anicca-ios"})
         with self.assertRaisesRegex(ValueError, "unknown product"):
-            outcomes.validate_snapshots([{**row, "product_id": "other"}], {"aniccaios"})
+            outcomes.validate_snapshots([{**row, "product_id": "other"}], {"anicca-ios"})
         with self.assertRaisesRegex(ValueError, "duplicate snapshot"):
-            outcomes.validate_snapshots([row, dict(row)], {"aniccaios"})
+            outcomes.validate_snapshots([row, dict(row)], {"anicca-ios"})
 
     def test_gate5_verifier_requires_four_scoped_products_and_no_fake_installs(self):
         rows = []
         for product in outcomes.PRODUCTS:
             sources = {}
-            if product in {"aniccaios", "honne"}:
+            if product in {"anicca-ios", "honne-ai"}:
                 config = outcomes.PRODUCTS[product]
                 sources = {
                     "revenuecat": outcomes.available_source({

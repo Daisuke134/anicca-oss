@@ -35,11 +35,20 @@ class ProductRegistryTest(unittest.TestCase):
 
     def test_four_products_and_locked_accounts_validate(self):
         registry = load_registry(ENGINE)
-        self.assertEqual(set(registry.products), {"aniccaios", "honne", "ebook-ja", "ebook-en"})
+        self.assertEqual(set(registry.products), {"anicca-ios", "honne-ai", "ebook-ja", "ebook-en"})
         self.assertGreaterEqual(len(registry.accounts), 9)
         for account in registry.accounts.values():
             self.assertIn(account["product_id"], registry.products)
             self.assertEqual(len(account["product_ids"]), 1)
+
+    def test_mobile_jobs_and_marketing_registry_share_product_ids(self):
+        registry = load_registry(ENGINE)
+        mobile = json.loads(
+            (ENGINE.parents[2] / "apps/life-manager/config/mobile-app-loops.json").read_text()
+        )
+        job_products = {row["product_id"] for row in mobile["loops"].values()}
+        self.assertEqual(job_products, {"anicca-ios", "honne-ai"})
+        self.assertLessEqual(job_products, set(registry.products))
 
     def test_accounts_lock_exact_postiz_provider_and_complete_settings(self):
         registry = load_registry(ENGINE)
@@ -84,7 +93,7 @@ class ProductRegistryTest(unittest.TestCase):
             (root / "registry" / "renderers.json").write_bytes(
                 (source / "renderers.json").read_bytes())
             account = json.loads(next((source / "accounts").glob("*.json")).read_text())
-            account["product_ids"] = [account["product_id"], "honne"]
+            account["product_ids"] = [account["product_id"], "honne-ai"]
             (root / "registry" / "accounts" / "bad.json").write_text(json.dumps(account))
             with self.assertRaisesRegex(RoutingError, "exactly one product"):
                 load_registry(root)
@@ -113,7 +122,7 @@ class VariationPlanTest(unittest.TestCase):
                             for row in en))
         self.assertTrue(all(row["product_ids"] == ["ebook-ja"] and row["language"] == "ja"
                             for row in ja))
-        self.assertEqual(eligible_hooks(self.registry, self.hooks, "aniccaios",
+        self.assertEqual(eligible_hooks(self.registry, self.hooks, "anicca-ios",
                                         "tiktok.anicca_jp"), [])
 
     def test_cross_product_account_and_renderer_are_rejected(self):

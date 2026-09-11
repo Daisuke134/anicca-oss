@@ -41,12 +41,12 @@ def default_storage_paths(environment: dict[str, str] | None = None) -> tuple[Pa
 DEFAULT_STATE, DEFAULT_EVIDENCE = default_storage_paths()
 
 PRODUCTS = {
-    "aniccaios": {
+    "anicca-ios": {
         "asc_app_id": "6755129214",
         "revenuecat_app_id": "app511ef26659",
         "analytics": "mixpanel",
     },
-    "honne": {
+    "honne-ai": {
         "asc_app_id": "6759667221",
         "revenuecat_app_id": "app3bbd298d22",
         "analytics": None,

@@ -17,7 +17,7 @@
         {"tactic_id": "tactic.gotcha-before-paywall.v1", "status_id": "2081979523873038368"},
         {"tactic_id": "tactic.ad-mechanism-replication.v1", "status_id": "2081979523873038368"}
       ],
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -43,7 +43,7 @@
       "enrichments": [
         {"tactic_id": "tactic.parallel-build-ugc.v1", "status_id": "2082527284301300023"}
       ],
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -67,7 +67,7 @@
       "cadence": "daily",
       "url": "https://github.com/Eronred/aso-skills/commits/main.atom",
       "limit": 20,
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -76,7 +76,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "rorkai/App-Store-Connect-CLI",
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -85,7 +85,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "Eronred/aso-skills",
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -94,7 +94,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "semihcihan/App-Store-Optimization-CLI",
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -103,7 +103,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "cameronehrlich/apple-search-ads-cli",
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -148,7 +148,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "Anil-matcha/AI-Youtube-Shorts-Generator",
-      "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
+      "product_ids": ["anicca-ios", "honne-ai", "ebook-ja", "ebook-en"],
       "languages": ["en"]
     },
     {
@@ -157,7 +157,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "davidteather/TikTok-Api",
-      "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
+      "product_ids": ["anicca-ios", "honne-ai", "ebook-ja", "ebook-en"],
       "languages": ["en"]
     },
     {
@@ -166,7 +166,7 @@
       "enabled": true,
       "cadence": "daily",
       "repo": "leamsigc/ShortsGenerator",
-      "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
+      "product_ids": ["anicca-ios", "honne-ai", "ebook-ja", "ebook-en"],
       "languages": ["en"]
     },
     {
@@ -178,7 +178,7 @@
       "sort": "updated",
       "order": "desc",
       "limit": 10,
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["en"]
     },
     {
@@ -188,7 +188,7 @@
       "cadence": "daily",
       "ids": [6755129214, 6759667221],
       "country": "jp",
-      "product_ids": ["aniccaios", "honne"],
+      "product_ids": ["anicca-ios", "honne-ai"],
       "languages": ["ja"]
     },
     {
@@ -202,7 +202,7 @@
       "entity": "software",
       "lang": "en_us",
       "limit": 10,
-      "product_ids": ["aniccaios"],
+      "product_ids": ["anicca-ios"],
       "languages": ["en"]
     },
     {
@@ -216,7 +216,7 @@
       "entity": "software",
       "lang": "ja_jp",
       "limit": 10,
-      "product_ids": ["honne"],
+      "product_ids": ["honne-ai"],
       "languages": ["ja"]
     },
     {
@@ -226,7 +226,7 @@
       "cadence": "daily",
       "query": "daily affirmations",
       "country": "ALL",
-      "product_ids": ["aniccaios"],
+      "product_ids": ["anicca-ios"],
       "languages": ["en"]
     }
   ]

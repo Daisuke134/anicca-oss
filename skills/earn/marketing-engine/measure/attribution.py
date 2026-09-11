@@ -21,8 +21,8 @@ import urllib.parse
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STATE = ROOT / "state" / "publication-campaigns.jsonl"
 PRODUCT_PREFIXES = {
-    "aniccaios": "ai",
-    "honne": "ho",
+    "anicca-ios": "ai",
+    "honne-ai": "ho",
     "ebook-ja": "ej",
     "ebook-en": "ee",
 }

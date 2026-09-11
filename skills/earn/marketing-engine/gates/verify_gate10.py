@@ -28,7 +28,7 @@ def load_json(path: pathlib.Path) -> dict:
 def verify_gate10(engine: pathlib.Path) -> dict:
     engine = pathlib.Path(engine)
     registry = load_registry(engine)
-    require(set(registry.products) == {"aniccaios", "honne", "ebook-en", "ebook-ja"},
+    require(set(registry.products) == {"anicca-ios", "honne-ai", "ebook-en", "ebook-ja"},
             "initial product registry differs")
     require(len(registry.accounts) == 9, "initial account registry differs")
     hooks_path = engine / "intel" / "hook-library.jsonl"
@@ -76,12 +76,12 @@ def verify_gate10(engine: pathlib.Path) -> dict:
     require(plans_by_product == {"ebook-en": 1, "ebook-ja": 1},
             "safe plans are not one per ebook language")
 
-    app_accounts = {"aniccaios": "tiktok.anicca_jp", "honne": "tiktok.honnevideo"}
+    app_accounts = {"anicca-ios": "tiktok.anicca_jp", "honne-ai": "tiktok.honnevideo"}
     app_candidates = {
         product: len(eligible_hooks(registry, hooks_path, product, account))
         for product, account in app_accounts.items()
     }
-    require(app_candidates == {"aniccaios": 0, "honne": 0},
+    require(app_candidates == {"anicca-ios": 0, "honne-ai": 0},
             "app products unexpectedly borrow another product's hooks")
 
     canonical_sources = [engine / "gates" / "variation.py",
