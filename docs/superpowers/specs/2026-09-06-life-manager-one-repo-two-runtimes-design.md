@@ -1020,14 +1020,15 @@ future product run exercises them without changing this architecture acceptance 
   only provider-specific effects and official readback. This branch does not modify or restart an active Gig owner.
   - [x] Prepare the exact owner handoff at
     `docs/handoffs/2026-09-11-one-repo-gig-integration.md`: source head
-    `e4f68d76bcffe809954c514f3e7da9bd63d27034`, merged-main boundary
-    `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 80-path inventory, verified tests, ownership fence,
+    `28055f999cc32b9d5e74466670a18a02f8b65da4`, merged-main boundary
+    `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 84-path inventory, verified tests, ownership fence,
     integration commands, remaining gates and a user-sendable prompt.
   - [ ] Gig Work owner merges the exact architecture head with latest `main` and the separately owned provider result,
     runs both acceptance sets, pushes the integrated head, and records that head here. No matching Gig owner is
     registered in the current `lm` agmsg team, so delivery is via the checked-in prompt rather than an assumed agent.
 - [ ] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one canonical Cloud QR/bot
-  contract, explicit Local-install/Cloud-`/start` entrypoints, representative registry/config resolution for every shared domain on both supported hosts, identical
+  contract, explicit Local-install/Cloud-`/start` entrypoints, representative registry/config resolution for every
+  shared domain on both supported hosts, identical
   logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
   verification. Do not make a new App Store submission, Postiz publication, payment or other live provider effect
   merely to close this cleanup.
@@ -1042,6 +1043,11 @@ future product run exercises them without changing this architecture acceptance 
     worker replay-zero, and receipt-backed Telegram send-once. Host adapter tests pass 17/17 for common
     FinancialRecord output/replay-zero, repository-owned Local/Cloud paths and Local-keychain/Cloud-vault secret
     resolution. Common wire contracts pass 15/15 and the host-neutral lifecycle/registry suite passes 392/392.
+  - [x] Ebook English effects are crash-safe before any live run: HeyGen records an exclusive durable create intent,
+    never repeats an uncertain create, resumes download from a stored provider video ID and returns the exact
+    completed output receipt. The runner persists the render receipt before Telegram, claims one durable Telegram
+    effect before sending, recovers a completed provider receipt and never retries an unknown delivery. Focused
+    renderer/runner/portability tests pass 13/13; no HeyGen or Telegram effect was executed.
   - [ ] Merge latest `main`, repeat the affected acceptance gates on the resulting head, obtain a fresh read-only
     Astra `SHIP`, and record the reviewed pushed head before closing `ARCH-13h`.
 
