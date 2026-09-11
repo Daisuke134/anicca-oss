@@ -109,7 +109,9 @@ unverified. PR `#5005` is merged to main as `fe149d2d`; `115` focused tests plus
 `15` registry tests pass and `lm-loop doctor` is OK. Main-derived immutable release
 `20260911T124425-fe149d2d` is installed only for Mercor Apply with receipt
 `4899367d369548f040317d56`. Require a natural wake showing low material contradictions skipped
-without blocking qualified work.
+without blocking qualified work. Mercor's skill SSOT now states the same missing-evidence versus
+material-contradiction boundary via PR `#5006`, merged as `d4e0e2ba`, so a future adapter repair
+cannot lawfully restore the former submit-low behavior.
 Coconala and CrowdWorks fresh-effect gates remain live monitors: their owners continue naturally and
 the first eligible opportunity must produce an official application receipt and following
 replay-zero. Waiting on empty inventory never blocks the next Apply engineering atom.
