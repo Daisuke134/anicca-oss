@@ -17,7 +17,7 @@ def fixture_intent(tmp_path):
     return build_intent(
         experiment_id="experiment.123", creative_id="creative.123",
         product_id="ebook-en", account_id="instagram.anicca_en",
-        hook_id="hook.123", renderer_id="omniavatar-monk", adapter="postiz",
+        hook_id="hook.123", renderer_id="heygen-avatar-iv", adapter="postiz",
         asset_path=asset, caption="A calm lesson. ee_testtoken",
         attribution_token="ee_testtoken", scheduled_at="2026-08-02T01:00:00Z",
         integration_id="cmn8y95rg02d2qx0y09bbk5pb", platform="instagram",
@@ -47,7 +47,7 @@ def test_provider_settings_change_publication_identity(tmp_path):
     changed = build_intent(
         experiment_id="experiment.123", creative_id="creative.123",
         product_id="ebook-en", account_id="instagram.anicca_en",
-        hook_id="hook.123", renderer_id="omniavatar-monk", adapter="postiz",
+        hook_id="hook.123", renderer_id="heygen-avatar-iv", adapter="postiz",
         asset_path=pathlib.Path(first["asset_path"]), caption=first["caption"],
         attribution_token="ee_testtoken", scheduled_at="2026-08-02T01:00:00Z",
         integration_id="cmn8y95rg02d2qx0y09bbk5pb", platform="instagram",

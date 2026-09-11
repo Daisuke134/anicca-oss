@@ -61,6 +61,14 @@ receiptのない試行を「完了」と報告しません。
 | Capafy | Capafy account/API credentialとpublication profile | registry jobは存在、public guided installerは未完成 |
 | CFO | ユーザーが接続するfinancial sourceだけのcredential | 1回の有限passは`bash skills/cfo/run.sh` |
 
+日本語・英語のe-book productは、repo所有のscript ledger、publication intent、Postiz
+adapter、receipt、attribution、CFO、Telegram経路を共有します。日本語creativeは
+`watercolor-monk`、英語Anicca Monk creativeはchecked-inされた`heygen-avatar-iv`
+adapterから公式HeyGen CLIを使います。OmniAvatarやrepo外checkoutのsource codeは
+実行しません。privateなHeyGen avatar ID・voice ID・CLI loginが未設定のclean hostでは、
+provider effectを起こさず明示的な`setup_required` receiptを返します。これらの値と
+HeyGen sessionはhostまたはtenantのprivate stateであり、Gitにはcommitしません。
+
 Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware lifecycleを共有します。product manifestがAnicca iOS、Honne、その他のappを選び、共通serviceが対応済みstageを実行し、計測、収益、CFO、Telegramへ同じreceiptを残します。Postizはrepo所有adapterの先にある外部配信providerであり、repo外source code依存ではありません。account/app作成とbuild・署名・releaseは、共通orchestrationとguided installerが完成するまで明示的に`setup_required`です。
 
 現在の18件のpublication jobは、runner開始前に

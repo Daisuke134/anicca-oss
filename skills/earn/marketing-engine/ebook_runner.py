@@ -19,6 +19,7 @@ sys.path.insert(0, str(HERE.parents[2]))
 from script_ledger import ScriptLedger, preflight  # noqa: E402
 from ebook_packs import load_ebook_packs  # noqa: E402
 from watercolor_candidate import render as render_watercolor  # noqa: E402
+from heygen_candidate import render as render_heygen  # noqa: E402
 from skills._shared.telegram import TelegramClient  # noqa: E402
 from attribution import campaign_token  # noqa: E402
 
@@ -59,12 +60,15 @@ def run(*, engine: Path, product: str, slot_at: str, script_id: str, ledger_path
     script = ScriptLedger(ledger_path).get(script_id)
     preflight(script)
     require(script["product_id"] == product and script["account_id"] == f"product:{product}", "script product scope mismatch")
+    require(script["renderer_id"] == pack["renderer_id"], "script renderer does not match ebook pack")
     key = hashlib.sha256(f"{product}|{slot_at}".encode()).hexdigest()[:24]
     receipt = {"schema_version": "marketing.ebook-run.v1", "run_id": f"ebook-run.{key}",
                "product_id": product, "slot_at": slot_at, "script_id": script_id,
                "creative_id": script["creative_id"], "renderer_id": script["renderer_id"],
                "state": "script_preflighted", "external_effects": [],
-               "accounts": pack["accounts"], "recorded_at": slot_at}
+               "accounts": pack["accounts"],
+               "setup_required_accounts": pack.get("setup_required_accounts", []),
+               "recorded_at": slot_at}
     state_root.mkdir(parents=True, exist_ok=True)
     path = state_root / f"{receipt['run_id']}.json"
     encoded = json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
@@ -76,14 +80,21 @@ def run(*, engine: Path, product: str, slot_at: str, script_id: str, ledger_path
     else:
         path.write_text(encoded, encoding="utf-8")
     if render_output is not None:
-        require(product == "ebook-ja", "EN rendering remains blocked on free OmniAvatar runtime")
-        clips = watercolor_clip_paths(asset_root or default_asset_root())
-        rendered = render_watercolor(script=script["body"], output=render_output, clips=clips)
+        if product == "ebook-ja":
+            clips = watercolor_clip_paths(asset_root or default_asset_root())
+            rendered = render_watercolor(script=script["body"], output=render_output, clips=clips)
+        else:
+            rendered = render_heygen(script=script["body"], output=render_output)
+        if rendered.get("state") == "setup_required":
+            receipt.update({"state": "setup_required", "setup": rendered})
+            path.write_text(json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+            return receipt
         receipt.update({"state": "rendered", "render": rendered})
         if telegram_preview:
             message = TelegramClient.from_env().send_video(
-                rendered["output"], caption=(f"Life Manager::: Ebook Seller JA candidate — {script['hook']} | "
-                                             f"free watercolor | SHA {rendered['sha256']} | not posted yet"))
+                rendered["output"], caption=(f"Life Manager::: Ebook Seller {script['language'].upper()} candidate — "
+                                             f"{script['hook']} | {rendered['renderer_id']} | "
+                                             f"SHA {rendered['sha256']} | not posted yet"))
             receipt["telegram_preview"] = message
         path.write_text(json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return receipt

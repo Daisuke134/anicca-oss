@@ -939,11 +939,24 @@ future product run exercises them without changing this architecture acceptance 
       escape, noncanonical manifest paths, unsafe Swift display-name input and credential-bearing Git URLs, focused
       Mobile tests pass 14/14 and fresh review ships. Product-specific icon and screenshot generators plus optional
       downloadable pack transport remain open under this parent item.
-  - [ ] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
+  - [x] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
     `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
     `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and
     browser session remain private host state; the loop reports `setup_required` only for unavoidable account access,
     never because source code exists outside this repository.
+    The active English pack, account allowance, baseline queue and publication fixtures now select
+    `heygen-avatar-iv`. The clean-room adapter checks `heygen auth status`, then uses the official
+    `heygen video create -d - --wait` and `video download` interface, keeps script text out of argv, validates the
+    official `video_id` completion receipt, downloads through an atomic staging file and records the output hash.
+    Missing CLI/avatar/voice/login configuration returns a zero-effect `setup_required` receipt. The invalid reuse
+    of the Anicca iOS Instagram account was removed;
+    English ebook Instagram truthfully remains `setup_required` until its dedicated account is registered, while the
+    existing TikTok route remains the declared publication account. The unused OmniAvatar adapter and external
+    checkout characterizer are deleted. Historical renderer-evaluation evidence remains read-only evidence rather
+    than an executable dependency. Focused tests pass 37/37; the wider Marketing Engine source suite passes 372 tests
+    and 36 subtests, with nine existing live-evidence/date-dependent failures caused by intentionally absent sparse
+    evidence or time-window fixtures rather than this atom. No live HeyGen render, Postiz publication, protected
+    monk-factory mutation or running Gig operation was performed.
   - [ ] `ARCH-13f-ebook-assets` Publish or provision a versioned, redistributable default ebook asset pack for both
     Japanese and English products. A clean user starts without preparing characters, clips, captions or a book file;
     the installer fetches/copies the declared pack, verifies every SHA, and the loop may generate differentiated

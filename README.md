@@ -70,6 +70,15 @@ an interview, approval, or final delivery.
 | Capafy | Capafy account/API credential and publication profile | Registry jobs; public guided installer pending |
 | CFO | Credentials for only the financial sources the user connects | `bash skills/cfo/run.sh` for one finite pass |
 
+The ebook products share the same repository-owned script ledger, publication
+intent, Postiz adapter, receipt, attribution, CFO, and Telegram path. Japanese
+ebook creative uses the `watercolor-monk` renderer. English Anicca Monk creative
+uses the official HeyGen CLI through the checked-in `heygen-avatar-iv` adapter;
+it never calls OmniAvatar or source code under an external checkout. A clean host
+that has not configured the private HeyGen avatar ID, voice ID, and CLI login gets
+an explicit `setup_required` receipt with no provider effect. Those values and the
+HeyGen session remain private host or tenant state and are never committed.
+
 Mobile App Loops use one product-aware lifecycle rather than separate scripts per
 app. A product manifest selects Anicca iOS, Honne, or another app; shared services
 then perform the supported stages and write the same measurement, revenue, CFO,

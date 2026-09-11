@@ -109,7 +109,7 @@ class ProductRegistryTest(unittest.TestCase):
             formats = set(account["allowed_renderer_ids"])
             if "watercolor-monk" in formats:
                 self.assertEqual(account["product_id"], "ebook-ja")
-            if "omniavatar-monk" in formats:
+            if "heygen-avatar-iv" in formats:
                 self.assertEqual(account["product_id"], "ebook-en")
 
 
@@ -137,7 +137,7 @@ class VariationPlanTest(unittest.TestCase):
             create_plan(self.registry, self.hooks, product_id="ebook-en",
                         account_id="tiktok.obou_anicca", hook_id=hook_id,
                         tactic_id="tactic.faceless-visual-refresh-captions.v1",
-                        renderer_id="omniavatar-monk", idempotency_key="test-1")
+                        renderer_id="heygen-avatar-iv", idempotency_key="test-1")
         with self.assertRaisesRegex(RoutingError, "renderer not allowed"):
             create_plan(self.registry, self.hooks, product_id="ebook-en",
                         account_id="tiktok.monk_anicca", hook_id=hook_id,
@@ -150,7 +150,7 @@ class VariationPlanTest(unittest.TestCase):
         args = dict(product_id="ebook-en", account_id="tiktok.monk_anicca",
                     hook_id=hook_id,
                     tactic_id="tactic.faceless-visual-refresh-captions.v1",
-                    renderer_id="omniavatar-monk", idempotency_key="gate10-live-safe-en")
+                    renderer_id="heygen-avatar-iv", idempotency_key="gate10-live-safe-en")
         first = create_plan(self.registry, self.hooks, **args)
         second = create_plan(self.registry, self.hooks, **args)
         self.assertEqual(first, second)

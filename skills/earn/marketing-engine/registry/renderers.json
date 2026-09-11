@@ -4,7 +4,7 @@
     {"schema_version": "marketing.renderer.v1", "renderer_id": "slideshow", "kind": "faceless_slideshow", "languages": ["en", "ja"], "status": "baseline"},
     {"schema_version": "marketing.renderer.v1", "renderer_id": "reelclaw-card", "kind": "app_card_video", "languages": ["en", "ja"], "status": "challenger"},
     {"schema_version": "marketing.renderer.v1", "renderer_id": "moneyprinter", "kind": "faceless_narrative_video", "languages": ["en", "ja"], "status": "challenger"},
-    {"schema_version": "marketing.renderer.v1", "renderer_id": "omniavatar-monk", "kind": "avatar_video", "languages": ["en"], "status": "restricted"},
+    {"schema_version": "marketing.renderer.v1", "renderer_id": "heygen-avatar-iv", "kind": "avatar_video", "languages": ["en"], "status": "restricted"},
     {"schema_version": "marketing.renderer.v1", "renderer_id": "watercolor-monk", "kind": "watercolor_story_video", "languages": ["ja"], "status": "restricted"}
   ]
 }

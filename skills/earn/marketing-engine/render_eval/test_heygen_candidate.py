@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import subprocess
+import shutil
+
+from heygen_candidate import build_request, configuration, render
+
+
+READY = {
+    "LIFE_MANAGER_HEYGEN": shutil.which("heygen") or "/usr/bin/true",
+    "LM_EBOOK_EN_HEYGEN_AVATAR_ID": "avatar_12345678",
+    "LM_EBOOK_EN_HEYGEN_VOICE_ID": "voice_12345678",
+}
+
+
+def test_missing_private_configuration_is_setup_required_without_effect(tmp_path, monkeypatch):
+    monkeypatch.setattr("heygen_candidate.shutil.which", lambda _name: None)
+    calls = []
+    receipt = render(
+        script="Breathe.", output=tmp_path / "video.mp4", environment={},
+        executor=lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    assert receipt == {
+        "renderer_id": "heygen-avatar-iv",
+        "state": "setup_required",
+        "missing": ["LM_EBOOK_EN_HEYGEN_AVATAR_ID", "LM_EBOOK_EN_HEYGEN_VOICE_ID", "heygen_cli"],
+        "external_effects": [],
+    }
+    assert calls == []
+
+
+def test_request_is_vertical_avatar_iv_and_contains_no_credential():
+    config = configuration(READY)
+    request = build_request("  Breathe slowly.  ", config)
+    assert request == {
+        "type": "avatar", "avatar_id": "avatar_12345678", "script": "Breathe slowly.",
+        "voice_id": "voice_12345678", "voice_settings": {"speed": 0.9, "locale": "en-US"},
+        "engine": {"type": "avatar_iv"}, "aspect_ratio": "9:16", "resolution": "1080p",
+        "output_format": "mp4",
+    }
+    assert "key" not in json.dumps(request).lower()
+
+
+def test_missing_login_is_setup_required_before_create(tmp_path):
+    calls = []
+
+    def execute(args, **kwargs):
+        calls.append(args)
+        raise subprocess.CalledProcessError(1, args)
+
+    receipt = render(
+        script="Breathe.", output=tmp_path / "video.mp4",
+        environment=READY, executor=execute,
+    )
+    assert receipt == {
+        "renderer_id": "heygen-avatar-iv", "state": "setup_required",
+        "missing": ["heygen_auth"], "external_effects": [],
+    }
+    assert calls == [[READY["LIFE_MANAGER_HEYGEN"], "auth", "status"]]
+
+
+def test_render_uses_stdin_then_downloads_and_hashes_receipt(tmp_path):
+    calls = []
+
+    def execute(args, **kwargs):
+        calls.append((args, kwargs))
+        if args[1:3] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 0, "{}", "")
+        if args[2] == "create":
+            return subprocess.CompletedProcess(args, 0, json.dumps({
+                "data": {"video_id": "video_12345678", "status": "completed"}
+            }), "")
+        Path(args[-1]).write_bytes(b"video")
+        return subprocess.CompletedProcess(args, 0, "{}", "")
+
+    output = tmp_path / "render.mp4"
+    receipt = render(script="Breathe.", output=output, environment=READY, executor=execute)
+    assert receipt["state"] == "rendered"
+    assert receipt["video_id"] == "video_12345678"
+    assert receipt["sha256"] == "0cab1c9617404faf2b24e221e189ca5945813e14d3f766345b09ca13bbe28ffc"
+    assert calls[0][0] == [READY["LIFE_MANAGER_HEYGEN"], "auth", "status"]
+    assert calls[1][0] == [READY["LIFE_MANAGER_HEYGEN"], "video", "create", "-d", "-", "--wait"]
+    assert json.loads(calls[1][1]["input"])["script"] == "Breathe."
+    assert "Breathe." not in " ".join(calls[1][0])
+    assert calls[2][0] == [
+        READY["LIFE_MANAGER_HEYGEN"], "video", "download", "video_12345678",
+        "--output-path", str(output.with_name(f".{output.name}.part")),
+    ]
+    assert not output.with_name(f".{output.name}.part").exists()

@@ -149,8 +149,8 @@ def _validate_account(row: dict, path: pathlib.Path, products: dict, renderers: 
                     f"YouTube provider settings invalid: {path}")
     if "watercolor-monk" in row["allowed_renderer_ids"]:
         require(row["product_id"] == "ebook-ja", "watercolor renderer is restricted to ebook-ja")
-    if "omniavatar-monk" in row["allowed_renderer_ids"]:
-        require(row["product_id"] == "ebook-en", "monk renderer is restricted to ebook-en")
+    if "heygen-avatar-iv" in row["allowed_renderer_ids"]:
+        require(row["product_id"] == "ebook-en", "HeyGen renderer is restricted to ebook-en")
 
 
 def load_registry(engine: pathlib.Path) -> Registry:

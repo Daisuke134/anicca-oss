@@ -35,6 +35,35 @@ class EbookPortabilityTest(unittest.TestCase):
         self.assertEqual(len(paths), 6)
         self.assertTrue(all(path.parent == root / "watercolor-monk/clips" for path in paths))
 
+    def test_english_render_routes_to_repo_owned_heygen_adapter(self):
+        script = {
+            "product_id": "ebook-en", "account_id": "product:ebook-en",
+            "cta": "Read The Anicca Reset", "campaign_id": "campaign-1",
+            "creative_id": "creative-1", "source_mechanism_ids": ["source-1"],
+            "declared_mutation": "action", "body": "Breathe slowly.",
+            "renderer_id": "heygen-avatar-iv", "hook": "Breathe",
+        }
+        pack = {
+            "product_id": "ebook-en", "renderer_id": "heygen-avatar-iv",
+            "slots_jst": ["08:00"], "accounts": [],
+        }
+        with tempfile.TemporaryDirectory() as temp, \
+                mock.patch.object(ebook_runner, "load_ebook_packs", return_value={"en": pack}), \
+                mock.patch.object(ebook_runner, "ScriptLedger") as ledger, \
+                mock.patch.object(ebook_runner, "render_heygen", return_value={
+                    "renderer_id": "heygen-avatar-iv", "state": "setup_required",
+                    "missing": ["LM_EBOOK_EN_HEYGEN_AVATAR_ID"], "external_effects": [],
+                }) as renderer:
+            ledger.return_value.get.return_value = script
+            receipt = ebook_runner.run(
+                engine=Path(temp), product="ebook-en", slot_at="2026-09-12T08:00:00+09:00",
+                script_id="script-1", ledger_path=Path(temp) / "scripts.db",
+                state_root=Path(temp) / "runs", render_output=Path(temp) / "out.mp4",
+            )
+        renderer.assert_called_once_with(script="Breathe slowly.", output=Path(temp) / "out.mp4")
+        self.assertEqual(receipt["state"], "setup_required")
+        self.assertEqual(receipt["external_effects"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,14 +3,16 @@
   "product_id": "ebook-en",
   "pack_id": "ebook-en-anicca-monk",
   "language": "en",
-  "renderer_id": "omniavatar-monk",
+  "renderer_id": "heygen-avatar-iv",
   "destination_url": "https://aniccaai.com/monk",
   "price": {"amount": 10.99, "currency": "USD"},
   "slots_jst": ["08:00", "14:00", "21:00"],
   "accounts": [
-    {"account_id": "tiktok.monk_anicca", "integration_id": "cmo5rwq2p00twn10yrsdglng3"},
-    {"account_id": "instagram.anicca_en", "integration_id": "cmn8y95rg02d2qx0y09bbk5pb"}
+    {"account_id": "tiktok.monk_anicca", "integration_id": "cmo5rwq2p00twn10yrsdglng3"}
+  ],
+  "setup_required_accounts": [
+    {"platform": "instagram", "reason": "dedicated_ebook_en_account_not_registered"}
   ],
   "allowed_claims": ["English-language guided reflection ebook", "Digital access is sold through the owned checkout page"],
-  "stop_rules": ["missing_native_receipt", "identity_preflight_failed", "duplicate_publish_key", "unverified_render_cost", "omniavatar_free_runtime_unavailable"]
+  "stop_rules": ["missing_native_receipt", "identity_preflight_failed", "duplicate_publish_key", "unverified_render_cost", "heygen_setup_required"]
 }
