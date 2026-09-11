@@ -505,14 +505,29 @@ class CrowdWorksPaidAdapter:
 
         visible = visible_forms()
         if not visible:
-            tabs = self.page.get_by_text("やること", exact=True)
-            visible_tabs = [tabs.nth(index) for index in range(tabs.count()) if tabs.nth(index).is_visible()]
-            if len(visible_tabs) != 1:
+            def visible_todo_tabs():
+                tabs = self.page.get_by_text("やること", exact=True)
+                return [tabs.nth(index) for index in range(tabs.count()) if tabs.nth(index).is_visible()]
+
+            visible_tabs = visible_todo_tabs()
+            if not visible_tabs:
+                # CrowdWorks exposes the same official To-do surface only in its
+                # narrow layout for some contracts.  Re-rendering the current
+                # contract is pre-effect; exact control cardinality still fences
+                # the subsequent provider mutation.
+                self.page.set_viewport_size({"width": 390, "height": 844})
+                self._goto_contract(_text(item.get("work_id")))
+                visible = visible_forms()
+                visible_tabs = visible_todo_tabs() if not visible else []
+            if visible:
+                pass
+            elif len(visible_tabs) != 1:
                 raise RuntimeError("crowdworks_paid_todo_surface_unavailable")
-            visible_tabs[0].click()
-            self.page.locator(f'{selector} textarea[name="message[body]"]:visible').wait_for(
-                state="visible", timeout=15_000)
-            visible = visible_forms()
+            else:
+                visible_tabs[0].click()
+                self.page.locator(f'{selector} textarea[name="message[body]"]:visible').wait_for(
+                    state="visible", timeout=15_000)
+                visible = visible_forms()
         if len(visible) != 1:
             raise RuntimeError("crowdworks_paid_milestone_unavailable")
         form = visible[0]

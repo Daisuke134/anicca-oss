@@ -425,6 +425,7 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
 
     class Page:
         todo_open = False
+        mobile = False
 
         def locator(self, selector):
             selected.append(("form", selector))
@@ -435,6 +436,10 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
         def get_by_text(self, text, exact=False):
             selected.append(("tab", text, exact))
             return FormsForTab()
+
+        def set_viewport_size(self, size):
+            self.mobile = True
+            selected.append(("viewport", size))
 
         def wait_for_load_state(self, *args, **kwargs):
             selected.append(("readback-wait", None))
@@ -458,6 +463,55 @@ def test_milestone_completion_targets_only_the_visible_duplicate_form():
     assert any(row[:2] == ("fill", "visible") for row in selected)
     assert ("click", "visible") in selected
     assert not any(row[:2] == ("fill", "hidden") for row in selected)
+
+
+def test_milestone_completion_reveals_mobile_only_todo_surface_before_effect():
+    module = load()
+    events = []
+    page = None
+
+    class Control:
+        def __init__(self, kind): self.kind = kind
+        def is_visible(self): return page.mobile if self.kind == "tab" else page.todo_open
+        def click(self):
+            events.append(("click", self.kind))
+            if self.kind == "tab": page.todo_open = True
+        def fill(self, value): events.append(("fill", value))
+        def count(self): return 1
+        def is_disabled(self): return False
+        def wait_for(self, **kwargs): events.append(("wait", kwargs))
+
+    class Form:
+        def locator(self, selector): return Control("textarea" if selector.startswith("textarea") else "submit")
+
+    class Forms:
+        def count(self): return 1
+        def nth(self, index): return Form()
+
+    class Tabs:
+        def count(self): return 1
+        def nth(self, index): return Control("tab")
+
+    class Page:
+        mobile = False
+        todo_open = False
+        def locator(self, selector): return Control("textarea") if selector.endswith(":visible") else Forms()
+        def get_by_text(self, text, exact=False): return Tabs()
+        def set_viewport_size(self, size):
+            self.mobile = True
+            events.append(("viewport", size))
+        def wait_for_load_state(self, *args, **kwargs): pass
+
+    page = Page()
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
+    adapter.page = page
+    adapter._goto_contract = lambda work_id: events.append(("contract", work_id))
+
+    adapter._complete_once(funded(), {"milestone_id": "13798056"})
+
+    assert ("viewport", {"width": 390, "height": 844}) in events
+    assert events.index(("viewport", {"width": 390, "height": 844})) < events.index(("click", "tab"))
+    assert events[-1] == ("click", "submit")
 
 
 def test_paid_form_receipts_are_isolated_by_contract_binding(tmp_path):
