@@ -26,7 +26,8 @@ POLICY = {
             "medium": "credible_verified_overlap_with_missing_or_weak_evidence",
             "low": "explicit_language_location_domain_or_seniority_contradiction",
         },
-        "weak_fit_disposition": "rank_later_not_reject",
+        "missing_evidence_disposition": "rank_later_not_reject",
+        "material_contradiction_disposition": "skip_no_reasonable_shot",
         "evidence": "cite_posting_text_and_verified_facts",
     },
     "form_answers": "answer_only_from_verified_facts_never_fabricate",
@@ -35,7 +36,7 @@ POLICY = {
         "scope": "candidate_local_pending",
         "pass_behavior": "continue_other_candidates_without_waiting",
         "notify_bands": ["high", "medium"],
-        "low_fit_disposition": "skip_person_bound_step_without_notification_and_continue",
+        "low_fit_disposition": "skip_no_reasonable_shot_without_notification_and_continue",
     },
     "candidate_failure": "record_and_continue",
 }

@@ -44,8 +44,11 @@ def test_shared_apply_context_preserves_verified_facts_and_maximize_policy(tmp_p
         "compensation",
         "absence_of_contradictory_requirements",
     ]
-    assert value["policy"]["ranking"]["weak_fit_disposition"] == (
+    assert value["policy"]["ranking"]["missing_evidence_disposition"] == (
         "rank_later_not_reject"
+    )
+    assert value["policy"]["ranking"]["material_contradiction_disposition"] == (
+        "skip_no_reasonable_shot"
     )
     assert value["policy"]["ranking"]["band_definitions"] == {
         "high": "strong_verified_overlap_and_no_material_contradiction",
@@ -58,7 +61,7 @@ def test_shared_apply_context_preserves_verified_facts_and_maximize_policy(tmp_p
     )
     assert value["policy"]["person_bound_step"]["notify_bands"] == ["high", "medium"]
     assert value["policy"]["person_bound_step"]["low_fit_disposition"] == (
-        "skip_person_bound_step_without_notification_and_continue"
+        "skip_no_reasonable_shot_without_notification_and_continue"
     )
     assert [fact["id"] for fact in value["verified_facts"]] == ["education", "marketing"]
     assert "application_email" not in value["candidate"]
