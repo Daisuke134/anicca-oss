@@ -72,13 +72,15 @@ git diff --check
 The final integrated branch must also run the Gig owner's focused Coconala/Lancers/CrowdWorks tests. A failure in a
 provider-owned suite is fixed by that owner; it must not be hidden by weakening the shared contract.
 
-## Remaining gates
+## Final disposition
 
-1. Retain `~/.openclaw` and `~/.hermes`: a direct path-based read-only census confirms an active non-Life-Manager
-   Playwright driver under `.openclaw`, and the directories still contain credentials, sessions, ledgers, protected
-   state and Gig compatibility owned outside this branch.
-   They are not public clean-clone dependencies and must not be bulk-deleted as regenerable cache.
-2. Final latest-main verification, PR/main integration, and handover.
+- Retain `~/.openclaw` and `~/.hermes`: a direct path-based read-only census confirms an active non-Life-Manager
+  Playwright driver under `.openclaw`, and the directories still contain credentials, sessions, ledgers, protected
+  state and Gig compatibility owned outside this branch. They are not public clean-clone dependencies and must not
+  be bulk-deleted as regenerable cache.
+- The reviewed architecture merged through PR #5025 as main commit
+  `990347590b1049e1fcfaf7e4589d5442589e29a1`. This handoff is complete; its prompt below applies only to future Gig
+  changes.
 
 ## User-sendable prompt
 
