@@ -576,6 +576,11 @@ This checklist does not reorder the established implementation sequence below. T
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.
+    Pre-merge gates pass at `6f80b829f45326df77d261dc874a13d19a680ce2`: latest `origin/main` is an ancestor;
+    OSS verification and daemon-free empty-HOME installation pass; the clean clone passes 975/975 app tests and
+    24 panel checks; Compute Proxy/Financial Transition passes 13/13; Capafy account-state passes 36/36; and
+    `git diff --check` passes. Fresh read-only review reports `SHIP` with no findings. PR merge and merged-main
+    fresh-clone verification remain before this checkbox and parent `AE-UX-12` can close.
 
 ## 5. Dependency boundary
 
