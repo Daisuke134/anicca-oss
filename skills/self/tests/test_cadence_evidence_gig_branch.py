@@ -106,14 +106,5 @@ chk("gig (new source): mixed-format ts (ISO + numeric epoch) same day -> met=tru
 del os.environ["GIG_APPLIED_PATH"]
 del os.environ["GIG_LISTINGS_PATH"]
 
-# --- Regression companion: clip/affiliate/video are UNTOUCHED by this new gig branch's env seams ---
-clip_ledger = os.path.join(TMP, "clip-ledger.jsonl")
-write_jsonl(clip_ledger, [{"ts": today_epoch_noon, "post_url": "https://example.com/reel1"}])
-os.environ["EARN_LEDGER"] = clip_ledger
-status = CE.status_for_loop("clip")
-chk("regression: clip loop untouched by gig's new env seams -> still met=true via its own path",
-    status["met"], True)
-del os.environ["EARN_LEDGER"]
-
 print(f"=== test_cadence_evidence_gig_branch: {P} passed {F} failed ===")
 sys.exit(0 if F == 0 else 1)

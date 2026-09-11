@@ -1,8 +1,7 @@
 """test_derive_roster.py — RED (Phase 2a, feature claude-p-ceo-loop).
 PROP-CEO-001 (B1修正, REQ-CEO-001): derive_roster(cadence_contract) -> list[str]. Type-filter
 (only dict-valued keys are candidates) excludes `_comment` (str value) without a hardcoded key-name
-exclusion list; `founder-loop` is dropped (CEO's own body); `clip-promote` is added (intentionally
-absent from cadence-contracts.json, REQ-CEO-004).
+exclusion list; `founder-loop` is dropped (CEO's own body).
 
 ceo/allocator.py does not exist yet -> ImportError -> RED.
 """
@@ -44,11 +43,10 @@ fixture = {
 roster = derive_roster(fixture)
 chk_true("derive_roster: _comment (str value) is excluded by the type filter", "_comment" not in roster)
 chk_true("derive_roster: founder-loop (CEO's own body) is excluded", "founder-loop" not in roster)
-chk_true("derive_roster: clip-promote is added (intentionally absent from the contract file)", "clip-promote" in roster)
-chk("derive_roster: current fixture -> 6-item roster", len(roster), 6)
+chk("derive_roster: current fixture -> 5-item roster", len(roster), 5)
 chk_true(
     "derive_roster: exact expected current set",
-    set(roster) == {"clip", "affiliate", "gig", "bounty", "pm-earner", "clip-promote"},
+    set(roster) == {"clip", "affiliate", "gig", "bounty", "pm-earner"},
 )
 
 # The type filter must exclude _comment BEFORE any code path does contract["kind"] on it -- a str
@@ -66,7 +64,7 @@ fixture_plus_new_loop = dict(fixture)
 fixture_plus_new_loop["article"] = {"kind": "row-exists"}
 roster_plus = derive_roster(fixture_plus_new_loop)
 chk_true("derive_roster: a newly-added dict-valued loop key is picked up automatically (no hardcoded list)", "article" in roster_plus)
-chk("derive_roster: roster count grows by exactly 1 for the new loop", len(roster_plus), 7)
+chk("derive_roster: roster count grows by exactly 1 for the new loop", len(roster_plus), 6)
 
 print(f"=== test_derive_roster: {P} passed {F} failed ===")
 sys.exit(0 if F == 0 else 1)

@@ -41,7 +41,7 @@ with open(VERIFY_LOOPS_AUDIT_SH, encoding="utf-8") as f:
 # --- self-fix marker loop must list exactly the canonical marker loops (self-heal.md root cause #2:
 # previously only 3 of these were listed, hiding affiliate's #994/bounty's #995 diagnoses). ---
 CANONICAL_MARKERS = [
-    "clip-loop", "affiliate-loop", "gig-loop", "bounty-loop",
+    "affiliate-loop", "gig-loop", "bounty-loop",
     "pm-earner-loop", "founder-loop", "capafy-loop", "reddit-loop", "life-manager-loop",
 ]
 

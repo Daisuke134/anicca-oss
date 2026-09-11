@@ -5,8 +5,7 @@ pure `cadence.py` dispatcher on it. This is the IMPURE side of the purity bounda
 itself never touches a file; this module is the only thing that does, and its job is narrowly
 "read a real timestamp/value, hand it to the pure function," never "decide what health means."
 
-CLI: `python3 cadence-evidence.py status <loop-name>` -> one JSON line:
-  {"loop": "clip", "met": true, "streak": 3, "scorecard": "✅posted-today (streak=3)"}
+CLI: `python3 cadence-evidence.py status <loop-name>` -> one JSON line.
 Missing/not-yet-populated source files are NOT an error — they simply produce empty evidence, which
 cadence_met() honestly evaluates as unmet (never fabricated, matches this codebase's fail-closed
 convention across record_earn.py / loop-report.sh / record-earn.mjs).
@@ -114,10 +113,6 @@ def _event_dates_from_ts_rows(rows, ts_field="ts"):
 # Per-loop evidence sources (the only place real paths are known)
 # ---------------------------------------------------------------------------
 
-def _clip_ledger_path():
-    return os.environ.get("EARN_LEDGER") or os.path.expanduser("~/.local/state/life-manager/state/clip-earn-ledger.jsonl")
-
-
 def _affiliate_metrics_path():
     return os.environ.get("AFFILIATE_METRICS_PATH") or os.path.expanduser("~/.cloak/affiliate-metrics.jsonl")
 
@@ -193,7 +188,6 @@ def _gig_row_exists_event_dates():
 # evidence-gathering logic against real temp fixture files instead of production paths — never
 # reaches for a mock of cadence_met/streak themselves (those stay pure and untouched).
 LEDGER_PATH_FOR_LOOP = {
-    "clip": _clip_ledger_path,
     "affiliate": _affiliate_metrics_path,
 }
 
@@ -204,12 +198,8 @@ def _row_exists_event_dates(loop):
     dates = _event_dates_from_ts_rows(rows)
     if dates:
         return dates
-    # FALLBACK (clip's existing ledger predates this feature and carries no per-row `ts` field —
-    # see self_heal.py's ledger writer, confirmed 2026-07-08). The new metrics/funnel files this
-    # feature introduces for affiliate/gig (REQ-LV-013/015) DO carry `ts`; this branch only
-    # ever fires for a ledger with real rows but none of them timestamped, so the file's own mtime
-    # is the most honest single-day signal available — never fabricates a date beyond "this file
-    # was genuinely written on this JST calendar day."
+    # Legacy ledgers may contain rows without timestamps. If so, the file mtime is the only
+    # observable day-level signal available.
     if rows:
         m = _mtime_epoch(path)
         if m is not None:
@@ -282,7 +272,7 @@ def _pm_earner_redeem_event_dates():
 
 
 def gather_evidence(loop: str, today_jst_date: str, now_epoch_seconds: float) -> dict:
-    if loop in ("clip", "affiliate"):
+    if loop == "affiliate":
         return {"event_dates": sorted(_row_exists_event_dates(loop))}
 
     if loop == "gig":
@@ -317,7 +307,7 @@ def evidence_by_date_for_streak(loop: str, today_jst_date: str, window_days: int
     real sources — never fabricated, just re-sliced per day."""
     today = datetime.date.fromisoformat(today_jst_date)
     out = {}
-    if loop in ("clip", "affiliate"):
+    if loop == "affiliate":
         dates = _row_exists_event_dates(loop)
         for i in range(window_days):
             d = (today - datetime.timedelta(days=i)).isoformat()

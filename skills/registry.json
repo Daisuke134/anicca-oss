@@ -215,17 +215,6 @@
       "risk": "capital",
       "riskNote": "anicca-agent-economy REQ-201: launching/managing a speculative token -- the other capital-risking example named in REQ-201's own EARS clause; no distinct catalog-gated close action, so no open-position carve-out."
     },
-    "earn/clip": {
-      "track": "A",
-      "dir": "skills/earn/clip",
-      "entrypoint": "run.sh",
-      "status": "dormant",
-      "owner": "clip",
-      "spec": "2026-06-29-ecosystem-integration + clip-rewards-state D-57",
-      "summary": "LOCAL: post next queued captioned 9:16 clip to next ready clip account (isolated CloakBrowser profile). EARN_MODE=execute posts ONE; per-view USDC accrues later (separate payout-check records on-chain). No human.",
-      "risk": "safe",
-      "riskNote": "anicca-agent-economy REQ-201: posts a pre-produced captioned clip via browser automation; deploys no funds."
-    },
     "earn/clip-producer": {
       "track": "A",
       "dir": "skills/earn/clip-producer",

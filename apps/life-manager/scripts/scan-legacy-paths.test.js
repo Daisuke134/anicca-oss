@@ -133,6 +133,7 @@ test("the scan scope covers the runtime roots the Life Manager actually loads", 
     "skills/tools/telegram-user",
     "skills/life-manager",
     "skills/earn/marketing-engine",
+    "skills/earn/clip",
     "skills/earn/x402-sell",
     "runtime",
   ]) {

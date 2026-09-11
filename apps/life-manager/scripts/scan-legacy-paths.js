@@ -46,6 +46,7 @@ const SCAN_ROOTS = [
   "skills/tools/telegram-user",
   "skills/life-manager",
   "skills/earn/marketing-engine",
+  "skills/earn/clip",
   "skills/earn/x402-sell",
   "runtime",
 ];

@@ -32,12 +32,9 @@ from guardrails import cooldown_ok, fleet_at_capacity, scale_eligible  # noqa: E
 def derive_roster(cadence_contract: dict) -> list:
     """Dict-valued keys only (type filter, never a key-name exclusion list -- `_comment`'s value is
     a plain str and is excluded by `isinstance` before any `["kind"]` access happens, so a non-dict
-    value can never raise). `founder-loop` (CEO's own body) is dropped; `clip-promote`
-    (intentionally absent from cadence-contracts.json, REQ-CEO-004) is added."""
+    value can never raise). `founder-loop` (CEO's own body) is dropped."""
     loops = [k for k, v in cadence_contract.items() if isinstance(v, dict)]
     loops = [loop for loop in loops if loop != "founder-loop"]
-    if "clip-promote" not in loops:
-        loops.append("clip-promote")
     return loops
 
 

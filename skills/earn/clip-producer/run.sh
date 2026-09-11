@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# earn/clip-producer — ON-DEMAND wrapper around ../clip/producer.sh, registered as its own
-# run_skill SLOT so a self-funded automaton (ClawRouter/genesis) can DECIDE for itself to
-# produce a fresh clip when it notices `earn/clip` reporting queued_clip=none, instead of
-# only waiting for the daily launchd cron (ai.anicca.clip-producer / -clawrouter, AM3:17/3:47).
+# earn/clip-producer — ON-DEMAND wrapper around the repository-owned ../clip/producer.sh.
+# It is a bounded media-generation capability; the retired standalone launchd/tmux owners
+# and the removed posting slot are not required.
 #
 # Why this is safe to slot-ify (unlike ig-account-create): producer.sh is a fully
 # DETERMINISTIC pipeline (sliced yt-dlp DL -> whisper -> highlight pick -> 9:16 crop ->

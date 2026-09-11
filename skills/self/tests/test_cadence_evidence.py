@@ -3,9 +3,9 @@ sprint-2 gap noted in Phase 5 hardening review). cadence.py itself (cadence_met/
 already covered by test_cadence.py's Tier1 suite (23/23 green, untouched here). This file proves
 the IMPURE evidence-gathering side (gather_evidence/evidence_by_date_for_streak/status_for_loop)
 correctly reads REAL temp fixture files — via the module's own test-only env var override seams
-(EARN_LEDGER/AFFILIATE_METRICS_PATH/EARN_VIDEO_METRICS_PATH/GIG_FUNNEL_PATH/BOUNTY_FUNNEL_PATH/
+(AFFILIATE_METRICS_PATH/GIG_FUNNEL_PATH/BOUNTY_FUNNEL_PATH/
 FOUNDER_STATE_MD_PATH/PM_EARNER_LOG_PATH/PM_EARNER_LEDGER_PATH — the same
-EARN_LEDGER/FOUNDER_DIR/FOUNDER_TEST pattern this codebase already uses elsewhere) — never touches
+FOUNDER_DIR/FOUNDER_TEST pattern this codebase already uses elsewhere) — never touches
 production paths (~/.cloak, ~/gig, ~/.anicca-founder, __REPO_ROOT__/skills/earn/...).
 """
 import datetime
@@ -51,17 +51,9 @@ TODAY = datetime.datetime.now(tz=JST).date().isoformat()
 today_epoch = datetime.datetime.now(tz=JST).timestamp()
 
 # ---------------------------------------------------------------------------
-# row-exists loops (clip/affiliate/gig): real jsonl row with today's ts -> event_dates
+# row-exists loops (affiliate/gig): real jsonl row with today's ts -> event_dates
 # includes today -> cadence_met via the real cadence.py dispatcher.
 # ---------------------------------------------------------------------------
-clip_ledger = os.path.join(TMP, "clip-ledger.jsonl")
-write_jsonl(clip_ledger, [{"ts": today_epoch, "post_url": "https://example.com/reel1"}])
-os.environ["EARN_LEDGER"] = clip_ledger
-status = CE.status_for_loop("clip")
-chk("clip: real today-ts row -> met=true", status["met"], True)
-chk("clip: real today-ts row -> streak>=1", status["streak"] >= 1, True)
-del os.environ["EARN_LEDGER"]
-
 aff_metrics = os.path.join(TMP, "affiliate-metrics.jsonl")
 write_jsonl(aff_metrics, [{"ts": today_epoch, "views": 100}])
 os.environ["AFFILIATE_METRICS_PATH"] = aff_metrics

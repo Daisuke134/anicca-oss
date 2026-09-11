@@ -543,6 +543,15 @@ This checklist does not reorder the established implementation sequence below. T
     stale Earning Loops and execution-order pseudo-SSOTs are reduced to current registry/spec pointers and no longer
     advertise tmux, ClawRouter, OpenClaw or Hermes as live architecture. The README contract passes 21/21,
     repository identity verification, OSS self-contained verification and diff checks pass.
+    The first fresh read-only review then found an executable blind spot outside the registered
+    catalog: the old Clip healthcheck/producer plists and unregistered `clip-promote` fleet could
+    still restart tmux/Claude-era jobs and import `~/.claude/skills`. Those obsolete posting,
+    scheduler, self-heal and promotion paths are deleted; the current 18 Mobile App/Postiz jobs
+    remain unchanged, and the bounded repository-owned Clip media producer remains available.
+    The Marketing runner no longer points at the deleted daily script, the CEO/cadence monitors no
+    longer invent Clip owners, all legacy Clip labels are retired, and the dependency scanner now
+    covers the retained Clip source. Focused scanner, registry, producer, cadence and roster checks
+    pass. No running Gig Work business logic is changed.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""weekly_report.py — REQ-LV-111 wiring: for one of the current EDD loops (clip/affiliate/gig/
+"""weekly_report.py — REQ-LV-111 wiring: for one of the current EDD loops (affiliate/gig/
 bounty), split its own metrics ledger into "this week"/"last week" (Mon-Sun, JST), score each half
 through the loop's own evaluator.py::evaluate_stage1, decide beats_previous_week via
 lib/weekly_compare.py, and append {ts, week_start, combined_score, beats_previous_week} to the same
@@ -27,7 +27,6 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 REPO_ROOT = Path(os.environ.get("LIFE_MANAGER_REPO", Path(__file__).resolve().parents[3]))
 
 LEDGER_PATH_FOR_LOOP = {
-    "clip": lambda: os.environ.get("EARN_LEDGER") or os.path.expanduser("~/.local/state/life-manager/state/clip-earn-ledger.jsonl"),
     "affiliate": lambda: os.environ.get("AFFILIATE_METRICS_PATH") or os.path.expanduser("~/.cloak/affiliate-metrics.jsonl"),
     "gig": lambda: os.environ.get("GIG_FUNNEL_PATH") or os.path.expanduser("~/gig/gig-funnel.jsonl"),
     "bounty": lambda: os.environ.get("BOUNTY_FUNNEL_PATH") or str(

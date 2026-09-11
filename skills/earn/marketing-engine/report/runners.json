@@ -21,11 +21,6 @@
       "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
       "quarantine_reason": null
     },
-    "clip": {
-      "command": ["/bin/bash", "{repo}/skills/earn/clip/clip_daily.sh"],
-      "product_ids": [],
-      "quarantine_reason": "publisher_quarantined_until_gate_12"
-    },
     "self-improve": {
       "command": ["/bin/bash", "{repo}/skills/earn/self-improve/run_evolve.sh"],
       "product_ids": [],
