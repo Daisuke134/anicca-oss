@@ -25,7 +25,7 @@ LISTING_URL_FMT = "https://capafy.ai/agent/{agent_id}"
 
 def _fetch_agents() -> list:
     out = subprocess.run(
-        ["/opt/homebrew/bin/python3", CAPAFY_HTTP, "GET", "/agent/agents"],
+        [sys.executable, CAPAFY_HTTP, "GET", "/agent/agents"],
         capture_output=True, text=True, timeout=60,
     ).stdout
     # capafy_http prints a log line then the JSON body; grab from the first { or [

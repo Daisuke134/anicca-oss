@@ -489,7 +489,13 @@ This checklist does not reorder the established implementation sequence below. T
       - [x] Replace fixed Homebrew Node/timeout execution in Agentmail, Life Manager daily/self-build and six Cloud
         production launchers with command discovery and the shared repository timeout runner. Focused suites pass
         20/20, 21/21, 15/15, 14/14, 59/59 and 29/29 across the completed atoms; the OSS verifier passes after each.
-      - [ ] Finish the executable tool-resolution families: Job Hunter, Lateness, Capafy and registered x402 boots.
+      - [x] Finish the executable tool-resolution families: Job Hunter, Lateness, Capafy and registered x402 boots.
+        Job Hunter, Lateness and the registered x402/provider launchers now resolve optional tools from explicit
+        Life Manager environment overrides or `PATH` and fail as `setup_required` when the provider tool is absent.
+        Capafy's shell entrypoints use the same portable Python/npx discovery and its Python helpers use the active
+        interpreter rather than one Mac's Homebrew path. The Capafy Python suite passes 17/17, its changed shell
+        entrypoints pass syntax checks and the OSS self-contained verifier passes; no live posting or Gig runtime
+        was invoked by this source-only portability atom.
       - [ ] Delete quarantined Clip/Video external-source implementations if they have no supported return path, or
         move the required implementation into this repository before re-enabling them.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser

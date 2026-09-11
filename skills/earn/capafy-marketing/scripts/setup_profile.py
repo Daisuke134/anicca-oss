@@ -6,12 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 
 CDP = str(Path(__file__).resolve().parents[3] / "browser/scripts/cdp.py")
-PYTHON = "/opt/homebrew/bin/python3"
+PYTHON = sys.executable
 BIO = "document.querySelector('textarea')"
 WEBSITE = "([...document.querySelectorAll('input')].find(e=>{const p=((e.placeholder||'')+' '+(e.getAttribute('aria-label')||'')+' '+(e.name||'')).toLowerCase();return (e.type||'').toLowerCase()==='url'||/website|url|ウェブサイト|sitio web|site web|网站|웹사이트|webseite/.test(p);})||null)"
 SAVE = "((()=>{const words=/送信する|submit|save|guardar|enregistrer|提交|保存|저장|speichern/i;const a=[...document.querySelectorAll('[role=button],button')].filter(e=>words.test((e.textContent||'').trim()));return a.at(-1)||document.querySelector('button[type=submit]');})())"
