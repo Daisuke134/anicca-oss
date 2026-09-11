@@ -1003,7 +1003,7 @@ future product run exercises them without changing this architecture acceptance 
     remain untouched; no render, publication or running Gig effect was performed.
 - [x] `ARCH-13g` Make onboarding expose the same product model on both hosts. The repository-owned
   Cloud-deployable `apps/life-manager/config/product-loop-catalog.json` describes all 14 public Product Loops, their
-  purpose, requirements, the Local-wide Telegram pairing requirement, current Local
+  purpose, requirements, the Local-wide private Telegram credential requirement, current Local
   and Cloud availability, and the existing start entrypoint where one is honestly supported. The shared zero-effect
   planner accepts an explicit non-empty selection, rejects `all`, accepts verified requirements only from provider
   preflight adapters, returns each missing requirement as `setup_required`, and never starts work. Local exposes its
@@ -1048,6 +1048,14 @@ future product run exercises them without changing this architecture acceptance 
     completed output receipt. The runner persists the render receipt before Telegram, claims one durable Telegram
     effect before sending, recovers a completed provider receipt and never retries an unknown delivery. Focused
     renderer/runner/portability tests pass 13/13; no HeyGen or Telegram effect was executed.
+  - [x] Close the fresh-review gaps without touching a running loop. Local planning and the default installer now
+    share one repository-owned Telegram credential check: the shipped placeholders or a missing private chat ID stay
+    `setup_required`, and daemon registration is skipped until both values are configured. The same check is exposed
+    through `./install.sh plan`; `.env.example` declares both values. Local credential/planner/installer tests pass
+    11/11. A HeyGen replay whose provider receipt and renamed non-empty output already exist now atomically completes
+    the durable receipt without a second create or download; its focused renderer/runner tests pass 9/9. The catalog
+    and this spec consistently call the Local prerequisite private Telegram credentials, not pairing. No daemon,
+    Telegram message, HeyGen render or Gig workload was started by these tests.
   - [ ] Merge latest `main`, repeat the affected acceptance gates on the resulting head, obtain a fresh read-only
     Astra `SHIP`, and record the reviewed pushed head before closing `ARCH-13h`.
 

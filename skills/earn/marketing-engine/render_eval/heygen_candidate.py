@@ -145,6 +145,13 @@ def render(
                     "effect_key": request_sha256, "external_effects": []}
         video_id = str(intent.get("video_id") or "")
         require(IDENTIFIER.fullmatch(video_id) is not None, "HeyGen provider receipt invalid")
+        if output.exists():
+            require(output.is_file() and not output.is_symlink() and output.stat().st_size > 0,
+                    "HeyGen recovered output invalid")
+            receipt = _receipt(output, video_id)
+            _write_json(intent_path, {**expected, "state": "completed", "video_id": video_id,
+                                      "output_sha256": receipt["sha256"]})
+            return receipt
     else:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             json.dump({**expected, "state": "prepared"}, handle, ensure_ascii=False, sort_keys=True, indent=2)

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import shutil
+import heygen_candidate
 
 from heygen_candidate import build_request, configuration, render
 
@@ -151,4 +152,47 @@ def test_download_failure_resumes_from_stored_video_id_without_second_create(tmp
                     environment=READY, executor=execute)
     assert replay["state"] == "rendered"
     assert sum(args[2] == "create" for args in calls if len(args) > 2) == 1
+    assert json.loads(intent.read_text())["state"] == "completed"
+
+
+def test_replay_recovers_crash_after_output_rename_without_second_create(tmp_path, monkeypatch):
+    calls = []
+
+    def execute(args, **kwargs):
+        calls.append(args)
+        if args[1:3] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 0, "{}", "")
+        if args[2] == "create":
+            return subprocess.CompletedProcess(args, 0, json.dumps({
+                "data": {"video_id": "video_12345678", "status": "completed"}
+            }), "")
+        Path(args[-1]).write_bytes(b"video")
+        return subprocess.CompletedProcess(args, 0, "{}", "")
+
+    output = tmp_path / "renamed.mp4"
+    intent = tmp_path / "effect.json"
+    real_write = heygen_candidate._write_json
+
+    def crash_before_completed_receipt(path, value):
+        if value.get("state") == "completed":
+            raise RuntimeError("crash after output rename")
+        real_write(path, value)
+
+    monkeypatch.setattr(heygen_candidate, "_write_json", crash_before_completed_receipt)
+    try:
+        render(script="Breathe.", output=output, intent_path=intent,
+               environment=READY, executor=execute)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("receipt write must crash")
+    assert output.read_bytes() == b"video"
+    assert json.loads(intent.read_text())["state"] == "provider_created"
+
+    monkeypatch.setattr(heygen_candidate, "_write_json", real_write)
+    replay = render(script="Breathe.", output=output, intent_path=intent,
+                    environment=READY, executor=execute)
+    assert replay["state"] == "rendered"
+    assert sum(args[2] == "create" for args in calls if len(args) > 2) == 1
+    assert sum(args[2] == "download" for args in calls if len(args) > 2) == 1
     assert json.loads(intent.read_text())["state"] == "completed"
