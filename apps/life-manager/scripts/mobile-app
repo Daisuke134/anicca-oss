@@ -14,10 +14,12 @@ PYTHON_BIN="${LIFE_MANAGER_PYTHON:-$(command -v python3 || true)}"
 [ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ] || { printf 'mobile app loop requires node\n' >&2; exit 1; }
 [ -n "$PYTHON_BIN" ] && [ -x "$PYTHON_BIN" ] || { printf 'mobile app loop requires python3\n' >&2; exit 1; }
 
-IFS=$'\t' read -r RUNNER ACTION PRODUCT_ID < <("$NODE_BIN" "$SCRIPT_DIR/mobile-app-command.js" "$LOOP_ID")
-[ -n "$RUNNER" ] && [ -n "$ACTION" ] && [ -n "$PRODUCT_ID" ] || {
+IFS=$'\t' read -r RUNNER ACTION PRODUCT_ID PRODUCT_ORIGIN PRODUCT_WORKSPACE_REL < <("$NODE_BIN" "$SCRIPT_DIR/mobile-app-command.js" "$LOOP_ID")
+[ -n "$RUNNER" ] && [ -n "$ACTION" ] && [ -n "$PRODUCT_ID" ] && [ -n "$PRODUCT_ORIGIN" ] && [ -n "$PRODUCT_WORKSPACE_REL" ] || {
   printf 'mobile app loop resolution failed: %s\n' "$LOOP_ID" >&2
   exit 2
 }
 export LIFE_MANAGER_MOBILE_PRODUCT_ID="$PRODUCT_ID"
+export LIFE_MANAGER_MOBILE_PRODUCT_ORIGIN="$PRODUCT_ORIGIN"
+export LIFE_MANAGER_MOBILE_PRODUCT_WORKSPACE_REL="$PRODUCT_WORKSPACE_REL"
 exec "$PYTHON_BIN" "$REPO_ROOT/runtime/run-with-timeout.py" --grace-seconds 10 1200 "$NODE_BIN" "$RUNNER" "$ACTION"

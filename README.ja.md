@@ -63,6 +63,12 @@ receiptのない試行を「完了」と報告しません。
 
 Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware lifecycleを共有します。product manifestがAnicca iOS、Honne、その他のappを選び、共通serviceが対応済みstageを実行し、計測、収益、CFO、Telegramへ同じreceiptを残します。Postizはrepo所有adapterの先にある外部配信providerであり、repo外source code依存ではありません。account/app作成とbuild・署名・releaseは、共通orchestrationとguided installerが完成するまで明示的に`setup_required`です。
 
+現在の18件のpublication jobは、runner開始前に
+[`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
+からproductを解決します。このportable registryには各reference appの公開Git remote、任意のsubdirectory、
+固定revisionだけを置き、ローカルpathやcredentialは置きません。publication jobはidentityを検証するだけで、
+app sourceのclone/buildは行いません。source materializationはbuild/release stageが担当します。
+
 Mobile Appの既定体験は、appもrepositoryも持っていない状態から始まります。Life Managerがproduct opportunityを選定し、共通factoryと再配布可能なstarter assetから新しいapp workspaceを作り、build・提出・改善・marketingまで進めます。既存appの指定は任意のimportであり、onboarding要件ではありません。
 
 Local/self-hostedとCloud/hostedは同じ14 Product Loopsを動かす二つの方法であり、別のProduct Loopではありません。Localは選択したloopをuserのdeviceで動かし、private stateもそこで保持します。CloudはLife Managerのhosted infrastructure上でtenantごとに動かします。両方が同じloop実装、provider adapter、receipt、CFO event、Telegram体験を使い、異なるのはscheduler、secret保存、durable state、browser transportだけです。

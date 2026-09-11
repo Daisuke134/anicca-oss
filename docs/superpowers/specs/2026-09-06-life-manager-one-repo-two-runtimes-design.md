@@ -905,14 +905,20 @@ future product run exercises them without changing this architecture acceptance 
     - [x] The repository owns a tested `mobile-product-registry` boundary for generated and imported products. It
     derives one managed relative workspace, rejects local absolute paths, writes the private registry atomically with
     private modes and a single-writer lock, requires imported sources to pin a full commit SHA, treats identical
-      registration as replay-safe, and fails closed on conflicting duplicates. This structural atom intentionally does
-      not create or submit a live app. The parent item remains open until existing marketing manifests consume the same
-      registry and the shared template/materialization boundary exists.
+    registration as replay-safe, and fails closed on conflicting duplicates. This structural atom intentionally does
+    not create or submit a live app. The parent item remains open until generated products and the build/release stage
+    consume the same registry and shared materialization boundary.
     - [x] Canonicalize the two current app identifiers as `anicca-ios` and `honne-ai` across the active Mobile App job
       inventory and repository-owned Marketing Engine products, accounts, intelligence sources, measurement and owner
       reporting. A focused contract test proves all 18 Mobile App jobs use identifiers present in the Marketing Engine
-      registry. Historical JSONL evidence is intentionally immutable. The remaining bootstrap work is to register the
-      portable source descriptors and route job materialization through `mobile-product-registry` itself.
+      registry. Historical JSONL evidence is intentionally immutable. The remaining bootstrap work is the generated
+      product and build/release materialization path, not another publication registry.
+    - [x] Connect all 18 current Mobile App publication jobs to the repository-owned Product Registry at their one
+      shared command boundary. Register Anicca iOS (`anicca-products/aniccaios`) and Honne (`honne-ai`) with public
+      HTTPS remotes and fetchable pinned commits; export their canonical ID, origin and portable workspace relation
+      before runner execution, and fail closed when registration is missing. The publication path deliberately does
+      not clone or build app source; materialization remains owned by the build/release stage and therefore cannot add
+      network or filesystem effects to an existing scheduled marketing job.
   - [ ] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
     SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
     video or existing application. Before public release, generated product identity and marketing creative must be

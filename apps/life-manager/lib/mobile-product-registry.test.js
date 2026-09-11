@@ -46,7 +46,7 @@ test("generated and imported apps share one portable product registry", (t) => {
 test("same registration is idempotent and a conflicting duplicate fails closed", (t) => {
   const registryFile = temporaryRegistry(t);
   const item = {
-    product_id: "honne",
+    product_id: "honne-ai",
     origin: "imported",
     source: {
       git_remote: "https://github.com/Daisuke134/honne-ai.git",
