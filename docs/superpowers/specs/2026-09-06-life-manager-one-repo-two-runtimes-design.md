@@ -1012,7 +1012,7 @@ future product run exercises them without changing this architecture acceptance 
   the conflicting `Enable all` action/API. Cloud `/start` reads the same catalog before its existing replay-safe,
   tenant-scoped Agent Economy citizen/job provisioning; unsupported Cloud adapters remain `setup_required` instead of
   being advertised or started. Focused onboarding tests pass.
-- [ ] `ARCH-13e` Integrate the separately owned Gig Work result only after this branch completes ARCH-13f and
+- [x] `ARCH-13e` Integrate the separately owned Gig Work result only after this branch completes ARCH-13f and
   ARCH-13g. Hand the exact pushed branch/head, changed-file boundary, tests and remaining acceptance gates to the
   Gig Work Codex. That owner merges latest `main` with this branch and its separately owned Coconala, Lancers and
   CrowdWorks result. Those providers must converge on `skills/_shared/marketplace-core` one contract at a time—
@@ -1023,9 +1023,13 @@ future product run exercises them without changing this architecture acceptance 
     `ba1d027b8870bf304aa215ae61d0693196bec952`, merged-main boundary
     `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 88-path inventory, verified tests, ownership fence,
     integration commands, remaining gates and a user-sendable prompt.
-  - [ ] Gig Work owner merges the exact architecture head with latest `main` and the separately owned provider result,
-    runs both acceptance sets, pushes the integrated head, and records that head here. No matching Gig owner is
-    registered in the current `lm` agmsg team, so delivery is via the checked-in prompt rather than an assumed agent.
+  - [x] The separately owned provider result was already merged to `origin/main` through CrowdWorks PR #5024
+    (`5c007ea4752eb8b9cdfae5c49750d39296e93484`), including the shared architecture PR #5014 and the latest
+    Coconala/CrowdWorks sequence. That exact main is an ancestor of integrated architecture head
+    `6ba684dfeb301cecd62ffe1e86624148aadea8dc` (behind 0). Post-integration, the complete shared marketplace-core
+    suite plus the two changed CrowdWorks provider suites and HeyGen replay suite pass 318/318; Local/Cloud catalog
+    and Telegram credential tests pass 10/10; OSS verification and diff check pass. No production browser, provider,
+    daemon or running Gig owner was invoked. The checked-in handoff remains the ownership map for later Gig changes.
 - [x] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one canonical Cloud QR/bot
   contract, explicit Local-install/Cloud-`/start` entrypoints, representative registry/config resolution for every
   shared domain on both supported hosts, identical

@@ -34,13 +34,18 @@ runtime. CrowdWorks changes visible in merge commits came from `origin/main`, no
 - `ARCH-13f` and `ARCH-13g` are complete in the architecture spec.
 - No active Gig Work loop was stopped, restarted, or directly edited.
 
-## Integration instructions for the Gig Work owner
+## Integration outcome
+
+The Gig provider sequence and shared marketplace architecture were already merged through `origin/main`
+`5c007ea4752eb8b9cdfae5c49750d39296e93484` (PR #5024), and that main is an ancestor of this architecture branch.
+The combined fixture acceptance passes 318/318 for shared marketplace-core, changed CrowdWorks provider paths and
+HeyGen replay, plus 10/10 for Local/Cloud onboarding and Telegram credentials. No production workload was invoked.
+
+## Instructions for future Gig Work changes
 
 1. Preserve the separately owned, currently running Coconala/Lancers/CrowdWorks work. Do not replace its state,
    receipts, browser profiles, or provider readback with files from this branch.
-2. Start from latest `origin/main`, then merge exact architecture source head
-   `ba1d027b8870bf304aa215ae61d0693196bec952` and the separately owned Gig Work result. Commits containing this
-   handoff is documentation-only on top of that source boundary.
+2. Start from latest `origin/main`; do not revive an older provider branch or reapply an already merged effect.
 3. Resolve only real overlaps. The architecture branch's public 14-loop descriptions and
    `apps/life-manager/config/product-loop-catalog.json` must reflect the final Gig installers honestly; the Gig owner
    retains authority over provider-specific execution.
@@ -49,8 +54,7 @@ runtime. CrowdWorks changes visible in merge commits came from `origin/main`, no
    only provider-specific effects and official readback.
 5. Run the Gig owner's acceptance suite plus the architecture checks listed below. Do not restart production merely
    to prove this structural merge.
-6. Record the exact integrated head and PASS evidence in the architecture spec and repeat the structural gates on
-   the integrated result.
+6. Record the exact new head and PASS evidence for any later change.
 
 ## Architecture checks after integration
 
@@ -68,20 +72,17 @@ git diff --check
 The final integrated branch must also run the Gig owner's focused Coconala/Lancers/CrowdWorks tests. A failure in a
 provider-owned suite is fixed by that owner; it must not be hidden by weakening the shared contract.
 
-## Remaining gates after the merge
+## Remaining gates
 
-1. Repeat the affected `ARCH-13h` checks on the integrated Gig result.
-2. Retain `~/.openclaw` and `~/.hermes`: the latest read-only census found no matching process, but the directories
+1. Retain `~/.openclaw` and `~/.hermes`: the latest read-only census found no matching process, but the directories
    still contain credentials, sessions, ledgers, protected state and Gig compatibility owned outside this branch.
    They are not public clean-clone dependencies and must not be bulk-deleted as regenerable cache.
-3. Final latest-main verification, PR/main integration, and handover.
+2. Final latest-main verification, PR/main integration, and handover.
 
 ## User-sendable prompt
 
-> You own the active Gig Work result. Integrate it without restarting or overwriting running Coconala/Lancers/
-> CrowdWorks state. In `Daisuke134/life-manager`, start from latest `origin/main`, merge exact architecture head
-> `ba1d027b8870bf304aa215ae61d0693196bec952` from branch `chore/one-repo-finalize-20260911`, then merge your
-> separately owned Gig result. Read
+> The one-repository architecture is already integrated with Gig changes through main PR #5024. For future Gig work,
+> start from current `origin/main` and read
 > `docs/handoffs/2026-09-11-one-repo-gig-integration.md` and
 > `docs/superpowers/specs/2026-09-06-life-manager-one-repo-two-runtimes-design.md` first. Preserve provider-specific
 > effects/readback, but converge Coconala, Lancers, and CrowdWorks on `skills/_shared/marketplace-core` for application,
