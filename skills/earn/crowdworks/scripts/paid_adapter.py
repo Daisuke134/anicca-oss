@@ -430,18 +430,24 @@ class CrowdWorksPaidAdapter:
             raise RuntimeError("crowdworks_paid_form_metadata_invalid")
         return items
 
-    def _compose_text(self, *, question: str, source: str, item: Mapping[str, Any]) -> str:
+    def _compose_text(self, *, question: str, source: str, item: Mapping[str, Any],
+                      choices: list[str] | None = None) -> str:
         if self.candidate_profile is None or self.provider_profile is None or self.state_path is None:
             raise RuntimeError("crowdworks_paid_form_profile_unavailable")
         grounding = grounding_module.build_reply_grounding(candidate_profile_path=self.candidate_profile,
                                                            provider_profile=self.provider_profile)
         body = composer.compose({"board": {"title": item["title"]}, "grounding": grounding,
             "conversation": [{"role": "buyer", "body": "契約済み業務のGoogleフォームに記載する文章を作成してください。設問: " + question + "\n業務説明: " + source}],
+            "action_contract": {"kind": "required_form_field", "question": question,
+                                "allowed_choices": list(choices or [])},
             "provider_rules": {"outside_contact_before_approval": "forbidden"}},
             state_root=self.state_path / "compose", task_label="crowdworks-paid-form")
         if not isinstance(body, str) or not body.strip():
             raise RuntimeError("crowdworks_paid_form_composition_unavailable")
-        return body.strip()
+        value = body.strip()
+        if choices and value not in choices:
+            raise RuntimeError("crowdworks_paid_form_choice_invalid")
+        return value
 
     def _form_fields(self, page: Any, item: Mapping[str, Any]) -> list[tuple[str, str]]:
         started = time.monotonic()
@@ -454,9 +460,8 @@ class CrowdWorksPaidAdapter:
                 continue
             title, choices = question["title"], entry["choices"]
             if choices:
-                value = next((choice for choice in choices if choice in item["title"]), choices[0] if len(choices) == 1 else None)
-                if value is None:
-                    raise RuntimeError("crowdworks_paid_form_choice_ambiguous")
+                value = choices[0] if len(choices) == 1 else self._compose_text(
+                    question=title, source=source, item=item, choices=choices)
             elif "登録名" in title:
                 value = _text(provider.get("display_name"), "crowdworks_paid_form_profile_unavailable")
             elif "やり取り" in title and "リンク" in title:
@@ -500,14 +505,29 @@ class CrowdWorksPaidAdapter:
 
         visible = visible_forms()
         if not visible:
-            tabs = self.page.get_by_text("やること", exact=True)
-            visible_tabs = [tabs.nth(index) for index in range(tabs.count()) if tabs.nth(index).is_visible()]
-            if len(visible_tabs) != 1:
+            def visible_todo_tabs():
+                tabs = self.page.get_by_text("やること", exact=True)
+                return [tabs.nth(index) for index in range(tabs.count()) if tabs.nth(index).is_visible()]
+
+            visible_tabs = visible_todo_tabs()
+            if not visible_tabs:
+                # CrowdWorks exposes the same official To-do surface only in its
+                # narrow layout for some contracts.  Re-rendering the current
+                # contract is pre-effect; exact control cardinality still fences
+                # the subsequent provider mutation.
+                self.page.set_viewport_size({"width": 390, "height": 844})
+                self._goto_contract(_text(item.get("work_id")))
+                visible = visible_forms()
+                visible_tabs = visible_todo_tabs() if not visible else []
+            if visible:
+                pass
+            elif len(visible_tabs) != 1:
                 raise RuntimeError("crowdworks_paid_todo_surface_unavailable")
-            visible_tabs[0].click()
-            self.page.locator(f'{selector} textarea[name="message[body]"]:visible').wait_for(
-                state="visible", timeout=15_000)
-            visible = visible_forms()
+            else:
+                visible_tabs[0].click()
+                self.page.locator(f'{selector} textarea[name="message[body]"]:visible').wait_for(
+                    state="visible", timeout=15_000)
+                visible = visible_forms()
         if len(visible) != 1:
             raise RuntimeError("crowdworks_paid_milestone_unavailable")
         form = visible[0]

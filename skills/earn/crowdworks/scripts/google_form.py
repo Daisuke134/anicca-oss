@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from typing import Any, Callable, Mapping
 from urllib.parse import urlencode, urlsplit
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 def now() -> str:
@@ -94,8 +95,18 @@ def submit_once(*, browser: Any, state_root: Path, url: str, url_sha256: str,
         form.goto(url, wait_until="domcontentloaded", timeout=20_000)
         form.wait_for_timeout(3_000)
         route = urlsplit(str(form.url))
-        if route.scheme != "https" or route.netloc != "docs.google.com":
-            raise RuntimeError("google_form_route_invalid")
+        if route.scheme == "https" and route.netloc == "forms.gle":
+            try:
+                form.wait_for_url(re.compile(r"https://docs\.google\.com/forms/d/e/[^/]+/viewform(?:\?.*)?"),
+                                  timeout=10_000)
+            except PlaywrightTimeoutError:
+                # The exact sanitized route check below owns the failure.  The
+                # browser error is not stable or safe diagnostic state.
+                pass
+            route = urlsplit(str(form.url))
+        if (route.scheme, route.netloc) != ("https", "docs.google.com") or re.fullmatch(
+                r"/forms/d/e/[^/]+/viewform", route.path) is None:
+            raise RuntimeError(f"google_form_route_invalid:{route.netloc or 'missing'}")
         fields = answer_fields(form)
         if not isinstance(fields, list) or not all(isinstance(name, str) and isinstance(value, str)
                                                    for name, value in fields):
