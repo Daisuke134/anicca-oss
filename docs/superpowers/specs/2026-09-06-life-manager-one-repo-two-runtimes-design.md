@@ -870,7 +870,7 @@ future product run exercises them without changing this architecture acceptance 
     back to `~/.local/share/life-manager/ebook-assets`, and Telegram preview branding is `Life Manager:::`. Focused
     portability tests pass. Historical renderer-evaluation fixtures and legacy scheduler retirement tooling remain
     evidence/migration utilities and must not become production runtime dependencies.
-  - [x] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
+  - [ ] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
     After the user enables the loop, the agent selects and validates an opportunity, creates a new repository-owned
     project from the shared app-factory template, generates product identity and initial assets, builds/tests/signs,
     guides only the unavoidable Apple account/KYC/contract steps, submits through App Store Connect, measures
@@ -902,10 +902,12 @@ future product run exercises them without changing this architecture acceptance 
     therefore use the same build, release, marketing, measurement, receipt and improvement contracts. Dais's current
     reference products are `Daisuke134/anicca-products` subdirectory `aniccaios` and the independent
     `Daisuke134/honne-ai` repository; their local checkout locations are discovery evidence, never public defaults.
-    The repository now owns a tested `mobile-product-registry` boundary for generated and imported products. It
+    - [x] The repository owns a tested `mobile-product-registry` boundary for generated and imported products. It
     derives one managed relative workspace, rejects local absolute paths, writes the private registry atomically with
-    private modes, treats identical registration as replay-safe, and fails closed on conflicting duplicates. This
-    structural atom intentionally does not create or submit a live app.
+    private modes and a single-writer lock, requires imported sources to pin a full commit SHA, treats identical
+    registration as replay-safe, and fails closed on conflicting duplicates. This structural atom intentionally does
+    not create or submit a live app. The parent item remains open until existing marketing manifests consume the same
+    registry and the shared template/materialization boundary exists.
   - [ ] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
     SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
     video or existing application. Before public release, generated product identity and marketing creative must be

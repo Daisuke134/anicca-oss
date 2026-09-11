@@ -30,7 +30,7 @@ test("generated and imported apps share one portable product registry", (t) => {
     source: {
       git_remote: "https://github.com/Daisuke134/anicca-products.git",
       subdirectory: "aniccaios",
-      revision: "release/1.9.5",
+      revision: "a9ab8a17c7dee9af8c3f2ad752a902ce26e7d1d3",
     },
   });
 
@@ -50,14 +50,14 @@ test("same registration is idempotent and a conflicting duplicate fails closed",
     origin: "imported",
     source: {
       git_remote: "https://github.com/Daisuke134/honne-ai.git",
-      revision: "main",
+      revision: "b57928bb13ef1f9a1e774e4bca2467e3059c9eac",
     },
   };
   const first = registerMobileProduct(registryFile, item);
   assert.deepEqual(registerMobileProduct(registryFile, item), first);
   assert.throws(() => registerMobileProduct(registryFile, {
     ...item,
-    source: { ...item.source, revision: "other" },
+    source: { ...item.source, revision: "c".repeat(40) },
   }), /conflicting mobile product/);
 });
 
@@ -66,11 +66,32 @@ test("local paths and malformed source descriptors are rejected", (t) => {
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-local",
     origin: "imported",
-    source: { git_remote: "/Users/anicca/anicca-project", revision: "main" },
+    source: { git_remote: "/Users/anicca/anicca-project", revision: "a".repeat(40) },
   }), /git_remote/);
+  assert.throws(() => registerMobileProduct(registryFile, {
+    product_id: "bad-windows-local",
+    origin: "imported",
+    source: { git_remote: "https://example.com/app.git", revision: "a".repeat(40), subdirectory: "C:\\Users\\owner\\app" },
+  }), /subdirectory/);
+  assert.throws(() => registerMobileProduct(registryFile, {
+    product_id: "mutable-ref",
+    origin: "imported",
+    source: { git_remote: "https://example.com/app.git", revision: "main" },
+  }), /revision/);
   assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-generated",
     origin: "generated",
     source: { repository_name: "missing-template" },
   }), /template_id/);
+});
+
+test("an existing writer lock fails closed instead of losing an update", (t) => {
+  const registryFile = temporaryRegistry(t);
+  fs.writeFileSync(`${registryFile}.lock`, "other writer\n");
+  assert.throws(() => registerMobileProduct(registryFile, {
+    product_id: "locked-product",
+    origin: "generated",
+    source: { template_id: "ios-swiftui-v1", repository_name: "locked-product" },
+  }), /registry is busy/);
+  assert.equal(fs.existsSync(registryFile), false);
 });
