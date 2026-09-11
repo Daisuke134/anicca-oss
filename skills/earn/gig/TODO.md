@@ -81,6 +81,27 @@ skills/
 └── earn/gig/TODO.md                       # fixed execution order and measured acceptance evidence
 ```
 
+### Current execution truth — authoritative handoff snapshot
+
+This is the current cross-platform SSOT. Later incident tables are retained as dated evidence and do
+not override this snapshot. `PASS` means a natural installed-owner terminal plus the named official
+readback; it does not mean that the marketplace is already producing new net cash.
+
+| Marketplace | Apply | Reply | Paid | Storefront | Current revenue truth |
+|---|---|---|---|---|---|
+| Coconala | **Operational path recovered; fresh-effect gate open.** Natural run `18d41dfcd14b36c8-46829` passed from release `fe529db72`, observed 80 officially unavailable postings, produced no effect/failure/pending, and delivered Telegram `75427` once. The former restriction is lifted; the next eligible proposal still needs official application readback and following replay-zero. | **Historical business acceptance exists; fresh continuous-health readback remains required after Apply.** Do not reimplement the working shared Reply lifecycle. | **Reference lifecycle accepted.** Five-room classification, failed zero, Ryu replay-zero, formal delivery off and durable external ownership for `18180857` remain the reference evidence. Current monitoring must still surface new buyer work naturally. | **Implementation/history exists; current conversion and fresh owner acceptance remain later in the fixed order.** | Retained Coconala customer revenue exists, but no new post-recovery acquisition-to-bank receipt chain is proved yet. |
+| Lancers | **Application mutation works; one old uncertain claim remains the active atom.** Project `5600212` reconciled exactly once as proposal `27913800` with Telegram-once and replay-zero. Current natural owner terminals pass, but project `5599976` remains quarantined without proposal ID and keeps `proposal_pipeline_incomplete`; classify it from official history as already applied, authoritative absence safe to retry, or terminally unsubmittable before calling the lane fully continuous. | **Scheduling action accepted.** The `pyrite` request produced one booking, Calendar readback, buyer-visible completion and following replay-zero through the shared Reply lifecycle. Continue observing other threads. | **Empty official contract inventory only.** Runtime monitoring passes, but no real funded delivery/acceptance/payment chain exists. | **Code/history exists; current attributable order and payment are unproved.** The older state/readback branch must be reviewed against current main rather than copied. | No verified contract, payout or new bank receipt. The immediate cause is upstream conversion/contract absence, not an unbuilt second Paid kernel. |
+| CrowdWorks | **Operational path accepted; fresh-effect gate open.** Full release `fe529db72` ended natural PASS `18d41d9e94331ae8-1832`, inspecting 38 postings with 33 off-topic and two not workable, effect zero and no ledger change. Earlier proposal receipts remain real; the next eligible proposal still needs official receipt and replay-zero. | **Contract transition accepted; one external-form item remains durable pending.** Contracts `63570481` and `63568785` have official readback and Telegram-once. Google Form thread `304360469` has one crash-safe confirmation request and replay-zero; explicit buyer confirmation remains externally owned, so the form is not re-POSTed. | **Adapter/runtime exists but real work ownership is incomplete.** Paid must ingest the official contract state, distinguish work-startable from escrow-waiting, complete permitted work only after funding, and prove delivery/payment/replay-zero. | **No official seller-storefront capability is currently proved.** Do not invent this lane unless provider inspection shows one. | Contract opportunity exists, but accepted delivery/payment/bank receipt is not yet proved. |
+| Mercor | **Submission path accepted; fit optimization remains.** Official submissions, Telegram-once and replay-zero exist. Ranking must reduce low-acceptance contradictions while continuing feasible Japanese/software/AI applications; human interview tasks become non-blocking handoffs rather than queue stops. | **Accepted.** Consecutive natural passes cover the authenticated in-platform/application event inventory; email is not treated as a platform reply. | **Only official empty-contract monitoring is proved.** Real task preparation, human handoff when physically required, submission, acceptance and payout remain unaccepted. | **Not applicable on current official surface.** | Applications exist, but no accepted paid work or payout is proved. |
+| Freelancer.com | **Off / no managed owner.** | **Off.** | **Off.** | **Unproved.** | No active acquisition or revenue chain. |
+| Upwork | **Off; zero Connects and account-policy/identity state prevent safe resume.** A low cadence does not fix zero capacity or policy risk. | **Off.** | **Off.** | **Not active.** | No active acquisition or revenue chain. |
+| AudioBabel and later providers | **Not implemented.** | **Not implemented.** | **Not implemented.** Human recordings use the shared handoff contract when needed. | **Capability-dependent.** | Candidates only; no earnings claim. |
+
+The active atom is **Lancers Apply project `5599976` official classification**. It is inside the
+existing Apply acceptance gate and does not reorder the program. While fresh-effect gates wait for
+eligible inventory, owners continue naturally and engineering advances only where official evidence
+shows a concrete defect; waiting on an empty marketplace never blocks work on the next atom.
+
 ### Fixed remaining program order — current platform truth before meta-loop
 
 This list does not replace or reorder the active atomic cursor below. It is the end-to-end program
@@ -127,17 +148,19 @@ inventory check are not completion.
 ### Integration boundary with Life Manager cleanup
 
 Cleanup worktree `/private/tmp/lm-aeux06.UXUZao`, branch
-`feat/agent-economy-economic-receipts-20260911`, currently points to local commit `1b79ae30d` after
-merging current `origin/main`; it remains ahead of its remote branch, so its final pushed/accepted SHA is not yet
+`feat/agent-economy-economic-receipts-20260911`, currently points to local commit `23a6c3789` and is
+three commits behind / twenty-four commits ahead of current `origin/main`; its final pushed/accepted SHA is not yet
 the Gig integration base. Its branch owns Agent Economy economic
 receipts, the canonical 14-product README, Mobile App Loop wording, removal of external runtime
 dependencies, and Local/Cloud financial/Telegram/state convergence. Gig owns marketplace business
 logic and provider production acceptance.
 
-- The Cleanup branch and Gig PRs `#4995`/`#4996` have no exact changed-file overlap.
-- Cleanup changes `README.md`, `README.ja.md` and one shared marketplace notification regression test;
-  Gig changes CrowdWorks entrypoints, the generic browser lock, its clean-install regression and this
-  TODO. There is no current semantic conflict.
+- The current Gig documentation branch changes only this TODO, so it has no exact changed-file overlap
+  with the Cleanup branch.
+- Cleanup changes `README.md`, `README.ja.md`, Agent Economy/local-cloud runtime files and
+  `skills/_shared/marketplace-core/tests/test_effect_notification.py`. There is no current exact
+  conflict, but that shared regression test is the integration watchpoint if Gig later changes shared
+  Telegram/effect notification behavior.
 - Do not merge from the Cleanup worktree while it is dirty or copy its commits into a Gig branch.
   Cleanup first commits/pushes/reviews its remaining change and merges its accepted objective to main.
 - Gig then fetches that main, reruns marketplace-core notification, clean-install, registry/doctor and
@@ -198,13 +221,13 @@ never encode buyer/job judgment or duplicate the Paid lifecycle in that Skill.
 Apply and Storefront remain independently owned while their parallel work is active. Shared runtime
 changes require an explicit conflict check; this cursor never replaces their business code.
 
-## Measured marketplace truth
+## Historical measured marketplace truth — evidence ledger, not current SSOT
 
-This table is the operational truth, not a map of files that happen to exist. `Working` requires a
-natural installed-owner terminal plus an official marketplace effect/readback for that lane. A green
-process, a report-only command, a fixture, retired code, or an historical canary is not a working
-money loop. Keep the active atomic cursor below in its fixed order; update this table when a named
-acceptance receipt changes a cell.
+Each row below preserves the operational truth at the checkpoint when it was written. It is not the
+current status table; the authoritative current snapshot is above. The acceptance rule remains:
+`Working` requires a natural installed-owner terminal plus an official marketplace effect/readback.
+A green process, report-only command, fixture, retired code or historical canary is not a working
+money loop.
 
 | Marketplace | Apply | Reply | Storefront | Paid |
 |---|---|---|---|---|
@@ -419,18 +442,16 @@ case lists below are historical evidence and do not reopen completed work or reo
 Independent Storefront, Apply, Reply, Lancers and CrowdWorks owners continue in parallel in their
 own worktrees and resource scopes; “top to bottom” orders only this owner's changes.
 Unchecked Lancers, CrowdWorks and Mercor Paid atoms remain live acceptance monitors because their
-official contract inventories are empty. The active engineering atom is now
-`APPLY-PROFILE-PARITY-1`, because profile trust and positioning must be verified before Apply yield is
-judged. The screenshot with a blank CrowdWorks avatar predates the accepted official non-default-avatar
-readback, so that image defect is closed. The same screenshot exposes `プロンプトエンジニア` inside
-the occupation/skill view; do not dismiss that field as stale until a current official public readback
-proves it. The shared commercial source must project the truthful software-engineering, AI-automation,
-training and freelance-work positioning rather than a prompt-engineer-only identity. Fresh Apply operational
-acceptance follows that profile correction. Reply then resumes at `CROWDWORKS-REPLY-ACTION-2` and
-`MERCOR-REPLY-2`; Paid follows Reply, and Storefront follows Paid. This preserves Dais's explicit
-Apply -> Reply -> Paid -> Storefront order.
+official contract inventories are empty. `APPLY-PROFILE-PARITY-1`, `APPLY-ACCEPTANCE-ALL-1`,
+`CROWDWORKS-REPLY-2`, `LANCERS-REPLY-ACTION-1` and `MERCOR-REPLY-2` are accepted evidence below and
+must not be reopened without new official drift. The active engineering atom is the Lancers Apply
+quarantine for project `5599976`: the owner passes and later applications continue, but this old
+intent has neither an official proposal receipt nor authoritative absence/terminal classification
+and therefore keeps `proposal_pipeline_incomplete`. Resolve that exact identity through official
+readback without a duplicate proposal. This preserves the fixed Apply -> Reply -> Paid -> Storefront
+order.
 
-Fresh cross-owner handoff audit:
+Historical cross-owner handoff audit (superseded where the current snapshot above differs):
 
 - Apply's all-category Coconala search and corrected deliverable refusal boundary are in main through
   PR `#4642`; CrowdWorks whole-board/catalog pricing is in main through PR `#4645`. They remain
@@ -450,7 +471,7 @@ Fresh cross-owner handoff audit:
   Promote the existing Apply work and evidence instead of duplicating it; keep completed Reply/Paid
   extraction and stopped Storefront work recorded, monitored and available for their later turns.
 
-Current read-only stop-point snapshot (no repair authorized in this checkpoint):
+Historical read-only stop-point snapshot (no repair was authorized at this checkpoint):
 
 - CrowdWorks Apply is **not healthy**: its latest business output is `account_ensure_failed` at
   `2026-09-10T23:00:05Z`, and the owner terminal is `entrypoint_exit_1`. Earlier verified proposals
