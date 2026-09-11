@@ -497,21 +497,58 @@ def test_milestone_completion_reveals_mobile_only_todo_surface_before_effect():
         todo_open = False
         def locator(self, selector): return Control("textarea") if selector.endswith(":visible") else Forms()
         def get_by_text(self, text, exact=False): return Tabs()
-        def set_viewport_size(self, size):
-            self.mobile = True
-            events.append(("viewport", size))
         def wait_for_load_state(self, *args, **kwargs): pass
 
     page = Page()
     adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
     adapter.page = page
     adapter._goto_contract = lambda work_id: events.append(("contract", work_id))
+    def switch(work_id):
+        page.mobile = True
+        events.append(("narrow-context", work_id))
+    adapter._switch_to_narrow_contract = switch
 
     adapter._complete_once(funded(), {"milestone_id": "13798056"})
 
-    assert ("viewport", {"width": 390, "height": 844}) in events
-    assert events.index(("viewport", {"width": 390, "height": 844})) < events.index(("click", "tab"))
+    assert ("narrow-context", "63570481") in events
+    assert events.index(("narrow-context", "63570481")) < events.index(("click", "tab"))
     assert events[-1] == ("click", "submit")
+
+
+def test_narrow_contract_clones_auth_and_changes_only_isolated_device_cookie():
+    module = load()
+    canonical = {"cookies": [{"name": "mobylette_device", "value": "pc",
+                               "domain": "crowdworks.jp", "path": "/"}], "origins": []}
+    received = []
+
+    class Page:
+        def set_default_timeout(self, value): pass
+        def close(self): pass
+
+    class BaseContext:
+        def storage_state(self): return canonical
+
+    class MobileContext:
+        def new_page(self): return Page()
+        def close(self): pass
+
+    class Browser:
+        contexts = [BaseContext()]
+        def new_context(self, **kwargs):
+            received.append(kwargs)
+            return MobileContext()
+
+    adapter = module.CrowdWorksPaidAdapter(account_id="7145638")
+    adapter.browser = Browser()
+    adapter.page = Page()
+    adapter._goto_contract = lambda work_id: received.append({"work_id": work_id})
+
+    adapter._switch_to_narrow_contract("63570481")
+
+    assert canonical["cookies"][0]["value"] == "pc"
+    assert received[0]["storage_state"]["cookies"][0]["value"] == "sp"
+    assert received[0]["is_mobile"] is True
+    assert received[1] == {"work_id": "63570481"}
 
 
 def test_paid_form_receipts_are_isolated_by_contract_binding(tmp_path):
