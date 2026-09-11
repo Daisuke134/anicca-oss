@@ -1,5 +1,0 @@
-node_modules/
-wrangler.dev.toml
-.wrangler/
-package-lock.json
-state/nonces.json

@@ -1,8 +1,0 @@
-name = "anicca-x402"
-main = "index.ts"
-compatibility_date = "2026-06-04"
-compatibility_flags = ["nodejs_compat"]
-
-[[kv_namespaces]]
-binding = "NONCE_KV"
-id = "REPLACE_WITH_KV_ID"

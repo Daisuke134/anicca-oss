@@ -138,7 +138,6 @@ test("Agent Economy Cloud worker packages the shared monorepo runtime without Do
     "skills/earn/taskmarket/package.json",
     "skills/_shared/lib/earn-guard.mjs",
     "services/x402-endpoint/prisma/schema.prisma",
-    "services/x402-worker/package.json",
     "services/x402-endpoint/package.json",
     "services/x402-endpoint/package-lock.json",
     "services/x402-endpoint/pnpm-lock.yaml",
