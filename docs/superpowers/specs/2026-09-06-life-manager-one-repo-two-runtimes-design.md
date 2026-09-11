@@ -531,14 +531,18 @@ This checklist does not reorder the established implementation sequence below. T
     one real Cloud tenant provisioned an encrypted citizen and wallet, completed two natural wake cycles and exposed
     its latest receipt through Telegram provider message `76577`. Neither test nor production evidence claims live
     profit or a self-funded compute purchase.
-  - [ ] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
+  - [x] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
     one-command claims in README, README.ja, installer output and active operational documentation. Preserve the
     formal fourteen-loop catalog and its plain-language descriptions. For **Mobile App Loops**, document one
     product-aware lifecycle—account/app creation, build/sign/release, iteration, Postiz or native-provider
     distribution, measurement, revenue receipt and CFO handoff—while continuing to label the currently missing
     app-factory guided installer and build/sign/release orchestration as unfinished. This cleanup proves the existing
     registered Mobile jobs are repository-owned and portable; it does not falsely claim or build the entire future
-    mobile factory as a side task.
+    mobile factory as a side task. README and README.ja now explain Human Gig Work, all fourteen Product Loops and
+    the shared Mobile lifecycle, including Postiz as an external provider behind a repository-owned adapter. The
+    stale Earning Loops and execution-order pseudo-SSOTs are reduced to current registry/spec pointers and no longer
+    advertise tmux, ClawRouter, OpenClaw or Hermes as live architecture. The README contract passes 21/21,
+    repository identity verification, OSS self-contained verification and diff checks pass.
   - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.

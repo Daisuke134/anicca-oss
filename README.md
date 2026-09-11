@@ -29,6 +29,11 @@ not necessarily one process: the lifecycle registry contains the smaller
 application, browser-owner, reporting, healthcheck, and reconciliation jobs that
 implement and support these 14 loops.
 
+Loops 1–3 form the **Human Gig Work** family. Life Manager automates discovery,
+screening, application, negotiation, delivery support, reconciliation, and
+reporting; a person participates only where the marketplace requires identity,
+an interview, approval, or final delivery.
+
 | # | Product loop | Representative current owners | What it does |
 |---:|---|---|---|
 | 1 | Gig — Coconala | `hf-gig-apply-direct`, `hf-gig-reply-detector`, `hf-gig-storefront-direct`, `hf-gig-paid-direct` | Finds suitable work, applies, negotiates, delivers, and verifies provider outcomes |
@@ -64,6 +69,24 @@ implement and support these 14 loops.
 | Mobile App Loops | Product manifest plus Postiz/native, App Store Connect and RevenueCat credentials for the selected lane | Shared registry jobs exist; full app-factory guided installer pending |
 | Capafy | Capafy account/API credential and publication profile | Registry jobs; public guided installer pending |
 | CFO | Credentials for only the financial sources the user connects | `bash skills/cfo/run.sh` for one finite pass |
+
+Mobile App Loops use one product-aware lifecycle rather than separate scripts per
+app. A product manifest selects Anicca iOS, Honne, or another app; shared services
+then perform the supported stages and write the same measurement, revenue, CFO,
+and Telegram receipts. Postiz is an external distribution provider behind a
+repository-owned adapter, not a source-code dependency. The future account/app
+creation and build/sign/release stages remain explicitly `setup_required` until
+their shared orchestration and guided installer are complete.
+
+```mermaid
+flowchart LR
+  M[Product manifest] --> A[Create account and app]
+  A --> B[Build, sign, release]
+  B --> I[Measure and improve]
+  I --> D[Postiz or native distribution adapter]
+  D --> R[Provider and revenue receipts]
+  R --> C[CFO and Telegram]
+```
 
 `setup_required` is a healthy waiting state, not a completed effect and not a crash. Never use `start all` as an
 onboarding shortcut: install and start only the loops whose provider setup and effect authority are complete.
@@ -306,9 +329,12 @@ linked above.
 that still need their own proven supervisor/install path. Phones are
 clients: they use the cloud runtime or connect to another always-on self-hosted machine.
 
-The full loop catalog is not yet portable. Some production loops still rely on macOS browser profiles, OpenClaw,
-or legacy host paths. Until the clean-host acceptance matrix in the
-architecture spec passes, the README does not claim that every loop works on every device.
+Required runtime source is repository-owned and does not import code from OpenClaw,
+Hermes, another checkout, or a worktree. Portability is still capability-specific:
+macOS is the verified full local supervisor/browser host today, while Linux and
+Windows supervisor adapters and several public guided installers remain unfinished.
+The Cloud surface runs without the user's local device, but it currently hosts only
+the loops listed as Cloud-supported rather than silently claiming all 14.
 
 | Path | Role | What it is not |
 |---|---|---|

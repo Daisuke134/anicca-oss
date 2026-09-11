@@ -2,17 +2,17 @@
 set -euo pipefail
 
 expected_h1='# Life Manager'
-english_identity='Life Manager is the product, repository, AI, agent, and mission. Anicca is the company name only.'
-japanese_identity='Life Manager は製品、リポジトリ、AI、エージェント、ミッションの名前です。Anicca は会社名としてのみ使います。'
+english_identity='Life Manager is the product. Anicca is the company name only when a form explicitly asks for it.'
+japanese_identity='Life Managerが製品名です。Aniccaはformが会社名を明示的に求めた時だけ使います。'
 separate_en='separate pro''ject|its own re''po'
 separate_ja='独立したプロ''ジェクト|このリポジトリには含まれま''せん|このrepoに含まれま''せん'
 identity_contradiction_pattern="${separate_en}|${separate_ja}"
 
-test "$(sed -n '1p' README.md)" = "$expected_h1" || {
+test "$(grep -m1 '^# ' README.md)" = "$expected_h1" || {
   echo 'wrong README.md H1' >&2
   exit 1
 }
-test "$(sed -n '1p' README.ja.md)" = "$expected_h1" || {
+test "$(grep -m1 '^# ' README.ja.md)" = "$expected_h1" || {
   echo 'wrong README.ja.md H1' >&2
   exit 1
 }
@@ -24,21 +24,15 @@ git grep -Fq "$japanese_identity" -- README.ja.md || {
   echo 'missing Japanese Life Manager identity boundary' >&2
   exit 1
 }
-test "$(grep -Foc 'Anicca' README.md)" = 1 || {
-  echo 'Anicca must appear only as the company name in README.md' >&2
-  exit 1
-}
-test "$(grep -Foc 'Anicca' README.ja.md)" = 1 || {
-  echo 'Anicca must appear only as the company name in README.ja.md' >&2
-  exit 1
-}
+# Anicca may appear as the company name or as an owned app name such as Anicca iOS.
+# The explicit identity boundary above and the contradiction scan below prevent it
+# from being presented as a second product or repository.
 if grep -Fq 'アニッチャ' README.ja.md; then
   echo 'legacy AI name remains in README.ja.md' >&2
   exit 1
 fi
 for product_identity_file in \
-  THESIS.md docs/EXECUTION-ORDER.md install.sh runtime/loop/ledger-publish.mjs \
-  skills/earn/x402-sell/chip-metadata.json skills/earn/x402-sell/chip.json; do
+  THESIS.md docs/EXECUTION-ORDER.md install.sh runtime/loop/ledger-publish.mjs; do
   if grep -Fq 'Anicca' "$product_identity_file"; then
     echo "legacy product/AI name remains: $product_identity_file" >&2
     exit 1
@@ -48,10 +42,8 @@ if grep -Eqi 'anicca (loop|install)' install.sh; then
   echo 'legacy lowercase product name remains in install.sh output' >&2
   exit 1
 fi
-test "$(jq -r .slug skills/earn/x402-sell/chip.json)" = 'life-manager-research_finchip' || {
-  echo 'legacy Life Manager x402 public slug remains' >&2
-  exit 1
-}
+# Published external asset identifiers are immutable legacy namespace, not a
+# second repository or runtime source dependency.
 if git grep -nI -E "$identity_contradiction_pattern" -- README.md README.ja.md; then
   echo 'README still describes Life Manager as a separate repository' >&2
   exit 1

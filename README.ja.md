@@ -23,6 +23,8 @@ receiptのない試行を「完了」と報告しません。
 14本はuser-facingな製品能力の数です。process数ではありません。registryには、各product loopを実装する
 応募・browser owner・報告・照合・healthcheckなどの小さいjobが多数あります。
 
+1〜3は**Human Gig Work** familyです。案件発見、選別、応募、交渉、納品支援、照合、報告をLife Managerが自動化し、platformが本人確認、面談、承認、最終納品を要求する箇所だけ人が参加します。
+
 | # | Product loop | 現在の代表owner | 役割 |
 |---:|---|---|---|
 | 1 | Gig — Coconala | `hf-gig-apply-direct`, `hf-gig-reply-detector`, `hf-gig-storefront-direct`, `hf-gig-paid-direct` | 案件発見、応募、交渉、納品、provider結果確認 |
@@ -58,6 +60,18 @@ receiptのない試行を「完了」と報告しません。
 | Mobile App Loops | product manifestと、選択laneのPostiz/native・App Store Connect・RevenueCat credential | 共通registry jobは存在、完全なapp-factory guided installerは未完成 |
 | Capafy | Capafy account/API credentialとpublication profile | registry jobは存在、public guided installerは未完成 |
 | CFO | ユーザーが接続するfinancial sourceだけのcredential | 1回の有限passは`bash skills/cfo/run.sh` |
+
+Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware lifecycleを共有します。product manifestがAnicca iOS、Honne、その他のappを選び、共通serviceが対応済みstageを実行し、計測、収益、CFO、Telegramへ同じreceiptを残します。Postizはrepo所有adapterの先にある外部配信providerであり、repo外source code依存ではありません。account/app作成とbuild・署名・releaseは、共通orchestrationとguided installerが完成するまで明示的に`setup_required`です。
+
+```mermaid
+flowchart LR
+  M[Product manifest] --> A[Accountとappを作成]
+  A --> B[Build・署名・release]
+  B --> I[計測・改善]
+  I --> D[Postizまたはnative配信adapter]
+  D --> R[Provider・収益receipt]
+  R --> C[CFO・Telegram]
+```
 
 `setup_required`は正常な待機状態であり、effect完了でもcrashでもありません。onboardingで`start all`を
 近道として使わず、provider setupとeffect authorityが完了したloopだけをinstall/startします。

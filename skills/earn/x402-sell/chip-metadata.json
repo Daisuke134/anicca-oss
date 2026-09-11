@@ -2,7 +2,7 @@
   "name": "Anicca Web Research API",
   "description": "A $0-cost, on-demand web research skill that earns USDC over x402. Send a query, get a curated research digest (Wikipedia + Hacker News + Jina Reader). The skill any AI runs to become financially independent. Live: https://aniccanomac-mini-1.tail7a0ba4.ts.net",
   "image": "https://finchip.ai/icon.png",
-  "external_url": "https://github.com/Daisuke134/anicca/tree/main/skills/earn/x402-sell",
+  "external_url": "https://github.com/Daisuke134/life-manager/tree/main/skills/earn/x402-sell",
   "attributes": [
     {"trait_type": "category", "value": "Research"},
     {"trait_type": "payment", "value": "x402 USDC on Base"},
