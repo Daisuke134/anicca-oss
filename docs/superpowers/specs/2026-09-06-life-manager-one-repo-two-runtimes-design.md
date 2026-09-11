@@ -93,7 +93,8 @@ reconciliation and health jobs.
 8. Job Hunter
 9. Fundraiser
 10. Connector
-11. Life Manager Cloud
+11. Self-Build / Product Improvement — verified feedback and product evidence become reviewed Life Manager changes;
+    Cloud is a runtime host, not a Product Loop
 12. Mobile App Loops — Anicca iOS, Honne and the other owned mobile apps; product-account creation, app factory,
     build/sign/release, continuous iteration, Postiz or native-provider marketing, measurement and CFO revenue feedback
 13. Capafy
@@ -825,43 +826,246 @@ Do not copy a Coconala, Lancers, CrowdWorks, publishing, marketing or financial 
 the existing shared primitive first; extract new shared code only when a second real consumer proves the duplicate.
 Local and Cloud may not maintain separate business implementations.
 
-Use one Telegram bot identity and one canonical QR/link. After `/start`, the user chooses Local or Cloud; optional
-deep links may preselect `start=local` or `start=cloud`, but both resolve to the same bot, account and conversation.
-Two bots or two unrelated chats would split history, support and product identity without providing runtime
-isolation. Local setup returns a pairing token/command for the user's instance; Cloud setup provisions the hosted
-tenant. The same `/setup`, `/enable`, `/disable`, `/status` and financial-report concepts apply to both hosts.
+Use one canonical QR/link for the hosted product. The user's entrypoint selects the host: canonical Telegram
+`/start` provisions the Cloud tenant and `./install.sh` provisions the Local instance, including its isolated
+Agent Economy citizen. Local Telegram delivery uses the user's privately configured bot credentials; Cloud uses the
+hosted product bot. They share the repository-owned renderer, receipt and send-once contracts without sharing secret
+credentials or inventing an unimplemented relay/pairing service. Neither entrypoint silently starts provider-backed
+loops whose account, KYC, credential or browser requirements are incomplete.
 
 Execute this follow-up in the fixed order below. Do not alter this order without Dais explicitly saying to reorder
 it:
 
-- [ ] `ARCH-13a` Reclaim disk from `~/.openclaw` and `~/.hermes` now that Life Manager executable source dependency
+This cleanup establishes the reusable structure, portable contracts, documented product model and focused tests.
+It does **not** submit a new build to App Store Connect, publish through Postiz, create a live app, or require a live
+end-to-end business effect. Those providers remain behind the verified adapters and existing production owners; a
+future product run exercises them without changing this architecture acceptance gate.
+
+- [x] `ARCH-13a` Reclaim disk from `~/.openclaw` and `~/.hermes` now that Life Manager executable source dependency
   is zero. First classify exact contents and open handles. Delete cloneable source checkouts, caches, logs, generated
   artifacts and obsolete backups; preserve credentials, sessions, ledgers, receipts, `memory/`, `state/*.jsonl` and
   anything with a current non-Life-Manager owner. Report exact bytes removed and retained reasons. Do not delete the
   protected `~/.cloak` store.
-- [ ] `ARCH-13b` Correct the product/runtime taxonomy in README, README.ja and this spec: Local/self-hosted and
+  Read-only ownership checks found active non-Life-Manager Python/Chromium processes holding the OpenClaw browser
+  venv and logs, active Gig launch declarations retaining OpenClaw browser/profile compatibility, and Hermes stores
+  containing Agent Economy ledgers plus Gig profiles. Those owned paths, credentials, sessions, receipts, memory and
+  state were retained. Exactly 10,812 KiB of unowned regenerateable cache was deleted from `.openclaw/cache`,
+  `.openclaw/.pytest_cache`, `.hermes/cache`, `.hermes/image_cache` and `.hermes/audio_cache`; all five paths were
+  verified absent. `~/.cloak` was not touched. Whole-directory deletion remains forbidden while those other owners
+  exist; Life Manager itself has no executable source dependency on either directory.
+- [x] `ARCH-13b` Correct the product/runtime taxonomy in README, README.ja and this spec: Local/self-hosted and
   Cloud/hosted are the two runtime choices; replace Product Loop 11 `Life Manager Cloud` with the verified
   Self-Build/Product Improvement loop definition while keeping exactly fourteen Product Loops.
-- [ ] `ARCH-13c` Refine `skills/loop-development/SKILL.md` with the canonical folder/ownership template, the one
+- [x] `ARCH-13c` Refine `skills/loop-development/SKILL.md` with the canonical folder/ownership template, the one
   Local/Cloud business implementation rule, mandatory shared Telegram/CFO/receipt paths and the provider-adapter
   boundary. Remove or override any stale rule that names OpenClaw/Hermes as a Local runtime dependency.
-- [ ] `ARCH-13d` Produce a read-only reuse census for all fourteen Product Loops. For each loop, map lifecycle,
+- [x] `ARCH-13d` Produce a read-only reuse census for all fourteen Product Loops in
+  `docs/loops/product-loop-reuse-census.md`. For each loop, map lifecycle,
   browser, agent runner, domain kernel, provider adapter, receipts, Telegram and CFO; identify proven duplication
   and missing Cloud/Local adapters without moving files merely for appearance.
-- [ ] `ARCH-13e` Integrate the separately owned Gig Work result from latest `main`. Coconala, Lancers and CrowdWorks
-  must converge on `skills/_shared/marketplace-core` one contract at a time—application, reply, storefront, paid
-  work/delivery, financial record and Telegram—while their directories retain only provider-specific effects and
-  official readback. Do not modify or restart an active Gig owner outside its current task lease.
-- [ ] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
+- [x] `ARCH-13f` Converge the remaining domains in measured atoms: publishing/marketing, finance, identity/browser,
   reporting and self-build. Route a second real consumer through an existing contract before extracting anything;
   delete the replaced duplicate in the same atom rather than keeping compatibility implementations.
-- [ ] `ARCH-13g` Make onboarding expose the same product model on both hosts. Local uses clone/install plus pairing
-  and selected-loop setup; Cloud uses Telegram `/start` plus hosted tenant provisioning. A loop without required
-  credentials/KYC remains visibly `setup_required`; onboarding must not use `start all` as a shortcut.
-- [ ] `ARCH-13h` Pass final acceptance from a clean user and a fresh tenant: one QR/bot, host selection, at least one
-  representative loop per shared domain on both supported hosts, identical logical receipts/Telegram output,
-  provider-owned effect readback, replay-zero, dependency fence, focused tests, fresh review and merged-main
-  verification.
+  - [x] Ebook production preview no longer hard-codes `/Users/anicca/anicca-monk-factory/state`; the shared runner
+    and standalone watercolor renderer resolve one explicit `--asset-root` / `LM_EBOOK_ASSET_ROOT` base-directory
+    contract, then select the versioned pack below `packs/default-v1`; the default base is
+    `~/.local/share/life-manager/ebook-assets`. Telegram preview branding is `Life Manager:::`. Focused
+    portability tests pass. Historical renderer-evaluation fixtures and legacy scheduler retirement tooling remain
+    evidence/migration utilities and must not become production runtime dependencies.
+  - [x] `ARCH-13f-mobile-bootstrap` Complete the structural foundation for the primary Mobile App experience to start
+    with no existing app or repository. The finite bootstrap accepts one validated opportunity from the agent or
+    onboarding layer, creates a repository-owned project from the shared app-factory template, generates its product
+    identity and initial assets, and exposes truthful build/signing/App Store setup requirements through one lifecycle
+    receipt. Importing an existing app path remains optional and may never be the default onboarding requirement.
+    Every generated app is a separate product repository/workspace; Life Manager owns the reusable factory, adapters,
+    receipts and orchestration rather than hard-coding Dais's `~/anicca-project` paths. Per Dais's explicit scope,
+    executing a live Xcode build, account/KYC, signing, App Store submission, measurement, iteration and marketing is
+    future provider work and is not a completion gate for this repository-cleanup atom.
+    Two entry paths converge on one Product Registry and the same lifecycle:
+
+    ```mermaid
+    flowchart TD
+      S[Enable Mobile App Loop] --> E{Existing app?}
+      E -->|No, default| O[Research opportunity and create app repository/workspace]
+      E -->|Yes, optional| I[Import Git remote plus subdirectory and revision]
+      O --> R[Product Registry]
+      I --> R
+      R --> B[Build, test and sign]
+      B --> A[App Store Connect submission]
+      A --> M[Shared Postiz/native marketing]
+      M --> Q[Usage, review and revenue receipts]
+      Q --> T[Telegram and CFO]
+      Q --> P[Improve and resubmit]
+      P --> B
+    ```
+
+    The registry stores a portable source descriptor (`git_remote`, optional `subdirectory`, pinned revision), not
+    a Dais-machine path. On Local, Life Manager materializes each product under its managed product workspace; on
+    Cloud, the tenant worker materializes the same descriptor in tenant-scoped storage. Generated and imported apps
+    therefore use the same build, release, marketing, measurement, receipt and improvement contracts. Dais's current
+    reference products are `Daisuke134/anicca-products` subdirectory `aniccaios` and the independent
+    `Daisuke134/honne-ai` repository; their local checkout locations are discovery evidence, never public defaults.
+    - [x] The repository owns a tested `mobile-product-registry` boundary for generated and imported products. It
+    derives one managed relative workspace, rejects local absolute paths, writes the private registry atomically with
+    private modes and a single-writer lock, requires imported sources to pin a full commit SHA, treats identical
+    registration as replay-safe, and fails closed on conflicting duplicates. This structural atom intentionally does
+    not create or submit a live app. The bootstrap and build/release preflight consume this same registry and shared
+    materialization boundary.
+    - [x] Canonicalize the two current app identifiers as `anicca-ios` and `honne-ai` across the active Mobile App job
+      inventory and repository-owned Marketing Engine products, accounts, intelligence sources, measurement and owner
+      reporting. A focused contract test proves all 18 Mobile App jobs use identifiers present in the Marketing Engine
+      registry. Historical JSONL evidence is intentionally immutable. The generated product and build/release
+      preparation path reuse that registry rather than creating another publication registry.
+    - [x] Connect all 18 current Mobile App publication jobs to the repository-owned Product Registry at their one
+      shared command boundary. Register Anicca iOS (`anicca-products/aniccaios`) and Honne (`honne-ai`) with
+      credential-free HTTPS locations, pinned commits and explicit source-access labels. Anicca is anonymously
+      fetchable; Honne is currently private and requires private Git access only at the build/release stage. Export
+      their canonical ID, origin and portable workspace relation
+      before runner execution, and fail closed when registration is missing. The publication path deliberately does
+      not clone or build app source; materialization remains owned by the build/release stage and therefore cannot add
+      network or filesystem effects to an existing scheduled marketing job.
+    - [x] Add one finite repository-owned bootstrap boundary for the default generated-product path. It accepts a
+      validated opportunity selected upstream, validates the portable product identity, checks for an existing
+      Product Registry entry, materializes the existing `ios-swiftui-v1` starter plus generated assets, writes one
+      deterministic secret-free lifecycle receipt beside the product workspace, and only then registers a new product.
+      A failed pre-registration attempt never leaves a partial registry entry and retains verified prepared source or
+      receipt for safe replay rather than deleting mutable paths. Identical replay returns the same receipt; conflicting
+      opportunity evidence or output fails closed.
+      Build/release preparation consumes that same registry/workspace and reports the exact missing XcodeGen, Xcode,
+      Apple team and App Store Connect capabilities as `setup_required`; when present it returns portable build/test
+      commands as `ready_to_build`. The thin CLI uses XDG private state/data roots and requires no existing app or Git
+      repository. Focused Mobile tests pass 30/30. Per Dais's explicit cleanup scope, this structural atom does not run
+      a live Xcode build, sign/upload an app, create an App Store account, submit through App Store Connect, publish via
+      Postiz, send Telegram, or invent a CFO/revenue event; those provider effects remain gated by their official future
+      stages and readback.
+  - [x] `ARCH-13f-mobile-assets` Ship a versioned, redistributable starter asset/template pack plus generators and a
+    SHA-verified provisioner. A clean user may use the default licensed assets without supplying a logo, screenshots,
+    video or existing application. Before public release, generated product identity and marketing creative must be
+    differentiated from the starter pack; user-provided assets remain an optional override. App source and generated
+    assets live with that generated product, while credentials, signing material, receipts and mutable state remain
+    in the user's private Life Manager stores.
+    Each managed product workspace owns its generated Xcode source, app assets and App Store metadata. The Life
+    Manager repository owns only the reusable factory/templates/adapters. Existing products may remain in their own
+    canonical Git repositories and register a source descriptor; they are not copied into the Life Manager source
+    tree merely for visual consolidation.
+    - [x] A first-party `ios-swiftui-v1` starter pack and deterministic materializer now create the minimal SwiftUI,
+      XcodeGen, XCTest and asset-catalog structure under the generated product's private managed workspace. The
+      materializer verifies the manifest and every SHA before writing, rejects traversal/symlinks/imported products,
+      stages then atomically renames, replays identical output and preserves conflicting output. It performs no
+      build, signing, App Store or Postiz effect. After three adversarial review rounds fixed parent/replay symlink
+      escape, noncanonical manifest paths, unsafe Swift display-name input and credential-bearing Git URLs, focused
+      Mobile tests pass 14/14 and fresh review ships. The pack now declares the versioned
+      `mobile-product-assets.v1` generator. The dependency-free generator derives differentiated colors and geometry
+      from the portable product ID, emits a valid 1024x1024 App Icon and 1290x2796 App Store screenshot, and records
+      both SHA-256 values in product-owned metadata. The existing atomic materializer writes those binary assets with
+      the source template, replays byte-identical output and refuses conflicts or unsafe identities. Xcode selects the
+      generated AppIcon. A clean user therefore needs no initial artwork, while custom assets remain an optional later
+      product-owned iteration. Focused registry/materializer/publication tests pass 17/17; no build, signing, App Store
+      or Postiz effect was performed.
+  - [x] `ARCH-13f-ebook-en-heygen` Treat HeyGen as the canonical English Anicca Monk renderer. Replace the stale
+    `omniavatar-monk` product manifest and migrate the required HeyGen adapter/orchestration from the protected
+    `~/anicca-monk-factory` into this repository without moving or deleting the legacy source. HeyGen credentials and
+    browser session remain private host state; the loop reports `setup_required` only for unavoidable account access,
+    never because source code exists outside this repository.
+    The active English pack, account allowance, baseline queue and publication fixtures now select
+    `heygen-avatar-iv`. The clean-room adapter checks `heygen auth status`, then uses the official
+    `heygen video create -d - --wait` and `video download` interface, keeps script text out of argv, validates the
+    official `video_id` completion receipt, downloads through an atomic staging file and records the output hash.
+    Missing CLI/avatar/voice/login configuration returns a zero-effect `setup_required` receipt. The invalid reuse
+    of the Anicca iOS Instagram account was removed;
+    English ebook Instagram truthfully remains `setup_required` until its dedicated account is registered, while the
+    existing TikTok route remains the declared publication account. The unused OmniAvatar adapter and external
+    checkout characterizer are deleted. Historical renderer-evaluation evidence remains read-only evidence rather
+    than an executable dependency. Focused tests pass 37/37; the wider Marketing Engine source suite passes 372 tests
+    and 36 subtests, with nine existing live-evidence/date-dependent failures caused by intentionally absent sparse
+    evidence or time-window fixtures rather than this atom. No live HeyGen render, Postiz publication, protected
+    monk-factory mutation or running Gig operation was performed.
+  - [x] `ARCH-13f-ebook-assets` Publish or provision a versioned, redistributable default ebook asset pack for both
+    Japanese and English products. A clean user starts without preparing characters, clips, captions or a book file;
+    the installer fetches/copies the declared pack, verifies every SHA, and the loop may generate differentiated
+    derivatives. Repository manifests contain no Dais-absolute paths. Mutable renders, publication receipts and
+    account state stay outside Git under the Life Manager state/data roots.
+    The repository now owns the CC0 `default-v1` manifest, Japanese and English starter manuscripts, caption
+    templates and a deterministic provisioner. It verifies every checked-in source SHA, generates six neutral
+    720x1280 five-second motion clips locally through the configured FFmpeg adapter, writes all eleven assets through
+    a private staging directory, verifies its exact recursive inventory, claims a new target without replacement and
+    commits its receipt last with every output SHA/size. First publish and replay both reject missing, surplus,
+    changed or symlinked files or directories and replay does not
+    regenerate. A failed first publish removes only the newly claimed incomplete target, while a pre-existing target
+    is never replaced. Missing FFmpeg returns a zero-effect `setup_required` result. The pack lives under
+    `ebook-assets/packs/default-v1`, preserving any legacy or user-owned
+    assets at the base root. The Japanese runner provisions this pack automatically before its first render, so a
+    clean user supplies no external factory path or prepared clip. The standalone watercolor CLI uses the same
+    versioned pack, neutral scene names and shared portable FFmpeg/FFprobe resolution rather than its former Homebrew
+    literal. Missing media, subtitle or text-to-speech capabilities return structured `setup_required` before render.
+    Focused tests pass 26/26, and a real local FFmpeg provision/replay plus ffprobe dimensions and durations pass.
+    Existing Dais media and the protected monk factory
+    remain untouched; no render, publication or running Gig effect was performed.
+- [x] `ARCH-13g` Make onboarding expose the same product model on both hosts. The repository-owned
+  Cloud-deployable `apps/life-manager/config/product-loop-catalog.json` describes all 14 public Product Loops, their
+  purpose, requirements, the Local-wide private Telegram credential requirement, current Local
+  and Cloud availability, and the existing start entrypoint where one is honestly supported. The shared zero-effect
+  planner accepts an explicit non-empty selection, rejects `all`, accepts verified requirements only from provider
+  preflight adapters, returns each missing requirement as `setup_required`, and never starts work. Local exposes its
+  read-only missing-requirement view through `./install.sh plan --loop ID`; the existing guided
+  installers remain the only individual effectful entrypoints. The Local onboarding page and server no longer expose
+  the conflicting `Enable all` action/API. Cloud `/start` reads the same catalog before its existing replay-safe,
+  tenant-scoped Agent Economy citizen/job provisioning; unsupported Cloud adapters remain `setup_required` instead of
+  being advertised or started. Focused onboarding tests pass.
+- [x] `ARCH-13e` Integrate the separately owned Gig Work result only after this branch completes ARCH-13f and
+  ARCH-13g. Hand the exact pushed branch/head, changed-file boundary, tests and remaining acceptance gates to the
+  Gig Work Codex. That owner merges latest `main` with this branch and its separately owned Coconala, Lancers and
+  CrowdWorks result. Those providers must converge on `skills/_shared/marketplace-core` one contract at a time—
+  application, reply, storefront, paid work/delivery, financial record and Telegram—while their directories retain
+  only provider-specific effects and official readback. This branch does not modify or restart an active Gig owner.
+  - [x] Prepare the exact owner handoff at
+    `docs/handoffs/2026-09-11-one-repo-gig-integration.md`: source head
+    `ba1d027b8870bf304aa215ae61d0693196bec952`, merged-main boundary
+    `5c007ea4752eb8b9cdfae5c49750d39296e93484`, reproducible 88-path inventory, verified tests, ownership fence,
+    integration commands, remaining gates and a user-sendable prompt.
+  - [x] The separately owned provider result was already merged to `origin/main` through CrowdWorks PR #5024
+    (`5c007ea4752eb8b9cdfae5c49750d39296e93484`), including the shared architecture PR #5014 and the latest
+    Coconala/CrowdWorks sequence. That exact main is an ancestor of integrated architecture head
+    `6ba684dfeb301cecd62ffe1e86624148aadea8dc` (behind 0). Post-integration, the complete shared marketplace-core
+    suite plus the two changed CrowdWorks provider suites and HeyGen replay suite pass 318/318; Local/Cloud catalog
+    and Telegram credential tests pass 10/10; OSS verification and diff check pass. No production browser, provider,
+    daemon or running Gig owner was invoked. The checked-in handoff remains the ownership map for later Gig changes.
+- [x] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one canonical Cloud QR/bot
+  contract, explicit Local-install/Cloud-`/start` entrypoints, representative registry/config resolution for every
+  shared domain on both supported hosts, identical
+  logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
+  verification. Do not make a new App Store submission, Postiz publication, payment or other live provider effect
+  merely to close this cleanup.
+  - [x] Pushed head `b321e674eeb303b533fca2d81bcb6687d5fe61f4` passes the repository dependency fence and a
+    daemon-free fresh clone with an isolated `HOME`: OSS self-contained verification, install, app tests 975/975,
+    application eval and panel-privacy eval 24/24 all pass without another checkout, OpenClaw or Hermes. The one
+    nondeterministic Peatix navigation fixture exposed by the first full run is now driven by the actual
+    wait-before-click contract instead of a 100 ms wall-clock timer; production Connector source and running jobs
+    remain untouched.
+  - [x] Focused clean-fixture acceptance passes 29/29 for the 14-loop Local/Cloud catalog, standalone Cloud artifact,
+    selected Local plan, Cloud `/start`, the one canonical Telegram handoff, tenant isolation, citizen/job and hosted
+    worker replay-zero, and receipt-backed Telegram send-once. Host adapter tests pass 17/17 for common
+    FinancialRecord output/replay-zero, repository-owned Local/Cloud paths and Local-keychain/Cloud-vault secret
+    resolution. Common wire contracts pass 15/15 and the host-neutral lifecycle/registry suite passes 392/392.
+  - [x] Ebook English effects are crash-safe before any live run: HeyGen records an exclusive durable create intent,
+    never repeats an uncertain create, resumes download from a stored provider video ID and returns the exact
+    completed output receipt. The runner persists the render receipt before Telegram, claims one durable Telegram
+    effect before sending, recovers a completed provider receipt and never retries an unknown delivery. Focused
+    renderer/runner/portability tests pass 13/13; no HeyGen or Telegram effect was executed.
+  - [x] Close the fresh-review gaps without touching a running loop. Local planning and the default installer now
+    share one repository-owned Telegram credential check: the shipped placeholders or a missing private chat ID stay
+    `setup_required`, and daemon registration is skipped until both values are configured. The same check is exposed
+    through `./install.sh plan`; `.env.example` declares both values. Local credential/planner/installer tests pass
+    12/12. The verifier uses the exact shared Local sender contract (`TELEGRAM_BOT_TOKEN` plus
+    `TELEGRAM_CHAT_ID`/`TELEGRAM_ALERT_CHAT_ID`); hosted aliases cannot unlock Local startup. A HeyGen replay whose
+    provider receipt and renamed non-empty output already exist now atomically completes
+    the durable receipt without a second create or download; its focused renderer/runner tests pass 9/9. The catalog
+    and this spec consistently call the Local prerequisite private Telegram credentials, not pairing. No daemon,
+    Telegram message, HeyGen render or Gig workload was started by these tests.
+  - [x] Latest `origin/main` is already an ancestor (behind 0). Pushed head
+    `ba1d027b8870bf304aa215ae61d0693196bec952` passes the affected credential/catalog tests 10/10, HeyGen
+    renderer/runner tests 9/9, OSS dependency fence, Bash/Python syntax and diff check. A fresh read-only Astra review
+    finds no P0/P1/P2 issue and returns `SHIP` for that exact head.
 
 ## 7. Acceptance
 

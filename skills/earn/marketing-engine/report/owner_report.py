@@ -14,13 +14,19 @@ import fcntl
 import hashlib
 import json
 import pathlib
+import sys
 from collections import Counter
 from typing import Callable, Iterable
 
 
+ENGINE_ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ENGINE_ROOT / "gates"))
+from product_router import PRODUCT_ID_ALIASES, canonical_product_id  # noqa: E402
+
+
 SCHEMA_VERSION = "marketing.owner-report.v1"
 DELIVERY_SCHEMA_VERSION = "marketing.owner-delivery.v1"
-PRODUCTS = ("aniccaios", "honne", "ebook-ja", "ebook-en")
+PRODUCTS = ("anicca-ios", "honne-ai", "ebook-ja", "ebook-en")
 KINDS = (
     "action",
     "checkpoint",
@@ -189,7 +195,11 @@ def _semantic_event(event: dict) -> dict:
 
 
 def _scoped(rows: list[tuple[int, dict]], product_id: str) -> list[tuple[int, dict]]:
-    return [(index, row) for index, row in rows if row.get("product_id") == product_id]
+    return [
+        (index, row)
+        for index, row in rows
+        if canonical_product_id(row.get("product_id")) == product_id
+    ]
 
 
 def _before(row: dict, as_of: dt.datetime) -> bool:
@@ -233,7 +243,7 @@ def _matching_identity(
         if (native_id and row.get("native_post_id") == native_id) or (
             postiz_id and row.get("postiz_post_id") == postiz_id
         ):
-            bound = row.get("product_id")
+            bound = canonical_product_id(row.get("product_id"))
             if bound is not None and bound != product_id:
                 raise OwnerReportError(
                     f"cross-product publication identity for {native_id or postiz_id}"
@@ -251,14 +261,20 @@ def _existing_owner_report(
 ) -> dict | None:
     """Return a valid canonical report already recorded for one immutable key."""
 
+    equivalent_keys = {message_key}
+    for legacy_id, canonical_id in PRODUCT_ID_ALIASES.items():
+        if product_id == canonical_id:
+            equivalent_keys.add(message_key.replace(f":{canonical_id}:", f":{legacy_id}:"))
     for row in load_jsonl(pathlib.Path(root) / "owner-reports.jsonl"):
         if (
             row.get("kind") == kind
-            and row.get("product_id") == product_id
-            and row.get("message_key") == message_key
+            and canonical_product_id(row.get("product_id")) == product_id
+            and row.get("message_key") in equivalent_keys
         ):
             try:
-                return _validate_event(row)
+                normalized = copy.deepcopy(row)
+                normalized["product_id"] = canonical_product_id(row.get("product_id"))
+                return _validate_event(normalized)
             except OwnerReportError:
                 continue
     return None
@@ -277,12 +293,14 @@ def _existing_owner_report_for_evidence(
         refs = row.get("evidence_refs")
         if (
             row.get("kind") == kind
-            and row.get("product_id") == product_id
+            and canonical_product_id(row.get("product_id")) == product_id
             and isinstance(refs, list)
             and evidence_ref in refs
         ):
             try:
-                return _validate_event(row)
+                normalized = copy.deepcopy(row)
+                normalized["product_id"] = canonical_product_id(row.get("product_id"))
+                return _validate_event(normalized)
             except OwnerReportError:
                 continue
     return None
@@ -683,11 +701,18 @@ def _daily_events(root: pathlib.Path, product_id: str, as_of: dt.datetime) -> li
     rows = _scoped(_indexed_rows(root, "business-outcomes.jsonl"), product_id)
     latest = _latest(rows, as_of, "business_date", "observed_at")
     if latest is None:
+        evidence_ref = "state/business-outcomes.jsonl#no_business_snapshot"
+        message_key = f"product_daily:{product_id}:no_business_snapshot:{as_of.date().isoformat()}"
+        existing = _existing_owner_report(
+            root, kind="product_daily", product_id=product_id, message_key=message_key
+        )
+        if existing is not None:
+            return [existing]
         return [_event(
             kind="product_daily",
             product_id=product_id,
             as_of=as_of,
-            message_key=f"product_daily:{product_id}:no_business_snapshot:{as_of.date().isoformat()}",
+            message_key=message_key,
             facts={
                 "business_date": None,
                 "snapshot_id": None,
@@ -704,17 +729,23 @@ def _daily_events(root: pathlib.Path, product_id: str, as_of: dt.datetime) -> li
                 "money_reason": "no_business_snapshot",
                 "sources": {},
             },
-            evidence_refs=["state/business-outcomes.jsonl#no_business_snapshot"],
+            evidence_refs=[evidence_ref],
         )]
     index, row = latest
     facts = _business_facts(row)
+    evidence_ref = _ref("business-outcomes.jsonl", index)
+    existing = _existing_owner_report_for_evidence(
+        root, kind="product_daily", product_id=product_id, evidence_ref=evidence_ref
+    )
+    if existing is not None:
+        return [existing]
     return [_event(
         kind="product_daily",
         product_id=product_id,
         as_of=as_of,
         message_key=f"product_daily:{product_id}:{facts.get('business_date') or facts.get('snapshot_id')}",
         facts=facts,
-        evidence_refs=[_ref("business-outcomes.jsonl", index)],
+        evidence_refs=[evidence_ref],
     )]
 
 
@@ -1223,9 +1254,15 @@ class OwnerReportStore:
             for existing in self._reports():
                 if existing.get("message_key") != checked["message_key"]:
                     continue
-                if _canonical(_semantic_event(existing)) != _canonical(_semantic_event(checked)):
+                normalized = copy.deepcopy(existing)
+                normalized["product_id"] = canonical_product_id(existing.get("product_id"))
+                try:
+                    normalized = _validate_event(normalized)
+                except OwnerReportError:
                     raise ConflictError(f"conflicting replay for {checked['message_key']}")
-                return copy.deepcopy(existing)
+                if _canonical(_semantic_event(normalized)) != _canonical(_semantic_event(checked)):
+                    raise ConflictError(f"conflicting replay for {checked['message_key']}")
+                return normalized
             self.report_path.parent.mkdir(parents=True, exist_ok=True)
             with self.report_path.open("a", encoding="utf-8") as handle:
                 handle.write(_canonical(checked) + "\n")

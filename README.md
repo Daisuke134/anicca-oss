@@ -46,7 +46,7 @@ an interview, approval, or final delivery.
 | 8 | Job Hunter | `job-search-daily`, `job-search-browser`, `job-search-inbox` | Discovers and submits qualified applications, then reconciles confirmations and replies |
 | 9 | Fundraiser | `fundraiser` | Discovers accelerators, fellowships, grants, and public investor intakes and applies when eligible |
 | 10 | Connector | `life-manager-connector-native` | Finds eligible events, applies, verifies registration, and reports Calendar and Telegram receipts |
-| 11 | Life Manager Cloud | `apps/life-manager` on Railway | Runs the always-on web, Telegram, reminder, scheduling, and hosted-agent surface |
+| 11 | Self-Build / Product Improvement | `life-manager-selfbuild`, `life-manager-dev` | Turns verified user feedback and product evidence into reviewed Life Manager improvements; Cloud is a host for loops, not a separate Product Loop |
 | 12 | Mobile App Loops | Anicca iOS, Honne, and the other `life-manager-anicca-*` / `life-manager-honne-*` product jobs | Runs the owned mobile-app lifecycle: create the product account and app, build and sign releases, publish them, continuously improve the apps, distribute marketing content through Postiz or a native provider adapter, measure outcomes, and feed verified revenue back into CFO. Today the repository owns the shared product-aware marketing, distribution, measurement, and receipt path; app creation, signing, release, and iteration are still being unified into the same end-to-end loop. |
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Operates Capafy's separate product, sales, outcome, and audience-growth workflows |
 | 14 | CFO | `life-manager-cfo-hourly` | Reconciles verified revenue, cash flow, balances, payouts, and financial reports across the earning loops |
@@ -65,10 +65,28 @@ an interview, approval, or final delivery.
 | Job Hunter | Resume, preferences, Gmail/Telegram, official site logins | `./install.sh job-hunter` |
 | Fundraiser | Applicant profile and Telegram; provider login when required | `./install.sh fundraiser` |
 | Connector | Calendar/Telegram and event-provider login when required | `./install.sh connector` |
-| Life Manager Cloud | Telegram `/start`, then requested account connections | [Start in Telegram](https://t.me/LifeManagerBotbot?start=lp) |
-| Mobile App Loops | Product manifest plus Postiz/native, App Store Connect and RevenueCat credentials for the selected lane | Shared registry jobs exist; full app-factory guided installer pending |
+| Self-Build / Product Improvement | Repository access plus the configured development agent and review credentials | Managed registry jobs; public guided installer pending |
+| Mobile App Loops | No existing app required; connect Apple/Postiz/RevenueCat only when the generated product reaches those stages | Shared marketing jobs exist; zero-to-App-Store app-factory installer pending |
 | Capafy | Capafy account/API credential and publication profile | Registry jobs; public guided installer pending |
 | CFO | Credentials for only the financial sources the user connects | `bash skills/cfo/run.sh` for one finite pass |
+
+The ebook products share the same repository-owned script ledger, publication
+intent, Postiz adapter, receipt, attribution, CFO, and Telegram path. Japanese
+ebook creative uses the `watercolor-monk` renderer. English Anicca Monk creative
+uses the official HeyGen CLI through the checked-in `heygen-avatar-iv` adapter;
+it never calls OmniAvatar or source code under an external checkout. A clean host
+that has not configured the private HeyGen avatar ID, voice ID, and CLI login gets
+an explicit `setup_required` receipt with no provider effect. Those values and the
+HeyGen session remain private host or tenant state and are never committed.
+Run `python3 skills/earn/marketing-engine/ebook_asset_pack.py` to provision the
+checked-in CC0 `default-v1` starter pack. It verifies the versioned source hashes,
+copies Japanese and English starter manuscripts and caption templates, generates
+six neutral vertical motion clips locally with FFmpeg, and records every output
+hash under `ebook-assets/packs/default-v1` without replacing legacy or user assets.
+The Japanese runner performs this provisioning automatically on first render.
+Missing portable media or text-to-speech capabilities (FFmpeg, FFprobe, a
+subtitle-capable FFmpeg build, or the configured TTS command) return
+`setup_required` before rendering.
 
 Mobile App Loops use one product-aware lifecycle rather than separate scripts per
 app. A product manifest selects Anicca iOS, Honne, or another app; shared services
@@ -77,6 +95,45 @@ and Telegram receipts. Postiz is an external distribution provider behind a
 repository-owned adapter, not a source-code dependency. The future account/app
 creation and build/sign/release stages remain explicitly `setup_required` until
 their shared orchestration and guided installer are complete.
+
+The default Mobile App journey starts from no app and no repository. Life Manager
+finds a viable product opportunity, creates a new app workspace from its shared
+factory and redistributable starter assets, then builds, submits, improves and
+markets it. Supplying an existing app is an optional import path, not onboarding.
+The checked-in `ios-swiftui-v1` pack deterministically creates product-specific
+App Icon and App Store screenshot PNGs from the generated product identity, records
+their hashes in that product workspace, and refuses conflicting output. Users do not
+need to supply initial artwork; optional custom assets replace the generated assets
+only in a later product-owned iteration.
+Life Manager onboarding passes a validated opportunity to one finite repository-owned
+bootstrap. It checks the Product Registry, materializes the same starter source and
+assets, writes a replay-safe lifecycle receipt, and then registers a new product. The same entrypoint is
+available for development and recovery:
+
+```bash
+node apps/life-manager/scripts/mobile-product-bootstrap.js --opportunity-file opportunity.json
+```
+
+The receipt reports `setup_required` with the exact missing XcodeGen, Xcode, Apple
+team, or App Store Connect capability. When they are present it reports
+`ready_to_build` with portable build/test commands. It neither claims nor performs an
+App Store submission, Postiz publication, or revenue event.
+The 18 current publication jobs all resolve their product through
+[`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
+before a runner starts. That portable registry pins a credential-free HTTPS Git
+location, optional subdirectory, exact revision, and an honest `public` or `private`
+access label for each reference app; it contains no local path or credential. Anicca
+is anonymously fetchable. The current Honne source is private and requires private
+Git access only at its build/release stage. Publication jobs validate identity but do
+not fetch or build either app, so the open-source publication loop does not depend on
+that private source. New users generate their own app from the repository-owned starter pack.
+
+Local/self-hosted and Cloud/hosted are two ways to run this same catalog, not
+additional Product Loops. Local runs selected loops on the user's device and stores
+private state there. Cloud runs selected loops for a tenant on Life Manager's hosted
+infrastructure. Both hosts use the same loop implementation, provider adapters,
+receipt vocabulary, CFO events, and Telegram experience; only scheduling, secret
+storage, durable state, and browser transport differ.
 
 ```mermaid
 flowchart LR
@@ -240,6 +297,20 @@ The default installer does not silently start all 14 product loops. Each provide
 `setup_required` until its account, credentials, KYC or browser login is configured. Guided installers currently
 exist for `./install.sh coconala`, `connector`, `fundraiser`, and `job-hunter`; the README catalog states the current
 boundary for the other product loops.
+
+Preview a zero-effect plan for only the loops you select. The plan reads the same
+[`apps/life-manager/config/product-loop-catalog.json`](apps/life-manager/config/product-loop-catalog.json) used by
+Cloud `/start` and lists every
+missing requirement—including the Local user's private Telegram bot credentials—without starting anything:
+
+```bash
+./install.sh plan --loop agent-economy
+./install.sh plan --loop connector
+```
+
+The Local setup screen likewise has no “enable all” action. A loop is started only through its listed command after
+its required setup is complete. Cloud `/start` currently provisions only the repository-owned Agent Economy citizen;
+other Cloud loops stay visibly `setup_required` until their tenant-scoped host adapter and provider setup exist.
 
 To start the Job Hunter loop on an Apple Silicon Mac:
 

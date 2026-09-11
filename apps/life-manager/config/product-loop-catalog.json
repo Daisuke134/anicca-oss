@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "host_requirements": {
+    "local": ["telegram_credentials"],
+    "cloud": []
+  },
+  "loops": [
+    {
+      "id": "gig-coconala",
+      "name": "Gig — Coconala",
+      "description": "Find, apply, negotiate, deliver, reconcile, and report Coconala work.",
+      "requirements": ["coconala_account", "work_profile", "telegram"],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["./install.sh", "coconala"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "gig-lancers",
+      "name": "Gig — Lancers",
+      "description": "Run the shared earning lifecycle for Lancers and reconcile applications, paid work, delivery, and reporting.",
+      "requirements": ["lancers_account", "work_profile", "public_guided_installer"],
+      "hosts": {
+        "local": {"availability": "setup_required", "command": null},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "gig-crowdworks",
+      "name": "Gig — CrowdWorks",
+      "description": "Apply to suitable CrowdWorks projects and report evidence-backed outcomes.",
+      "requirements": ["crowdworks_account", "work_profile", "public_guided_installer"],
+      "hosts": {
+        "local": {"availability": "setup_required", "command": null},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "writer",
+      "name": "Writer",
+      "description": "Find paid writing work, respond, and record publisher and payment receipts.",
+      "requirements": ["publisher_account", "provider_credentials", "public_guided_installer"],
+      "hosts": {
+        "local": {"availability": "setup_required", "command": null},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "affiliate",
+      "name": "Affiliate",
+      "description": "Find and publish attributable affiliate opportunities through an owned browser path.",
+      "requirements": ["affiliate_account", "provider_credentials", "public_guided_installer"],
+      "hosts": {
+        "local": {"availability": "setup_required", "command": null},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "investment",
+      "name": "Investment",
+      "description": "Run risk-gated Alpaca paper, shadow, or live passes and reconcile every order.",
+      "requirements": ["alpaca_credentials", "investment_mode"],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["python3", "skills/alpaca-investment/run.py"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "agent-economy",
+      "name": "Agent Economy",
+      "description": "Create an isolated citizen wallet and track agent revenue and receipt-gated compute cost without owner funds.",
+      "requirements": [],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["./install.sh"]},
+        "cloud": {"availability": "guided", "command": ["/start"]}
+      }
+    },
+    {
+      "id": "job-hunter",
+      "name": "Job Hunter",
+      "description": "Discover and submit qualified job applications, then reconcile confirmations and replies.",
+      "requirements": ["resume", "job_preferences", "gmail", "telegram", "provider_logins"],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["./install.sh", "job-hunter"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "fundraiser",
+      "name": "Fundraiser",
+      "description": "Find eligible accelerators, fellowships, grants, and investor intakes and apply with verified product context.",
+      "requirements": ["applicant_profile", "telegram", "provider_login_when_required"],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["./install.sh", "fundraiser"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "connector",
+      "name": "Connector",
+      "description": "Find eligible events, register, verify the outcome, and report Calendar and Telegram receipts.",
+      "requirements": ["calendar", "telegram", "provider_login_when_required"],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["./install.sh", "connector"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "self-build",
+      "name": "Self-Build / Product Improvement",
+      "description": "Turn verified user feedback and product evidence into reviewed Life Manager improvements.",
+      "requirements": ["repository_access", "development_agent", "review_credentials", "public_guided_installer"],
+      "hosts": {
+        "local": {"availability": "setup_required", "command": null},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "mobile-apps",
+      "name": "Mobile App Loops",
+      "description": "Create, build, release, improve, market, measure, and reconcile mobile app products through one shared lifecycle.",
+      "requirements": ["mobile_opportunity"],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["node", "apps/life-manager/scripts/mobile-product-bootstrap.js", "--opportunity-file", "opportunity.json"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "capafy",
+      "name": "Capafy",
+      "description": "Operate Capafy's product, sales, outcome, and audience-growth workflows.",
+      "requirements": ["capafy_account", "publication_profile", "public_guided_installer"],
+      "hosts": {
+        "local": {"availability": "setup_required", "command": null},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    },
+    {
+      "id": "cfo",
+      "name": "CFO",
+      "description": "Reconcile verified revenue, balances, cash flow, payouts, and financial reports across earning loops.",
+      "requirements": [],
+      "hosts": {
+        "local": {"availability": "guided", "command": ["bash", "skills/cfo/run.sh"]},
+        "cloud": {"availability": "setup_required", "command": null}
+      }
+    }
+  ]
+}

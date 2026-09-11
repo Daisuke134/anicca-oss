@@ -19,7 +19,7 @@ def valid_event(**overrides):
         "finished_at": "2026-08-01T00:00:01Z",
         "status": "success",
         "dry_run": False,
-        "product_ids": ["aniccaios"],
+        "product_ids": ["anicca-ios"],
         "effects": [{
             "provider": "revenuecat",
             "action": "read_chart",
@@ -31,7 +31,7 @@ def valid_event(**overrides):
         }],
         "metrics": [{
             "name": "mrr",
-            "product_id": "aniccaios",
+            "product_id": "anicca-ios",
             "value": 20.73,
             "unit": "USD",
             "observed_at": "2026-07-30T23:59:59Z",

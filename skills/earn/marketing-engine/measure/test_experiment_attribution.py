@@ -109,10 +109,10 @@ class AttributionContractTest(unittest.TestCase):
                 observed_at="2026-08-02T02:20:00Z")
 
     def test_apple_campaign_is_aggregate_and_unscoped_stripe_is_unknown(self):
-        app_intent = {**fixture_intent(), "product_id": "aniccaios",
+        app_intent = {**fixture_intent(), "product_id": "anicca-ios",
                       "attribution_token": "ai_token"}
         business = {
-            "product_id": "aniccaios", "business_date": "2026-08-01",
+            "product_id": "anicca-ios", "business_date": "2026-08-01",
             "sources": {"app_store_connect": {"status": "available", "data": {
                 "campaigns": {"ai_token": {"first_time_downloads": 7, "installs": 7,
                                              "evidence_ref": "evidence/asc.json"}}

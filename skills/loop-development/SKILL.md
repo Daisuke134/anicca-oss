@@ -35,6 +35,31 @@ locked worktree -> focused test -> merged main -> immutable release -> lm-loop a
   `~/.../skills` source tree.
 - Credentials, state, logs, ledgers, receipts, sessions, browser profiles,
   evidence, and duplicate fences live outside Git and immutable releases.
+- Local/self-hosted and Cloud/hosted are host adapters for one Product Loop,
+  never separate business implementations. Share the loop ID, objective,
+  domain kernel, provider adapter, effect fence, receipt vocabulary, Telegram
+  report, and CFO event. Vary only supervisor, secret store, durable state and
+  browser transport.
+- Use this canonical ownership shape when adding or converging a loop:
+
+  ```text
+  loops/<loop>/                 objective, orchestration, durable cursor
+  skills/_shared/<domain>/      reusable domain kernel proven by 2+ consumers
+  runtime/                      lifecycle, agent runner, receipts, Telegram, CFO
+  providers/<provider>/         provider-specific effects and official readback
+  config/loop-registry.json     one lifecycle row and repository-relative entrypoint
+  ```
+
+  Existing repository paths may remain when moving them would be cosmetic; the
+  ownership boundary and shared contract are mandatory, not the directory spelling.
+- Telegram delivery must use the repository-owned shared Telegram transport.
+  Revenue, expense and balance facts must use the shared financial/CFO event
+  contract. External effects must produce a shared receipt plus provider-owned
+  readback. Do not implement these separately inside a loop.
+- OpenClaw, Hermes, another checkout, a worktree or a home-directory source tree
+  may not be a Local or Cloud runtime dependency. An external service such as
+  Postiz remains allowed only behind a repository-owned provider adapter; its
+  source code is not imported at runtime.
 - Add a loop with one registry row and one tested repository-relative
   entrypoint. Use `runtime/loop/entry_dispatch.py` when argv is required.
 - Model work goes through `runtime/agent-runner/agent_runner.py` with a task

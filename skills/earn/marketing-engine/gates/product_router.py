@@ -23,10 +23,22 @@ ACCOUNT_FIELDS = {
 RENDERER_FIELDS = {
     "schema_version", "renderer_id", "kind", "languages", "status",
 }
+PRODUCT_ID_ALIASES = {
+    "aniccaios": "anicca-ios",
+    "honne": "honne-ai",
+}
 
 
 class RoutingError(ValueError):
     pass
+
+
+def canonical_product_id(product_id: object) -> object:
+    """Map identifiers emitted by the predecessor runtime at read boundaries."""
+
+    if not isinstance(product_id, str):
+        return product_id
+    return PRODUCT_ID_ALIASES.get(product_id, product_id)
 
 
 def require(condition: bool, message: str) -> None:
@@ -137,8 +149,8 @@ def _validate_account(row: dict, path: pathlib.Path, products: dict, renderers: 
                     f"YouTube provider settings invalid: {path}")
     if "watercolor-monk" in row["allowed_renderer_ids"]:
         require(row["product_id"] == "ebook-ja", "watercolor renderer is restricted to ebook-ja")
-    if "omniavatar-monk" in row["allowed_renderer_ids"]:
-        require(row["product_id"] == "ebook-en", "monk renderer is restricted to ebook-en")
+    if "heygen-avatar-iv" in row["allowed_renderer_ids"]:
+        require(row["product_id"] == "ebook-en", "HeyGen renderer is restricted to ebook-en")
 
 
 def load_registry(engine: pathlib.Path) -> Registry:

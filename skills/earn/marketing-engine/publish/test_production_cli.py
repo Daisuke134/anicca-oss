@@ -48,7 +48,7 @@ def test_inactive_account_blocks_before_provider_call(tmp_path):
 def test_approved_route_uploads_once_through_fenced_operation(tmp_path):
     engine = tmp_path / "engine"
     shutil.copytree(ENGINE / "registry", engine / "registry")
-    account_path = engine / "registry/accounts/instagram.anicca_en.json"
+    account_path = engine / "registry/accounts/tiktok.monk_anicca.json"
     account = json.loads(account_path.read_text())
     account["status"] = "approved_active"
     account_path.write_text(json.dumps(account))
@@ -56,11 +56,11 @@ def test_approved_route_uploads_once_through_fenced_operation(tmp_path):
     asset.write_bytes(b"approved-video")
     intent = build_intent(
         experiment_id="experiment.123", creative_id="creative.123", product_id="ebook-en",
-        account_id="instagram.anicca_en", hook_id="hook.123",
-        renderer_id="omniavatar-monk", adapter="postiz", asset_path=asset,
+        account_id="tiktok.monk_anicca", hook_id="hook.123",
+        renderer_id="heygen-avatar-iv", adapter="postiz", asset_path=asset,
         caption="Read The Anicca Reset https://aniccaai.com/go/ee_testtoken ee_testtoken",
         attribution_token="ee_testtoken", scheduled_at="2026-08-02T01:00:00Z",
-        integration_id=account["publisher_integration_id"], platform="instagram",
+        integration_id=account["publisher_integration_id"], platform="tiktok",
         native_handle=account["native_handle"],
         provider_settings=account["publisher_settings"],
         visual_approval_id="visual.accepted.123")
@@ -70,8 +70,13 @@ def test_approved_route_uploads_once_through_fenced_operation(tmp_path):
     approvals.write_text(json.dumps({
         "approval_id": "visual.accepted.123", "status": "accepted",
         "asset_sha256": intent["asset_sha256"], "product_id": "ebook-en",
-        "account_id": "instagram.anicca_en"}) + "\n")
-    client = FakePostiz()
+        "account_id": "tiktok.monk_anicca"}) + "\n")
+    client = FakePostiz(integrations=[{
+        "id": account["publisher_integration_id"],
+        "identifier": account["publisher_provider"],
+        "profile": account["native_handle"],
+        "disabled": False,
+    }])
     first = run_postiz_operation(
         db_path=store.path, publish_key=intent["publish_key"], operation="upload",
         approvals_path=approvals, owner="worker", now="2026-08-02T00:00:00Z",

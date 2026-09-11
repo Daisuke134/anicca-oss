@@ -96,7 +96,7 @@ class VideoIntelTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "sources.json"
             data = registry_payload()
-            data["sources"][0]["product_ids"] = ["ebook-en", "aniccaios"]
+            data["sources"][0]["product_ids"] = ["ebook-en", "anicca-ios"]
             path.write_text(json.dumps(data), encoding="utf-8")
             with self.assertRaisesRegex(VideoIntelError, "one product"):
                 load_video_registry(path)

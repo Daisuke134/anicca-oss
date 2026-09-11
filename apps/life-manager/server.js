@@ -87,6 +87,7 @@ const { recordCost } = require("./lib/ledger.js");
 const { recordUsageEvent } = require("./lib/usage-event.js");
 const { createCloudCitizenStore } = require("./lib/cloud-citizen-store.js");
 const { provisionAndStartAgentEconomy } = require("./lib/agent-economy-cloud-provisioning.js");
+const { planProductOnboarding } = require("./lib/product-onboarding.js");
 const { enqueueJob } = require("./lib/runtime-job-store.js");
 const { createAgentEconomyControlStore, economyReply } = require("./lib/agent-economy-control.js");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder"); // apiKey unused by constructEvent
@@ -127,6 +128,10 @@ function getAgentEconomyControlStore() {
   return agentEconomyControlStore;
 }
 async function ensureCloudAgentEconomy(tenantId) {
+  const onboarding = planProductOnboarding({ host: "cloud", selected_loop_ids: ["agent-economy"] });
+  if (onboarding.loops[0].state !== "ready_to_start" || onboarding.loops[0].command?.[0] !== "/start") {
+    throw new Error("Agent Economy Cloud onboarding unavailable");
+  }
   getMoneyPrinterRuntimeStore();
   return provisionAndStartAgentEconomy({ tenantId }, {
     citizenStore: getCloudCitizenStore(),

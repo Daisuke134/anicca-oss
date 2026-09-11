@@ -47,7 +47,7 @@ def row(product: str, day: int, slot: int, parts: tuple[str, str, str, str]) -> 
         "declared_mutation": "action", "baseline": True,
         "campaign_id": f"baseline.{product}.d{day}.s{slot}",
         "creative_id": f"baseline.{product}.d{day}.s{slot}",
-        "renderer_id": "watercolor-monk" if ja else "omniavatar-monk",
+        "renderer_id": "watercolor-monk" if ja else "heygen-avatar-iv",
         "primary_metric": "contribution_margin", "maturity_window": "72h",
         "stop_rule": "three comparable mature losses", "body": body,
     }

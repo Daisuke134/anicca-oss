@@ -57,3 +57,28 @@ test("daemon-free install stays inside LIFE_MANAGER_HOME and preserves user env 
   assert.equal(existsSync(join(home, "Library", "LaunchAgents")), false);
   assert.equal(existsSync(join(home, ".anicca")), false);
 });
+
+test("default install with placeholder Telegram credentials does not register a daemon", () => {
+  const root = mkdtempSync(join(tmpdir(), "life-manager-install-gated-"));
+  const home = join(root, "home");
+  const runtime = join(root, "runtime");
+  const result = spawnSync("bash", [INSTALLER], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      LIFE_MANAGER_HOME: runtime,
+      LIFE_MANAGER_INSTALL_DAEMON: "1",
+      LIFE_MANAGER_INSTALL_DEPS: "0",
+      TELEGRAM_BOT_TOKEN: "",
+      TELEGRAM_CHAT_ID: "",
+      npm_config_cache: join(home, ".npm-cache"),
+    },
+    timeout: 120_000,
+  });
+  assert.equal(result.status, 0, `installer failed\n${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /setup required: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID/u);
+  assert.match(result.stdout, /daemon was not registered/u);
+  assert.equal(existsSync(join(home, "Library", "LaunchAgents")), false);
+});

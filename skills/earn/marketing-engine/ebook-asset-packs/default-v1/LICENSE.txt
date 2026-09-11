@@ -1,0 +1,8 @@
+CC0 1.0 Universal
+
+To the extent possible under law, the authors dedicate the starter manuscripts,
+caption templates, generated color motion clips, and their metadata in this pack
+to the public domain under https://creativecommons.org/publicdomain/zero/1.0/.
+
+This dedication does not cover user content, provider media, trademarks, account
+identities, credentials, or outputs supplied by third-party services.

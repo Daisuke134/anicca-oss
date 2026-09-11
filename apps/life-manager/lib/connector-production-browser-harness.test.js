@@ -1158,18 +1158,15 @@ test("Peatix form submit waits for the bounded same-event confirm navigation bef
   let href = "https://peatix.com/sales/event/5104728/form";
   let clicks = 0;
   const waitCalls = [];
+  let settleNavigation;
   const page = {
     url() { return href; },
     waitForURL(predicate, options) {
       waitCalls.push(options);
-      return new Promise((resolve, reject) => {
-        const started = Date.now();
-        const poll = () => {
-          if (predicate(href)) return resolve();
-          if (Date.now() - started > 100) return reject(new Error("confirm navigation timeout"));
-          setTimeout(poll, 1);
+      return new Promise((resolve) => {
+        settleNavigation = () => {
+          if (predicate(href)) resolve();
         };
-        poll();
       });
     },
   };
@@ -1188,7 +1185,8 @@ test("Peatix form submit waits for the bounded same-event confirm navigation bef
     },
     async operateControl() {
       clicks += 1;
-      setTimeout(() => { href = "https://peatix.com/sales/event/5104728/confirm"; }, 5);
+      href = "https://peatix.com/sales/event/5104728/confirm";
+      settleNavigation();
       return { status: "success" };
     },
     async resolveValue() { return null; },

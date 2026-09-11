@@ -17,7 +17,7 @@ class Gate10VerifierTest(unittest.TestCase):
         self.assertEqual(result["plans_by_product"], {"ebook-en": 1, "ebook-ja": 1})
         self.assertEqual(result["legacy_production_references"], 0)
         self.assertEqual(result["enabled_legacy_publishers"], 0)
-        self.assertEqual(result["app_candidate_counts"], {"aniccaios": 0, "honne": 0})
+        self.assertEqual(result["app_candidate_counts"], {"anicca-ios": 0, "honne-ai": 0})
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
   "runners": {
     "mine": {
       "command": ["{repo}/skills/earn/marketing-engine/bin/lm", "intel", "daily"],
-      "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
+      "product_ids": ["anicca-ios", "honne-ai", "ebook-ja", "ebook-en"],
       "quarantine_reason": null
     },
     "score": {
@@ -13,12 +13,12 @@
     },
     "metrics": {
       "command": ["{python}", "{repo}/skills/earn/marketing-engine/measure/business_outcomes.py"],
-      "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
+      "product_ids": ["anicca-ios", "honne-ai", "ebook-ja", "ebook-en"],
       "quarantine_reason": null
     },
     "dashboard": {
       "command": ["{repo}/marketing/engine/bin/marketing", "dashboard", "--root", "{home}/Library/Application Support/AniccaMarketing", "--output", "{home}/Library/Application Support/AniccaMarketing/dashboard/index.html"],
-      "product_ids": ["aniccaios", "honne", "ebook-ja", "ebook-en"],
+      "product_ids": ["anicca-ios", "honne-ai", "ebook-ja", "ebook-en"],
       "quarantine_reason": null
     },
     "self-improve": {

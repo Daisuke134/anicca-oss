@@ -8,11 +8,21 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
+import sys
 import tempfile
 
-
-FFMPEG = os.environ.get("FFMPEG_BIN", "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg")
+ENGINE = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ENGINE))
+from ebook_asset_pack import (  # noqa: E402
+    WATERCOLOR_CLIP_NAMES,
+    default_asset_root,
+    default_pack_root,
+    provision_default_pack,
+    resolve_ffmpeg,
+    resolve_ffprobe,
+)
 
 
 def ass_time(seconds: float) -> str:
@@ -36,30 +46,31 @@ def wrap_ja(value: str, width: int = 13) -> str:
     return r"\N".join(lines)
 
 
-def duration(path: pathlib.Path) -> float:
+def duration(path: pathlib.Path, ffprobe: str | None = None) -> float:
+    executable = ffprobe or resolve_ffprobe()
+    if not executable:
+        raise ValueError("ffprobe setup required")
     result = subprocess.run([
-        "ffprobe", "-v", "error", "-show_entries", "format=duration",
+        executable, "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", str(path)
     ], check=True, capture_output=True, text=True)
     return float(result.stdout.strip())
 
 
-def subtitle_filter(ass: pathlib.Path, phrases: list[str], segment: float, work: pathlib.Path) -> str:
-    filters = subprocess.run([FFMPEG, "-filters"], capture_output=True, text=True, check=True).stdout
-    if "subtitles" in filters:
-        path = str(ass).replace(":", r"\:").replace("'", r"\'")
-        return f"subtitles=filename='{path}'"
-    lines: list[str] = []
-    for index, phrase in enumerate(phrases):
-        textfile = work / f"caption-{index}.txt"
-        textfile.write_text(wrap_ja(phrase).replace(r"\N", "\n"), encoding="utf-8")
-        start, end = index * segment, (index + 1) * segment
-        lines.append(
-            "drawtext=fontfile='/System/Library/Fonts/Hiragino Sans GB.ttc'"
-            f":textfile='{textfile}':fontcolor=white:fontsize=50:borderw=3:bordercolor=0x141414"
-            f":x=(w-text_w)/2:y=h-180:enable='between(t,{start:.3f},{end:.3f})'"
-        )
-    return ",".join(lines)
+def subtitle_filter(ass: pathlib.Path) -> str:
+    path = str(ass).replace(":", r"\:").replace("'", r"\'")
+    return f"subtitles=filename='{path}'"
+
+
+def resolve_tts() -> str | None:
+    configured = str(os.environ.get("LIFE_MANAGER_SAY", "")).strip()
+    value = shutil.which(configured) if configured else shutil.which("say")
+    if not value:
+        return None
+    candidate = pathlib.Path(value)
+    if not candidate.is_absolute() or not candidate.is_file() or not os.access(candidate, os.X_OK):
+        return None
+    return str(candidate)
 
 
 def render(*, script: str, output: pathlib.Path, clips: list[pathlib.Path],
@@ -69,6 +80,21 @@ def render(*, script: str, output: pathlib.Path, clips: list[pathlib.Path],
         raise ValueError("all cached motion clips must exist")
     if caption_style_id != "ass.watercolor.safe-v1":
         raise ValueError("unsupported caption style")
+    ffmpeg = resolve_ffmpeg()
+    ffprobe = resolve_ffprobe()
+    say = resolve_tts()
+    missing = [name for name, value in (("ffmpeg", ffmpeg), ("ffprobe", ffprobe),
+                                        ("text_to_speech", say)) if not value]
+    if missing:
+        return {"renderer_id": "watercolor-monk", "state": "setup_required",
+                "missing": missing, "external_effects": []}
+    try:
+        filters = subprocess.run([ffmpeg, "-filters"], capture_output=True, text=True, check=True).stdout
+    except subprocess.CalledProcessError:
+        filters = ""
+    if "subtitles" not in filters:
+        return {"renderer_id": "watercolor-monk", "state": "setup_required",
+                "missing": ["ffmpeg_subtitles_filter"], "external_effects": []}
     output = pathlib.Path(output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="watercolor-preview-") as raw:
@@ -76,9 +102,9 @@ def render(*, script: str, output: pathlib.Path, clips: list[pathlib.Path],
         audio = work / "voice.aiff"
         ass = work / "captions.ass"
         listing = work / "clips.txt"
-        subprocess.run(["say", "-v", voice, "-r", str(voice_rate), "-o", str(audio), script],
+        subprocess.run([say, "-v", voice, "-r", str(voice_rate), "-o", str(audio), script],
                        check=True, capture_output=True)
-        audio_duration = duration(audio)
+        audio_duration = duration(audio, ffprobe)
         phrases = [piece.strip() for piece in script.replace("。", "。|").split("|") if piece.strip()]
         segment = audio_duration / len(phrases)
         events = []
@@ -101,9 +127,9 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
         while len(enough) * 5 < audio_duration + 5:
             enough.extend(clips)
         listing.write_text("".join(f"file '{path}'\n" for path in enough), encoding="utf-8")
-        video_filter = subtitle_filter(ass, phrases, segment, work)
+        video_filter = subtitle_filter(ass)
         command = [
-            FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
+            ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
             "-safe", "0", "-i", str(listing), "-i", str(audio),
             "-vf", video_filter, "-c:v", "libx264", "-preset", "veryfast",
             "-pix_fmt", "yuv420p", "-r", "30", "-c:a", "aac", "-b:a", "128k",
@@ -114,7 +140,7 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
             raise RuntimeError(f"ffmpeg render failed: {completed.stderr.strip()}")
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     return {"status": "rendered_preview", "output": str(output), "sha256": digest,
-            "duration": round(duration(output), 3), "external_cost_usd": 0,
+            "duration": round(duration(output, ffprobe), 3), "external_cost_usd": 0,
             "external_effects": [], "voice": voice, "voice_rate": voice_rate,
             "caption_style_id": caption_style_id}
 
@@ -123,11 +149,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--script", required=True)
+    parser.add_argument("--asset-root", type=pathlib.Path,
+                        help="Life Manager ebook asset base; the versioned pack is created below packs/default-v1")
     args = parser.parse_args()
-    state = pathlib.Path("/Users/anicca/anicca-monk-factory/state")
-    clips = [state / name for name in (
-        "jp_kling_clip_02.mp4", "jp_kling_clip_03.mp4", "jp_kling_clip_05.mp4",
-        "jp_kling_clip_07.mp4", "jp_kling_clip_08.mp4", "jp_kling_clip_10.mp4")]
+    base = args.asset_root or default_asset_root()
+    pack = default_pack_root(base)
+    setup = provision_default_pack(asset_root=pack)
+    if setup.get("state") == "setup_required":
+        print(json.dumps(setup, ensure_ascii=False, sort_keys=True))
+        return
+    clips_root = pack / "watercolor-monk/clips"
+    clips = [clips_root / name for name in WATERCOLOR_CLIP_NAMES]
     print(json.dumps(render(script=args.script, output=args.output, clips=clips),
                      ensure_ascii=False, sort_keys=True))
 

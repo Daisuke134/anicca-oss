@@ -40,8 +40,12 @@ if [ "$#" -gt 0 ]; then
       shift
       exec bash "$REPO_ROOT/skills/fundraiser-agent/runtime/install.sh" "$@"
       ;;
+    plan)
+      shift
+      exec node "$REPO_ROOT/apps/life-manager/scripts/product-onboarding-plan.js" --host local "$@"
+      ;;
     *)
-      echo "[install] unknown product '$1'; supported: coconala, connector, fundraiser, job-hunter" >&2
+      echo "[install] unknown product '$1'; supported: plan, coconala, connector, fundraiser, job-hunter" >&2
       exit 2
       ;;
   esac
@@ -191,6 +195,17 @@ echo
 
 # ─── 5. supervised, self-updating daemon (optional host mutation) ──────
 cyan "[5/6] daemon registration…"
+TELEGRAM_SETUP_REQUIRED=0
+ONBOARDING_PLAN="$("$(command -v node)" "$REPO_ROOT/apps/life-manager/scripts/product-onboarding-plan.js" \
+  --host local --loop agent-economy --env-file "$ANICCA_HOME/.env")"
+if [ "$(printf '%s' "$ONBOARDING_PLAN" | jq -r '.loops[0].state')" != "ready_to_start" ]; then
+  TELEGRAM_SETUP_REQUIRED=1
+  if [ "$LIFE_MANAGER_INSTALL_DAEMON" = "1" ]; then
+    LIFE_MANAGER_INSTALL_DAEMON=0
+    yellow "  • setup required: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in $ANICCA_HOME/.env"
+    yellow "  • daemon was not registered; re-run ./install.sh after adding valid private credentials"
+  fi
+fi
 if [ "$LIFE_MANAGER_INSTALL_DAEMON" = "1" ]; then
   LOOPS_KEEP_RELEASES=2 "$REPO_ROOT/bin/cut-loop-release.sh" HEAD >/dev/null
   RELEASE_ROOT="$(readlink "${LOOPS_ROOT:-$HOME/loops}/current")"
@@ -212,7 +227,11 @@ if [ "$LIFE_MANAGER_INSTALL_DAEMON" = "1" ]; then
     green "  ✓ Agent Economy owner installed and running (systemd user service)"
   fi
 else
-  green "  ✓ disabled (LIFE_MANAGER_INSTALL_DAEMON=0); no LaunchAgent/system service changed"
+  if [ "$TELEGRAM_SETUP_REQUIRED" = "0" ]; then
+    green "  ✓ disabled (LIFE_MANAGER_INSTALL_DAEMON=0); no LaunchAgent/system service changed"
+  else
+    yellow "  • no LaunchAgent/system service changed"
+  fi
 fi
 echo
 

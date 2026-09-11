@@ -22,7 +22,7 @@ import owner_report
 
 
 AS_OF = dt.datetime(2026, 8, 5, 12, 0, tzinfo=dt.timezone.utc)
-PRODUCTS = ("aniccaios", "honne", "ebook-ja", "ebook-en")
+PRODUCTS = ("anicca-ios", "honne-ai", "ebook-ja", "ebook-en")
 NATIVE_URL = "https://www.tiktok.com/@anicca/video/1000000000000000001"
 
 
@@ -30,7 +30,7 @@ FIXTURES: dict[str, list[dict]] = {
     "publication-identity.jsonl": [
         {
             "schema_version": 1,
-            "product_id": "aniccaios",
+            "product_id": "anicca-ios",
             "postiz_state": "PUBLISHED",
             "identity_status": "resolved",
             "postiz_post_id": "pub-anicca",
@@ -42,14 +42,14 @@ FIXTURES: dict[str, list[dict]] = {
         },
         {
             "schema_version": 1,
-            "product_id": "honne",
+            "product_id": "honne-ai",
             "postiz_state": "PUBLISHED",
             "identity_status": "resolved",
             "postiz_post_id": "pub-honne",
             "native_post_id": "1000000000000000002",
             "native_post_url": "https://www.tiktok.com/@honne/video/1000000000000000002",
             "publish_date": "2026-08-05T07:00:00Z",
-            "account_name": "honne",
+            "account_name": "honne-ai",
             "platform": "tiktok",
         },
         {
@@ -91,14 +91,14 @@ FIXTURES: dict[str, list[dict]] = {
     "publication-campaigns.jsonl": [
         {
             "schema_version": 1,
-            "product_id": "aniccaios",
+            "product_id": "anicca-ios",
             "publication_id": "pub-anicca",
             "campaign_token": "ca-anicca",
             "owned_url": "https://aniccaai.com/go/ca-anicca",
         },
         {
             "schema_version": 1,
-            "product_id": "honne",
+            "product_id": "honne-ai",
             "publication_id": "pub-honne",
             "campaign_token": "ca-honne",
             "owned_url": "https://aniccaai.com/go/ca-honne",
@@ -107,7 +107,7 @@ FIXTURES: dict[str, list[dict]] = {
     "post-metrics.jsonl": [
         {
             "schema_version": 1,
-            "product_id": "aniccaios",
+            "product_id": "anicca-ios",
             "publication_id": "pub-anicca",
             "postiz_id": "pub-anicca",
             "native_url": NATIVE_URL,
@@ -150,10 +150,10 @@ FIXTURES: dict[str, list[dict]] = {
     "business-outcomes.jsonl": [
         {
             "schema_version": 1,
-            "product_id": "aniccaios",
+            "product_id": "anicca-ios",
             "business_date": "2026-08-04",
             "observed_at": "2026-08-05T08:00:00Z",
-            "snapshot_id": "aniccaios:2026-08-04",
+            "snapshot_id": "anicca-ios:2026-08-04",
             "sources": {
                 "revenuecat": {
                     "status": "available",
@@ -174,7 +174,7 @@ FIXTURES: dict[str, list[dict]] = {
         },
         {
             "schema_version": 1,
-            "product_id": "honne",
+            "product_id": "honne-ai",
             "business_date": "2026-08-04",
             "observed_at": "2026-08-05T08:00:00Z",
             "snapshot_id": "honne:2026-08-04",
@@ -304,11 +304,85 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertTrue(events, f"no {kind} event for {product_id}")
         return events[0]
 
+    def test_legacy_rows_remain_visible_to_canonical_product_reports(self):
+        rows = [
+            (0, {"product_id": "aniccaios", "value": "old"}),
+            (1, {"product_id": "anicca-ios", "value": "new"}),
+            (2, {"product_id": "honne", "value": "other"}),
+        ]
+        scoped = owner_report._scoped(rows, "anicca-ios")
+        self.assertEqual([row["value"] for _, row in scoped], ["old", "new"])
+
+    def test_legacy_daily_delivery_replays_without_sending_again(self):
+        current = self.event("product_daily", "anicca-ios")
+        legacy = {
+            **current,
+            "product_id": "aniccaios",
+            "message_key": current["message_key"].replace("anicca-ios", "aniccaios"),
+        }
+        (self.root / "owner-reports.jsonl").write_text(json.dumps(legacy) + "\n")
+        delivery = {
+            "schema_version": owner_report.DELIVERY_SCHEMA_VERSION,
+            "message_key": legacy["message_key"],
+            "status": "delivered",
+            "message_ids": [77],
+            "receipt": {"status": "delivered", "message_ids": [77]},
+        }
+        (self.root / "owner-report-deliveries.jsonl").write_text(
+            json.dumps(delivery) + "\n"
+        )
+
+        replay = self.event("product_daily", "anicca-ios")
+        self.assertEqual(replay["message_key"], legacy["message_key"])
+        self.assertEqual(replay["product_id"], "anicca-ios")
+        sent = []
+        receipt = owner_report.deliver(
+            replay,
+            owner_report.OwnerReportStore(
+                self.root / "owner-reports.jsonl",
+                self.root / "owner-report-deliveries.jsonl",
+            ),
+            lambda _text: sent.append(True) or {"status": "delivered", "message_ids": [88]},
+        )
+        self.assertEqual(sent, [])
+        self.assertEqual(receipt["message_ids"], [77])
+
+    def test_no_snapshot_daily_key_advances_each_day(self):
+        (self.root / "business-outcomes.jsonl").unlink()
+        day_one = dt.datetime(2026, 9, 10, 12, 0, tzinfo=dt.timezone.utc)
+        day_two = day_one + dt.timedelta(days=1)
+        store = owner_report.OwnerReportStore(
+            self.root / "owner-reports.jsonl",
+            self.root / "owner-report-deliveries.jsonl",
+        )
+        sent = []
+
+        first = owner_report.build_events(
+            self.root, "product_daily", product_id="anicca-ios", as_of=day_one
+        )[0]
+        owner_report.deliver(
+            first, store, lambda _text: sent.append("day1") or {
+                "status": "delivered", "message_ids": [1]
+            }
+        )
+        second = owner_report.build_events(
+            self.root, "product_daily", product_id="anicca-ios", as_of=day_two
+        )[0]
+        receipt = owner_report.deliver(
+            second, store, lambda _text: sent.append("day2") or {
+                "status": "delivered", "message_ids": [2]
+            }
+        )
+
+        self.assertNotEqual(first["message_key"], second["message_key"])
+        self.assertEqual(sent, ["day1", "day2"])
+        self.assertEqual(receipt["message_ids"], [2])
+
     def test_action_names_product_and_contains_exact_native_url(self):
-        event = self.event("action", "aniccaios")
+        event = self.event("action", "anicca-ios")
         text = owner_report.render_japanese(event)
-        self.assertEqual(event["product_id"], "aniccaios")
-        self.assertIn("aniccaios", text)
+        self.assertEqual(event["product_id"], "anicca-ios")
+        self.assertIn("anicca-ios", text)
         self.assertIn(NATIVE_URL, text)
 
     def test_action_replay_is_stable_when_attribution_snapshot_appended(self):
@@ -351,7 +425,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         native_id = "1000000000000000099"
         attribution = {
             "schema_version": "marketing.experiment-attribution.v1",
-            "product_id": "honne",
+            "product_id": "honne-ai",
             "experiment_id": "experiment.honne.action-only",
             "attribution_id": "attribution.honne.action-only",
             "native_post_url": f"https://www.tiktok.com/@honne/video/{native_id}",
@@ -366,7 +440,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         first = next(
             event
             for event in owner_report.build_events(
-                self.root, "action", product_id="honne", as_of=AS_OF
+                self.root, "action", product_id="honne-ai", as_of=AS_OF
             )
             if event["facts"]["native_post_id"] == native_id
         )
@@ -383,14 +457,14 @@ class OwnerReportRendererTest(unittest.TestCase):
 
         identity = {
             "schema_version": 1,
-            "product_id": "honne",
+            "product_id": "honne-ai",
             "postiz_state": "PUBLISHED",
             "identity_status": "resolved",
             "postiz_post_id": "pub-honne-action-only",
             "native_post_id": native_id,
             "native_post_url": attribution["native_post_url"],
             "publish_date": "2026-08-04T05:00:00Z",
-            "account_name": "honne",
+            "account_name": "honne-ai",
             "platform": "tiktok",
         }
         with (self.root / "publication-identity.jsonl").open("a", encoding="utf-8") as handle:
@@ -399,7 +473,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         replay = next(
             event
             for event in owner_report.build_events(
-                self.root, "action", product_id="honne", as_of=AS_OF
+                self.root, "action", product_id="honne-ai", as_of=AS_OF
             )
             if event["facts"]["native_post_id"] == native_id
         )
@@ -410,7 +484,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertEqual(calls, [1])
 
     def test_checkpoint_uses_exact_metric_values_and_natural_null_reason(self):
-        measured = self.event("checkpoint", "aniccaios")
+        measured = self.event("checkpoint", "anicca-ios")
         measured_text = owner_report.render_japanese(measured)
         self.assertIn("42", measured_text)
         self.assertIn("50", measured_text)
@@ -486,7 +560,7 @@ class OwnerReportRendererTest(unittest.TestCase):
             any(
                 candidate["facts"]["publication_id"] == "postiz:post-1"
                 for candidate in owner_report.build_events(
-                    self.root, "checkpoint", product_id="aniccaios", as_of=AS_OF
+                    self.root, "checkpoint", product_id="anicca-ios", as_of=AS_OF
                 )
             )
         )
@@ -514,8 +588,8 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertEqual(calls, [1])
 
     def test_product_daily_never_borrows_another_products_money(self):
-        anicca = owner_report.render_japanese(self.event("product_daily", "aniccaios"))
-        honne = owner_report.render_japanese(self.event("product_daily", "honne"))
+        anicca = owner_report.render_japanese(self.event("product_daily", "anicca-ios"))
+        honne = owner_report.render_japanese(self.event("product_daily", "honne-ai"))
         ebook = owner_report.render_japanese(self.event("product_daily", "ebook-ja"))
         self.assertIn("20.73", anicca)
         self.assertNotIn("0.0", anicca)
@@ -887,9 +961,9 @@ class OwnerReportRendererTest(unittest.TestCase):
             self.assertEqual(text.count(product_id), 1, product_id)
 
     def test_rendered_numbers_equal_literal_fixture_facts(self):
-        anicca = owner_report.render_japanese(self.event("product_daily", "aniccaios"))
-        honne = owner_report.render_japanese(self.event("product_daily", "honne"))
-        checkpoint = owner_report.render_japanese(self.event("checkpoint", "aniccaios"))
+        anicca = owner_report.render_japanese(self.event("product_daily", "anicca-ios"))
+        honne = owner_report.render_japanese(self.event("product_daily", "honne-ai"))
+        checkpoint = owner_report.render_japanese(self.event("checkpoint", "anicca-ios"))
         self.assertIn("20.73", anicca)
         self.assertIn("0.0", honne)
         self.assertIn("42", checkpoint)
@@ -901,11 +975,11 @@ class OwnerReportRendererTest(unittest.TestCase):
         (legacy / "daily-metrics.jsonl").write_text(
             '{"revenuecat":{"mrr":999999.0}}\n', encoding="utf-8"
         )
-        text = owner_report.render_japanese(self.event("product_daily", "aniccaios"))
+        text = owner_report.render_japanese(self.event("product_daily", "anicca-ios"))
         self.assertNotIn("999999", text)
 
     def test_equivalent_replay_records_and_sends_once(self):
-        event = self.event("product_daily", "aniccaios")
+        event = self.event("product_daily", "anicca-ios")
         report_path, delivery_path = self.root / "owner-reports.jsonl", self.root / "owner-report-deliveries.jsonl"
         store = owner_report.OwnerReportStore(report_path, delivery_path)
         receipts = []
@@ -921,7 +995,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertEqual(receipts, [1])
 
     def test_conflicting_same_message_key_fails_closed(self):
-        event = self.event("product_daily", "aniccaios")
+        event = self.event("product_daily", "anicca-ios")
         store = owner_report.OwnerReportStore(self.root / "reports.jsonl", self.root / "deliveries.jsonl")
         store.record(event)
         conflict = json.loads(json.dumps(event))
@@ -930,7 +1004,7 @@ class OwnerReportRendererTest(unittest.TestCase):
             store.record(conflict)
 
     def test_delivery_requires_real_message_ids(self):
-        event = self.event("product_daily", "aniccaios")
+        event = self.event("product_daily", "anicca-ios")
         store = owner_report.OwnerReportStore(self.root / "reports.jsonl", self.root / "deliveries.jsonl")
         receipt = owner_report.deliver(
             event, store, lambda _text: {"status": "delivered", "message_ids": []}
@@ -950,7 +1024,7 @@ class OwnerReportRendererTest(unittest.TestCase):
                     "--kind",
                     "product_daily",
                     "--product-id",
-                    "aniccaios",
+                    "anicca-ios",
                     "--state-root",
                     str(self.root),
                     "--as-of",
@@ -964,10 +1038,10 @@ class OwnerReportRendererTest(unittest.TestCase):
         client.from_env.assert_not_called()
 
     def test_replay_different_as_of_keeps_semantic_key_and_sends_once(self):
-        first_event = self.event("product_daily", "aniccaios")
+        first_event = self.event("product_daily", "anicca-ios")
         later = AS_OF + dt.timedelta(days=1)
         second_event = owner_report.build_events(
-            self.root, "product_daily", product_id="aniccaios", as_of=later
+            self.root, "product_daily", product_id="anicca-ios", as_of=later
         )[0]
         self.assertNotEqual(first_event["as_of"], second_event["as_of"])
         store = owner_report.OwnerReportStore(self.root / "reports.jsonl", self.root / "deliveries.jsonl")
@@ -984,7 +1058,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
 
     def test_daily_legacy_facts_without_money_buckets_replay_after_upgrade(self):
-        generated = self.event("product_daily", "aniccaios")
+        generated = self.event("product_daily", "anicca-ios")
         legacy = json.loads(json.dumps(generated))
         legacy["facts"].pop("money_buckets", None)
         store = owner_report.OwnerReportStore(
@@ -1001,7 +1075,7 @@ class OwnerReportRendererTest(unittest.TestCase):
             calls.append(1)
             return {"status": "delivered", "message_ids": [502]}
 
-        replay = self.event("product_daily", "aniccaios")
+        replay = self.event("product_daily", "anicca-ios")
         self.assertNotIn("money_buckets", replay["facts"])
         self.assertEqual(replay, legacy)
         receipt = owner_report.deliver(replay, store, sender)
@@ -1114,7 +1188,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertNotIn("売上の確認値は3 USD", text)
 
     def test_invalid_delivered_receipt_is_durable_unknown_and_not_retried(self):
-        event = self.event("product_daily", "aniccaios")
+        event = self.event("product_daily", "anicca-ios")
         store = owner_report.OwnerReportStore(self.root / "reports.jsonl", self.root / "deliveries.jsonl")
         calls = []
 
@@ -1130,7 +1204,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertEqual(store.delivery_for(event["message_key"])["status"], "delivery_unknown")
 
     def test_concurrent_delivery_claim_sends_at_most_once(self):
-        event = self.event("product_daily", "aniccaios")
+        event = self.event("product_daily", "anicca-ios")
         store = owner_report.OwnerReportStore(self.root / "reports.jsonl", self.root / "deliveries.jsonl")
         calls = []
         start = threading.Barrier(2)
@@ -1154,7 +1228,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as path:
             root = Path(path)
             events = owner_report.build_events(
-                root, "product_daily", product_id="honne", as_of=AS_OF
+                root, "product_daily", product_id="honne-ai", as_of=AS_OF
             )
         self.assertEqual(len(events), 1)
         self.assertIsNone(events[0]["facts"]["mrr"])
@@ -1162,7 +1236,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertIn("取得できませんでした", owner_report.render_japanese(events[0]))
 
     def test_named_reasons_are_natural_in_owner_facing_prose(self):
-        checkpoint = self.event("checkpoint", "aniccaios")
+        checkpoint = self.event("checkpoint", "anicca-ios")
         checkpoint["facts"]["checkpoint_status"] = "unavailable"
         checkpoint["facts"]["views"] = None
         checkpoint["facts"]["reason"] = "social_checkpoint_not_mature"
@@ -1183,7 +1257,7 @@ class OwnerReportRendererTest(unittest.TestCase):
         self.assertNotIn("missing_project_read_credential", incident_body)
 
     def test_empty_evidence_refs_fail_closed(self):
-        event = self.event("product_daily", "aniccaios")
+        event = self.event("product_daily", "anicca-ios")
         event["evidence_refs"] = []
         with self.assertRaises(owner_report.OwnerReportError):
             owner_report.render_japanese(event)

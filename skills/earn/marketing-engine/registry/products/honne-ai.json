@@ -1,6 +1,6 @@
 {
   "schema_version": "marketing.product.v1",
-  "product_id": "honne",
+  "product_id": "honne-ai",
   "type": "ios_app",
   "live_status": "app_store_live",
   "destination_url": "https://apps.apple.com/jp/app/id6759667221",

@@ -37,7 +37,7 @@ receiptのない試行を「完了」と報告しません。
 | 8 | Job Hunter | `job-search-daily`, `job-search-browser`, `job-search-inbox` | 適合求人の発見・応募と確認・返信mailの照合 |
 | 9 | Fundraiser | `fundraiser` | accelerator、fellowship、grant、投資家受付を発見し条件を満たせば応募 |
 | 10 | Connector | `life-manager-connector-native` | event発見・応募・登録確認・Calendar/Telegram receipt報告 |
-| 11 | Life Manager Cloud | Railway上の`apps/life-manager` | 常時稼働web、Telegram、reminder、schedule、hosted-agent面 |
+| 11 | Self-Build / Product Improvement | `life-manager-selfbuild`、`life-manager-dev` | 検証済みのuser feedbackとproduct evidenceから、review済みのLife Manager改善を作る。Cloudは別loopではなくloopを動かすhost。 |
 | 12 | Mobile App Loops | Anicca iOS、Honne、その他の`life-manager-anicca-*` / `life-manager-honne-*` product job | product accountとappの作成、build・署名・公開、継続改善、Postizまたはnative provider adapterによるmarketing配信、成果計測、検証済み収益のCFO連携までを一つのmobile-app lifecycleとして運用する。現時点では共通のmarketing・配信・計測・receipt経路をrepo内で所有し、app作成・署名・release・iterationは同じE2E loopへ統合中。 |
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Capafyという別productの販売・outcome・audience-growth workflowを運用 |
 | 14 | CFO | `life-manager-cfo-hourly` | 全earning loopのverified revenue、cash flow、残高、payout、財務報告を照合 |
@@ -56,12 +56,53 @@ receiptのない試行を「完了」と報告しません。
 | Job Hunter | resume、希望条件、Gmail/Telegram、公式site login | `./install.sh job-hunter` |
 | Fundraiser | applicant profile、Telegram、必要時のprovider login | `./install.sh fundraiser` |
 | Connector | Calendar/Telegram、必要時のevent provider login | `./install.sh connector` |
-| Life Manager Cloud | Telegram `/start`後、要求されたaccountを接続 | [Telegramで開始](https://t.me/LifeManagerBotbot?start=lp) |
-| Mobile App Loops | product manifestと、選択laneのPostiz/native・App Store Connect・RevenueCat credential | 共通registry jobは存在、完全なapp-factory guided installerは未完成 |
+| Self-Build / Product Improvement | repository accessと設定済みdevelopment agent・review credential | managed registry jobは存在、public guided installerは未完成 |
+| Mobile App Loops | 既存appは不要。生成したproductが各stageへ到達した時だけApple/Postiz/RevenueCatを接続 | 共通marketing jobは存在、zero-to-App-Store app-factory installerは未完成 |
 | Capafy | Capafy account/API credentialとpublication profile | registry jobは存在、public guided installerは未完成 |
 | CFO | ユーザーが接続するfinancial sourceだけのcredential | 1回の有限passは`bash skills/cfo/run.sh` |
 
+日本語・英語のe-book productは、repo所有のscript ledger、publication intent、Postiz
+adapter、receipt、attribution、CFO、Telegram経路を共有します。日本語creativeは
+`watercolor-monk`、英語Anicca Monk creativeはchecked-inされた`heygen-avatar-iv`
+adapterから公式HeyGen CLIを使います。OmniAvatarやrepo外checkoutのsource codeは
+実行しません。privateなHeyGen avatar ID・voice ID・CLI loginが未設定のclean hostでは、
+provider effectを起こさず明示的な`setup_required` receiptを返します。これらの値と
+HeyGen sessionはhostまたはtenantのprivate stateであり、Gitにはcommitしません。
+`python3 skills/earn/marketing-engine/ebook_asset_pack.py`を実行すると、checked-inされた
+CC0 `default-v1` starter packを準備できます。versioned sourceのhashを検証し、日本語・英語の
+starter manuscriptとcaption templateをcopyし、6本の中立な縦型motion clipをFFmpegでlocal生成して、
+旧素材やuser assetを上書きせず`ebook-assets/packs/default-v1`以下へ全output hashを記録します。
+日本語runnerは初回render時にこれを自動実行します。FFmpeg、FFprobe、subtitle filter、
+設定済みTTS commandのいずれかがない場合は、render前に`setup_required`を返します。
+
 Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware lifecycleを共有します。product manifestがAnicca iOS、Honne、その他のappを選び、共通serviceが対応済みstageを実行し、計測、収益、CFO、Telegramへ同じreceiptを残します。Postizはrepo所有adapterの先にある外部配信providerであり、repo外source code依存ではありません。account/app作成とbuild・署名・releaseは、共通orchestrationとguided installerが完成するまで明示的に`setup_required`です。
+
+現在の18件のpublication jobは、runner開始前に
+[`apps/life-manager/config/mobile-products.json`](apps/life-manager/config/mobile-products.json)
+からproductを解決します。このportable registryにはcredentialを含まないHTTPS Git location、任意のsubdirectory、
+固定revision、正直な`public` / `private` access labelだけを置き、ローカルpathやcredentialは置きません。
+Aniccaは匿名取得可能です。現在のHonne sourceはprivateで、build/release stageだけがprivate Git accessを必要とします。
+publication jobはidentityを検証するだけでsourceをfetch/buildしないため、open-sourceのpublication loopはそのprivate
+sourceへ依存しません。新規ユーザーのappはrepo所有starter packから生成します。
+
+Mobile Appの既定体験は、appもrepositoryも持っていない状態から始まります。Life Managerがproduct opportunityを選定し、共通factoryと再配布可能なstarter assetから新しいapp workspaceを作り、build・提出・改善・marketingまで進めます。既存appの指定は任意のimportであり、onboarding要件ではありません。
+checked-inされた`ios-swiftui-v1` packは、生成productのidentityからproduct固有のApp Iconと
+App Store screenshot PNGを決定的に生成し、そのhashを同じproduct workspaceへ記録して、競合outputを
+拒否します。ユーザーは初期artworkを用意する必要がありません。任意のcustom assetは、後続のproduct所有
+iterationでのみ生成assetを置き換えます。
+Life Manager onboardingは検証済みopportunityを一つのrepository所有finite bootstrapへ渡します。
+bootstrapはProduct Registryを確認し、同じstarter source/assetsを生成してreplay-safeなlifecycle
+receiptを書いた後、新規productを登録します。開発・復旧時は同じ入口を直接使えます。
+
+```bash
+node apps/life-manager/scripts/mobile-product-bootstrap.js --opportunity-file opportunity.json
+```
+
+XcodeGen、Xcode、Apple team、App Store Connect capabilityが不足する場合、receiptは不足項目を列挙した
+`setup_required`になります。揃っている場合はportableなbuild/test commandを持つ`ready_to_build`になります。
+このbootstrapはApp Store提出、Postiz投稿、収益eventを実行済みとは主張せず、実送信もしません。
+
+Local/self-hostedとCloud/hostedは同じ14 Product Loopsを動かす二つの方法であり、別のProduct Loopではありません。Localは選択したloopをuserのdeviceで動かし、private stateもそこで保持します。CloudはLife Managerのhosted infrastructure上でtenantごとに動かします。両方が同じloop実装、provider adapter、receipt、CFO event、Telegram体験を使い、異なるのはscheduler、secret保存、durable state、browser transportだけです。
 
 ```mermaid
 flowchart LR
@@ -135,6 +176,20 @@ default installerが14本すべてを黙って開始することはありませ�
 browser loginが未設定のloopは`setup_required`のままです。guided installerが現在あるのは
 `./install.sh coconala`、`connector`、`fundraiser`、`job-hunter`で、その他のloopの現在の境界は上の
 14-loop catalogに記載します。
+
+選んだloopだけの副作用ゼロplanを先に確認できます。このplanはCloud `/start`も読む
+[`apps/life-manager/config/product-loop-catalog.json`](apps/life-manager/config/product-loop-catalog.json)を使い、
+Local user自身のprivateなTelegram bot credentialを含む不足条件を表示するだけで
+何も開始しません。
+
+```bash
+./install.sh plan --loop agent-economy
+./install.sh plan --loop connector
+```
+
+Local setup画面にも「全部有効化」はありません。必要なsetup完了後、表示された個別commandからだけ開始します。
+Cloud `/start`が現在自動provisionするのはrepo所有のAgent Economy citizenだけです。その他のCloud loopは、
+tenant-scoped host adapterとprovider setupが揃うまで明示的に`setup_required`です。
 
 現在のproduction Mac runtimeはDockerではなく、pushed `main`から作るimmutable releaseを
 `bin/lm-loop`とmacOS `launchd`で直接実行します。state、credential、log、browser profile、receiptは
