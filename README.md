@@ -46,6 +46,28 @@ implement and support these 14 loops.
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Operates Capafy's separate product, sales, outcome, and audience-growth workflows |
 | 14 | CFO | `life-manager-cfo-hourly` | Reconciles verified revenue, cash flow, balances, payouts, and financial reports across the earning loops |
 
+### Setup and start truth
+
+| Product loop | User setup | Current start path |
+|---|---|---|
+| Coconala Gig | Coconala login, work profile, Telegram | `./install.sh coconala` |
+| Lancers Gig | Lancers login and work profile | Managed production owner; public guided installer pending |
+| CrowdWorks Gig | CrowdWorks login and work profile | Managed production owner; public guided installer pending |
+| Writer | Publisher accounts and browser/API credentials | Registry jobs; public guided installer pending |
+| Affiliate | Affiliate-provider account and browser/API credentials | Registry jobs; public guided installer pending |
+| Investment / Alpaca | Alpaca API credentials and explicit `paper`, `shadow`, or `live` mode | `LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py` |
+| Agent Economy | No owner wallet; optional provider credentials for earning | `./install.sh` |
+| Job Hunter | Resume, preferences, Gmail/Telegram, official site logins | `./install.sh job-hunter` |
+| Fundraiser | Applicant profile and Telegram; provider login when required | `./install.sh fundraiser` |
+| Connector | Calendar/Telegram and event-provider login when required | `./install.sh connector` |
+| Life Manager Cloud | Telegram `/start`, then requested account connections | [Start in Telegram](https://t.me/LifeManagerBotbot?start=lp) |
+| Mobile App Loops | Product manifest plus Postiz/native, App Store Connect and RevenueCat credentials for the selected lane | Shared registry jobs exist; full app-factory guided installer pending |
+| Capafy | Capafy account/API credential and publication profile | Registry jobs; public guided installer pending |
+| CFO | Credentials for only the financial sources the user connects | `bash skills/cfo/run.sh` for one finite pass |
+
+`setup_required` is a healthy waiting state, not a completed effect and not a crash. Never use `start all` as an
+onboarding shortcut: install and start only the loops whose provider setup and effect authority are complete.
+
 **Money Printer is not another loop.** It is the umbrella for all revenue-producing
 loops. The `/money-printer` control room shows their shared opportunity-to-receipt
 system; it does not compete with them as a fifteenth loop.

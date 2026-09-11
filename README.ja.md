@@ -40,6 +40,28 @@ receiptのない試行を「完了」と報告しません。
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Capafyという別productの販売・outcome・audience-growth workflowを運用 |
 | 14 | CFO | `life-manager-cfo-hourly` | 全earning loopのverified revenue、cash flow、残高、payout、財務報告を照合 |
 
+### setupと開始方法の現在地
+
+| Product loop | ユーザーが設定するもの | 現在の開始入口 |
+|---|---|---|
+| Coconala Gig | Coconala login、work profile、Telegram | `./install.sh coconala` |
+| Lancers Gig | Lancers login、work profile | production ownerは存在、public guided installerは未完成 |
+| CrowdWorks Gig | CrowdWorks login、work profile | production ownerは存在、public guided installerは未完成 |
+| Writer | publisher accountとbrowser/API credential | registry jobは存在、public guided installerは未完成 |
+| Affiliate | affiliate provider accountとbrowser/API credential | registry jobは存在、public guided installerは未完成 |
+| Investment / Alpaca | Alpaca API credentialと`paper`・`shadow`・`live`の明示mode | `LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py` |
+| Agent Economy | owner walletは不要。earning provider credentialは任意 | `./install.sh` |
+| Job Hunter | resume、希望条件、Gmail/Telegram、公式site login | `./install.sh job-hunter` |
+| Fundraiser | applicant profile、Telegram、必要時のprovider login | `./install.sh fundraiser` |
+| Connector | Calendar/Telegram、必要時のevent provider login | `./install.sh connector` |
+| Life Manager Cloud | Telegram `/start`後、要求されたaccountを接続 | [Telegramで開始](https://t.me/LifeManagerBotbot?start=lp) |
+| Mobile App Loops | product manifestと、選択laneのPostiz/native・App Store Connect・RevenueCat credential | 共通registry jobは存在、完全なapp-factory guided installerは未完成 |
+| Capafy | Capafy account/API credentialとpublication profile | registry jobは存在、public guided installerは未完成 |
+| CFO | ユーザーが接続するfinancial sourceだけのcredential | 1回の有限passは`bash skills/cfo/run.sh` |
+
+`setup_required`は正常な待機状態であり、effect完了でもcrashでもありません。onboardingで`start all`を
+近道として使わず、provider setupとeffect authorityが完了したloopだけをinstall/startします。
+
 **Money Printerは追加loopではありません。** すべての収益loopを束ねるumbrellaです。
 `/money-printer`は共通のopportunity-to-receipt systemを表示するcontrol roomであり、15本目のloopではありません。実行IDの正本は
 [`config/loop-registry.json`](config/loop-registry.json)です。
