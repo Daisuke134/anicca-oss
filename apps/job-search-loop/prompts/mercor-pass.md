@@ -36,13 +36,15 @@ Pass order:
    Japan/Japanese eligibility, software/AI/automation overlap, compensation, and absence of
    contradictory requirements. Assign every inspected listing `ranking_band` (`high`, `medium`,
    or `low`) and `ranking_evidence` citing the posting text and matching verified facts. Inspect
-   high before medium before low. A weak fit stays later in the queue; it is not a rejection.
-   Treat posting qualifications, years, degrees and preferred experience as ranking
-   signals, not pre-application rejection gates. Apply maximally and let the provider
+   high before medium before low. Missing or preferred evidence stays medium and later in the
+   queue; it is not a rejection. A material contradiction with a required language, location,
+   domain specialization, or seniority makes the candidate low and `no_reasonable_shot`.
+   Treat preferred qualifications, years, degrees and experience as ranking signals rather
+   than automatic rejection gates. Apply maximally among reasonable-shot roles and let the provider
    or hiring party decide. Never fabricate a required form answer: answer truthfully
    from `shared_apply_context.verified_facts`; if the form accepts that truthful answer,
-   continue and submit even when the posting says the candidate does not meet a stated
-   qualification. If a required control cannot be answered truthfully, record the exact
+   continue and submit when missing evidence is only preferred or non-material. If a required
+   control cannot be answered truthfully, record the exact
    control and continue to the next distinct listing. Submit every ready distinct listing
    encountered within the bounded candidate scan. A listing is ready for submission only when the
    live application page shows every required step complete (`N of N` and `100%`),
@@ -88,10 +90,10 @@ Pass order:
    Follow `shared_apply_context.policy.ranking.band_definitions`: general software or AI
    overlap alone never makes a senior/specialist role high when the posting contains a
    material seniority, language, location, or domain contradiction. For a low-band
-   candidate with a person-bound step, do not notify the operator; record
-   `low_fit_person_bound_skipped` and continue. This does not reject ready low-band
-   applications that need no person: submit those truthfully after higher expected-value
-   candidates within the bounded scan.
+   candidate, do not notify the operator or submit it; record `no_reasonable_shot` (and
+   `low_fit_person_bound_skipped` when it has a person-bound step), then continue. A low-band
+   candidate is not submission-eligible. Do not downgrade a credible role to low merely because
+   a preferred qualification lacks evidence; that remains medium and eligible.
    Never open or enter a person-bound step. The application summary is sufficient evidence when it names the
    exact remaining step and shows it as required or `Not done`.
    Do not click an interview or assessment step, `Test screenshare`, camera, microphone, recording, or full-screen
