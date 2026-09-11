@@ -14,6 +14,7 @@ DAILY="$ROOT/earn/capafy-marketing/capafy-ig-marketing-daily.sh"
 WARM="$ROOT/earn/capafy-marketing/warm_jitter.sh"
 GOAL="$ROOT/earn/capafy-marketing/capafy-goal-monitor.sh"
 TMP="$(mktemp -d)"
+TEST_GMAIL_DOMAIN="gmail.com"
 trap 'rm -rf "$TMP"' EXIT
 
 for required_file in "$HELPER" "$ENGINE_STATE" "$ENGINE_PROMPT"; do
@@ -149,10 +150,10 @@ RENDERED_PROMPT="$(
   IG_PROVISION_PORT="9339" \
   IG_PROVISION_CONTEXT_ID="test-dedicated" \
   LIFE_MANAGER_REPO="$(git -C "$ROOT" rev-parse --show-toplevel)" \
-  LIFE_MANAGER_GMAIL_ACCOUNT="owner@gmail.com" \
+  LIFE_MANAGER_GMAIL_ACCOUNT="owner@$TEST_GMAIL_DOMAIN" \
   render_ig_provision_prompt
 )"
-for needle in "$TMP/shared-state.json" 'testhandle' 'test-instance' 'owner+testtag<random-tag>@gmail.com' 'test bio, NO link' 'test isolated browser context' '"status":"warming"' '"session_owner":"browser"' '"started_warming":"<today YYYY-MM-DD>"'; do
+for needle in "$TMP/shared-state.json" 'testhandle' 'test-instance' "owner+testtag<random-tag>@$TEST_GMAIL_DOMAIN" 'test bio, NO link' 'test isolated browser context' '"status":"warming"' '"session_owner":"browser"' '"started_warming":"<today YYYY-MM-DD>"'; do
   grep -Fq "$needle" <<<"$RENDERED_PROMPT" \
     && ok "shared prompt renders parameter: $needle" \
     || fail "shared prompt omitted parameter: $needle"
