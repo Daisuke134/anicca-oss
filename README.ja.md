@@ -68,6 +68,12 @@ adapterから公式HeyGen CLIを使います。OmniAvatarやrepo外checkoutのso
 実行しません。privateなHeyGen avatar ID・voice ID・CLI loginが未設定のclean hostでは、
 provider effectを起こさず明示的な`setup_required` receiptを返します。これらの値と
 HeyGen sessionはhostまたはtenantのprivate stateであり、Gitにはcommitしません。
+`python3 skills/earn/marketing-engine/ebook_asset_pack.py`を実行すると、checked-inされた
+CC0 `default-v1` starter packを準備できます。versioned sourceのhashを検証し、日本語・英語の
+starter manuscriptとcaption templateをcopyし、6本の中立な縦型motion clipをFFmpegでlocal生成して、
+旧素材やuser assetを上書きせず`ebook-assets/packs/default-v1`以下へ全output hashを記録します。
+日本語runnerは初回render時にこれを自動実行します。FFmpeg、FFprobe、subtitle filter、
+設定済みTTS commandのいずれかがない場合は、render前に`setup_required`を返します。
 
 Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware lifecycleを共有します。product manifestがAnicca iOS、Honne、その他のappを選び、共通serviceが対応済みstageを実行し、計測、収益、CFO、Telegramへ同じreceiptを残します。Postizはrepo所有adapterの先にある外部配信providerであり、repo外source code依存ではありません。account/app作成とbuild・署名・releaseは、共通orchestrationとguided installerが完成するまで明示的に`setup_required`です。
 

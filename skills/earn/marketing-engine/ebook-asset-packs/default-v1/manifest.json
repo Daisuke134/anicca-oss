@@ -1,0 +1,20 @@
+{
+  "schema_version": "marketing.ebook-assets.v1",
+  "pack_id": "default-v1",
+  "license": "CC0-1.0",
+  "files": [
+    {"path": "LICENSE.txt", "sha256": "b769f139f576a0fc5aef70f54bbaf74c7c842c56bead7dee1c465594b92d1299"},
+    {"path": "captions/heygen-en.srt", "sha256": "b14a2c7e350239fb7e8893d1e42ecaae5e51d439b8b9fcb4882384c9c87a8581"},
+    {"path": "captions/watercolor-ja.ass", "sha256": "6b828aa87e81cdd1d36f2f3d70b061cf1089942d506692641d91c62d6503004d"},
+    {"path": "manuscripts/ebook-en.md", "sha256": "e57ab578bfaf8cc9c562e47e81cbc278777f7e6b150661e36b2f0b57efb4a3e1"},
+    {"path": "manuscripts/ebook-ja.md", "sha256": "7c34797ca14f007aa9775e553712aafce23935fb671db33c77aec674ff3be296"}
+  ],
+  "generated_clips": [
+    {"path": "watercolor-monk/clips/scene-01.mp4", "color": "#315765"},
+    {"path": "watercolor-monk/clips/scene-02.mp4", "color": "#6f7f72"},
+    {"path": "watercolor-monk/clips/scene-03.mp4", "color": "#9a7b65"},
+    {"path": "watercolor-monk/clips/scene-04.mp4", "color": "#4f687f"},
+    {"path": "watercolor-monk/clips/scene-05.mp4", "color": "#786985"},
+    {"path": "watercolor-monk/clips/scene-06.mp4", "color": "#687a58"}
+  ]
+}

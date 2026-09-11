@@ -78,6 +78,15 @@ it never calls OmniAvatar or source code under an external checkout. A clean hos
 that has not configured the private HeyGen avatar ID, voice ID, and CLI login gets
 an explicit `setup_required` receipt with no provider effect. Those values and the
 HeyGen session remain private host or tenant state and are never committed.
+Run `python3 skills/earn/marketing-engine/ebook_asset_pack.py` to provision the
+checked-in CC0 `default-v1` starter pack. It verifies the versioned source hashes,
+copies Japanese and English starter manuscripts and caption templates, generates
+six neutral vertical motion clips locally with FFmpeg, and records every output
+hash under `ebook-assets/packs/default-v1` without replacing legacy or user assets.
+The Japanese runner performs this provisioning automatically on first render.
+Missing portable media or text-to-speech capabilities (FFmpeg, FFprobe, a
+subtitle-capable FFmpeg build, or the configured TTS command) return
+`setup_required` before rendering.
 
 Mobile App Loops use one product-aware lifecycle rather than separate scripts per
 app. A product manifest selects Anicca iOS, Honne, or another app; shared services

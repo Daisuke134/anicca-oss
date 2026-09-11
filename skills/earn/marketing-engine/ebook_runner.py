@@ -6,7 +6,6 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 
@@ -20,22 +19,14 @@ from script_ledger import ScriptLedger, preflight  # noqa: E402
 from ebook_packs import load_ebook_packs  # noqa: E402
 from watercolor_candidate import render as render_watercolor  # noqa: E402
 from heygen_candidate import render as render_heygen  # noqa: E402
+from ebook_asset_pack import (  # noqa: E402
+    WATERCOLOR_CLIP_NAMES,
+    default_asset_root,
+    default_pack_root,
+    provision_default_pack,
+)
 from skills._shared.telegram import TelegramClient  # noqa: E402
 from attribution import campaign_token  # noqa: E402
-
-
-WATERCOLOR_CLIP_NAMES = (
-    "jp_kling_clip_02.mp4", "jp_kling_clip_03.mp4", "jp_kling_clip_05.mp4",
-    "jp_kling_clip_07.mp4", "jp_kling_clip_08.mp4", "jp_kling_clip_10.mp4",
-)
-
-
-def default_asset_root() -> Path:
-    configured = os.environ.get("LM_EBOOK_ASSET_ROOT")
-    if configured:
-        return Path(configured).expanduser()
-    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-    return data_home / "life-manager/ebook-assets"
 
 
 def watercolor_clip_paths(asset_root: Path) -> list[Path]:
@@ -81,7 +72,13 @@ def run(*, engine: Path, product: str, slot_at: str, script_id: str, ledger_path
         path.write_text(encoded, encoding="utf-8")
     if render_output is not None:
         if product == "ebook-ja":
-            clips = watercolor_clip_paths(asset_root or default_asset_root())
+            resolved_assets = default_pack_root(asset_root or default_asset_root())
+            provisioned = provision_default_pack(asset_root=resolved_assets)
+            if provisioned.get("state") == "setup_required":
+                receipt.update({"state": "setup_required", "setup": provisioned})
+                path.write_text(json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+                return receipt
+            clips = watercolor_clip_paths(resolved_assets)
             rendered = render_watercolor(script=script["body"], output=render_output, clips=clips)
         else:
             rendered = render_heygen(script=script["body"], output=render_output)
@@ -120,7 +117,10 @@ def main() -> None:
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--state-root", type=Path, required=True)
     parser.add_argument("--render-output", type=Path)
-    parser.add_argument("--asset-root", type=Path, help="immutable ebook asset pack root")
+    parser.add_argument(
+        "--asset-root", type=Path,
+        help="Life Manager ebook asset base; the versioned pack is read below packs/default-v1",
+    )
     parser.add_argument("--telegram-preview", action="store_true")
     args = parser.parse_args()
     print(json.dumps(run(engine=HERE, product=args.product, slot_at=args.slot_at,

@@ -866,8 +866,9 @@ future product run exercises them without changing this architecture acceptance 
   reporting and self-build. Route a second real consumer through an existing contract before extracting anything;
   delete the replaced duplicate in the same atom rather than keeping compatibility implementations.
   - [x] Ebook production preview no longer hard-codes `/Users/anicca/anicca-monk-factory/state`; the shared runner
-    and standalone watercolor renderer resolve one explicit `--asset-root` / `LM_EBOOK_ASSET_ROOT` contract, falling
-    back to `~/.local/share/life-manager/ebook-assets`, and Telegram preview branding is `Life Manager:::`. Focused
+    and standalone watercolor renderer resolve one explicit `--asset-root` / `LM_EBOOK_ASSET_ROOT` base-directory
+    contract, then select the versioned pack below `packs/default-v1`; the default base is
+    `~/.local/share/life-manager/ebook-assets`. Telegram preview branding is `Life Manager:::`. Focused
     portability tests pass. Historical renderer-evaluation fixtures and legacy scheduler retirement tooling remain
     evidence/migration utilities and must not become production runtime dependencies.
   - [ ] `ARCH-13f-mobile-bootstrap` Make the primary Mobile App experience start with no existing app or repository.
@@ -963,11 +964,27 @@ future product run exercises them without changing this architecture acceptance 
     and 36 subtests, with nine existing live-evidence/date-dependent failures caused by intentionally absent sparse
     evidence or time-window fixtures rather than this atom. No live HeyGen render, Postiz publication, protected
     monk-factory mutation or running Gig operation was performed.
-  - [ ] `ARCH-13f-ebook-assets` Publish or provision a versioned, redistributable default ebook asset pack for both
+  - [x] `ARCH-13f-ebook-assets` Publish or provision a versioned, redistributable default ebook asset pack for both
     Japanese and English products. A clean user starts without preparing characters, clips, captions or a book file;
     the installer fetches/copies the declared pack, verifies every SHA, and the loop may generate differentiated
     derivatives. Repository manifests contain no Dais-absolute paths. Mutable renders, publication receipts and
     account state stay outside Git under the Life Manager state/data roots.
+    The repository now owns the CC0 `default-v1` manifest, Japanese and English starter manuscripts, caption
+    templates and a deterministic provisioner. It verifies every checked-in source SHA, generates six neutral
+    720x1280 five-second motion clips locally through the configured FFmpeg adapter, writes all eleven assets through
+    a private staging directory, verifies its exact recursive inventory, claims a new target without replacement and
+    commits its receipt last with every output SHA/size. First publish and replay both reject missing, surplus,
+    changed or symlinked files or directories and replay does not
+    regenerate. A failed first publish removes only the newly claimed incomplete target, while a pre-existing target
+    is never replaced. Missing FFmpeg returns a zero-effect `setup_required` result. The pack lives under
+    `ebook-assets/packs/default-v1`, preserving any legacy or user-owned
+    assets at the base root. The Japanese runner provisions this pack automatically before its first render, so a
+    clean user supplies no external factory path or prepared clip. The standalone watercolor CLI uses the same
+    versioned pack, neutral scene names and shared portable FFmpeg/FFprobe resolution rather than its former Homebrew
+    literal. Missing media, subtitle or text-to-speech capabilities return structured `setup_required` before render.
+    Focused tests pass 26/26, and a real local FFmpeg provision/replay plus ffprobe dimensions and durations pass.
+    Existing Dais media and the protected monk factory
+    remain untouched; no render, publication or running Gig effect was performed.
 - [ ] `ARCH-13g` Make onboarding expose the same product model on both hosts. Local uses clone/install plus pairing
   and selected-loop setup; Cloud uses Telegram `/start` plus hosted tenant provisioning. A loop without required
   credentials/KYC remains visibly `setup_required`; onboarding must not use `start all` as a shortcut.

@@ -35,6 +35,40 @@ class EbookPortabilityTest(unittest.TestCase):
         self.assertEqual(len(paths), 6)
         self.assertTrue(all(path.parent == root / "watercolor-monk/clips" for path in paths))
 
+    def test_japanese_render_auto_provisions_the_default_pack(self):
+        script = {
+            "product_id": "ebook-ja", "account_id": "product:ebook-ja",
+            "cta": "アニッチャ・リセットを読む", "campaign_id": "campaign-ja", "creative_id": "creative-ja",
+            "source_mechanism_ids": ["source-ja"], "declared_mutation": "action",
+            "body": "ゆっくり呼吸します。", "renderer_id": "watercolor-monk", "hook": "呼吸",
+        }
+        pack = {"product_id": "ebook-ja", "renderer_id": "watercolor-monk",
+                "slots_jst": ["07:00"], "accounts": []}
+        with tempfile.TemporaryDirectory() as temp, \
+                mock.patch.object(ebook_runner, "load_ebook_packs", return_value={"ja": pack}), \
+                mock.patch.object(ebook_runner, "ScriptLedger") as ledger, \
+                mock.patch.object(ebook_runner, "provision_default_pack",
+                                  return_value={"state": "replayed"}) as provisioner, \
+                mock.patch.object(ebook_runner, "render_watercolor", return_value={
+                    "renderer_id": "watercolor-monk", "status": "rendered_preview",
+                    "output": str(Path(temp) / "out.mp4"), "sha256": "a" * 64,
+                }) as renderer:
+            ledger.return_value.get.return_value = script
+            asset_root = Path(temp) / "assets"
+            receipt = ebook_runner.run(
+                engine=Path(temp), product="ebook-ja", slot_at="2026-09-12T07:00:00+09:00",
+                script_id="script-ja", ledger_path=Path(temp) / "scripts.db",
+                state_root=Path(temp) / "runs", render_output=Path(temp) / "out.mp4",
+                asset_root=asset_root,
+            )
+        pack_root = asset_root / "packs/default-v1"
+        provisioner.assert_called_once_with(asset_root=pack_root)
+        renderer.assert_called_once_with(
+            script="ゆっくり呼吸します。", output=Path(temp) / "out.mp4",
+            clips=ebook_runner.watercolor_clip_paths(pack_root),
+        )
+        self.assertEqual(receipt["state"], "rendered")
+
     def test_english_render_routes_to_repo_owned_heygen_adapter(self):
         script = {
             "product_id": "ebook-en", "account_id": "product:ebook-en",
