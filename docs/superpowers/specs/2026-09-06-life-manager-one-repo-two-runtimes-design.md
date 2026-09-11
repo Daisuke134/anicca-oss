@@ -438,7 +438,7 @@ This checklist does not reorder the established implementation sequence below. T
 - [x] `AE-UX-11` Scope decision: do not replicate child citizens in this cleanup. One Life Manager instance creates
   one isolated citizen wallet and exercises its bounded economic flow. Replication remains future work after the
   single-citizen loop is economically independent and stable in real operation.
-- [ ] `AE-UX-12` Pass clean-clone Local and fresh-tenant Cloud acceptance: automatic first citizen, realtime and
+- [x] `AE-UX-12` Pass clean-clone Local and fresh-tenant Cloud acceptance: automatic first citizen, realtime and
   daily Telegram receipts, zero OpenClaw/Hermes/external-checkout dependency, and no local device requirement for
   Cloud. Verify all 14 README
   product loops use Life Manager repository-owned source and shared contracts, and remove or rewrite stale Docker,
@@ -573,14 +573,15 @@ This checklist does not reorder the established implementation sequence below. T
     by the shared provision renderer and validates the renderer's Gmail plus-address contract; its checks pass 36/36.
     This correction changes source and tests only, does not start or restart a loop, and does not change running Gig
     Work business logic.
-  - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
+  - [x] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
     branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
     changing the separately owned running Coconala/Lancers/CrowdWorks business logic.
     Pre-merge gates pass at `6f80b829f45326df77d261dc874a13d19a680ce2`: latest `origin/main` is an ancestor;
     OSS verification and daemon-free empty-HOME installation pass; the clean clone passes 975/975 app tests and
     24 panel checks; Compute Proxy/Financial Transition passes 13/13; Capafy account-state passes 36/36; and
-    `git diff --check` passes. Fresh read-only review reports `SHIP` with no findings. PR merge and merged-main
-    fresh-clone verification remain before this checkbox and parent `AE-UX-12` can close.
+    `git diff --check` passes. Fresh read-only review reports `SHIP` with no findings. PR #5008 passed every
+    exact-head check and merged as `e85ee5a1a04aa7c799847a684c1f2794732d279f`; a fresh clone of that merged main
+    again passes OSS verification, daemon-free empty-HOME installation, 975/975 app tests and 24 panel checks.
 
 ## 5. Dependency boundary
 
