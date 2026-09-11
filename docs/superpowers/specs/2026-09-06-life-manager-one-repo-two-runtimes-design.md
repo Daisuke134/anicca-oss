@@ -477,6 +477,21 @@ This checklist does not reorder the established implementation sequence below. T
       starting with repository-registered/runtime-referenced paths. Historical plans, evidence, provider package
       format names and explicit legacy-rejection checks are not runtime dependencies and must not be rewritten merely
       to make a text search empty.
+      - [x] Delete the unreferenced recording-store OpenClaw wrapper, retired OpenClaw cron/Hermes gateway and
+        owner-funded `openclaw-x402` bootstrap scripts, plus the isolated duplicate `services/x402-worker` bundle;
+        the registered recording owner and current x402 implementation remain repository-owned.
+      - [x] Make legacy Writer-env and Zenn-untracked migration sources explicit, and move release disk-pressure plus
+        central disk-cleanup state into the canonical Life Manager host/loop state roots.
+      - [x] Remove Hermes/OpenClaw credential fallback from the shared instance-env loader and Affiliate publishers;
+        only `LIFE_MANAGER_ENV_FILE` is read while the caller's citizen identity is preserved.
+      - [x] Move Local daily-video stock/proof defaults and Job Hunter outbound Telegram media beneath their Life
+        Manager-owned state roots instead of another checkout or OpenClaw media.
+      - [x] Replace fixed Homebrew Node/timeout execution in Agentmail, Life Manager daily/self-build and six Cloud
+        production launchers with command discovery and the shared repository timeout runner. Focused suites pass
+        20/20, 21/21, 15/15, 14/14, 59/59 and 29/29 across the completed atoms; the OSS verifier passes after each.
+      - [ ] Finish the executable tool-resolution families: Job Hunter, Lateness, Capafy and registered x402 boots.
+      - [ ] Delete quarantined Clip/Video external-source implementations if they have no supported return path, or
+        move the required implementation into this repository before re-enabling them.
     - [ ] Integrate the separately owned Gig branch after its owner removes the protected Coconala/Lancers browser
       and report legacy roots; this cleanup branch does not edit their running business logic.
   - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
