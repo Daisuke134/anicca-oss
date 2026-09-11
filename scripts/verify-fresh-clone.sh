@@ -10,12 +10,18 @@ RUNTIME="$VERIFY_ROOT/runtime"
 LOG="$VERIFY_ROOT/verify.log"
 
 cleanup() {
+  status=$?
+  if [ "$status" -ne 0 ] && [ -f "$LOG" ]; then
+    printf 'fresh-clone verification failed; final log follows:\n' >&2
+    tail -120 "$LOG" >&2 || true
+  fi
   if [ "${LIFE_MANAGER_KEEP_VERIFY_DIR:-0}" = "1" ]; then
     printf 'fresh-clone directory retained: %s\n' "$VERIFY_ROOT"
   else
     chmod -R u+w "$VERIFY_ROOT" 2>/dev/null || true
     rm -rf "$VERIFY_ROOT"
   fi
+  return "$status"
 }
 trap cleanup EXIT
 
