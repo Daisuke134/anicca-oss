@@ -127,8 +127,9 @@ inventory check are not completion.
 ### Integration boundary with Life Manager cleanup
 
 Cleanup worktree `/private/tmp/lm-aeux06.UXUZao`, branch
-`feat/agent-economy-economic-receipts-20260911`, currently points to pushed commit `66464e37b` and
-contains three additional uncommitted Agent Economy source/test changes. Its branch owns Agent Economy economic
+`feat/agent-economy-economic-receipts-20260911`, currently points to local commit `1b79ae30d` after
+merging current `origin/main`; it remains ahead of its remote branch, so its final pushed/accepted SHA is not yet
+the Gig integration base. Its branch owns Agent Economy economic
 receipts, the canonical 14-product README, Mobile App Loop wording, removal of external runtime
 dependencies, and Local/Cloud financial/Telegram/state convergence. Gig owns marketplace business
 logic and provider production acceptance.
@@ -462,9 +463,12 @@ Current read-only stop-point snapshot (no repair authorized in this checkpoint):
   all 74 CrowdWorks tests pass. Its first sparse immutable release omitted the shared commercial
   profile path; natural run `18d41976315394b0-65971` therefore failed before provider mutation with
   `commercial_profile_invalid` and effect zero. Dependency-complete release
-  `20260911T082900-e75174ee` now exists with the profile, while the Apply plist still points to
-  `20260911T082353-e75174ee`. Production acceptance remains unchecked until the complete release is
-  installed only on Apply and reaches a natural official receipt plus following replay-zero.
+  `20260911T082900-e75174ee` exists with the profile. The current global release has since advanced
+  to dependency-complete `20260911T092238-fe529db7` and also contains the profile, while the Apply
+  plist still points to `20260911T082353-e75174ee`. This is a target deployment-path mismatch, not
+  evidence of logout or a provider-side rejection. Production acceptance remains unchecked until a
+  complete pushed-main release containing PR `#4995` is installed only on Apply and reaches a natural
+  official receipt plus following replay-zero.
 - CrowdWorks Reply currently reports observed `24`, readback `22`, failed `0`, pending `2`, effect
   `0`. It is live but not fully closed while the two durable pending items remain.
 - CrowdWorks Paid currently reports two official contracts: funded `63570481` and escrow-waiting
