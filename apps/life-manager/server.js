@@ -1271,15 +1271,19 @@ const server = http.createServer(async (req, res) => {
               await sendMessage(LM_TG_TOKEN, u.chatId, "Complete Life Manager setup with /start before changing settings.");
             } else {
               try {
+                const controlStore = createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY });
+                controlStore.createOAuthState = controlStore.createTelegramOAuthState;
                 const dispatched = await dispatchParsedControl(parsedControl, {
                   executeCommand: executeUserCommand,
                   scope: row ? { uid: row.uid, chatId: u.chatId } : null,
                   commandDeps: row ? {
-                    store: createSupabaseCommandStore({ supaUrl: SUPA_URL, supaKey: SUPA_KEY }),
+                    store: controlStore,
                     idempotencyKey: `telegram:${u.messageId || crypto.randomUUID()}`,
                     composioKey: COMPOSIO_KEY,
                     composioAuthConfig: process.env.COMPOSIO_GCAL_AUTH_CONFIG,
                     panelBaseUrl: LM_PANEL_BASE,
+                    calendarCallbackPath: "/telegram/oauth/calendar",
+                    calendarCallbackParams: { lang: u.languageCode },
                     startCalendarConnection: (scope) => composioCalendarStart(scope, { composioKey: COMPOSIO_KEY, connectedAccountId: row.calendar_connected_account_id }),
                     disconnectCalendar: (scope) => composioCalendarDisconnect(scope, { composioKey: COMPOSIO_KEY }),
                   } : null,

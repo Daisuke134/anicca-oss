@@ -66,6 +66,36 @@ $$;
 REVOKE ALL ON FUNCTION public.claim_lm_telegram_oauth_state(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_lm_telegram_oauth_state(text) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.claim_lm_panel_oauth_account(
+  p_state_hash text,
+  p_uid text,
+  p_chat_id text
+) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE claimed_account_id text;
+BEGIN
+  IF p_state_hash IS NULL OR p_state_hash !~ '^[a-f0-9]{64}$' THEN RETURN NULL; END IF;
+  UPDATE public.lm_panel_oauth_states AS state
+     SET used_at = now()
+   WHERE state.state_hash = p_state_hash
+     AND state.uid = p_uid
+     AND state.chat_id = p_chat_id
+     AND state.provider = 'calendar'
+     AND state.used_at IS NULL
+     AND state.expires_at > now()
+     AND state.connected_account_id IS NOT NULL
+     AND EXISTS (
+       SELECT 1 FROM public.lm_users AS users
+        WHERE users.uid = p_uid AND users.telegram_chat_id::text = p_chat_id
+     )
+  RETURNING state.connected_account_id INTO claimed_account_id;
+  RETURN claimed_account_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_lm_panel_oauth_account(text,text,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_lm_panel_oauth_account(text,text,text) TO service_role;
+
 CREATE OR REPLACE FUNCTION public.sync_lm_panel_calendar_connection(
   p_uid text,
   p_chat_id text,

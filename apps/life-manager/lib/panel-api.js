@@ -698,6 +698,7 @@ function createSupabaseCommandStore(opts = {}) {
     async createTelegramOAuthState(scope, state) { const response = await fetchImpl(`${base}/rest/v1/rpc/create_lm_telegram_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: state.stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_expires_at: state.expiresAt }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, false); const created = Array.isArray(value) ? value[0] === true : value === true; if (!created) throw new Error("oauth_state_failed"); return true; },
     async attachOAuthAccount(scope, stateHash, connectedAccountId) { const response = await fetchImpl(`${base}/rest/v1/rpc/attach_lm_panel_oauth_account`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash, p_uid: scope.uid, p_chat_id: scope.chatId, p_connected_account_id: connectedAccountId }) }); if (!response.ok) throw new Error("oauth_account_bind_failed"); const value = await jsonOr(response, false); return Array.isArray(value) ? value[0] === true : value === true; },
     async claimOAuthState(scope, stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_panel_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash, p_uid: scope.uid, p_chat_id: scope.chatId }) }); if (!response.ok) throw new Error("oauth_state_failed"); return jsonOr(response, false); },
+    async claimPanelOAuthAccount(scope, stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_panel_oauth_account`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash, p_uid: scope.uid, p_chat_id: scope.chatId }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, null); return Array.isArray(value) ? value[0] || null : value || null; },
     async claimTelegramOAuthState(stateHash) { const response = await fetchImpl(`${base}/rest/v1/rpc/claim_lm_telegram_oauth_state`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_state_hash: stateHash }) }); if (!response.ok) throw new Error("oauth_state_failed"); const value = await jsonOr(response, []); return Array.isArray(value) ? value[0] || null : value || null; },
     async syncCalendarConnection(scope, status, connectedAccountId) { const response = await fetchImpl(`${base}/rest/v1/rpc/sync_lm_panel_calendar_connection`, { method: "POST", headers: { ...headers(opts.supaKey), "content-type": "application/json" }, body: JSON.stringify({ p_uid: scope.uid, p_chat_id: scope.chatId, p_status: status, p_connected_account_id: connectedAccountId }) }); if (!response.ok) throw new Error("scope_mismatch"); const value = await jsonOr(response, false); return Array.isArray(value) ? value[0] === true : value === true; },
   };
@@ -747,11 +748,13 @@ async function handlePanelOAuthCallback(req, res, opts = {}) {
   const state = new URL(req.url || "/", "http://panel.local").searchParams.get("state");
   const store = opts.commandStore || createSupabaseCommandStore(opts);
   if (store.assertCurrentScope && !await store.assertCurrentScope(scope)) { res.writeHead(401, { "content-type": "text/plain", "cache-control": "no-store" }); res.end("unauthorized"); return; }
-  const claimed = await claimCalendarOAuthState(scope, state, { store });
+  const stateHash = /^[A-Za-z0-9_-]{43}$/.test(String(state || "")) ? crypto.createHash("sha256").update(state).digest("hex") : "";
+  const connectedAccountId = stateHash && typeof store.claimPanelOAuthAccount === "function" ? String(await store.claimPanelOAuthAccount(scope, stateHash) || "") : "";
   let verified = false;
   let location = "/panel";
-  if (claimed) {
-    try { verified = await (opts.composioCalendarStatusImpl || composioCalendarStatus)(scope, opts) === "ACTIVE"; } catch { verified = false; }
+  if (/^[A-Za-z0-9_-]{3,128}$/.test(connectedAccountId)) {
+    try { verified = await (opts.composioCalendarAccountStatusImpl || composioCalendarAccountStatus)(scope, connectedAccountId, opts) === "ACTIVE"; } catch { verified = false; }
+    if (verified) verified = typeof store.syncCalendarConnection === "function" && await store.syncCalendarConnection(scope, "ACTIVE", connectedAccountId) !== false;
     if (verified && typeof store.readOnboardingState === "function") {
       try {
         const onboarding = await store.readOnboardingState(scope);
@@ -1108,8 +1111,9 @@ async function handlePanelApiRequest(req, res, opts = {}) {
       const command = validateCommand(await readJson(req));
       const execute = opts.executeCommandImpl || executeUserCommand;
       const store = commandStore;
+      const commandUser = command.type === "connection.start" && typeof store.readUser === "function" ? await store.readUser(scope) : null;
       const providerOpts = { ...opts, composioKey: opts.composioKey || process.env.COMPOSIO_API_KEY };
-      const result = await execute(scope, command, { ...providerOpts, store, idempotencyKey: key, composioAuthConfig: opts.composioAuthConfig || process.env.COMPOSIO_GCAL_AUTH_CONFIG, startCalendarConnection: opts.startCalendarConnection || ((value) => composioCalendarStart(value, providerOpts)), disconnectCalendar: opts.disconnectCalendar || ((value) => composioCalendarDisconnect(value, providerOpts)) });
+      const result = await execute(scope, command, { ...providerOpts, store, idempotencyKey: key, composioAuthConfig: opts.composioAuthConfig || process.env.COMPOSIO_GCAL_AUTH_CONFIG, startCalendarConnection: opts.startCalendarConnection || ((value) => composioCalendarStart(value, { ...providerOpts, connectedAccountId: commandUser && commandUser.calendar_connected_account_id })), disconnectCalendar: opts.disconnectCalendar || ((value) => composioCalendarDisconnect(value, providerOpts)) });
       sendJson(res, 200, result);
     } catch (error) { sendJson(res, error.status || 502, { error: error.message === "invalid_action" ? "invalid_action" : "command_failed" }); }
     return;

@@ -203,6 +203,26 @@ test("composio transport pins every Calendar execution to the tenant's selected 
   assert.ok(bodies.every((body) => body.user_id === "tenant-a"));
 });
 
+test("composio transport safely backfills one unique legacy account before execution", async () => {
+  const { makeComposioCalendar } = require("./transport/calendar-composio.js");
+  const calls = [];
+  const calendar = makeComposioCalendar({
+    apiKey: "k", supaUrl: "https://db.example", supaKey: "service", recordCall: () => false,
+    fetchImpl: async (input, init = {}) => {
+      const url = new URL(String(input)); calls.push({ url, init });
+      if (url.hostname === "db.example" && !init.method && calls.length === 1) return { ok: true, json: async () => [{ calendar_connected_account_id: null }] };
+      if (url.hostname === "backend.composio.dev" && url.pathname === "/api/v3/connected_accounts") return { ok: true, json: async () => ({ items: [{ id: "ca-legacy", user_id: "tenant-a", toolkit: { slug: "googlecalendar" }, status: "ACTIVE", is_disabled: false }] }) };
+      if (url.hostname === "db.example" && init.method === "PATCH") return { ok: true, json: async () => [] };
+      if (url.hostname === "db.example") return { ok: true, json: async () => [{ calendar_connected_account_id: "ca-legacy" }] };
+      return { ok: true, json: async () => ({ successful: true, data: { items: [] } }) };
+    },
+  });
+  await calendar.listEventsRaw("tenant-a", { strict: true });
+  const execution = calls.find(({ url }) => url.pathname.endsWith("/GOOGLECALENDAR_EVENTS_LIST"));
+  assert.equal(JSON.parse(execution.init.body).connected_account_id, "ca-legacy");
+  assert.ok(calls.some(({ url, init }) => url.hostname === "db.example" && init.method === "PATCH"));
+});
+
 // 🔴 Finding 1 (transport leg): the history path must distinguish failure from empty. The composio
 // wake path keeps its swallow-to-[] (load-bearing there); the history read passes strict and lets a
 // transport failure PROPAGATE instead of returning a fake empty calendar.
