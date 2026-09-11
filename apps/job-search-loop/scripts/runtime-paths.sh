@@ -9,7 +9,7 @@ typeset -gx JOB_SEARCH_STATE_ROOT="${JOB_SEARCH_STATE_ROOT:-${XDG_STATE_HOME:-$H
 typeset -gx JOB_SEARCH_PROFILE="${JOB_SEARCH_PROFILE:-${XDG_CONFIG_HOME:-$HOME/.config}/anicca/job-search/profile.json}"
 typeset -gx JOB_SEARCH_INSTALL_CONFIG="${JOB_SEARCH_INSTALL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/anicca/job-search/install.json}"
 typeset -gx JOB_SEARCH_FRAMEWORK_ROOT="${JOB_SEARCH_FRAMEWORK_ROOT:-${XDG_DATA_HOME:-$HOME/.local/share}/anicca/job-search/framework}"
-typeset -gx JOB_SEARCH_TELEGRAM_MEDIA="${JOB_SEARCH_TELEGRAM_MEDIA:-$HOME/.openclaw/media/job-search-outbound}"
+typeset -gx JOB_SEARCH_TELEGRAM_MEDIA="${JOB_SEARCH_TELEGRAM_MEDIA:-$JOB_SEARCH_STATE_ROOT/media/job-search-outbound}"
 typeset -gx JOB_SEARCH_CDP_LEASE_SCRIPT="${JOB_SEARCH_CDP_LEASE_SCRIPT:-$JOB_SEARCH_REPO_ROOT/skills/browser/scripts/cdp_context_lease.py}"
 typeset -gx JOB_SEARCH_SESSION_VAULT_SCRIPT="${JOB_SEARCH_SESSION_VAULT_SCRIPT:-$JOB_SEARCH_REPO_ROOT/skills/browser/scripts/session_vault.py}"
 typeset -gx JOB_SEARCH_SESSION_VAULT_DIR="${JOB_SEARCH_SESSION_VAULT_DIR:-$HOME/.cloak/vault/job-search-daily}"
@@ -23,4 +23,3 @@ fi
 typeset -gx JOB_SEARCH_JQ="${JOB_SEARCH_JQ:-/usr/bin/jq}"
 typeset -gx JOB_SEARCH_PLUTIL="${JOB_SEARCH_PLUTIL:-/usr/bin/plutil}"
 typeset -gx JOB_SEARCH_LAUNCHCTL="${JOB_SEARCH_LAUNCHCTL:-/bin/launchctl}"
-typeset -gx JOB_SEARCH_OPENCLAW="${JOB_SEARCH_OPENCLAW:-/opt/homebrew/bin/openclaw}"
