@@ -384,6 +384,9 @@ test("POST /telegram routes the legacy-parity slash surface without disturbing e
     const sentBeforeReplay = sent.length;
     assert.equal(await exactMessage(9108, "300", "/start"), 200);
     assert.equal(sent.length, sentBeforeReplay, "the same Telegram update never sends twice");
+    // A previously queued economy job can have older retry metadata. That additive subsystem must
+    // not suppress a fresh Calendar consent link for the primary onboarding path.
+    [...runtimeJobs.values()][0].max_attempts += 1;
     assert.equal(await message("300", "/start airplane"), 200);
     assert.equal(lastSent().reply_markup.inline_keyboard[0][0].url, "https://accounts.google.com/o/oauth2/auth?state=fixture");
     assert.equal(await message("300", "/start@Bot payload"), 200);
