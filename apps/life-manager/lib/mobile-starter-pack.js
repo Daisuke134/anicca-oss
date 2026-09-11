@@ -99,6 +99,8 @@ function materializeMobileStarterPack({ product, identity, packRoot, privateRoot
   requireValue(SYMBOL.test(String(identity?.productSymbol || "")), "productSymbol invalid");
   requireValue(typeof identity.displayName === "string" && identity.displayName.trim().length > 0,
     "displayName invalid");
+  requireValue(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(identity.displayName),
+    "displayName contains unsupported control characters");
   requireValue(BUNDLE_ID.test(String(identity.bundleId || "")), "bundleId invalid");
   const workspace = safeRelative(product.workspace_rel, "workspace");
   requireValue(workspace === `mobile-products/${product.product_id}`, "workspace does not match product");

@@ -51,6 +51,17 @@ test("escapes a product display name as Swift string content", (t) => {
   assert.match(rendered, /Text\("Focus \\\"Bloom\\\"\\nNow"\)/);
 });
 
+test("rejects display-name control characters that Swift cannot parse", (t) => {
+  const root = privateRoot(t);
+  assert.throws(() => materializeMobileStarterPack({
+    product: generated,
+    identity: { ...identity, displayName: "Focus\u0001Bloom" },
+    packRoot,
+    privateRoot: root,
+  }), /unsupported control characters/);
+  assert.equal(fs.existsSync(path.join(root, generated.workspace_rel)), false);
+});
+
 test("rejects imported products, unsafe workspaces and mutable template input", (t) => {
   const root = privateRoot(t);
   assert.throws(() => materializeMobileStarterPack({
