@@ -1030,6 +1030,19 @@ future product run exercises them without changing this architecture acceptance 
   logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
   verification. Do not make a new App Store submission, Postiz publication, payment or other live provider effect
   merely to close this cleanup.
+  - [x] Pushed head `b321e674eeb303b533fca2d81bcb6687d5fe61f4` passes the repository dependency fence and a
+    daemon-free fresh clone with an isolated `HOME`: OSS self-contained verification, install, app tests 975/975,
+    application eval and panel-privacy eval 24/24 all pass without another checkout, OpenClaw or Hermes. The one
+    nondeterministic Peatix navigation fixture exposed by the first full run is now driven by the actual
+    wait-before-click contract instead of a 100 ms wall-clock timer; production Connector source and running jobs
+    remain untouched.
+  - [x] Focused clean-fixture acceptance passes 29/29 for the 14-loop Local/Cloud catalog, standalone Cloud artifact,
+    selected Local plan, Cloud `/start`, the one canonical Telegram handoff, tenant isolation, citizen/job and hosted
+    worker replay-zero, and receipt-backed Telegram send-once. Host adapter tests pass 17/17 for common
+    FinancialRecord output/replay-zero, repository-owned Local/Cloud paths and Local-keychain/Cloud-vault secret
+    resolution. Common wire contracts pass 15/15 and the host-neutral lifecycle/registry suite passes 392/392.
+  - [ ] Merge latest `main`, repeat the affected acceptance gates on the resulting head, obtain a fresh read-only
+    Astra `SHIP`, and record the reviewed pushed head before closing `ARCH-13h`.
 
 ## 7. Acceptance
 
