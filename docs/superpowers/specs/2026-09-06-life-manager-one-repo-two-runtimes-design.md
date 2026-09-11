@@ -447,6 +447,29 @@ This checklist does not reorder the established implementation sequence below. T
   Cloud. Verify all 14 README
   product loops use Life Manager repository-owned source and shared contracts, and remove or rewrite stale Docker,
   OpenClaw, Hermes, another-checkout and Dais-machine-only runtime instructions before claiming portable self-host.
+  Agent Economy acceptance proves that the repository-owned system starts and completes its bounded flow; live
+  profit or an actual self-funded compute purchase is explicitly not an acceptance gate. Execute the remaining
+  work in this order:
+  - [x] `AE-UX-12a` Publish the formal 14-loop catalog in README and README.ja with a plain-language purpose and
+    representative current owners for every loop; name loop 12 **Mobile App Loops** and keep Money Printer as an
+    umbrella rather than a fifteenth loop.
+  - [x] `AE-UX-12b` State the honest Mobile App Loops boundary: repository-owned marketing, distribution,
+    measurement and receipt paths exist now; account creation, app generation, signing, release and continuous
+    iteration are still being unified into one end-to-end lifecycle.
+  - [x] `AE-UX-12c` Make the OSS self-contained inventory verifier pass from the canonical branch.
+  - [ ] `AE-UX-12d` Pass the daemon-free clean-clone Local installer, app suite and privacy/evaluation checks.
+  - [ ] `AE-UX-12e` Census executable Mobile App Loops and all other product-loop paths; migrate or delete every
+    remaining OpenClaw, Hermes, another-checkout, worktree and Dais-absolute source dependency. External products
+    such as Postiz remain allowed only behind repository-owned provider adapters and user-supplied credentials.
+  - [ ] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
+    start/status controls without claiming that all 14 loops can run before their provider credentials/KYC exist.
+  - [ ] `AE-UX-12g` Pass isolated fresh-tenant Cloud acceptance for the repository-owned Agent Economy lifecycle,
+    Telegram receipt path and supported hosted loops without requiring the user's local device.
+  - [ ] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
+    one-command claims in README, README.ja, installer output and active operational documentation.
+  - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
+    branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
+    changing the separately owned running Coconala/Lancers/CrowdWorks business logic.
 
 ## 5. Dependency boundary
 
