@@ -385,6 +385,30 @@ class ApplicationLoopHolTests(unittest.TestCase):
             "provider_terminal_blocked",
         )
 
+    def test_reconciled_pending_terminal_is_a_successful_classification(self):
+        application_loop = _load_deployed_loop()
+        descriptor = {
+            "project_id": "5599976",
+            "amount_minor": 50000,
+            "delivery_due_on": "2026-09-17",
+        }
+        with patch.object(
+            application_loop.application_tick,
+            "run_live_tick",
+            return_value={
+                "ok": False,
+                "error": "provider_terminal_blocked",
+                "project_id": "5599976",
+            },
+        ):
+            result = application_loop._reconcile_pending(
+                descriptor, Path("/tmp/application.json")
+            )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.provider_terminal_blocked_count, 1)
+        self.assertEqual(result.provider_terminal_blocked_project_ids, ("5599976",))
+
     def test_discovery_query_rotates_by_utc_half_hour_slot(self):
         application_loop = _load_deployed_loop()
         calls = []
