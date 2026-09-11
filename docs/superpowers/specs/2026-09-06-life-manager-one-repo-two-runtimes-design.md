@@ -457,7 +457,10 @@ This checklist does not reorder the established implementation sequence below. T
     measurement and receipt paths exist now; account creation, app generation, signing, release and continuous
     iteration are still being unified into one end-to-end lifecycle.
   - [x] `AE-UX-12c` Make the OSS self-contained inventory verifier pass from the canonical branch.
-  - [ ] `AE-UX-12d` Pass the daemon-free clean-clone Local installer, app suite and privacy/evaluation checks.
+  - [x] `AE-UX-12d` Pass the daemon-free clean-clone Local installer, app suite and privacy/evaluation checks.
+    Fresh clone `d829416e52e8d8db8461b3dd77f803599aafd174` passed the OSS fence, installation into an empty
+    temporary HOME with daemon installation disabled, all 975/975 app tests, evaluation and panel-privacy checks;
+    the checkout remained clean and the installer created the private runtime environment without LaunchAgents.
   - [ ] `AE-UX-12e` Census executable Mobile App Loops and all other product-loop paths; migrate or delete every
     remaining OpenClaw, Hermes, another-checkout, worktree and Dais-absolute source dependency. External products
     such as Postiz remain allowed only behind repository-owned provider adapters and user-supplied credentials.
