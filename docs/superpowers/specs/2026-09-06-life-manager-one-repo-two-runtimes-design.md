@@ -826,11 +826,12 @@ Do not copy a Coconala, Lancers, CrowdWorks, publishing, marketing or financial 
 the existing shared primitive first; extract new shared code only when a second real consumer proves the duplicate.
 Local and Cloud may not maintain separate business implementations.
 
-Use one Telegram bot identity and one canonical QR/link. After `/start`, the user chooses Local or Cloud; optional
-deep links may preselect `start=local` or `start=cloud`, but both resolve to the same bot, account and conversation.
-Two bots or two unrelated chats would split history, support and product identity without providing runtime
-isolation. Local setup returns a pairing token/command for the user's instance; Cloud setup provisions the hosted
-tenant. The same `/setup`, `/enable`, `/disable`, `/status` and financial-report concepts apply to both hosts.
+Use one canonical QR/link for the hosted product. The user's entrypoint selects the host: canonical Telegram
+`/start` provisions the Cloud tenant and `./install.sh` provisions the Local instance, including its isolated
+Agent Economy citizen. Local Telegram delivery uses the user's privately configured bot credentials; Cloud uses the
+hosted product bot. They share the repository-owned renderer, receipt and send-once contracts without sharing secret
+credentials or inventing an unimplemented relay/pairing service. Neither entrypoint silently starts provider-backed
+loops whose account, KYC, credential or browser requirements are incomplete.
 
 Execute this follow-up in the fixed order below. Do not alter this order without Dais explicitly saying to reorder
 it:
@@ -1025,8 +1026,8 @@ future product run exercises them without changing this architecture acceptance 
   - [ ] Gig Work owner merges the exact architecture head with latest `main` and the separately owned provider result,
     runs both acceptance sets, pushes the integrated head, and records that head here. No matching Gig owner is
     registered in the current `lm` agmsg team, so delivery is via the checked-in prompt rather than an assumed agent.
-- [ ] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one QR/bot contract, host
-  selection, representative registry/config resolution for every shared domain on both supported hosts, identical
+- [ ] `ARCH-13h` Pass structural acceptance from clean Local and fresh-tenant fixtures: one canonical Cloud QR/bot
+  contract, explicit Local-install/Cloud-`/start` entrypoints, representative registry/config resolution for every shared domain on both supported hosts, identical
   logical receipt/Telegram schemas, replay-zero, dependency fence, focused tests, fresh review and merged-main
   verification. Do not make a new App Store submission, Postiz publication, payment or other live provider effect
   merely to close this cleanup.

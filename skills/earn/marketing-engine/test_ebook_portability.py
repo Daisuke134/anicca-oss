@@ -94,7 +94,10 @@ class EbookPortabilityTest(unittest.TestCase):
                 script_id="script-1", ledger_path=Path(temp) / "scripts.db",
                 state_root=Path(temp) / "runs", render_output=Path(temp) / "out.mp4",
             )
-        renderer.assert_called_once_with(script="Breathe slowly.", output=Path(temp) / "out.mp4")
+        renderer.assert_called_once_with(
+            script="Breathe slowly.", output=Path(temp) / "out.mp4",
+            intent_path=Path(temp) / "runs" / f"{receipt['run_id']}.heygen-effect.json",
+        )
         self.assertEqual(receipt["state"], "setup_required")
         self.assertEqual(receipt["external_effects"], [])
 

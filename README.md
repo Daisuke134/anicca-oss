@@ -301,7 +301,7 @@ boundary for the other product loops.
 Preview a zero-effect plan for only the loops you select. The plan reads the same
 [`apps/life-manager/config/product-loop-catalog.json`](apps/life-manager/config/product-loop-catalog.json) used by
 Cloud `/start` and lists every
-missing requirement—including Local Telegram pairing—without starting anything:
+missing requirement—including the Local user's private Telegram bot credentials—without starting anything:
 
 ```bash
 ./install.sh plan --loop agent-economy

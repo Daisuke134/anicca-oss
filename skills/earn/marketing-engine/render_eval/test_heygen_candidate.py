@@ -89,3 +89,66 @@ def test_render_uses_stdin_then_downloads_and_hashes_receipt(tmp_path):
         "--output-path", str(output.with_name(f".{output.name}.part")),
     ]
     assert not output.with_name(f".{output.name}.part").exists()
+
+
+def test_unknown_create_outcome_is_durable_and_replay_never_creates_again(tmp_path):
+    calls = []
+
+    def execute(args, **kwargs):
+        calls.append(args)
+        if args[1:3] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 0, "{}", "")
+        raise RuntimeError("connection lost after create request")
+
+    output = tmp_path / "unknown.mp4"
+    intent = tmp_path / "effect.json"
+    try:
+        render(script="Breathe.", output=output, intent_path=intent,
+               environment=READY, executor=execute)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("unknown provider outcome must not become success")
+    assert json.loads(intent.read_text())["state"] == "delivery_uncertain"
+
+    replay = render(script="Breathe.", output=output, intent_path=intent,
+                    environment=READY, executor=execute)
+    assert replay["state"] == "reconciliation_required"
+    assert sum(args[2] == "create" for args in calls if len(args) > 2) == 1
+
+
+def test_download_failure_resumes_from_stored_video_id_without_second_create(tmp_path):
+    calls = []
+    fail_download = True
+
+    def execute(args, **kwargs):
+        nonlocal fail_download
+        calls.append(args)
+        if args[1:3] == ["auth", "status"]:
+            return subprocess.CompletedProcess(args, 0, "{}", "")
+        if args[2] == "create":
+            return subprocess.CompletedProcess(args, 0, json.dumps({
+                "data": {"video_id": "video_12345678", "status": "completed"}
+            }), "")
+        if fail_download:
+            fail_download = False
+            raise RuntimeError("download interrupted")
+        Path(args[-1]).write_bytes(b"video")
+        return subprocess.CompletedProcess(args, 0, "{}", "")
+
+    output = tmp_path / "resumed.mp4"
+    intent = tmp_path / "effect.json"
+    try:
+        render(script="Breathe.", output=output, intent_path=intent,
+               environment=READY, executor=execute)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("first download must fail")
+    assert json.loads(intent.read_text())["state"] == "provider_created"
+
+    replay = render(script="Breathe.", output=output, intent_path=intent,
+                    environment=READY, executor=execute)
+    assert replay["state"] == "rendered"
+    assert sum(args[2] == "create" for args in calls if len(args) > 2) == 1
+    assert json.loads(intent.read_text())["state"] == "completed"

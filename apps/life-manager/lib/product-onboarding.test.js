@@ -14,7 +14,7 @@ const ROOT = path.resolve(__dirname, "../../..");
 test("one catalog describes all 14 public product loops on Local and Cloud", () => {
   const catalog = readProductLoopCatalog();
   assert.equal(catalog.loops.length, 14);
-  assert.deepEqual(catalog.host_requirements, { local: ["telegram_pairing"], cloud: [] });
+  assert.deepEqual(catalog.host_requirements, { local: ["telegram_credentials"], cloud: [] });
   assert.equal(new Set(catalog.loops.map((loop) => loop.id)).size, 14);
   for (const loop of catalog.loops) {
     assert.ok(loop.description.length > 20, loop.id);
@@ -47,7 +47,7 @@ test("the catalog loads from the standalone Cloud application artifact", (t) => 
 
 test("Local plans only selected loops and makes missing setup explicit", () => {
   const economy = planProductOnboarding({ host: "local", selected_loop_ids: ["agent-economy"],
-    verified_requirements: ["telegram_pairing"] });
+    verified_requirements: ["telegram_credentials"] });
   assert.deepEqual(economy.selected_loop_ids, ["agent-economy"]);
   assert.equal(economy.loops[0].state, "ready_to_start");
   assert.deepEqual(economy.loops[0].command, ["./install.sh"]);
@@ -55,7 +55,7 @@ test("Local plans only selected loops and makes missing setup explicit", () => {
   assert.deepEqual(economy.external_effects, []);
 
   const connector = planProductOnboarding({ host: "local", selected_loop_ids: ["connector"],
-    verified_requirements: ["telegram_pairing", "calendar", "telegram"] });
+    verified_requirements: ["telegram_credentials", "calendar", "telegram"] });
   assert.equal(connector.loops[0].state, "setup_required");
   assert.deepEqual(connector.loops[0].missing, ["provider_login_when_required"]);
   assert.deepEqual(connector.loops[0].command, ["./install.sh", "connector"]);
@@ -100,7 +100,7 @@ test("the Local install entrypoint emits a zero-effect selected-loop plan", () =
   assert.equal(plan.host, "local");
   assert.deepEqual(plan.selected_loop_ids, ["agent-economy"]);
   assert.equal(plan.loops[0].state, "setup_required");
-  assert.deepEqual(plan.loops[0].missing, ["telegram_pairing"]);
+  assert.deepEqual(plan.loops[0].missing, ["telegram_credentials"]);
   assert.deepEqual(plan.external_effects, []);
 });
 

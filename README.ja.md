@@ -179,7 +179,7 @@ browser loginが未設定のloopは`setup_required`のままです。guided inst
 
 選んだloopだけの副作用ゼロplanを先に確認できます。このplanはCloud `/start`も読む
 [`apps/life-manager/config/product-loop-catalog.json`](apps/life-manager/config/product-loop-catalog.json)を使い、
-LocalのTelegram pairingを含む不足条件を表示するだけで
+Local user自身のprivateなTelegram bot credentialを含む不足条件を表示するだけで
 何も開始しません。
 
 ```bash
