@@ -10,11 +10,6 @@ SKILL="$LIFE_MANAGER_REPO/skills/anicca-life-manager"
 PYTHON_BIN="${LIFE_MANAGER_PYTHON:-python3}"
 LIFE_MANAGER_HOME="${LIFE_MANAGER_HOME:-$HOME/.local/state/life-manager}"
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$LIFE_MANAGER_HOME/lateness-heartbeat}"
-MIGRATION_MARKER="$STATE_ROOT/legacy-migration.json"
-if [ ! -f "$MIGRATION_MARKER" ]; then
-  "$PYTHON_BIN" "$LIFE_MANAGER_REPO/runtime/migrate-legacy-lateness-state.py" \
-    --target-home "$LIFE_MANAGER_HOME" --target-loop-root "$STATE_ROOT" || exit $?
-fi
 LOG="$STATE_ROOT/logs/run.log"
 mkdir -p "$(dirname "$LOG")"
 chmod 700 "$STATE_ROOT" "$(dirname "$LOG")"

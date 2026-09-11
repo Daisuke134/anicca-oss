@@ -369,11 +369,11 @@ test("the enable script verifies the three files at HEAD of main, not in the wor
 
 // FINDING 14. `PATH=$JOB_PATH node -e ...` still inherited the operator's whole environment, so a
 // login-shell-only variable could make the probe succeed where the job will fail. `env -i` is the
-// only honest probe. And the loop needs gh/railway/openclaw too, not just the judge.
+// only honest probe. The loop needs node/gh/railway too, not just the judge; Telegram is repository-owned.
 test("the enable script probes the job PATH with a scrubbed environment and checks every binary", () => {
   const source = fs.readFileSync(ENABLE_SCRIPT, "utf8");
   assert.match(source, /env -i/);
-  for (const binary of ["openclaw", "gh", "railway"]) {
+  for (const binary of ["node", "gh", "railway"]) {
     assert.match(source, new RegExp(`\\b${binary}\\b`), `${binary} must be probed`);
   }
   assert.match(source, /missing/i, "the refusal must list what was missing");

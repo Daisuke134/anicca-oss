@@ -39,7 +39,7 @@ def _atomic(path, value):
 def _cookie():
     if os.environ.get("SUBSTACK_SESSION_COOKIE", "").strip():
         return os.environ["SUBSTACK_SESSION_COOKIE"].strip()
-    for path in (Path("~/.config/anicca/affiliate.env"), Path("~/.openclaw/.env")):
+    for path in (Path(os.environ.get("LIFE_MANAGER_ENV_FILE", "~/.local/state/life-manager/.env")),):
         path = path.expanduser()
         if not path.is_file():
             continue

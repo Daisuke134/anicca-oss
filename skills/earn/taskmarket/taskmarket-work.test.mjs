@@ -166,6 +166,7 @@ test('runTaskMarketPass generates three files, submits once, retries bounded rea
         url: 'https://cdn.blockrun.example/maya.png',
         model: 'openai/gpt-image-2',
         costUsd: 0.065,
+        paymentReceiptId: 'blockrun:paid-image-1',
         created: 1785230000,
       };
     },
@@ -209,6 +210,7 @@ test('runTaskMarketPass generates three files, submits once, retries bounded rea
     net_usdc: -0.065,
     submission_id: 'sub_taskmarket_1',
     model: 'openai/gpt-image-2',
+    payment_receipt_id: 'blockrun:paid-image-1',
   }]);
 });
 

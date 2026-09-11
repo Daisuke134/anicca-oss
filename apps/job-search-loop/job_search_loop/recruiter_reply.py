@@ -171,7 +171,7 @@ def send_reply_once(
     inbound_message_id: str,
     inbound_subject: str,
     decision: dict[str, Any],
-    executable: str = "/opt/homebrew/bin/gog",
+    executable: str = "gog",
     allow_self_recipient: bool = False,
 ) -> dict[str, str | None]:
     if decision.get("action") != "auto_reply":

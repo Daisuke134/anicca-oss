@@ -24,6 +24,7 @@ Usage:
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -31,7 +32,7 @@ import time
 import urllib.parse
 
 
-AGENT_BROWSER = "/opt/homebrew/bin/agent-browser"
+AGENT_BROWSER = os.environ.get("LIFE_MANAGER_AGENT_BROWSER", "agent-browser")
 
 
 def _run_ab(args: list[str], timeout: int = 30) -> str:

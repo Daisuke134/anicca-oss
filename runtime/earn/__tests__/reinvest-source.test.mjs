@@ -95,13 +95,16 @@ test("reinvest child cannot inherit another loop's signing-key overrides", () =>
   }
 });
 
-test("yield entrypoint uses only its repository-local support modules", () => {
+test("legacy yield entrypoint delegates to the one canonical repository implementation", () => {
   const entrypoint = path.join(earnDir, "execute-yield.mjs");
   assert.ok(fs.existsSync(entrypoint), "the release must contain execute-yield.mjs");
 
   const source = fs.readFileSync(entrypoint, "utf8");
-  assert.match(source, /from "\.\/lib\/resolve-identity\.mjs"/);
-  assert.match(source, /from "\.\/lib\/cost-basis\.mjs"/);
-  assert.match(source, /from "\.\/lib\/deposit-guard\.mjs"/);
+  assert.match(source, /import\("\.\.\/\.\.\/skills\/earn\/execute-yield\.mjs"\)/);
+  const canonical = fs.readFileSync(path.resolve(earnDir, "../../skills/earn/execute-yield.mjs"), "utf8");
+  assert.match(canonical, /from "\.\/lib\/resolve-identity\.mjs"/);
+  assert.match(canonical, /from "\.\/lib\/cost-basis\.mjs"/);
+  assert.match(canonical, /from "\.\/lib\/deposit-guard\.mjs"/);
   assert.doesNotMatch(source, /\.blockrun\/skills/);
+  assert.doesNotMatch(canonical, /\.blockrun\/skills/);
 });

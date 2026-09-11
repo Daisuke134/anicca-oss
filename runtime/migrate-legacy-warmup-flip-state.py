@@ -80,7 +80,7 @@ def migrate(source: Path, target: Path) -> dict[str, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, default=Path.home() / ".openclaw")
+    parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--target", type=Path, default=Path.home() / ".local/state/life-manager/warmup-flip-daily")
     args = parser.parse_args()
     try:

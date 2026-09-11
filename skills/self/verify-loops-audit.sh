@@ -114,44 +114,6 @@ if [ -n "$REDDIT_USER" ]; then
 fi
 { [ "$NACC" -ge 1 ] 2>/dev/null && { [ "$REDDIT_STALE" = 1 ] || [ "$REDDIT_DEAD" = 1 ] || [ "$REDDIT_BANNED" = 1 ]; }; } && bash "$SELF/self-fix.sh" reddit "audit: reddit has an account but no real post in >30h (posts.jsonl stale=$REDDIT_STALE) or the newest post URL is DEAD (dead=$REDDIT_DEAD) or the account itself is BANNED/suspended (banned=$REDDIT_BANNED, $REDDIT_BAN_STATUS). If banned, posting more from this same account cannot work -- get a new honest disclosed account (see skills/reddit/loop.sh's NO-REDDIT-ACCOUNT heal path) rather than retrying the dead one; otherwise make it post one honest disclosed contribution and log the URL." >> "$LOG" 2>&1 || true
 
-# G2 item2 (2026-07-11 loop-arch redesign / LOOPS-TRUTH-AUDIT.md "video: 2つの state file(warmup_day
-# 4 vs 0)の整合性チェックが無い"): video's warmup_day is tracked in TWO independently-written
-# files that can silently diverge -- run.sh's own gating state ~/.cloak/earn-video-<handle>.json
-# (what decide.py actually reads to choose S1_warmup vs post) and the separately-maintained
-# ~/.cloak/ig-warmup-<handle>.json (written by the ig-account-warmer skill's own warm_iso.py/
-# warm.py). Confirmed real drift 2026-07-11: earn-video-money_blueprintdaily.json warmup_day=4 vs
-# ig-warmup-money_blueprintdaily.json warmup_day=0, same last_warmup_date -- nothing detected it
-# before now. Escalates to self-fix so the two trackers get reconciled to one source of truth.
-for VF in "$HOME"/.cloak/earn-video-*.json; do
-  [ -f "$VF" ] || continue
-  V_HANDLE="$(python3 -c "
-import json
-try:
-    print(json.load(open('$VF')).get('handle') or '')
-except Exception:
-    print('')" 2>/dev/null)"
-  [ -n "$V_HANDLE" ] || continue
-  IGF="$HOME/.cloak/ig-warmup-${V_HANDLE}.json"
-  [ -f "$IGF" ] || continue
-  V_DAY="$(python3 -c "
-import json
-try:
-    d = json.load(open('$VF')).get('warmup_day')
-    print(d if d is not None else 'NA')
-except Exception:
-    print('NA')" 2>/dev/null)"
-  IG_DAY="$(python3 -c "
-import json
-try:
-    d = json.load(open('$IGF')).get('warmup_day')
-    print(d if d is not None else 'NA')
-except Exception:
-    print('NA')" 2>/dev/null)"
-  if [ "$V_DAY" != "NA" ] && [ "$IG_DAY" != "NA" ] && [ "$V_DAY" != "$IG_DAY" ]; then
-    bash "$SELF/self-fix.sh" video "audit: warmup_day state DRIFT for handle=$V_HANDLE -- $VF (the file run.sh/decide.py actually gate on) says warmup_day=$V_DAY, but $IGF (a second, separately-written warmup tracker) says warmup_day=$IG_DAY. These must be reconciled to ONE source of truth -- either make run.sh read $IGF instead, make the ig-account-warmer skill stop writing its own copy, or make one file derive from the other -- so warmup progress is never ambiguous again." >> "$LOG" 2>&1 || true
-  fi
-done
-
 # G2 item3 (2026-07-11 loop-arch redesign / LOOPS-TRUTH-AUDIT.md "capafy: 'PUBLISHED/DRAINED'等
 # ラベルの誤表示を実side-effect...で照合してない"): confirmed real incident 2026-07-11 --
 # daily_loop.log's own "done" line read '...rc=1 (PUBLISHED — post-verdict=DRAINED, marker

@@ -10,12 +10,18 @@ RUNTIME="$VERIFY_ROOT/runtime"
 LOG="$VERIFY_ROOT/verify.log"
 
 cleanup() {
+  status=$?
+  if [ "$status" -ne 0 ] && [ -f "$LOG" ]; then
+    printf 'fresh-clone verification failed; final log follows:\n' >&2
+    tail -120 "$LOG" >&2 || true
+  fi
   if [ "${LIFE_MANAGER_KEEP_VERIFY_DIR:-0}" = "1" ]; then
     printf 'fresh-clone directory retained: %s\n' "$VERIFY_ROOT"
   else
     chmod -R u+w "$VERIFY_ROOT" 2>/dev/null || true
     rm -rf "$VERIFY_ROOT"
   fi
+  return "$status"
 }
 trap cleanup EXIT
 
@@ -34,13 +40,11 @@ export HOME="$VERIFY_ROOT/home"
 export npm_config_cache="$VERIFY_ROOT/npm-cache"
 mkdir -p "$HOME"
 
-run npm --prefix "$CLONE" ci --no-audit --no-fund
 run npm --prefix "$CLONE" run verify:oss
 run env \
   LIFE_MANAGER_HOME="$RUNTIME" \
   LIFE_MANAGER_INSTALL_DAEMON=0 \
   bash "$CLONE/install.sh"
-run npm --prefix "$CLONE/apps/life-manager" ci --no-audit --no-fund
 run npm --prefix "$CLONE/apps/life-manager" test
 run npm --prefix "$CLONE/apps/life-manager" run eval
 run npm --prefix "$CLONE/apps/life-manager" run eval:panel-privacy

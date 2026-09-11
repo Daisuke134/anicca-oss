@@ -15,8 +15,8 @@ available and end suffering for humans and, ultimately, all living beings.
 
 [Open Life Manager](https://aniccaai.com/lm) · [Start in Telegram](https://t.me/LifeManagerBotbot?start=lp) · [View the source](https://github.com/Daisuke134/life-manager)
 
-The repository is open source. The Investment Loop has a portable Docker self-host path that keeps its durable
-state on the owner's machine; other Life Manager loops are still converging on that clean-host contract. Use the paid monthly cloud service when you want an
+The repository is open source. Local runs repository-owned processes and durable state directly on the owner's
+computer; Docker and Docker Compose are not required. Use the paid monthly cloud service when you want an
 always-on manager with only a phone. Both surfaces use the same core from this repository
 and converge on the same state, evidence, and human-readable reporting contracts. Life
 Manager never guarantees wealth or investment returns, and it never reports an attempted action as completed
@@ -28,6 +28,11 @@ Life Manager has fourteen user-facing product loops. A product loop is a capabil
 not necessarily one process: the lifecycle registry contains the smaller
 application, browser-owner, reporting, healthcheck, and reconciliation jobs that
 implement and support these 14 loops.
+
+Loops 1–3 form the **Human Gig Work** family. Life Manager automates discovery,
+screening, application, negotiation, delivery support, reconciliation, and
+reporting; a person participates only where the marketplace requires identity,
+an interview, approval, or final delivery.
 
 | # | Product loop | Representative current owners | What it does |
 |---:|---|---|---|
@@ -42,9 +47,49 @@ implement and support these 14 loops.
 | 9 | Fundraiser | `fundraiser` | Discovers accelerators, fellowships, grants, and public investor intakes and applies when eligible |
 | 10 | Connector | `life-manager-connector-native` | Finds eligible events, applies, verifies registration, and reports Calendar and Telegram receipts |
 | 11 | Life Manager Cloud | `apps/life-manager` on Railway | Runs the always-on web, Telegram, reminder, scheduling, and hosted-agent surface |
-| 12 | Life Manager Mobile Apps | Anicca iOS, Honne, and the other `life-manager-anicca-*` / `life-manager-honne-*` build, marketing, distribution, and metrics jobs | Builds and operates the portfolio of Life Manager-owned iOS apps, then markets and measures each app through shared product-aware components |
+| 12 | Mobile App Loops | Anicca iOS, Honne, and the other `life-manager-anicca-*` / `life-manager-honne-*` product jobs | Runs the owned mobile-app lifecycle: create the product account and app, build and sign releases, publish them, continuously improve the apps, distribute marketing content through Postiz or a native provider adapter, measure outcomes, and feed verified revenue back into CFO. Today the repository owns the shared product-aware marketing, distribution, measurement, and receipt path; app creation, signing, release, and iteration are still being unified into the same end-to-end loop. |
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Operates Capafy's separate product, sales, outcome, and audience-growth workflows |
 | 14 | CFO | `life-manager-cfo-hourly` | Reconciles verified revenue, cash flow, balances, payouts, and financial reports across the earning loops |
+
+### Setup and start truth
+
+| Product loop | User setup | Current start path |
+|---|---|---|
+| Coconala Gig | Coconala login, work profile, Telegram | `./install.sh coconala` |
+| Lancers Gig | Lancers login and work profile | Managed production owner; public guided installer pending |
+| CrowdWorks Gig | CrowdWorks login and work profile | Managed production owner; public guided installer pending |
+| Writer | Publisher accounts and browser/API credentials | Registry jobs; public guided installer pending |
+| Affiliate | Affiliate-provider account and browser/API credentials | Registry jobs; public guided installer pending |
+| Investment / Alpaca | Alpaca API credentials and explicit `paper`, `shadow`, or `live` mode | `LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py` |
+| Agent Economy | No owner wallet; optional provider credentials for earning | `./install.sh` |
+| Job Hunter | Resume, preferences, Gmail/Telegram, official site logins | `./install.sh job-hunter` |
+| Fundraiser | Applicant profile and Telegram; provider login when required | `./install.sh fundraiser` |
+| Connector | Calendar/Telegram and event-provider login when required | `./install.sh connector` |
+| Life Manager Cloud | Telegram `/start`, then requested account connections | [Start in Telegram](https://t.me/LifeManagerBotbot?start=lp) |
+| Mobile App Loops | Product manifest plus Postiz/native, App Store Connect and RevenueCat credentials for the selected lane | Shared registry jobs exist; full app-factory guided installer pending |
+| Capafy | Capafy account/API credential and publication profile | Registry jobs; public guided installer pending |
+| CFO | Credentials for only the financial sources the user connects | `bash skills/cfo/run.sh` for one finite pass |
+
+Mobile App Loops use one product-aware lifecycle rather than separate scripts per
+app. A product manifest selects Anicca iOS, Honne, or another app; shared services
+then perform the supported stages and write the same measurement, revenue, CFO,
+and Telegram receipts. Postiz is an external distribution provider behind a
+repository-owned adapter, not a source-code dependency. The future account/app
+creation and build/sign/release stages remain explicitly `setup_required` until
+their shared orchestration and guided installer are complete.
+
+```mermaid
+flowchart LR
+  M[Product manifest] --> A[Create account and app]
+  A --> B[Build, sign, release]
+  B --> I[Measure and improve]
+  I --> D[Postiz or native distribution adapter]
+  D --> R[Provider and revenue receipts]
+  R --> C[CFO and Telegram]
+```
+
+`setup_required` is a healthy waiting state, not a completed effect and not a crash. Never use `start all` as an
+onboarding shortcut: install and start only the loops whose provider setup and effect authority are complete.
 
 **Money Printer is not another loop.** It is the umbrella for all revenue-producing
 loops. The `/money-printer` control room shows their shared opportunity-to-receipt
@@ -82,10 +127,6 @@ and effects, stable client-order IDs, durable receipts, reconciliation, and one
 Telegram report every five minutes. It never treats a deposit as profit or promises
 returns.
 
-For a new computer, use the secret-free Docker package and begin in `shadow`:
-
-[`skills/alpaca-investment/self-host/README.md`](skills/alpaca-investment/self-host/README.md)
-
 Run and inspect one finite pass from a checkout:
 
 ```bash
@@ -94,7 +135,7 @@ LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py
 ```
 
 The repository's managed macOS path installs only from an immutable main-derived
-release through `lm-loop apply`; the Docker path uses a named durable volume. Never
+release through `lm-loop apply`. Never
 run two live writers for one Alpaca account. A successful process is not proof of
 profit: use the reported account, position, order, fee, slippage, and net-P&L
 readbacks.
@@ -109,10 +150,10 @@ automation is denied. That is evidence about a provider boundary, not a complete
 to stop the general-agent work. Approved providers must reuse the same agent, commerce state, capabilities, and
 money-effect contract; their differences belong in a small provider manifest and official readback adapter.
 
-The architecture is converging by copying and adapting proven boundaries from
+The architecture uses repository-owned wake, scheduling, Telegram, browser, state, effect, receipt, and outbox
+boundaries. It also adapts useful design ideas from
 [DeepAgentsJS/LangGraph](https://github.com/langchain-ai/deepagentsjs) for the specialist harness and durable state,
 [browser-use](https://github.com/browser-use/browser-use) for the website-tool contract,
-[OpenClaw](https://github.com/openclaw/openclaw) for the current local wake and channels, and
 [Steel](https://github.com/steel-dev/steel-browser) for the hosted browser backend. Existing Life Manager
 `EffectIntent` and `ConnectorOutbox` rails remain the only path for irreversible money actions. The completion
 signal is an official `banked` receipt—not an application, click, model claim, contract, or pending balance.
@@ -171,7 +212,7 @@ official receipts through `banked` and, eventually, `compute_paid`.
 
 🌐 **[日本語版 README はこちら →](README.ja.md)**
 
-**Repository SSOT:** this repository, [`Daisuke134/life-manager`](https://github.com/Daisuke134/life-manager), is the only Life Manager code, spec, release, workflow, and deployment source. `Daisuke134/life-manager-v0` is an archived historical repository, not a runtime or migration source. The current ordered execution plan and remaining work are maintained in [`docs/superpowers/specs/2026-08-01-dais-life-manager-five-phase-execution-spec.md`](docs/superpowers/specs/2026-08-01-dais-life-manager-five-phase-execution-spec.md); repository consolidation history remains in [`docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md`](docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md).
+**Repository SSOT:** this repository, [`Daisuke134/life-manager`](https://github.com/Daisuke134/life-manager), is the only Life Manager code, spec, release, workflow, and deployment source. `Daisuke134/life-manager-v0` is an archived historical repository, not a runtime or migration source. The current ordered execution plan and remaining work are maintained in [`docs/superpowers/specs/2026-09-06-life-manager-one-repo-two-runtimes-design.md`](docs/superpowers/specs/2026-09-06-life-manager-one-repo-two-runtimes-design.md); repository consolidation history remains in [`docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md`](docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md).
 
 ---
 
@@ -184,6 +225,21 @@ official receipts through `banked` and, eventually, `compute_paid`.
 authenticated `/panel`; you talk to it in Telegram and it reports back there with receipts.
 
 ### Run it yourself — local (your machine holds the data)
+
+Clone once, prepare one isolated Agent Economy citizen, and inspect the runtime without installing a daemon:
+
+```bash
+git clone https://github.com/Daisuke134/life-manager.git
+cd life-manager
+LIFE_MANAGER_INSTALL_DAEMON=0 ./install.sh
+./bin/lm-loop status all
+./bin/lm-loop doctor
+```
+
+The default installer does not silently start all 14 product loops. Each provider-backed loop remains
+`setup_required` until its account, credentials, KYC or browser login is configured. Guided installers currently
+exist for `./install.sh coconala`, `connector`, `fundraiser`, and `job-hunter`; the README catalog states the current
+boundary for the other product loops.
 
 To start the Job Hunter loop on an Apple Silicon Mac:
 
@@ -221,8 +277,8 @@ jq -r '.loops | keys[]' config/loop-registry.json
 
 Installing an effectful loop is an operator action performed from an immutable
 release after its credentials and host capabilities are configured; cloning the
-repository never starts every loop automatically. The repository does contain an
-retired the unused Docker Compose profile; neither the current Mac production loops
+repository never starts every loop automatically. The repository has retired the
+unused Docker Compose profile; neither the current Mac production loops
 nor the selling cloud product require Docker or Compose.
 
 ### Self-funding is part of the Financial Organ
@@ -273,9 +329,12 @@ linked above.
 that still need their own proven supervisor/install path. Phones are
 clients: they use the cloud runtime or connect to another always-on self-hosted machine.
 
-The full loop catalog is not yet portable. Some production loops still rely on macOS browser profiles, OpenClaw,
-or legacy host paths. Until the clean-host acceptance matrix in the
-architecture spec passes, the README does not claim that every loop works on every device.
+Required runtime source is repository-owned and does not import code from OpenClaw,
+Hermes, another checkout, or a worktree. Portability is still capability-specific:
+macOS is the verified full local supervisor/browser host today, while Linux and
+Windows supervisor adapters and several public guided installers remain unfinished.
+The Cloud surface runs without the user's local device, but it currently hosts only
+the loops listed as Cloud-supported rather than silently claiming all 14.
 
 | Path | Role | What it is not |
 |---|---|---|

@@ -16,7 +16,7 @@
 //   built, signed, or sent — and, matching acquire-nos.mjs/sub-wallet.mjs's own dry-mode
 //   convention, no ledger entry is written either: a plan-and-print has no side effects to record.
 // --live: additionally calls executeRefill (bridge -> swap -> top-up) and journals the attempt to
-//   ~/.hermes/state/refill.jsonl as an `intent` row before acting, then a `settled` row after —
+//   the instance's Life Manager state as an `intent` row before acting, then a `settled` row after —
 //   the same before/after shape sub-wallet.mjs already uses for nosana-subwallet-funding.jsonl.
 //   The top-up leg calls sub-wallet.mjs's fundSubWallet verbatim, so its own caps and owner-SOL-
 //   floor gate are what actually decide (and can refuse) the final transfer — this file does not

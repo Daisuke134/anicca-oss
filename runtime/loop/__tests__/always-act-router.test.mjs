@@ -131,7 +131,7 @@ test('PROP-502b (property): assembleAlwaysActMenu never includes a non-live slot
   );
 });
 
-test('PROP-502c: given the CURRENT skills/registry.json, isEarnActionSlot-menu membership resolves to exactly the 11 documented always-act slots', async () => {
+test('PROP-502c: given the CURRENT skills/registry.json, menu membership resolves to the documented live always-act slots', async () => {
   const registry = JSON.parse(await fs.readFile(REGISTRY_PATH, 'utf8'));
   const menu = assembleAlwaysActMenu({
     registry,
@@ -143,11 +143,10 @@ test('PROP-502c: given the CURRENT skills/registry.json, isEarnActionSlot-menu m
     hasOpenRiskPositionOf: () => false,
   });
   const expected = [
-    'yield', 'hl_trade', 'x402_sell', 'token_launch',
-    'economy/gig', 'economy/lending',
-    'earn/clip', 'earn/clip-producer', 'earn/video', 'earn/sol-trade', 'earn/polymarket-trade',
+    'yield', 'x402_sell', 'economy/lending', 'earn/taskmarket',
+    'earn/sol-trade', 'earn/polymarket-trade',
   ];
-  assert.deepEqual(new Set(menu), new Set(expected), `menu must equal exactly the 11 documented slots, got: ${JSON.stringify(menu.sort())}`);
+  assert.deepEqual(new Set(menu), new Set(expected), `menu must equal the documented live slots, got: ${JSON.stringify(menu.sort())}`);
   for (const excluded of ['report', 'cook', 'self/spawn', 'self/spawn-child', 'self/issue-dev', 'self/coordinate', 'economy/ubi', 'earn/audit', 'earn/_probe', 'earn']) {
     assert.ok(!menu.includes(excluded), `${excluded} must be absent from the always-act menu`);
   }
@@ -269,7 +268,7 @@ test('PROP-506e (literal, current registry): earn/sol-trade, hl_trade, token_lau
   for (const capital of ['earn/sol-trade', 'hl_trade', 'token_launch', 'earn/polymarket-trade', 'yield']) {
     assert.equal(isMarketRiskFree(capital, riskTagOf), false, `${capital} must be risk:"capital" per the current registry and never risk-free`);
   }
-  for (const safe of ['economy/gig', 'economy/lending', 'x402_sell', 'earn/clip', 'earn/clip-producer', 'earn/video']) {
+  for (const safe of ['economy/lending', 'x402_sell', 'earn/taskmarket']) {
     assert.equal(isMarketRiskFree(safe, riskTagOf), true, `${safe} must be risk:"safe" per the current registry`);
   }
 });

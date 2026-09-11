@@ -728,6 +728,13 @@ raise SystemExit(0)
         self.assertIn("os.fchmod(fd,0o600)", installer)
         self.assertNotIn("echo \"$bot_token\"", installer)
         self.assertIn("/anicca/job-search/private.env", paths)
+        self.assertIn('$JOB_SEARCH_STATE_ROOT/media/job-search-outbound', paths)
+        self.assertNotIn('.openclaw/media', paths)
+        self.assertNotIn('JOB_SEARCH_OPENCLAW', paths)
+        self.assertIn('command -v python3', paths)
+        self.assertIn('command -v gog', paths)
+        self.assertIn('command -v bun', paths)
+        self.assertIn('command -v firecrawl', paths)
 
 
 if __name__ == "__main__":

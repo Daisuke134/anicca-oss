@@ -3,7 +3,7 @@
 // trading decision already happened; this only reads the CLI's own receipt back).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractLastSignature } from "../parse-pass.mjs";
+import { extractLastSignature, extractSignatures } from "../parse-pass.mjs";
 
 const SIG_A = "A".repeat(88);
 const SIG_B = "B".repeat(88);
@@ -23,6 +23,7 @@ test("extractLastSignature: exactly one 'Signature:' line -> that signature", ()
 test("extractLastSignature: multiple 'Signature:' lines -> the LAST one only (multi-step swap chain)", () => {
   const stdout = `Signature: ${SIG_A}\n...rebalancing...\nSignature: ${SIG_B}\ndone.`;
   assert.equal(extractLastSignature(stdout), SIG_B);
+  assert.deepEqual(extractSignatures(stdout), [SIG_A, SIG_B]);
 });
 
 test("extractLastSignature: malformed/truncated/empty input never throws, returns null", () => {

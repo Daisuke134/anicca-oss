@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -42,7 +43,7 @@ class BrowserSession:
             Path.home() / ".cloak/vault/job-search-daily/auth-state.json"
         )
         process = await asyncio.create_subprocess_exec(
-            os.environ.get("JOB_SEARCH_PYTHON", "/opt/homebrew/bin/python3"),
+            os.environ.get("JOB_SEARCH_PYTHON", sys.executable),
             str(self._lease_script()),
             *arguments,
             stdout=asyncio.subprocess.PIPE,

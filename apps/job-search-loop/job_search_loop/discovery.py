@@ -123,7 +123,7 @@ def search_jobs(
 def _default_providers(
     query: str, *, app_root: Path, framework_root: Path
 ) -> tuple[Provider, ...]:
-    bun = "/opt/homebrew/bin/bun"
+    bun = os.environ.get("JOB_SEARCH_BUN", "bun")
     return (
         Provider(
             "firecrawl",

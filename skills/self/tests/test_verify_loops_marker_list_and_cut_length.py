@@ -38,10 +38,10 @@ with open(VERIFY_LOOPS_SH, encoding="utf-8") as f:
 with open(VERIFY_LOOPS_AUDIT_SH, encoding="utf-8") as f:
     verify_loops_audit_src = f.read()
 
-# --- self-fix marker loop must list exactly the 10 canonical loops (self-heal.md root cause #2:
+# --- self-fix marker loop must list exactly the canonical marker loops (self-heal.md root cause #2:
 # previously only 3 of these were listed, hiding affiliate's #994/bounty's #995 diagnoses). ---
-CANONICAL_10 = [
-    "clip-loop", "affiliate-loop", "video-loop", "gig-loop", "bounty-loop",
+CANONICAL_MARKERS = [
+    "affiliate-loop", "gig-loop", "bounty-loop",
     "pm-earner-loop", "founder-loop", "capafy-loop", "reddit-loop", "life-manager-loop",
 ]
 
@@ -53,8 +53,8 @@ chk("verify-loops.sh: self-fix marker loop line found (script structure unchange
     m is not None, True)
 if m:
     actual_list = m.group(1).split()
-    chk("verify-loops.sh: self-fix marker loop lists ALL 10 canonical loops, in order, no extras/omissions",
-        actual_list, CANONICAL_10)
+    chk("verify-loops.sh: self-fix marker loop lists every canonical marker, in order, no extras/omissions",
+        actual_list, CANONICAL_MARKERS)
 
 # --- mail-body cut length must be 3000, and the old 900 must be gone entirely (self-heal.md root
 # cause #2: 900 truncated $OUT before the self-fix marker section it prints ever reached the mail). ---

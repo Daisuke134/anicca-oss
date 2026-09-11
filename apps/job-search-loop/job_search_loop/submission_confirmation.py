@@ -386,7 +386,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--gog",
-        default=os.environ.get("JOB_SEARCH_GOG", "/opt/homebrew/bin/gog"),
+        default=os.environ.get("JOB_SEARCH_GOG", "gog"),
     )
     args = parser.parse_args()
 

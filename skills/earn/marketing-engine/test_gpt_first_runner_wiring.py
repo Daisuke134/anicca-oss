@@ -12,7 +12,6 @@ RUN_AGENT = ENGINE / "run_agent.sh"
 CONSUMERS = (
     ROOT / "self" / "capafy-loop" / "capafy-loop-daily.sh",
     ROOT / "earn" / "capafy-marketing" / "capafy-ig-marketing-daily.sh",
-    ROOT / "earn" / "clip" / "clip_daily.sh",
     ENGINE / "spawn-marketing-loop.sh",
     ROOT / "self" / "self-fix.sh",
 )
@@ -22,7 +21,6 @@ EXPECTED_TASK_CLASSES = {
     # pass is already 229s, so 180s (tool-agent) SIGKILLed it daily (X23).
     ROOT / "self" / "capafy-loop" / "capafy-loop-daily.sh": "browser-lane-agent",
     ROOT / "earn" / "capafy-marketing" / "capafy-ig-marketing-daily.sh": "marketing-agent",
-    ROOT / "earn" / "clip" / "clip_daily.sh": "tool-agent",
     ENGINE / "spawn-marketing-loop.sh": "repeatable-agent",
     ROOT / "self" / "self-fix.sh": "high-value-agent",
 }
@@ -30,7 +28,6 @@ EXPECTED_TASK_CLASSES = {
 EXPECTED_LOOPS = {
     ROOT / "self" / "capafy-loop" / "capafy-loop-daily.sh": "--loop capafy",
     ROOT / "earn" / "capafy-marketing" / "capafy-ig-marketing-daily.sh": "--loop capafy",
-    ROOT / "earn" / "clip" / "clip_daily.sh": "--loop clip",
     ENGINE / "spawn-marketing-loop.sh": "--loop marketing-engine",
     ROOT / "self" / "self-fix.sh": "--loop $LOOP_Q",
 }

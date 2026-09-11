@@ -602,17 +602,10 @@ class MacosLoopRegistryTest(unittest.TestCase):
             row["log_root"], "~/.local/state/life-manager/self-improve-evolve/logs",
         )
 
-    def test_clip_loop_uses_direct_python_adapter(self):
+    def test_obsolete_scheduled_clip_loop_is_retired(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())
-        row = registry["loops"]["clip-loop"]
-        self.assertEqual(row["adapter"], "python")
-        self.assertEqual(row["command"], ["clip"])
-        self.assertEqual(row["state_root"], "~/.local/state/life-manager/clip-loop")
-        self.assertEqual(row["log_root"], "~/.local/state/life-manager/clip-loop/logs")
-        self.assertEqual(
-            row["entrypoint"],
-            "skills/earn/marketing-engine/report/scheduled_runner.py",
-        )
+        self.assertNotIn("clip-loop", registry["loops"])
+        self.assertIn("ai.anicca.clip-loop", registry["retired_labels"])
 
     def test_warmup_flip_uses_canonical_life_manager_state(self):
         registry = json.loads((ROOT / "config/loop-registry.json").read_text())

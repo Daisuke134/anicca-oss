@@ -16,7 +16,7 @@ import json, os, re, subprocess, sys, time
 from pathlib import Path
 
 CDP = str(Path(__file__).resolve().parents[3] / "browser/scripts/cdp.py")
-PY = "/opt/homebrew/bin/python3"
+PY = sys.executable
 IGLEDGER = os.path.expanduser("~/.local/state/life-manager/state/capafy-marketing-ig-ledger.jsonl")
 METRICS = os.path.expanduser("~/.local/state/life-manager/state/capafy-marketing-ig-metrics.jsonl")
 POSTER = Path(__file__).resolve().parents[2] / "marketing-engine/poster.py"

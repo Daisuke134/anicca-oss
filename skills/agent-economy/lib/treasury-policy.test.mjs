@@ -83,7 +83,12 @@ test("authorizeEarnedSpend rejects seed, human, unverified, and missing receipt 
   const base = { amountUsdc: 0.001, reserveUsdc: 0, sessionSpentUsdc: 0, sessionCapUsdc: 0.001, recipient: RECIPIENT };
   assert.equal(authorizeEarnedSpend({ ...base, fundingReceiptIds: ["seed:1"], revenueReceipts: [] }).reason, "invalid-funding-provenance");
   assert.equal(authorizeEarnedSpend({ ...base, fundingReceiptIds: ["r1"], revenueReceipts: [{ receipt_id: "r1", external: true, verified: false, terminal_state: "settled", net_usdc: 1 }] }).reason, "invalid-funding-provenance");
-  const small = { ...verifiedRevenue, gross: 0.0005, signed_net: 0.0005 };
+  const small = normalizeRevenueReceipt({
+    provider: "x402", payer: `0x${"64".repeat(20)}`, recipient: RECIPIENT,
+    gross: 0.0005, fee: 0, refund: 0, asset: "USDC", terminal_state: "settled",
+    occurred_at: "2026-08-24T01:35:29Z",
+    proof: { chain_id: 8453, tx_hash: `0x${"35".repeat(32)}`, log_index: 0, verified: true },
+  });
   assert.equal(authorizeEarnedSpend({ ...base, fundingReceiptIds: [small.idempotency_key], revenueReceipts: [small] }).reason, "reserve-floor");
   const nonUsdc = normalizeRevenueReceipt({
     provider: "x402", payer: `0x${"64".repeat(20)}`, recipient: RECIPIENT,

@@ -22,7 +22,6 @@ MAPPINGS = {
     "ai.anicca.marketing-score-daily": "score",
     "ai.anicca.marketing-metrics-daily": "metrics",
     "ai.anicca.marketing-dashboard": "dashboard",
-    "ai.anicca.clip-loop": "clip",
     "ai.anicca.self-improve-evolve": "self-improve",
     "ai.anicca.capafy-ig-marketing-daily": "capafy",
 }

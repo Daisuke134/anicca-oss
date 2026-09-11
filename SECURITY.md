@@ -22,7 +22,7 @@ days for verifiable issues.
 - Twilio / Pipecat / Gemini / Stripe / Wise / Telegram bot API
   configuration issues that belong on the upstream — please report
   to those vendors first.
-- Misconfigurations of the user's own `~/.openclaw/.env`. This file
+- Misconfigurations of the user's own `~/.local/state/life-manager/.env`. This file
   is the user's responsibility; we provide `.env.example` as the
   template and document the keys in `README.md` and
   `docs/INSTALL_BOOTSTRAP.md`.
@@ -30,9 +30,9 @@ days for verifiable issues.
 ## In scope
 
 - Anything in this repo that could leak a user's keys, location, or
-  call history out of `~/.openclaw/`.
-- Anything in the install scripts (`install.sh`, `uninstall.sh`,
-  `scripts/fuel-usdc.sh`) that could be hijacked into executing
+  call history out of the private Life Manager state directory.
+- Anything in the install scripts (`install.sh`, `uninstall.sh`) that
+  could be hijacked into executing
   arbitrary commands.
 - Any Python or Bash code path that could be exploited by a
   malicious gcal event content (= prompt injection into the call

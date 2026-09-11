@@ -1,25 +1,11 @@
 {
-  "_comment": "REQ-LV-100 — Cadence Contract declarations, one entry per loop, machine-readable schema consumed by cadence.py via verify-loops.sh/verify-loops-audit.sh. kind semantics documented in cadence.py's own module docstring. clip-promote is intentionally absent (REQ-LV-100: campaign-dependent posting frequency has no Cadence Contract — see clip-promote-status.mjs instead).",
-  "clip": {
-    "kind": "row-exists",
-    "cadence": "1/day",
-    "unit": "reel",
-    "boundary_tz": "Asia/Tokyo",
-    "source": "CLIP_LEDGER ($EARN_LEDGER or ~/.local/state/life-manager/state/clip-earn-ledger.jsonl)"
-  },
+  "_comment": "REQ-LV-100 — Cadence Contract declarations, one entry per current loop, machine-readable schema consumed by cadence.py via verify-loops.sh/verify-loops-audit.sh. kind semantics are documented in cadence.py's module docstring.",
   "affiliate": {
     "kind": "row-exists",
     "cadence": "1/day",
     "unit": "reel",
     "boundary_tz": "Asia/Tokyo",
     "source": "~/.cloak/affiliate-metrics.jsonl (REQ-LV-014)"
-  },
-  "video": {
-    "kind": "row-exists",
-    "cadence": "1/day",
-    "unit": "reel",
-    "boundary_tz": "Asia/Tokyo",
-    "source": "~/.cloak/earn-video-metrics-<handle>.jsonl"
   },
   "gig": {
     "kind": "row-exists",

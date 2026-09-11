@@ -239,7 +239,7 @@ set +e
 RUNNER_RC=$?
 set -e
 set +e
-/opt/homebrew/bin/timeout 45 env \
+"$JOB_SEARCH_PYTHON" "$JOB_SEARCH_REPO_ROOT/runtime/run-with-timeout.py" 45 env \
   SESSION_VAULT_PORT=9222 \
   SESSION_VAULT_DIR="$JOB_SEARCH_SESSION_VAULT_DIR" \
   "$JOB_SEARCH_PYTHON" "$JOB_SEARCH_SESSION_VAULT_SCRIPT" dump \

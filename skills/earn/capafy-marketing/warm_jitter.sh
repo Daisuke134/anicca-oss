@@ -16,4 +16,6 @@ if [ -z "$IG_HANDLE" ]; then
   exit 0
 fi
 sleep $(( RANDOM % 10800 ))   # 0..10800s = 0..3h jitter
-exec /opt/homebrew/bin/python3 "$LIFE_MANAGER_REPO/skills/earn/marketing-engine/warmer.py" "$ACCOUNTS_FILE"
+PYTHON_BIN="${CAPAFY_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3 2>/dev/null)}}"
+[ -n "$PYTHON_BIN" ] || { echo "python3 is required" >&2; exit 2; }
+exec "$PYTHON_BIN" "$LIFE_MANAGER_REPO/skills/earn/marketing-engine/warmer.py" "$ACCOUNTS_FILE"

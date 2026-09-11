@@ -185,7 +185,7 @@ def main() -> int:
         if ledger_resolver is not None:
             rows = load_ledger_rows(ledger_resolver())
         else:
-            # pm-earner / clip-promote (and any future roster loop not yet in
+            # pm-earner (and any future roster loop not yet in
             # weekly_report.LEDGER_PATH_FOR_LOOP): no real earn-ledger source has been declared for
             # this loop yet. Honestly empty (mirrors REQ-CEO-021's B12 pm-earner spend-side fallback
             # -- absent data is never zero-filled with a fabricated non-zero) rather than inventing a

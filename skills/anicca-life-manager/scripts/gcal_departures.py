@@ -207,7 +207,7 @@ def fetch_events():
     # 9-17 MUFG day-job slid to page 2 -> gcal_departures returned no events ->
     # lateness_check returned "no-events" for the entire morning. Always page.
     out = subprocess.run(
-        ["/opt/homebrew/bin/gog", "calendar", "events", "list", "-j",
+        [os.environ.get("LIFE_MANAGER_GOG", "gog"), "calendar", "events", "list", "-j",
          "--account", acct, "--from", "today", "--to", to,
          "--all-pages", "--max", "250"],
         capture_output=True, text=True,

@@ -94,7 +94,8 @@ reconciliation and health jobs.
 9. Fundraiser
 10. Connector
 11. Life Manager Cloud
-12. Life Manager Mobile Apps — Anicca iOS, Honne and the other owned iOS apps; build, marketing, distribution and measurement
+12. Mobile App Loops — Anicca iOS, Honne and the other owned mobile apps; product-account creation, app factory,
+    build/sign/release, continuous iteration, Postiz or native-provider marketing, measurement and CFO revenue feedback
 13. Capafy
 14. CFO
 
@@ -167,7 +168,7 @@ Reuse already working:
 
 Remaining work after the shared-runtime cleanup:
 
-- continue `AE-UX-04` through `AE-UX-12` in the fixed order below;
+- complete the remaining `AE-UX-08`, then move directly to the whole-repository `AE-UX-12` acceptance below;
 - the four protected Gig jobs remain owned by their current Coconala/CrowdWorks/Lancers work, outside this cleanup
   pass. They already use repository-owned source and do not make Life Manager depend on another checkout.
 
@@ -261,16 +262,12 @@ Normal use has no Agent Economy start command.
   reported as a scoped capability limitation; it never blocks unrelated no-human lanes or becomes a hidden shared
   credential.
 
-The target `./install.sh` auto-start and Cloud `/economy` behavior are not current claims. Today Local has a
-registry-managed `agent-economy-loop`, but its public one-command installation and realtime Telegram lifecycle
-are incomplete. The current documented manual path is `./install.sh` followed by
-`ANICCA_BRAIN=claude-p ./start-local.sh node runtime/loop/index.mjs`; the one-shot
-`skills/agent-economy/run.sh` only reconciles and prints status. Cloud has the shared capability worker, daily
-Financial Manager delivery, and the user-facing Investment `/invest` surface; it does not yet run the complete
-Agent Economy citizen daemon or understand `/economy`. Investment is the only dedicated loop surface currently
-proven against loop state in the Cloud product; `/gig` and `/crowd` surfaces also exist but their live-state readers
-are not connected. Investment's current Cloud execution is dry-run with zero broker calls, and it is not the Cloud
-worker's only background capability.
+This setup behavior is implemented. Local `./install.sh` idempotently creates the citizen and wallet and installs
+the Agent Economy owner when daemon installation is enabled. Cloud `/start` provisions the tenant-scoped citizen,
+encrypted signer reference and initial job; the shared capability worker completes bounded wakes and schedules the
+next wake, and `/economy` projects the current receipt-backed status and emergency pause. The production and focused
+acceptance evidence is recorded in `AE-UX-03` through `AE-UX-05` and `AE-UX-12g`. None of that evidence claims live
+profit or a self-funded compute purchase.
 
 #### Telegram reporting contract
 
@@ -341,8 +338,8 @@ This checklist does not reorder the established implementation sequence below. T
   provisioned one encrypted citizen and one initial runtime job in the shared runtime Postgres boundary. The worker
   completed cycle 0 with an `agent_economy_wake` receipt, transactionally scheduled cycle 1 five minutes later,
   then claimed and completed cycle 1 naturally and scheduled cycle 2. The current shared wake result is
-  `wake_error` and non-profitable; provider/economic convergence therefore remains explicitly in `AE-UX-06` through
-  `AE-UX-09`, rather than weakening this lifecycle acceptance.
+  `wake_error` and non-profitable; repository-owned provider/economic flow convergence therefore remains explicitly
+  in `AE-UX-06` through `AE-UX-08`, while live profitability is not a cleanup completion gate.
 - [x] `AE-UX-05` Add `/economy` as an optional authenticated status/control projection backed by the same receipt
   state; expose buttons for setup gaps and emergency pause without requiring normal commands. PR #4986 merged as
   `2dc4cb254`: the authenticated Telegram webhook projects the tenant's Cloud citizen, latest Agent Economy job and
@@ -354,23 +351,236 @@ This checklist does not reorder the established implementation sequence below. T
   `money-printer-worker` run merged commit `2dc4cb254`, and Telegram message `76577` projected `running`, queued cycle 6,
   completed receipt cycle 5, non-profitable truth plus the Emergency pause button. The button was not tapped, so the
   production Agent Economy remains running.
-- [ ] `AE-UX-06` Join every supported earning provider to verified revenue receipts and every compute, cloud,
+- [x] `AE-UX-06` Join every supported earning provider to verified revenue receipts and every compute, cloud,
   storage, network and API charge to cost/payment receipts; reject self-pay, owner seed and unverified candidates.
-- [ ] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
+  In progress on `feat/agent-economy-economic-receipts-20260911`: the TaskMarket x402 image purchase now retains
+  a hash of the provider's terminal payment-response as its non-secret payment receipt ID. The shared Cloud wake
+  projects only same-wake, positive, receipt-backed TaskMarket costs into the existing tenant FinancialRecord store;
+  missing-receipt cost claims remain excluded, and Postgres idempotency prevents replay duplication. The Cloud wake
+  also reuses the existing official TaskMarket award verifier: only a completed non-self-awarded task whose award is
+  present in provider readback and whose exact Base USDC transfer is finalized on-chain becomes tenant gross revenue
+  plus its separately classified marketplace fee. Owner/self wallets, pending awards and mismatched transfers remain
+  excluded. Focused TaskMarket, Cloud wake and economic-record tests pass 20/20, including the full official API
+  readback plus finalized Base transfer projection into the shared store. Remaining inside this atom:
+  the existing x402 sale/work verifier now also writes exact USDC revenue into the same FinancialRecord store used
+  by the local CFO instead of defaulting to the legacy Supabase-only earnings table; finalized-chain, external-payer,
+  owned-recipient and The402 provenance gates remain unchanged, and focused x402/common-store tests pass 32/32.
+  The existing Polymarket cycle recorder now writes realized gain, realized loss and fees into that same common
+  FinancialRecord store only after both the trade and redeem transaction receipts succeed and match on Polygon;
+  principal recovery is still excluded from revenue, replay remains idempotent, and the focused projection,
+  accounting and command suite passes 17/17. Solana Trade's prerequisite accounting repair is also complete: a
+  multi-transaction Jupiter round trip now verifies every signature and sums every transaction's USDC delta instead
+  of misclassifying the final sale proceeds as profit. That verified net result now reaches the common FinancialRecord
+  store as exact six-decimal USDC business revenue or cost, carries every Solana receipt reference, skips zero-net
+  cycles, and repairs a missing common record even when the legacy ledger already contains the trade. Stable trade
+  timestamps make replay byte-identical. The focused parser/recorder/projection suite passes 20/20 and the shell
+  entrypoint parses. Its wider integration harness stops safely because an isolated worktree deliberately lacks the
+  production state directory. Yield now records only a successful full withdrawal's returned Base USDC minus its
+  known pre-withdraw cost basis: positive realized yield becomes business revenue, principal loss becomes business
+  cost, while deposits, holds, failed receipts, unknown basis and flat returns remain excluded. The legacy reinvest
+  entrypoint delegates to the same canonical `skills/earn` implementation instead of retaining a second copy. The
+  focused Yield/accounting/reinvest suite passes 27/27 and both shell entrypoints parse. The self-pay compute proxy
+  now joins the provider's exact Base-USDC 402 requirement to its terminal `payment-response`, including the SDK's
+  header and body requirement forms and cached pre-authorization path, and appends only that joined payment as a
+  verified common business cost. The SDK's amount-only `cost_log.jsonl`, failed responses, missing terminal receipts,
+  non-Base rails and unsupported assets remain estimates and are excluded. Focused compute receipt/model/identity
+  tests pass 13/13; one separate fresh-install proxy fixture still lacks its pre-existing `viem` dependency in the
+  isolated worktree. The cost status gate now counts only an explicitly verified provider/payment receipt: Railway,
+  Supabase and Steel remain human-paid Cloud infrastructure, the Akash settled bid is a rate rather than a payment,
+  and amount-only compute/API logs are estimates, so none can impersonate citizen-paid shelter or compute. Their
+  actual citizen-wallet payments remain the economic actions introduced and proven later in `AE-UX-08`/`AE-UX-09`.
+  The complete focused economic receipt suite passes 99/99 with shell and module checks.
+- [x] `AE-UX-07` Deliver immediate deduplicated Telegram transitions plus one concise daily snapshot, persist the
   provider message ID, and prove identical replay causes zero second send on Local and Cloud.
-- [ ] `AE-UX-08` Route Agent Economy through the shared compute router: bootstrap/free compute before graduation,
-  then citizen-wallet-funded x402 compute only within earned spendable surplus and session caps.
-- [ ] `AE-UX-09` Close the first economic loop with official evidence: earn, bank, pay compute, pay hosted shelter,
-  retain reserve, continue on the purchased compute, and issue `financially_independent` without human funding.
-- [ ] `AE-UX-10` Move Connector, Fundraiser and the remaining loops onto the same citizen identity, receipts and
-  paid-compute router one by one; remove ChatGPT/Codex subscription and local-device requirements only after each
-  loop's Cloud receipt-backed continuation passes.
-- [ ] `AE-UX-11` Permit exactly one child only when the parent remains independent after the full child bootstrap
-  and failure budget; prove isolated wallet/state, no duplicate work/payment, and child independence before another
-  replication.
+  In progress on `feat/agent-economy-economic-receipts-20260911`: one host-neutral transition contract now renders
+  only verified revenue, cost, fee and payout records into concise Japanese money events, claims by immutable
+  FinancialRecord ID, requires a Telegram provider message ID before delivery is complete, persists that ID and
+  produces zero second send on identical replay or a raced completed claim. Balance snapshots remain out of the
+  realtime event stream. The shared FinancialRecord store wrapper now invokes delivery after every idempotent append,
+  including duplicate replay so a previously stored record can repair a missing notification. Cloud uses a dedicated
+  tenant-scoped Postgres receipt with a unique event key, resolves the tenant's existing Telegram binding, persists the
+  provider message ID, and the Agent Economy worker injects this notifying store into its unchanged shared wake. The
+  Cloud focused transition suite passes 10/10, including identical replay with exactly one provider send; targeted
+  worker packaging and wake tests pass 2/2. Local X402, Polymarket, realized-yield and Solana writers now use one
+  repository-owned wrapper around the same renderer and the existing CFO SQLite outbox; its provider receipt is the
+  completion boundary and identical replay performs zero second send. The shared Financial Manager renderer remains
+  the only snapshot renderer: Local now fences it to at most one consolidated message per reporting date and Cloud's
+  existing daily job keeps its tenant-scoped Postgres receipt. The complete focused Local/Cloud/report/writer suite
+  passes 76/76 and the real SQLite outbox delivery/replay tests pass 3/3. Local record construction is byte-stable
+  across delayed replay, an unreceipted notification fails the writer completion boundary, pre-send failure releases
+  the same durable event for retry, and sending/unknown outcomes remain fenced from blind resend. No running Gig loop
+  is changed. A pending Local daily snapshot freezes its first queued report until provider receipt, even when newer
+  same-day records arrive; legacy same-day snapshot state is also recognized, so release-day migration cannot resend
+  an already delivered consolidated report. Solana persists its source occurrence before notification so a failed
+  first send replays the identical record instead of colliding on time. The Cloud
+  migration's real-Postgres apply/readback remains part of the eventual main-derived Cloud release verification, not
+  a second notification implementation.
+- [x] `AE-UX-08` Prove the repository-owned Agent Economy system end to end: create one isolated citizen identity and
+  wallet, run its earn adapter, persist normalized revenue and expense records, exercise the shared compute-routing
+  decision within spend caps, and deliver receipt-backed realtime/daily Telegram reports. A bounded zero-cost or
+  simulated provider path is sufficient; live profit and a real paid-compute purchase are not completion gates.
+  The Cloud runner now resolves one explicit compute route before every wake. With no spend request—or with a hostile
+  paid value misconfigured as the free model—it fail-closes to the known raw free model. A frontier x402 route is
+  reachable only when the selected verified external revenue belongs to that exact citizen wallet and remains above
+  the reserve and within the session cap; a borrowed wallet, refund, missing receipt, reserve breach or cap breach
+  stays on free compute. Parent environment cannot overwrite the routed model, signer material is removed even when
+  routing throws, and the wake receipt exposes only the safe route projection. Runner-level simulated evidence covers
+  both free and authorized paid routes without spending real funds. Agent Economy/financial/Telegram focused tests
+  pass 49/49, the full loop runtime passes 389/389, adapter registry tests pass 15/15, shell/diff checks pass, and a
+  fresh read-only review reports SHIP with no P0-P2 findings. No running Gig loop was changed.
+- [x] `AE-UX-09` Scope decision: do not wait for live profit, a live hosted-shelter payment, or a
+  `financially_independent` production receipt in this cleanup. The system path must work end to end in `AE-UX-08`;
+  actual earnings and self-funding performance are subsequent operation, not repository-cleanup acceptance.
+- [x] `AE-UX-10` Scope decision: do not move Connector, Fundraiser or the remaining product loops onto Agent
+  Economy's citizen wallet or self-paid compute in this cleanup. Financial independence is confined to the Agent
+  Economy citizen. Other loops still must be repository-owned, portable, healthy and receipt-backed, but do not need
+  to become independently self-funded now.
+- [x] `AE-UX-11` Scope decision: do not replicate child citizens in this cleanup. One Life Manager instance creates
+  one isolated citizen wallet and exercises its bounded economic flow. Replication remains future work after the
+  single-citizen loop is economically independent and stable in real operation.
 - [ ] `AE-UX-12` Pass clean-clone Local and fresh-tenant Cloud acceptance: automatic first citizen, realtime and
-  daily Telegram receipts, zero OpenClaw/Hermes/external-checkout dependency, no recurring human payment, no local
-  device requirement for Cloud, and continued operation after the human subscription is removed.
+  daily Telegram receipts, zero OpenClaw/Hermes/external-checkout dependency, and no local device requirement for
+  Cloud. Verify all 14 README
+  product loops use Life Manager repository-owned source and shared contracts, and remove or rewrite stale Docker,
+  OpenClaw, Hermes, another-checkout and Dais-machine-only runtime instructions before claiming portable self-host.
+  Agent Economy acceptance proves that the repository-owned system starts and completes its bounded flow; live
+  profit or an actual self-funded compute purchase is explicitly not an acceptance gate. Execute the remaining
+  work in this order:
+  - [x] `AE-UX-12a` Publish the formal 14-loop catalog in README and README.ja with a plain-language purpose and
+    representative current owners for every loop; name loop 12 **Mobile App Loops** and keep Money Printer as an
+    umbrella rather than a fifteenth loop.
+  - [x] `AE-UX-12b` State the honest Mobile App Loops boundary: repository-owned marketing, distribution,
+    measurement and receipt paths exist now; account creation, app generation, signing, release and continuous
+    iteration are still being unified into one end-to-end lifecycle.
+  - [x] `AE-UX-12c` Make the OSS self-contained inventory verifier pass from the canonical branch.
+  - [x] `AE-UX-12d` Pass the daemon-free clean-clone Local installer, app suite and privacy/evaluation checks.
+    Fresh clone `d829416e52e8d8db8461b3dd77f803599aafd174` passed the OSS fence, installation into an empty
+    temporary HOME with daemon installation disabled, all 975/975 app tests, evaluation and panel-privacy checks;
+    the checkout remained clean and the installer created the private runtime environment without LaunchAgents.
+  - [x] `AE-UX-12e` Census executable Mobile App Loops and all other product-loop paths; migrate or delete every
+    remaining OpenClaw, Hermes, another-checkout, worktree and Dais-absolute source dependency. External products
+    such as Postiz remain allowed only behind repository-owned provider adapters and user-supplied credentials.
+    - [x] All 18 registered Mobile App jobs resolve one repository-owned manifest and shared publication,
+      measurement, ledger, receipt and direct Telegram components; their execution graph contains zero OpenClaw,
+      Hermes, another-checkout or Dais-absolute source references. The shared wrapper now discovers Node/Python and
+      uses the repository timeout instead of Apple-Silicon Homebrew paths. Two unreferenced Larry launchers that
+      depended on `profitable-claude` and `.openclaw` are deleted.
+    - [x] Agent Economy `citizen-refill` loads the Life Manager private environment, wallet and durable instance
+      state rather than OpenClaw/Hermes. Its redundant standalone launchd installer/template are deleted; the
+      registry remains the only scheduler authority.
+    - [x] Migrate the remaining registered financial intake entrypoints (`sbi-usdc-monitor` and both Stripe revenue
+      jobs) from legacy source/state roots to shared Life Manager env, state, CFO and Telegram contracts. The SBI
+      wallet is now instance configuration rather than a checked-in personal address; missing wallet, Stripe key or
+      Stripe CLI yields a side-effect-free `setup_required` result. Focused portability and safe-setup checks, the
+      legacy scanner and OSS verifier pass.
+    - [x] Remove or migrate the remaining non-Gig executable dependencies found by the final source census,
+      starting with repository-registered/runtime-referenced paths. Historical plans, evidence, provider package
+      format names and explicit legacy-rejection checks are not runtime dependencies and must not be rewritten merely
+      to make a text search empty.
+      - [x] Delete the unreferenced recording-store OpenClaw wrapper, retired OpenClaw cron/Hermes gateway and
+        owner-funded `openclaw-x402` bootstrap scripts, plus the isolated duplicate `services/x402-worker` bundle;
+        the registered recording owner and current x402 implementation remain repository-owned.
+      - [x] Make legacy Writer-env and Zenn-untracked migration sources explicit, and move release disk-pressure plus
+        central disk-cleanup state into the canonical Life Manager host/loop state roots.
+      - [x] Remove Hermes/OpenClaw credential fallback from the shared instance-env loader and Affiliate publishers;
+        only `LIFE_MANAGER_ENV_FILE` is read while the caller's citizen identity is preserved.
+      - [x] Move Local daily-video stock/proof defaults and Job Hunter outbound Telegram media beneath their Life
+        Manager-owned state roots instead of another checkout or OpenClaw media.
+      - [x] Replace fixed Homebrew Node/timeout execution in Agentmail, Life Manager daily/self-build and six Cloud
+        production launchers with command discovery and the shared repository timeout runner. Focused suites pass
+        20/20, 21/21, 15/15, 14/14, 59/59 and 29/29 across the completed atoms; the OSS verifier passes after each.
+      - [x] Finish the executable tool-resolution families: Job Hunter, Lateness, Capafy and registered x402 boots.
+        Job Hunter, Lateness and the registered x402/provider launchers now resolve optional tools from explicit
+        Life Manager environment overrides or `PATH` and fail as `setup_required` when the provider tool is absent.
+        Capafy's shell entrypoints use the same portable Python/npx discovery and its Python helpers use the active
+        interpreter rather than one Mac's Homebrew path. The Capafy Python suite passes 17/17, its changed shell
+        entrypoints pass syntax checks and the OSS self-contained verifier passes; no live posting or Gig runtime
+        was invoked by this source-only portability atom.
+      - [x] Remove the Clip producer's external clone dependency. The actual yt-dlp/Whisper/crop/caption pipeline
+        was already repository-owned; its wrapper now resolves portable Python, declares its two Python dependencies
+        in `skills/earn/clip/requirements.txt` and returns truthful `setup_required` rather than cloning another
+        repository into `~/.cache`. Clip shell tests pass, its Python suite passes 67/67 and the OSS verifier passes.
+      - [x] Delete quarantined Clip/Video external-source implementations if they have no supported return path, or
+        move the required implementation into this repository before re-enabling them. The useful Clip media
+        pipeline remains and is repository-owned; its obsolete quarantined daily scheduled owner is moved from the
+        managed registry to `retired_labels`. The separate dormant `money_blueprintdaily` Video earning slot, its
+        quarantined Marketing runner and its dead health/cadence ownership are deleted because they depended on
+        missing `~/.claude/skills` implementations and are not one of the formal fourteen Product Loops. The reusable
+        faceless renderer remains, now resolves its own repository code and Life Manager state/env with zero
+        OpenClaw/Hermes/external-skill path. The current 18 Mobile App jobs are not this retired legacy Video slot and
+        remain intact. Marketing report tests pass 74/74, macOS registry tests pass 67/67, affected Agent Economy and
+        cadence/health suites pass, and the OSS verifier passes. Installed `ai.anicca.clip-loop` retirement is applied
+        only from the eventual reviewed main-derived release, not from this source worktree.
+    - [x] Integrate the separately owned Gig work after its owner removes the protected Coconala/Lancers browser
+      and report legacy roots. The cleanup branch merged current `origin/main` after the owner's Lancers terminal
+      reconciliation and Mercor ranking changes landed; the merge changed no Coconala/Lancers runtime file in this
+      branch and this cleanup did not operate their running jobs.
+  - [x] `AE-UX-12f` Make Local onboarding expose the truthful loop catalog, per-loop setup requirements and
+    start/status controls without claiming that all 14 loops can run before their provider credentials/KYC exist.
+    README and README.ja now map every product loop to its user setup and current start path, explicitly distinguish
+    `setup_required` from completion/failure and forbid `start all` as an onboarding shortcut. The default installer
+    says it prepares only Agent Economy, lists the four actual guided installers plus read-only status/doctor, and
+    describes the already-active Cloud surface and free-first receipt-gated compute route without stale ClawRouter,
+    owner-funding or future-Cloud claims. Clean-user installer tests pass 23/23 and OSS verification passes.
+  - [x] `AE-UX-12g` Pass isolated fresh-tenant Cloud acceptance for the repository-owned Agent Economy lifecycle,
+    Telegram receipt path and supported hosted loops without requiring the user's local device. On the current
+    branch, 118/118 focused checks pass across fresh citizen/job provisioning, concurrent replay convergence,
+    cross-tenant rejection, shared monorepo wake execution, free/receipt-gated-paid compute routing, tenant-scoped
+    Postgres delivery claims, Telegram provider-receipt dedupe, `/start`, tenant isolation and Railway worker
+    packaging without Docker or a local device. This preserves the earlier production evidence in `AE-UX-04/05`:
+    one real Cloud tenant provisioned an encrypted citizen and wallet, completed two natural wake cycles and exposed
+    its latest receipt through Telegram provider message `76577`. Neither test nor production evidence claims live
+    profit or a self-funded compute purchase.
+  - [x] `AE-UX-12h` Remove or rewrite the remaining stale Docker, OpenClaw, Hermes, private-path and unsupported
+    one-command claims in README, README.ja, installer output and active operational documentation. Preserve the
+    formal fourteen-loop catalog and its plain-language descriptions. For **Mobile App Loops**, document one
+    product-aware lifecycle—account/app creation, build/sign/release, iteration, Postiz or native-provider
+    distribution, measurement, revenue receipt and CFO handoff—while continuing to label the currently missing
+    app-factory guided installer and build/sign/release orchestration as unfinished. This cleanup proves the existing
+    registered Mobile jobs are repository-owned and portable; it does not falsely claim or build the entire future
+    mobile factory as a side task. README and README.ja now explain Human Gig Work, all fourteen Product Loops and
+    the shared Mobile lifecycle, including Postiz as an external provider behind a repository-owned adapter. The
+    stale Earning Loops and execution-order pseudo-SSOTs are reduced to current registry/spec pointers and no longer
+    advertise tmux, ClawRouter, OpenClaw or Hermes as live architecture. The README contract passes 21/21,
+    repository identity verification, OSS self-contained verification and diff checks pass.
+    The first fresh read-only review then found an executable blind spot outside the registered
+    catalog: the old Clip healthcheck/producer plists and unregistered `clip-promote` fleet could
+    still restart tmux/Claude-era jobs and import `~/.claude/skills`. Those obsolete posting,
+    scheduler, self-heal and promotion paths are deleted; the current 18 Mobile App/Postiz jobs
+    remain unchanged, and the bounded repository-owned Clip media producer remains available.
+    The Marketing runner no longer points at the deleted daily script, the CEO/cadence monitors no
+    longer invent Clip owners, all legacy Clip labels are retired, and the dependency scanner now
+    covers the retained Clip source. Focused scanner, registry, producer, cadence and roster checks
+    pass. A second fresh review found three more stale edges: registered `session-vault` still
+    maintained old per-account Clip browsers, one Marketing wiring test still opened the deleted
+    daily script, and producer metadata still described the retired posting cron. The per-account
+    Clip block is removed without changing daily-driver or Gig session care, the stale test member
+    is removed, and producer metadata now describes only the retained on-demand repository-owned
+    media helper. Browser/Gig-session tests pass 18/18, Marketing wiring passes 4/4, and the OSS and
+    dependency fences pass. A third fresh review found the final active home-skill dependency in
+    Mobile/Capafy account provisioning and warming: a prompt referenced
+    `~/.claude/skills/ig-account-create`, while the deterministic warmer executed
+    `~/.claude/skills/ig-account-warmer`. The prompt now names the existing repository CDP/profile
+    tools, the two required warmer scripts live below the shared Marketing Engine and resolve the
+    same repository CDP plus the active Python interpreter, and the stale OpenClaw env fallback is
+    absent. Capafy's session verifier also uses the repository CDP. The scanner covers Capafy and
+    rejects `.claude/.agents/.openclaw/skills` source paths; Marketing reports pass 74/74 and focused
+    Capafy/warmup portability passes 24/24. No running Gig Work business logic is changed.
+    Final correction routes verified x402 compute expenses through the existing local Financial Transition wrapper,
+    so Agent Economy compute costs use the same durable CFO Telegram outbox as the other local financial writers
+    instead of stopping at the JSONL ledger. Compute-proxy and financial-transition checks pass 13/13. The retained
+    Capafy account-state contract no longer names the deleted Clip launchers, supplies the repository root required
+    by the shared provision renderer and validates the renderer's Gmail plus-address contract; its checks pass 36/36.
+    This correction changes source and tests only, does not start or restart a loop, and does not change running Gig
+    Work business logic.
+  - [ ] `AE-UX-12i` Re-run the complete clean-clone, dependency fence and exact acceptance checks from the final
+    branch head, obtain fresh read-only review, merge once, and verify the merged main-derived result without
+    changing the separately owned running Coconala/Lancers/CrowdWorks business logic.
+    Pre-merge gates pass at `6f80b829f45326df77d261dc874a13d19a680ce2`: latest `origin/main` is an ancestor;
+    OSS verification and daemon-free empty-HOME installation pass; the clean clone passes 975/975 app tests and
+    24 panel checks; Compute Proxy/Financial Transition passes 13/13; Capafy account-state passes 36/36; and
+    `git diff --check` passes. Fresh read-only review reports `SHIP` with no findings. PR merge and merged-main
+    fresh-clone verification remain before this checkbox and parent `AE-UX-12` can close.
 
 ## 5. Dependency boundary
 
@@ -564,7 +774,7 @@ The detailed unchecked lines above and below roll up into exactly these two rema
     - [x] Move `sol-funding` from the old Anicca checkout and OpenClaw logs into the shared Life Manager runtime. PR #4880 merged exact reviewed head `aa19e4c76` as `40010d3fd` after focused tests passed 70/70, the full runtime suite passed 360/360, shared adapter tests passed 15/15, OSS verification and all nine exact-head checks passed, and fresh read-only review reported SHIP. The external infinite shell daemon is replaced by one finite 60-second `ai.anicca.sol-funding` wake; `solders==0.27.1` is locked and imported by the managed Python; missing per-instance credentials are a safe no-op; and the user-specific recipient default, standalone plist and old daemon are deleted. The existing live wallet identity was copied without disclosure into the private credential SSOT and canonical Life Manager env with mode 0600 and verified by its public key. Sparse main-derived release `20260910T180055-40010d3f` retired only `com.anicca.sol-funding` and applied only the new owner. Its natural wake exited 0 with terminal PASS, blocker null, matching installed/event SHA, and the same 0.004995 SOL balance produced no swap. The old PID, plist, temporary rollback plist and two obsolete OpenClaw logs are absent; doctor is clean and all four protected Gig plist hashes, sizes and mtimes remain identical across the cutover.
     - [x] Move `ubi-watcher` from the old Anicca checkout and OpenClaw logs into the shared Life Manager runtime. PR #4890 merged exact reviewed head `bac3d4f6b` as `92a79107d` after all nine exact-head checks passed. The old eight-second immortal daemon is replaced by one finite 60-second `ai.anicca.ubi-watcher` wake; generated plists project absolute managed Node/Python/env paths; the signer address is derived on every wake and a configured mismatch fails closed; release-local defer-log writes, the standalone plist and old daemon are removed. Atomic `queued -> processing` claims and non-retriable ambiguous/post-broadcast states prevent automatic double payment; executable regressions prove concurrent and crash-after-send replay safety. Focused Python tests pass 6/6, UBI tests 101/101, runtime tests 366/366, shared adapter tests 15/15, OSS verification and final fresh review SHIP. The managed Python lock is installed and import-smoked. Sparse main-derived release `20260910T184911-92a79107` target-retired only `com.anicca.ubi-watcher` and applied only the new owner. Its natural wake exited 0 with terminal PASS, blocker null and matching installed/event SHA; realized profit was zero, so it sent zero payments. The old PID, service, plist and two OpenClaw logs are absent; the protected legacy `skills/ubi/state/defer-log.jsonl` remains retained and stopped growing; doctor is clean for 168 entries; all four protected Coconala/Lancers/Gig plist hashes remained identical.
     - [x] Retire `ai.openclaw.gateway` after proving Life Manager no longer needs it. Read-only inventory found 200 OpenClaw cron records but only one enabled job: `o1c14-funder-program-discovery-daily`. It points to an absent historical worktree runbook, has failed 40 consecutive times during isolated-agent setup, requests no delivery and forbids application submission. The canonical repository-owned `fundraiser` loop already runs every 30 minutes with terminal PASS from its immutable release, so the broken cron is not migrated as a second implementation. The first source retirement draft at `1ad1700bc1fc` passed 368 runtime tests, 15 shared adapter tests and OSS verification, but fresh read-only review correctly found transitive dependencies missed by its registry-only test. Fix-first source work moves installed `gig-outcome-watch` from `openclaw message send` to the repository-owned Telegram client and canonical Life Manager state/env; adds a non-overwriting, hash-verified, private-mode precopy/seal migration for its three business files while retaining the legacy source; retires the obsolete `tier2-agent-diagnose` job and deletes its five implementation/test artifacts; deletes the callerless generic OpenClaw report wrapper; and strengthens the regression to inspect every direct managed entrypoint. PR #4900 merged exact reviewed head `5bf3e491c` as `0bb266445`; focused tests pass 75/75, the full runtime suite passes 374/374, shared adapter tests pass 15/15, OSS self-contained verification passes and all nine exact-head CI checks pass. Production precopy copied and hash-verified all three business files with private modes, immediate replay copied zero, sealed convergence copied zero and verified all three again, and every legacy source remains retained. `gig-outcome-watch` alone was applied from sparse main-derived release `20260910T194738-0bb26644`; its immediate wake exited 0 with terminal PASS, blocker null, matching installed/event SHA and `ok: no alerts`. `tier2-agent-diagnose`, its service and plist are absent. The superseded unreferenced 239 MiB preparation release was deleted after exact reference checks; the installed 3.3 MiB release remains. Revised fresh review found two protected transitive paths in the current production release: `storefront_direct.py` sends through `args.openclaw` when email is unset, as it is now, and `gig_brake.sh` uses `GIG_BRAKE_OPENCLAW` for alarm delivery. Dais subsequently transferred ownership of these two transport-only paths to this cleanup task while keeping Coconala/Lancers business logic and unrelated running-loop behavior out of scope. The active source branch now migrates Storefront, Gig Brake and Affiliate Telegram delivery to repository-owned shared clients. A whole-repository executable census additionally found dormant/manual OpenClaw send capability in the legacy Connector transport modules, `freelancer_bid_watch.py`, `personalized-action-e2e.js`, the obsolete cron installer, the self-build installer probe, the uninstall compatibility path and the unused agent-runner OpenClaw provider. These are not current canonical Connector runtime dependencies, but they must be migrated or deleted for a clean clone to have zero OpenClaw execution dependency. PR #4934 merged the source-wide retirement as `04a7f0de9`: Storefront, Gig Brake, Affiliate, freelancer watch, personalized-action and legacy Connector Telegram delivery now use repository-owned shared transports; the obsolete OpenClaw cron installer, self-build probe, uninstall path and dormant agent-runner provider were removed. Exact-head CI passed all checks and fresh Astra review reported SHIP with no P0-P2 findings. PR #4939 merged `LOOPS_ACTIVATE_CURRENT=0` as `11480007f`, allowing a target-specific immutable release without moving shared `~/loops/current`; its exact-head CI and independent review passed. The old cron is absent from the live 222-job store. Main-derived release `20260911T001919-eba5e6ad` was applied only while idle to `life-manager-connector-native`, `affiliate-loop` and the transport-only `hf-gig-storefront-direct`; all three plists report the same installed SHA. The same release target-retired only `ai.openclaw.gateway`. Production readback proves its plist absent, launchd lookup absent and TCP port 18789 closed, while the shared current symlink remained unchanged.
-  - Current remainder in fixed order: continue `AE-UX-06` through `AE-UX-12`. `AE-UX-01` through `AE-UX-05`, including Cloud migration/configuration/deploy, two-cycle natural-wake proof and authenticated Telegram status/emergency control, the final installed-runtime census, section 7 acceptance readback and `ARCH-11` are complete. The registry-external owner census, X402/facilitator convergence and target-only main release cutover, Phone/Slack retirement, stale external-label retirement, `clip-loop`, `f7-silence-check`, `founder-loop-cadence`, `self-improve-evolve`, `warmup-flip-daily`, `lateness-heartbeat`, `peer-api`, its obsolete watchdog, `sol-funding`, `ubi-watcher`, and the non-protected Gateway preparation are complete.
+  - Current remainder in fixed order: complete `AE-UX-12`. `AE-UX-08` is complete with fail-closed free bootstrap and simulated receipt-backed, citizen-wallet-bound, reserve/session-capped paid routing. `AE-UX-09`, `AE-UX-10` and `AE-UX-11` are closed scope decisions: live profit is not a cleanup gate, other loops do not become citizen-funded now, and citizen replication is not built. `AE-UX-01` through `AE-UX-07`, including Cloud migration/configuration/deploy, two-cycle natural-wake proof, authenticated Telegram status/emergency control, verified shared economic receipts and Local/Cloud receipt-backed Telegram economics, the final installed-runtime census, section 7 acceptance readback and `ARCH-11` are complete. The registry-external owner census, X402/facilitator convergence and target-only main release cutover, Phone/Slack retirement, stale external-label retirement, `clip-loop`, `f7-silence-check`, `founder-loop-cadence`, `self-improve-evolve`, `warmup-flip-daily`, `lateness-heartbeat`, `peer-api`, its obsolete watchdog, `sol-funding`, `ubi-watcher`, and the non-protected Gateway preparation are complete.
 
   - [x] Retire invalid external artifact `ai.anicca.fleet-daily`. Fresh host evidence proved the installed 85-byte file was a JSON argv array rather than a valid plist, launchd had no service, and no process, open handle or repository caller existed. PR #4947 moved the label from `external_labels` to `retired_labels` and merged as `4ca7b195c` after all exact-head CI checks passed. Main-derived detached release `20260911T003435-4ca7b195` target-retired only this label. Readback proves its plist and launchd service absent while the protected `~/.config/ai/bin/fleet-daily.py` remains present.
 

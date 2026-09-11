@@ -36,13 +36,13 @@ class InstallerTests(unittest.TestCase):
             path = root / "job.plist"
             backup = root / "backups"
             original = {
-                "Label": "ai.anicca.clip-loop",
+                "Label": "ai.anicca.marketing-score-daily",
                 "ProgramArguments": ["/bin/bash", "/legacy/clip.sh"],
                 "StartInterval": 86400,
             }
             path.write_bytes(plistlib.dumps(original))
-            first = installer.apply_one(path, "clip", backup)
-            second = installer.apply_one(path, "clip", backup)
+            first = installer.apply_one(path, "score", backup)
+            second = installer.apply_one(path, "score", backup)
             self.assertTrue(first["changed"])
             self.assertFalse(second["changed"])
             backup_path = pathlib.Path(first["backup_path"])

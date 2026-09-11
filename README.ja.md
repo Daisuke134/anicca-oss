@@ -23,6 +23,8 @@ receiptのない試行を「完了」と報告しません。
 14本はuser-facingな製品能力の数です。process数ではありません。registryには、各product loopを実装する
 応募・browser owner・報告・照合・healthcheckなどの小さいjobが多数あります。
 
+1〜3は**Human Gig Work** familyです。案件発見、選別、応募、交渉、納品支援、照合、報告をLife Managerが自動化し、platformが本人確認、面談、承認、最終納品を要求する箇所だけ人が参加します。
+
 | # | Product loop | 現在の代表owner | 役割 |
 |---:|---|---|---|
 | 1 | Gig — Coconala | `hf-gig-apply-direct`, `hf-gig-reply-detector`, `hf-gig-storefront-direct`, `hf-gig-paid-direct` | 案件発見、応募、交渉、納品、provider結果確認 |
@@ -36,9 +38,43 @@ receiptのない試行を「完了」と報告しません。
 | 9 | Fundraiser | `fundraiser` | accelerator、fellowship、grant、投資家受付を発見し条件を満たせば応募 |
 | 10 | Connector | `life-manager-connector-native` | event発見・応募・登録確認・Calendar/Telegram receipt報告 |
 | 11 | Life Manager Cloud | Railway上の`apps/life-manager` | 常時稼働web、Telegram、reminder、schedule、hosted-agent面 |
-| 12 | Life Manager Mobile Apps | Anicca iOS、Honne、その他の`life-manager-anicca-*` / `life-manager-honne-*` build・marketing・distribution・metrics job | Life Manager所有のiOS app群をbuild・運用し、product-awareな共通componentで各appをmarketing・計測する |
+| 12 | Mobile App Loops | Anicca iOS、Honne、その他の`life-manager-anicca-*` / `life-manager-honne-*` product job | product accountとappの作成、build・署名・公開、継続改善、Postizまたはnative provider adapterによるmarketing配信、成果計測、検証済み収益のCFO連携までを一つのmobile-app lifecycleとして運用する。現時点では共通のmarketing・配信・計測・receipt経路をrepo内で所有し、app作成・署名・release・iterationは同じE2E loopへ統合中。 |
 | 13 | Capafy | `capafy-loop-daily`, `capafy-outcome-monitor`, `capafy-ig-account-manager`, `capafy-ig-marketing-daily` | Capafyという別productの販売・outcome・audience-growth workflowを運用 |
 | 14 | CFO | `life-manager-cfo-hourly` | 全earning loopのverified revenue、cash flow、残高、payout、財務報告を照合 |
+
+### setupと開始方法の現在地
+
+| Product loop | ユーザーが設定するもの | 現在の開始入口 |
+|---|---|---|
+| Coconala Gig | Coconala login、work profile、Telegram | `./install.sh coconala` |
+| Lancers Gig | Lancers login、work profile | production ownerは存在、public guided installerは未完成 |
+| CrowdWorks Gig | CrowdWorks login、work profile | production ownerは存在、public guided installerは未完成 |
+| Writer | publisher accountとbrowser/API credential | registry jobは存在、public guided installerは未完成 |
+| Affiliate | affiliate provider accountとbrowser/API credential | registry jobは存在、public guided installerは未完成 |
+| Investment / Alpaca | Alpaca API credentialと`paper`・`shadow`・`live`の明示mode | `LIFE_MANAGER_INVESTMENT_MODE=paper python3 skills/alpaca-investment/run.py` |
+| Agent Economy | owner walletは不要。earning provider credentialは任意 | `./install.sh` |
+| Job Hunter | resume、希望条件、Gmail/Telegram、公式site login | `./install.sh job-hunter` |
+| Fundraiser | applicant profile、Telegram、必要時のprovider login | `./install.sh fundraiser` |
+| Connector | Calendar/Telegram、必要時のevent provider login | `./install.sh connector` |
+| Life Manager Cloud | Telegram `/start`後、要求されたaccountを接続 | [Telegramで開始](https://t.me/LifeManagerBotbot?start=lp) |
+| Mobile App Loops | product manifestと、選択laneのPostiz/native・App Store Connect・RevenueCat credential | 共通registry jobは存在、完全なapp-factory guided installerは未完成 |
+| Capafy | Capafy account/API credentialとpublication profile | registry jobは存在、public guided installerは未完成 |
+| CFO | ユーザーが接続するfinancial sourceだけのcredential | 1回の有限passは`bash skills/cfo/run.sh` |
+
+Mobile App Loopsはappごとに別実装を作らず、一つのproduct-aware lifecycleを共有します。product manifestがAnicca iOS、Honne、その他のappを選び、共通serviceが対応済みstageを実行し、計測、収益、CFO、Telegramへ同じreceiptを残します。Postizはrepo所有adapterの先にある外部配信providerであり、repo外source code依存ではありません。account/app作成とbuild・署名・releaseは、共通orchestrationとguided installerが完成するまで明示的に`setup_required`です。
+
+```mermaid
+flowchart LR
+  M[Product manifest] --> A[Accountとappを作成]
+  A --> B[Build・署名・release]
+  B --> I[計測・改善]
+  I --> D[Postizまたはnative配信adapter]
+  D --> R[Provider・収益receipt]
+  R --> C[CFO・Telegram]
+```
+
+`setup_required`は正常な待機状態であり、effect完了でもcrashでもありません。onboardingで`start all`を
+近道として使わず、provider setupとeffect authorityが完了したloopだけをinstall/startします。
 
 **Money Printerは追加loopではありません。** すべての収益loopを束ねるumbrellaです。
 `/money-printer`は共通のopportunity-to-receipt systemを表示するcontrol roomであり、15本目のloopではありません。実行IDの正本は
@@ -58,8 +94,8 @@ Life Managerはwebsite固有botの集合ではありません。1つのdurable g
 Commerce state、capability、money-effect contractを複製せず、差分は小さいprovider manifestとofficial readback adapterだけにします。
 
 architectureは、specialist harnessとdurable stateに[DeepAgentsJS/LangGraph](https://github.com/langchain-ai/deepagentsjs)、website tool
-contractに[browser-use](https://github.com/browser-use/browser-use)、現在のlocal wake/channelに
-[OpenClaw](https://github.com/openclaw/openclaw)、hosted browser backendには
+contractに[browser-use](https://github.com/browser-use/browser-use)、local wake/channelにはこのrepositoryの
+`runtime/loop`と共通Telegram transport、hosted browser backendには
 [Steel](https://github.com/steel-dev/steel-browser)の実証済み境界をcopy+tweakして収束させます。取り消せないmoney actionは既存Life Managerの
 `EffectIntent`と`ConnectorOutbox`だけを通します。完了条件は応募、click、modelの自己申告、契約、pending balance
 ではなく、公式`banked` receiptです。
@@ -73,7 +109,7 @@ founder証言ではLife Managerはapproximately $1,000の収益を生み出し�
 
 🌐 **[English README here →](README.md)**
 
-**リポジトリ正本:** この [`Daisuke134/life-manager`](https://github.com/Daisuke134/life-manager) だけをLife Managerのcode、spec、release、workflow、deploy sourceとします。`Daisuke134/life-manager-v0`はrequired codeとruntime referenceが0になるまで読み取り専用のmigration sourceです。現在の固定実行順と残TODOは [`docs/superpowers/specs/2026-08-01-dais-life-manager-five-phase-execution-spec.md`](docs/superpowers/specs/2026-08-01-dais-life-manager-five-phase-execution-spec.md)、repository統合履歴は [`docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md`](docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md) に置きます。
+**リポジトリ正本:** この [`Daisuke134/life-manager`](https://github.com/Daisuke134/life-manager) だけをLife Managerのcode、spec、release、workflow、deploy sourceとします。`Daisuke134/life-manager-v0`はarchive済みの履歴repositoryで、runtime sourceでもmigration sourceでもありません。現在の固定実行順と残TODOは [`docs/superpowers/specs/2026-09-06-life-manager-one-repo-two-runtimes-design.md`](docs/superpowers/specs/2026-09-06-life-manager-one-repo-two-runtimes-design.md)、repository統合履歴は [`docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md`](docs/superpowers/specs/2026-07-19-anicca-one-repo-consolidation-spec.md) に置きます。
 
 ---
 
@@ -84,6 +120,21 @@ founder証言ではLife Managerはapproximately $1,000の収益を生み出し�
 [Telegram で始める](https://t.me/LifeManagerBotbot?start=lp)、または [Web アプリ](https://aniccaai.com/lm)を開きます。常時稼働のサービスが scheduler・connector・認証付き `/panel` を回し、あなたは Telegram で話しかけ、Telegram に証拠つきで返ってきます。
 
 ### ローカルloopを確認・運用する
+
+一度cloneし、独立したAgent Economy citizenを準備して、daemonを入れずにruntimeを確認できます。
+
+```bash
+git clone https://github.com/Daisuke134/life-manager.git
+cd life-manager
+LIFE_MANAGER_INSTALL_DAEMON=0 ./install.sh
+./bin/lm-loop status all
+./bin/lm-loop doctor
+```
+
+default installerが14本すべてを黙って開始することはありません。provider account、credential、KYC、
+browser loginが未設定のloopは`setup_required`のままです。guided installerが現在あるのは
+`./install.sh coconala`、`connector`、`fundraiser`、`job-hunter`で、その他のloopの現在の境界は上の
+14-loop catalogに記載します。
 
 現在のproduction Mac runtimeはDockerではなく、pushed `main`から作るimmutable releaseを
 `bin/lm-loop`とmacOS `launchd`で直接実行します。state、credential、log、browser profile、receiptは

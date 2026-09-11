@@ -84,7 +84,7 @@ def list_events(hours):
     acct = env("GOG_ACCOUNT") or prof.google_account()
     to = (datetime.now(JST) + timedelta(hours=hours)).strftime("%Y-%m-%d")
     out = subprocess.run(
-        ["/opt/homebrew/bin/gog", "calendar", "events", "list", "-j",
+        [os.environ.get("LIFE_MANAGER_GOG", "gog"), "calendar", "events", "list", "-j",
          "--account", acct, "--from", "today", "--to", to,
          "--all-pages", "--max", "100"],
         capture_output=True, text=True,
@@ -125,7 +125,7 @@ def send_mail(to_list, subject, body):
     if not (acct and to_list):
         return False
     cmd = [
-        "/opt/homebrew/bin/gog", "gmail", "send",
+        os.environ.get("LIFE_MANAGER_GOG", "gog"), "gmail", "send",
         "--account", acct,
         "--to", ",".join(to_list),
         "--subject", subject,

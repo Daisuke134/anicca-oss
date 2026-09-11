@@ -1178,14 +1178,21 @@ test("Task 7B R1: verified Calendar callback returns onboarding only for incompl
     const calls = [];
     const store = {
       async assertCurrentScope(value) { assert.deepEqual(value, scope); return true; },
-      async claimOAuthState(value, hash) { calls.push({ type: "claim", value, hash }); return true; },
+      async claimPanelOAuthAccount(value, hash) { calls.push({ type: "claim", value, hash }); return "calendar-account-a"; },
+      async syncCalendarConnection(value, status, accountId) {
+        calls.push({ type: "sync", value, status, accountId }); return true;
+      },
       async readOnboardingState(value) { calls.push({ type: "onboarding", value }); if (readError) throw new Error("state unavailable"); return onboarding; },
     };
     const response = { status: 0, headers: {}, writeHead(status, headers) { this.status = status; this.headers = headers || {}; }, end() {} };
     await handlePanelOAuthCallback({ method: "GET", url: `/panel/oauth/calendar?state=${stateToken}`, headers: { cookie: "" } }, response, {
       sessionScopeImpl: async () => scope,
       commandStore: store,
-      composioCalendarStatusImpl: async () => "ACTIVE",
+      composioCalendarAccountStatusImpl: async (value, accountId) => {
+        assert.deepEqual(value, scope);
+        assert.equal(accountId, "calendar-account-a");
+        return "ACTIVE";
+      },
     });
     assert.equal(response.status, 303);
     assert.equal(response.headers.Location, expectedLocation);

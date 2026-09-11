@@ -25,7 +25,8 @@ export LIFE_MANAGER_REPO
 # a prod loop). Emits one JSON object on stdout + one telegram summary.
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$PATH"
 set -uo pipefail
-PY=/opt/homebrew/bin/python3
+PY="${CAPAFY_PYTHON:-${LIFE_MANAGER_PYTHON:-$(command -v python3 2>/dev/null)}}"
+[ -n "$PY" ] || { echo "python3 is required" >&2; exit 2; }
 LIFE_MANAGER_STATE_HOME="${LIFE_MANAGER_STATE_HOME:-$HOME/.local/state/life-manager}"
 for ENV_FILE in "$LIFE_MANAGER_STATE_HOME/.env"; do
   [ -f "$ENV_FILE" ] || continue

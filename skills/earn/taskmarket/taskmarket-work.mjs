@@ -488,6 +488,7 @@ export async function runTaskMarketPass(options = {}, deps = {}) {
     net_usdc: -generated.costUsd,
     submission_id: id,
     model: generated.model,
+    payment_receipt_id: generated.paymentReceiptId || null,
   };
   await appendEarnAttempt(earnLedgerPath, ledgerRow);
   if (!id) throw new Error('submission_readback_missing');

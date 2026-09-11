@@ -162,12 +162,14 @@ def configure(target: Path, assignments: list[str]) -> dict[str, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, default=Path.home() / ".openclaw/.env")
+    parser.add_argument("--source", type=Path)
     parser.add_argument(
         "--target", type=Path, default=Path.home() / ".local/state/life-manager/.env"
     )
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     args = parser.parse_args()
+    if not args.set and args.source is None:
+        parser.error("--source is required unless --set is used")
     try:
         result = configure(args.target, args.set) if args.set else migrate(args.source, args.target)
     except (OSError, RuntimeError, ValueError) as error:

@@ -40,17 +40,17 @@ for (const instance of INSTANCES) {
     const boot = fs.readFileSync(bootPath, "utf8");
 
     assert.match(boot, /source .*runtime-env\.sh/);
+    assert.match(boot, /command -v tailscale/);
+    assert.doesNotMatch(boot, /\/opt\/homebrew\/bin\/tailscale/);
     assert.ok(boot.includes(`export ANICCA_HOME="${instance.home}"`));
     assert.match(boot, /unset BLOCKRUN_WALLET_KEY/);
     assert.ok(boot.includes(`export X402_PAYTO="${instance.payTo}"`));
     assert.ok(boot.includes(`export X402_PORT="${instance.upstreamPort}"`));
     assert.ok(boot.includes(`export PORT="${instance.mcpPort}"`));
     if (instance.funnelPort) {
-      assert.ok(
-        boot.includes(
-          `tailscale funnel --bg --https=${instance.funnelPort} --set-path=/mcp http://127.0.0.1:${instance.mcpPort}/mcp`
-        )
-      );
+      assert.ok(boot.includes(
+        `funnel --bg --https=${instance.funnelPort} --set-path=/mcp http://127.0.0.1:${instance.mcpPort}/mcp`
+      ));
     }
     assert.match(boot, /exec \/usr\/bin\/env node "\$DIR\/mcp-server\.mjs"/);
   });

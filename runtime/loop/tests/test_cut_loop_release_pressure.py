@@ -7,7 +7,7 @@ from pathlib import Path
 
 class CutLoopReleasePressureTest(unittest.TestCase):
     def run_cut(self, repo: Path, home: Path, paths: str, **extra_env: str):
-        pressure = home / ".openclaw" / "state" / "disk-pressure.block"
+        pressure = home / ".local" / "state" / "life-manager" / "state" / "disk-pressure.block"
         pressure.parent.mkdir(parents=True, exist_ok=True)
         pressure.write_text('{"tier":"PRESSURE"}\n', encoding="utf-8")
         loops = home / "loops"
@@ -36,7 +36,7 @@ class CutLoopReleasePressureTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as raw_home:
             home = Path(raw_home)
-            pressure = home / ".openclaw" / "state" / "disk-pressure.block"
+            pressure = home / ".local" / "state" / "life-manager" / "state" / "disk-pressure.block"
             pressure.parent.mkdir(parents=True)
             pressure.write_text('{"tier":"CRITICAL"}\n', encoding="utf-8")
             loops = home / "loops"

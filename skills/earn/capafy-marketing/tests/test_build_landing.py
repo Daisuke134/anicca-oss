@@ -120,7 +120,8 @@ class BuildLandingTests(unittest.TestCase):
             script,
         )
         self.assertIn('build_landing.py" >>"$LOG"', script)
-        self.assertIn('/opt/homebrew/bin/npx --yes netlify-cli@27.1.2 deploy --prod --dir', script)
+        self.assertIn('"$NPX_BIN" --yes netlify-cli@27.1.2 deploy --prod --dir', script)
+        self.assertNotIn('/opt/homebrew/bin/npx', script)
         self.assertIn('if [ "$LANDING_BEFORE" = "$LANDING_AFTER" ]; then', script)
         self.assertIn('landing unchanged; deploy skipped', script)
         self.assertIn('--site "$LANDING_SITE_ID"', script)

@@ -33,7 +33,7 @@ Anicca の経済自律の第一歩 = SBI VC Trade outbound 7 USDC が Anicca 自
 ## How to run
 
 ```bash
-bash ~/.openclaw/skills/sbi-usdc-monitor/scripts/run.sh
+bash "$LIFE_MANAGER_REPO/skills/sbi-usdc-monitor/scripts/run.sh"
 ```
 
 ## launchd cron

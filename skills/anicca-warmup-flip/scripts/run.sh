@@ -4,7 +4,6 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/warmup-flip-daily}"
 STATE="$STATE_ROOT/state/postiz-integrations.json"
-[ -f "$STATE" ] || python3 "$REPO_ROOT/runtime/migrate-legacy-warmup-flip-state.py" --target "$STATE_ROOT"
 [ -f "$STATE" ] || { echo "❌ $STATE not found"; exit 3; }
 exec python3 "$HERE/warmup_flip.py" \
   --state "$STATE" \

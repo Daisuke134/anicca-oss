@@ -16,6 +16,12 @@ test('compute proxy listens only on loopback', () => {
   assert.doesNotMatch(proxy, /server\.listen\(PORT,\s*\(\)/);
 });
 
+test('verified x402 compute costs use the shared financial transition notifier', () => {
+  assert.match(proxy, /import financialTransitionModule from ["']\.\.\/\.\.\/apps\/life-manager\/lib\/financial-transition-local\.js["']/);
+  assert.match(proxy, /createLocalFinancialTransitionStore\(\{\s*store:/);
+  assert.match(proxy, /createX402CostObserver\(\{\s*store: financialStore,/);
+});
+
 test('proxy-only mode is explicit and never launches the loop command', () => {
   assert.match(script, /--proxy-only/);
   assert.match(script, /PROXY_ONLY/);

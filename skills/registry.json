@@ -215,38 +215,15 @@
       "risk": "capital",
       "riskNote": "anicca-agent-economy REQ-201: launching/managing a speculative token -- the other capital-risking example named in REQ-201's own EARS clause; no distinct catalog-gated close action, so no open-position carve-out."
     },
-    "earn/clip": {
-      "track": "A",
-      "dir": "skills/earn/clip",
-      "entrypoint": "run.sh",
-      "status": "dormant",
-      "owner": "clip",
-      "spec": "2026-06-29-ecosystem-integration + clip-rewards-state D-57",
-      "summary": "LOCAL: post next queued captioned 9:16 clip to next ready clip account (isolated CloakBrowser profile). EARN_MODE=execute posts ONE; per-view USDC accrues later (separate payout-check records on-chain). No human.",
-      "risk": "safe",
-      "riskNote": "anicca-agent-economy REQ-201: posts a pre-produced captioned clip via browser automation; deploys no funds."
-    },
     "earn/clip-producer": {
       "track": "A",
       "dir": "skills/earn/clip-producer",
       "entrypoint": "run.sh",
       "status": "dormant",
       "owner": "clip",
-      "spec": "2026-07-04-openclaw-claude-p-merge-design.md §8",
-      "summary": "LOCAL: ON-DEMAND wrapper around earn/clip's producer.sh (fully deterministic: sliced yt-dlp DL -> whisper -> highlight pick -> 9:16 crop -> caption burn -> verify_clip gate, NO visual/CDP judgment). Lets a self-funded automaton decide FOR ITSELF to produce a fresh clip when it notices earn/clip reporting queued_clip=none, instead of only waiting for the daily launchd cron.",
+      "summary": "LOCAL: ON-DEMAND wrapper around the repository-owned deterministic media pipeline (yt-dlp download -> whisper -> highlight pick -> 9:16 crop -> caption burn -> verify gate). It prepares media for current product-specific publication adapters and has no standalone posting or scheduler owner.",
       "risk": "safe",
       "riskNote": "anicca-agent-economy REQ-201: deterministic local media pipeline (download/whisper/crop/caption); deploys no funds."
-    },
-    "earn/video": {
-      "track": "A",
-      "dir": "skills/earn/video",
-      "entrypoint": "run.sh",
-      "status": "dormant",
-      "owner": "video",
-      "spec": "2026-06-29-earn-video-slot-vcsdd-spec (ROUND-8 OVERALL PASS)",
-      "summary": "LOCAL: faceless-video earn slot. ONE bounded transition/wake (create->warmup->affiliate@day7->post->record). Warmup = dedicated anti-throttle CloakBrowser (real distinct reels). Post = live+verified (published+post_url). record_earn = fail-closed on-chain only. No human, no fake-success. Launcher: video-cli.sh (--model sonnet, tmux sock /tmp/anicca-video-tmux.sock, cron 23 */4 * * *).",
-      "risk": "safe",
-      "riskNote": "anicca-agent-economy REQ-201: faceless-video creation/posting pipeline; deploys no funds."
     },
     "earn/audit": {
       "track": "A",

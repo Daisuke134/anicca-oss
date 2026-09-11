@@ -13,7 +13,7 @@
     "schema_version": {"const": "marketing.run.v1"},
     "run_id": {"type": "string", "pattern": "^(?!0{32}$)[0-9a-f]{32}$"},
     "runner_id": {
-      "enum": ["mine", "score", "metrics", "dashboard", "clip", "video", "self-improve", "capafy"]
+      "enum": ["mine", "score", "metrics", "dashboard", "self-improve", "capafy"]
     },
     "environment": {"enum": ["production", "test"]},
     "started_at": {"type": "string", "format": "date-time"},

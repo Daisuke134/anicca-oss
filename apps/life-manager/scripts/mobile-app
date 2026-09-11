@@ -2,16 +2,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 LOOP_ID="${1:-}"
 ENV_FILE="${LIFE_MANAGER_MARKETING_ENV_FILE:-${HOME}/.local/state/life-manager/private/marketing.env}"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/load-env-file.sh"
 lm_load_env_file "$ENV_FILE"
 
-IFS=$'\t' read -r RUNNER ACTION PRODUCT_ID < <(/opt/homebrew/bin/node "$SCRIPT_DIR/mobile-app-command.js" "$LOOP_ID")
+NODE_BIN="${LIFE_MANAGER_NODE:-$(command -v node || true)}"
+PYTHON_BIN="${LIFE_MANAGER_PYTHON:-$(command -v python3 || true)}"
+[ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ] || { printf 'mobile app loop requires node\n' >&2; exit 1; }
+[ -n "$PYTHON_BIN" ] && [ -x "$PYTHON_BIN" ] || { printf 'mobile app loop requires python3\n' >&2; exit 1; }
+
+IFS=$'\t' read -r RUNNER ACTION PRODUCT_ID < <("$NODE_BIN" "$SCRIPT_DIR/mobile-app-command.js" "$LOOP_ID")
 [ -n "$RUNNER" ] && [ -n "$ACTION" ] && [ -n "$PRODUCT_ID" ] || {
   printf 'mobile app loop resolution failed: %s\n' "$LOOP_ID" >&2
   exit 2
 }
 export LIFE_MANAGER_MOBILE_PRODUCT_ID="$PRODUCT_ID"
-exec /opt/homebrew/bin/timeout 1200 /opt/homebrew/bin/node "$RUNNER" "$ACTION"
+exec "$PYTHON_BIN" "$REPO_ROOT/runtime/run-with-timeout.py" --grace-seconds 10 1200 "$NODE_BIN" "$RUNNER" "$ACTION"

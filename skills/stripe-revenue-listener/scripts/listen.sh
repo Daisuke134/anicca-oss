@@ -1,11 +1,14 @@
 #!/bin/bash
 # Stripe webhook listener — captures charge.succeeded + customer.subscription.created
-# Forwards to local handler that triggers CFO rebuild + Slack notify
+# Forwards to local handler that triggers CFO rebuild + Telegram receipt
 set -eu
-ANICCA_HOME="${ANICCA_HOME:-$HOME/.openclaw}"
-DATA="$ANICCA_HOME/skills/stripe-revenue-listener/data"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/stripe-revenue-listener}"
+ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+DATA="$STATE_ROOT/data"
 mkdir -p "$DATA"
-source "$ANICCA_HOME/.env"
+[ -r "$ENV_FILE" ] && set -a && source "$ENV_FILE" && set +a
 EVENTS="$DATA/events.jsonl"
 EVENTS_LOCK="$DATA/.events-ledger.lock"
 MAX_EVENTS_BYTES="${STRIPE_EVENTS_MAX_BYTES:-134217728}"
@@ -119,7 +122,10 @@ append_event() {
 }
 
 # Forward to local script via stripe CLI listen
-exec /opt/homebrew/bin/stripe listen \
+STRIPE_BIN="${STRIPE_BIN:-$(command -v stripe || true)}"
+[ -n "$STRIPE_BIN" ] && [ -x "$STRIPE_BIN" ] || { echo "stripe listener: setup_required STRIPE_BIN" >&2; exit 0; }
+[ -n "${STRIPE_SECRET_KEY:-}" ] || { echo "stripe listener: setup_required STRIPE_SECRET_KEY" >&2; exit 0; }
+"$STRIPE_BIN" listen \
   --api-key "$STRIPE_SECRET_KEY" \
   --forward-to "https://hooks.localhost/anicca-stripe" \
   --events "charge.succeeded,customer.subscription.created,invoice.paid" \
@@ -134,14 +140,10 @@ exec /opt/homebrew/bin/stripe listen \
       DESC=$(echo "$line" | jq -r '.data.object.description // .data.object.metadata.purpose // "?"')
       echo "🎯 CHARGE SUCCEEDED: $AMT $CURR ($DESC)"
 
-      # Slack notify
-      curl -sS -X POST https://slack.com/api/chat.postMessage \
-        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-        -H "Content-type: application/json; charset=utf-8" \
-        -d "$(jq -n --arg t "💰💰 STRIPE CHARGE: $AMT $CURR · $DESC · confirmed revenue! Triggering CFO rebuild..." --arg ch C091G3PKHL2 '{channel:$ch,text:$t}')" \
-        >/dev/null 2>&1 || true
+      "$REPO_ROOT/skills/_shared/send-telegram.sh" \
+        "💰 Stripe charge: $AMT $CURR · $DESC · confirmed revenue" >/dev/null 2>&1 || true
 
       # CFO rebuild
-      bash "$ANICCA_HOME/skills/cfo-core/run-cfo-hourly.sh" >/dev/null 2>&1 || true
+      bash "$REPO_ROOT/skills/cfo/run.sh" >/dev/null 2>&1 || true
     fi
   done

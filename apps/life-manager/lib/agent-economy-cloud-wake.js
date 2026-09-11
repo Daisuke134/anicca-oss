@@ -6,11 +6,43 @@ const crypto = require("node:crypto");
 const os = require("node:os");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
+const { persistWakeEconomicRecords, persistTaskMarketRevenue } = require("./agent-economy-economic-records.js");
 
 const execFileAsync = promisify(execFile);
 const CLOUD_AGENT_ECONOMY_SLOTS = Object.freeze([
   "earn/taskmarket",
 ]);
+
+async function decideCitizenComputeRoute({ freeModel = "free/glm-4.7",
+  frontierModel = "anthropic/claude-sonnet-4-6", expectedRecipient, spendRequest } = {}) {
+  const [{ normalizeModelSelection }, { authorizeEarnedSpend }] = await Promise.all([
+    import("../../../runtime/compute-proxy/model-map.mjs"),
+    import("../../../skills/agent-economy/lib/treasury-policy.mjs"),
+  ]);
+  const selectFree = () => {
+    const configured = normalizeModelSelection(freeModel, frontierModel);
+    return configured.tier === "free"
+      ? configured : normalizeModelSelection("nvidia/gpt-oss-120b", frontierModel);
+  };
+  if (!spendRequest) {
+    const selected = selectFree();
+    return Object.freeze({ route: "bootstrap_free", ...selected, authorization: "not_requested" });
+  }
+  if (!expectedRecipient || String(spendRequest.recipient || "").toLowerCase()
+    !== String(expectedRecipient).toLowerCase()) {
+    const selected = selectFree();
+    return Object.freeze({ route: "bootstrap_free", ...selected,
+      authorization: "citizen-wallet-mismatch" });
+  }
+  const authorization = authorizeEarnedSpend(spendRequest);
+  if (authorization.allowed === true) {
+    const selected = normalizeModelSelection(frontierModel, frontierModel);
+    return Object.freeze({ route: "citizen_x402", ...selected, authorization: "ok" });
+  }
+  const selected = selectFree();
+  return Object.freeze({ route: "bootstrap_free", ...selected,
+    authorization: String(authorization.reason || "denied") });
+}
 
 function safeSegment(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -60,9 +92,17 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
       address: identity.wallet.address,
       privateKey: privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`,
     });
-    const entrypoint = path.join(repoRoot, "runtime/loop/index.mjs");
-    const parentEnv = options.env || process.env;
-    const childEnv = {
+    try {
+      const parentEnv = options.env || process.env;
+      const computeRoute = await (options.decideComputeRoute || decideCitizenComputeRoute)({
+        freeModel: parentEnv.ANICCA_FREE_MODEL || "free/glm-4.7",
+        frontierModel: parentEnv.ANICCA_FRONTIER_MODEL || "anthropic/claude-sonnet-4-6",
+        expectedRecipient: identity.wallet.address,
+        spendRequest: typeof options.computeSpendRequest === "function"
+          ? await options.computeSpendRequest(identity) : options.computeSpendRequest,
+      });
+      const entrypoint = path.join(repoRoot, "runtime/loop/index.mjs");
+      const childEnv = {
       PATH: parentEnv.PATH,
       LANG: parentEnv.LANG,
       LC_ALL: parentEnv.LC_ALL,
@@ -76,24 +116,32 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
       ANICCA_SINGLE_WAKE: "1",
       ANICCA_SLOT_ALLOWLIST: CLOUD_AGENT_ECONOMY_SLOTS.join(","),
       ANICCA_STRICT_SLOT_ALLOWLIST: "1",
+      ANICCA_MODEL: computeRoute.model,
       SLEEP_BASE_S: "0",
       SLEEP_ERROR_S: "0",
       LEDGER_PUBLISH_ENABLED: "0",
-    };
-    for (const key of [
-      "OPENAI_BASE_URL", "ANICCA_BRAIN", "ANICCA_MODEL", "ANICCA_FREE_MODEL",
-      "ANICCA_LEAN_MODEL", "ANICCA_FUNDED_MODEL", "BASE_RPC_URL", "USDC_ADDRESS",
-    ]) {
-      if (parentEnv[key]) childEnv[key] = parentEnv[key];
-    }
-    try {
+      };
+      for (const key of [
+        "OPENAI_BASE_URL", "ANICCA_BRAIN", "ANICCA_FREE_MODEL",
+        "ANICCA_LEAN_MODEL", "ANICCA_FUNDED_MODEL", "BASE_RPC_URL", "USDC_ADDRESS",
+      ]) {
+        if (parentEnv[key]) childEnv[key] = parentEnv[key];
+      }
       await run(process.execPath, [entrypoint], {
         cwd: repoRoot,
         env: childEnv,
         timeout: 10 * 60 * 1000,
         maxBuffer: 1024 * 1024,
       });
-      return await lastWake(path.join(instanceHome, "state", "ledger.jsonl"));
+      const wake = await lastWake(path.join(instanceHome, "state", "ledger.jsonl"));
+      await persistWakeEconomicRecords({ instanceHome, wakeId: wake.wake_id,
+        subjectId: identity.tenant_id, financialStore: options.financialStore,
+        recordedAt: options.now ? options.now() : new Date().toISOString() });
+      await (options.persistTaskMarketRevenue || persistTaskMarketRevenue)({ identity,
+        financialStore: options.financialStore,
+        recordedAt: options.now ? options.now() : new Date().toISOString(),
+        fetchImpl: options.fetchImpl, selfWallets: options.selfWallets || [] });
+      return Object.freeze({ ...wake, compute_route: computeRoute });
     } catch {
       const error = new Error("Agent Economy shared wake failed");
       error.unknownEffect = true;
@@ -110,4 +158,4 @@ function createAgentEconomyCloudWakeRunner(options = {}) {
   };
 }
 
-module.exports = { CLOUD_AGENT_ECONOMY_SLOTS, createAgentEconomyCloudWakeRunner };
+module.exports = { CLOUD_AGENT_ECONOMY_SLOTS, createAgentEconomyCloudWakeRunner, decideCitizenComputeRoute };

@@ -60,7 +60,7 @@ def main() -> int:
     parser.add_argument(
         "--source",
         type=Path,
-        default=Path.home() / ".openclaw/workspace/zenn-articles",
+        required=True,
     )
     parser.add_argument(
         "--target",

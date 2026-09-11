@@ -17,10 +17,11 @@ if str(ROOT) not in sys.path:
 from runtime.loop.loop_cleanup import gc_releases
 
 
-def host_cleanup_command(root: Path, home: Path) -> list[str]:
+def host_cleanup_command(root: Path, home: Path, state_dir=None) -> list[str]:
+    state_dir = state_dir or home / ".local/state/life-manager/life-manager-disk-cleanup"
     return [sys.executable, str(root / "skills/self/disk-cleanup/disk_cleanup.py"),
             "--home", str(home), "--state-dir",
-            str(home / ".openclaw/state")]
+            str(state_dir)]
 
 
 def host_cleanup_ok(returncode: int, result: object) -> bool:
@@ -104,8 +105,13 @@ def main() -> int:
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
         return 0 if result["ok"] else 1
     try:
+        cleanup_state = Path(os.environ.get(
+            "LIFE_MANAGER_STATE_ROOT",
+            home / ".local/state/life-manager/life-manager-disk-cleanup",
+        )).expanduser()
         host_process = subprocess.run(
-            host_cleanup_command(ROOT, home), capture_output=True, text=True, timeout=240,
+            host_cleanup_command(ROOT, home, cleanup_state),
+            capture_output=True, text=True, timeout=240,
         )
         host_result = json.loads(host_process.stdout.splitlines()[-1]) if host_process.stdout.strip() else {}
         host_ok = host_cleanup_ok(host_process.returncode, host_result)

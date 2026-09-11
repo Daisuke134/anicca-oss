@@ -29,7 +29,7 @@ def _find_agent_list(value):
 
 def _fetch_agents():
     result = subprocess.run(
-        ["/opt/homebrew/bin/python3", CAPAFY_HTTP, "GET", "/agent/agents"],
+        [sys.executable, CAPAFY_HTTP, "GET", "/agent/agents"],
         capture_output=True,
         text=True,
         timeout=60,

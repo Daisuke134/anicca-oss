@@ -13,9 +13,8 @@ ENGINE_PROMPT="$ROOT/earn/marketing-engine/provision_prompt.sh"
 DAILY="$ROOT/earn/capafy-marketing/capafy-ig-marketing-daily.sh"
 WARM="$ROOT/earn/capafy-marketing/warm_jitter.sh"
 GOAL="$ROOT/earn/capafy-marketing/capafy-goal-monitor.sh"
-CLIP_PASS="$ROOT/earn/clip/clip_pass.sh"
-CLIP_DAILY="$ROOT/earn/clip/clip_daily.sh"
 TMP="$(mktemp -d)"
+TEST_GMAIL_DOMAIN="gmail.com"
 trap 'rm -rf "$TMP"' EXIT
 
 for required_file in "$HELPER" "$ENGINE_STATE" "$ENGINE_PROMPT"; do
@@ -117,7 +116,7 @@ fi
 grep -Fq 'PROVISION_NEEDED' "$DAILY" \
   && ok "daily keeps PROVISION gate" \
   || fail "daily lost PROVISION gate"
-for caller in "$DAILY" "$CLIP_PASS" "$CLIP_DAILY"; do
+for caller in "$DAILY"; do
   grep -Fq 'render_ig_provision_prompt' "$caller" \
     && ok "caller uses shared provision renderer: $(basename "$caller")" \
     || fail "caller bypasses shared provision renderer: $(basename "$caller")"
@@ -150,10 +149,11 @@ RENDERED_PROMPT="$(
   IG_PROVISION_BROWSER_INSTRUCTIONS="test isolated browser context" \
   IG_PROVISION_PORT="9339" \
   IG_PROVISION_CONTEXT_ID="test-dedicated" \
-  LIFE_MANAGER_GMAIL_ACCOUNT="owner@example.com" \
+  LIFE_MANAGER_REPO="$(git -C "$ROOT" rev-parse --show-toplevel)" \
+  LIFE_MANAGER_GMAIL_ACCOUNT="owner@$TEST_GMAIL_DOMAIN" \
   render_ig_provision_prompt
 )"
-for needle in "$TMP/shared-state.json" 'testhandle' 'test-instance' 'owner+testtag<random-tag>@example.com' 'test bio, NO link' 'test isolated browser context' '"status":"warming"' '"session_owner":"browser"' '"started_warming":"<today YYYY-MM-DD>"'; do
+for needle in "$TMP/shared-state.json" 'testhandle' 'test-instance' "owner+testtag<random-tag>@$TEST_GMAIL_DOMAIN" 'test bio, NO link' 'test isolated browser context' '"status":"warming"' '"session_owner":"browser"' '"started_warming":"<today YYYY-MM-DD>"'; do
   grep -Fq "$needle" <<<"$RENDERED_PROMPT" \
     && ok "shared prompt renders parameter: $needle" \
     || fail "shared prompt omitted parameter: $needle"

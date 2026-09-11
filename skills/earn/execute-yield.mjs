@@ -16,7 +16,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { loadEvmKey } from "./lib/resolve-identity.mjs";
 import { base } from "viem/chains";
 import fs from "fs";
-import { recordDeposit, recordWithdraw } from "./lib/cost-basis.mjs";
+import { readCostBasis, recordDeposit, recordWithdraw } from "./lib/cost-basis.mjs";
 import { depositLanded } from "./lib/deposit-guard.mjs";
 // depositKind → telemetry netWorth() venue key (so per-source P&L can pair value ↔ cost basis)
 const VENUE_KEY = { beefy: "beefy", erc4626: "fluid", aave: "aave" };
@@ -157,13 +157,22 @@ async function main() {
   if (liquid < BigInt(REFILL_AT) && vault) {
     const shares = await pub.readContract({ address: vault, abi: beefy, functionName: "balanceOf", args: [acct.address] });
     if (shares > 0n) {
+      const basis = readCostBasis();
+      const basisKnown = Number.isFinite(Number(basis.beefy));
+      const basisBefore = basisKnown ? Number(basis.beefy) : null;
       const tx = await w.writeContract({ address: vault, abi: beefy, functionName: "withdrawAll", args: [] });
       const r = await pub.waitForTransactionReceipt({ hash: tx });
       const liq2 = await pub.readContract({ address: USDC, abi: erc20, functionName: "balanceOf", args: [acct.address] });
+      const received = Number(liq2 - liquid) / 1e6;
       // Withdrawing back to liquid is principal-OUT: reduce the beefy basis by the amount pulled, so the
       // remaining position's value − reduced basis still reflects true unrealised P&L.
-      if (r.status === "success") recordWithdraw("beefy", Number(liq2 - liquid) / 1e6);
-      return out({ kind: "yield", action: "refill", protocol: `beefy:${bf.id}`, tx, status: r.status === "success" ? "0x1" : "0x0", refilled_usdc: Number(liq2 - liquid) / 1e6, reserve_usdc: RESERVE / 1e6, wallet: acct.address });
+      if (r.status === "success") recordWithdraw("beefy", received);
+      const realized = r.status === "success" && basisKnown
+        ? Math.round((received - basisBefore) * 1e6) / 1e6 : null;
+      return out({ kind: "yield", action: "refill", protocol: `beefy:${bf.id}`, tx,
+        status: r.status === "success" ? "0x1" : "0x0", refilled_usdc: received,
+        basis_known: basisKnown, basis_before_usdc: basisBefore, realized_yield_usdc: realized,
+        occurred_at: new Date().toISOString(), reserve_usdc: RESERVE / 1e6, wallet: acct.address });
     }
   }
 

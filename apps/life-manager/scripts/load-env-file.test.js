@@ -83,9 +83,10 @@ test("the shared mobile app command loads the private marketing env", () => {
   assert.ok(source.includes("lm_load_env_file"));
   assert.ok(source.includes("LIFE_MANAGER_MARKETING_ENV_FILE"));
   assert.ok(source.includes(".local/state/life-manager/private/marketing.env"));
-  assert.ok(source.includes("exec /opt/homebrew/bin/timeout 1200 /opt/homebrew/bin/node"));
-  assert.ok(!source.includes("LIFE_MANAGER_NODE_BIN"));
-  assert.ok(!source.includes("LIFE_MANAGER_TIMEOUT_BIN"));
+  assert.ok(source.includes("runtime/run-with-timeout.py"));
+  assert.ok(source.includes("command -v node"));
+  assert.ok(source.includes("command -v python3"));
+  assert.ok(!source.includes("/opt/homebrew/bin/timeout"));
 });
 
 test("JA main TikTok boot executes the Larry carousel owner", () => {

@@ -116,7 +116,7 @@ def migrate(source: Path, target_home: Path, target_loop_root: Path) -> dict[str
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, default=Path.home() / ".openclaw")
+    parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--target-home", type=Path, default=Path.home() / ".local/state/life-manager")
     parser.add_argument("--target-loop-root", type=Path, default=Path.home() / ".local/state/life-manager/lateness-heartbeat")
     args = parser.parse_args()

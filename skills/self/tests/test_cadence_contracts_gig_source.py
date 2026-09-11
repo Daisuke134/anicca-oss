@@ -4,7 +4,7 @@ PROP-031 / REQ-GFV-023 (rewritten, spec-review iteration-2 BLOCKING-1 fix) — s
 (UNCHANGED — this REVERSES iteration-1's `increment` design after iteration-2 found it would be
 structurally always-false against production reality) and an updated `source` string referencing
 `applied.jsonl`/`listings.jsonl` (no longer `gig-funnel.jsonl`); every OTHER loop's entry
-(`clip`,`affiliate`,`video`,`bounty`,`founder-loop`,`pm-earner`) is byte-for-byte unchanged.
+(`affiliate`,`bounty`,`founder-loop`,`pm-earner`) is byte-for-byte unchanged.
 
 Current `gig.source` is `"~/gig/gig-funnel.jsonl (REQ-LV-015)"` -> assertion fails -> RED.
 """
@@ -41,17 +41,9 @@ chk("gig.source references listings.jsonl", "listings.jsonl" in gig.get("source"
 
 # every other loop's entry must be byte-for-byte unchanged from the pre-feature baseline.
 UNCHANGED_BASELINE = {
-    "clip": {
-        "kind": "row-exists", "cadence": "1/day", "unit": "reel", "boundary_tz": "Asia/Tokyo",
-        "source": "CLIP_LEDGER ($EARN_LEDGER or ~/.local/state/life-manager/state/clip-earn-ledger.jsonl)",
-    },
     "affiliate": {
         "kind": "row-exists", "cadence": "1/day", "unit": "reel", "boundary_tz": "Asia/Tokyo",
         "source": "~/.cloak/affiliate-metrics.jsonl (REQ-LV-014)",
-    },
-    "video": {
-        "kind": "row-exists", "cadence": "1/day", "unit": "reel", "boundary_tz": "Asia/Tokyo",
-        "source": "~/.cloak/earn-video-metrics-<handle>.jsonl",
     },
     "bounty": {
         "kind": "increment", "field": "checked",

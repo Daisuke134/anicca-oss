@@ -49,6 +49,11 @@ def scoped_env(overrides):
 
 
 class DefaultPathConvention(unittest.TestCase):
+    def test_generator_has_no_external_checkout_default(self):
+        source = MODULE.read_text(encoding="utf-8")
+        self.assertNotIn("anicca-project", source)
+        self.assertNotIn("/.claude/", source)
+
     def test_argless_defaults_resolve_under_home_data_root_state_lm_video(self):
         with tempfile.TemporaryDirectory() as home:
             with scoped_env({"HOME": home}):
@@ -57,6 +62,8 @@ class DefaultPathConvention(unittest.TestCase):
             self.assertEqual(args.state, expected_root / "daily-render-state.jsonl")
             self.assertEqual(args.output_dir, expected_root / "daily-renders")
             self.assertEqual(args.call_audio.parent, expected_root / "recordings")
+            self.assertEqual(args.stock, expected_root / "inputs/stock.mp4")
+            self.assertEqual(args.telegram_proof, expected_root / "inputs/telegram-proof.png")
             self.assertEqual(args.whisper_ass.parent.parent, expected_root)
 
     def test_argless_defaults_follow_lm_data_dir_override(self):

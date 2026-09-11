@@ -68,7 +68,7 @@ def compose(sender, event, minutes):
 
 def send_gmail(to_addr, subject, body):
     out = subprocess.run(
-        ["/opt/homebrew/bin/gog", "gmail", "send", "--account", gog_account(),
+        [os.environ.get("LIFE_MANAGER_GOG", "gog"), "gmail", "send", "--account", gog_account(),
          "--to", to_addr, "--subject", subject, "--body", body],
         capture_output=True, text=True,
         env={**os.environ, "GOG_KEYRING_PASSWORD": env("GOG_KEYRING_PASSWORD")},
@@ -155,7 +155,7 @@ def firecrawl_find_contact(summary, event=None):
         # Use firecrawl CLI (auto-installed by `brew install firecrawl-cli`).
         # Search top 3 results, scrape, extract first valid email.
         import shlex
-        cmd = ["/opt/homebrew/bin/firecrawl", "search", q, "--limit", "3", "--format", "markdown"]
+        cmd = [os.environ.get("LIFE_MANAGER_FIRECRAWL", "firecrawl"), "search", q, "--limit", "3", "--format", "markdown"]
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
         if out.returncode != 0:
             return None

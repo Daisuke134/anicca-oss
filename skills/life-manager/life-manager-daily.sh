@@ -15,7 +15,8 @@ fi
 export LM_DAILY_ACTIVE=1
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON="${PYTHON_BIN:-$(command -v python3 || echo /opt/homebrew/bin/python3)}"
+PYTHON="${PYTHON_BIN:-$(command -v python3 2>/dev/null || true)}"
+[ -n "$PYTHON" ] && [ -x "$PYTHON" ] || { echo '{"status":"setup_required","missing":"python3"}' >&2; exit 2; }
 RUN_AGENT="${RUN_AGENT_BIN:-$LIFE_MANAGER_REPO/skills/earn/marketing-engine/run_agent.sh}"
 VIDEO_GENERATOR="${LM_VIDEO_GENERATOR:-$HERE/../video/daily-lm-video/generate.py}"
 VIDEO_DISTRIBUTOR="${LM_VIDEO_DISTRIBUTOR:-$HERE/../video/lm-distribution/distribute.py}"

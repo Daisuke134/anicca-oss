@@ -14,8 +14,7 @@ from typing import Callable
 
 
 RUNNERS = frozenset({
-    "mine", "score", "metrics", "dashboard", "clip", "video",
-    "self-improve", "capafy",
+    "mine", "score", "metrics", "dashboard", "self-improve", "capafy",
 })
 STATUSES = frozenset({"success", "partial", "failed", "skipped"})
 ENVIRONMENTS = frozenset({"production", "test"})

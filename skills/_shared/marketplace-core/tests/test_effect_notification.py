@@ -73,3 +73,32 @@ def test_delivered_event_replays_receipt_when_generated_wording_drifts(tmp_path)
         "pre_send_failed": 0,
     }
     assert calls == ["Codex::: first wording"]
+
+
+def test_pre_send_failure_releases_the_same_sqlite_event_for_replay(tmp_path):
+    notification = load("test_effect_notification_retry", "effect_notification.py")
+    delivery = load("test_effect_delivery_retry", "telegram_delivery.py")
+    calls = []
+
+    def sender(message):
+        calls.append(message)
+        return delivery.SendResult(False, None, "not_started") if len(calls) == 1 \
+            else delivery.SendResult(True, "provider-2", None)
+
+    arguments = dict(
+        database=tmp_path / "outbox.sqlite3",
+        event_key="agent-economy:financial:stable",
+        message="Codex::: stable financial transition",
+        observed_at="2026-09-11T05:00:00Z",
+        chat_id="123",
+        env_file=tmp_path / "telegram.env",
+        sender=sender,
+    )
+    first = notification.notify_effect(**arguments)
+    replay = notification.notify_effect(**arguments)
+
+    assert first["delivery"] == "pending"
+    assert first["pre_send_failed"] == 1
+    assert replay["delivery"] == "delivered"
+    assert replay["provider_message_id"] == "provider-2"
+    assert calls == [arguments["message"], arguments["message"]]
