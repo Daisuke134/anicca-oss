@@ -507,7 +507,7 @@ async function waitForEventbriteMarketingOptOut(page, eventId, canonicalUrl, fra
     || operation.eventId !== String(eventId) || !operation.handle || !operation.id || !operation.name || !operation.token) return false;
   const deadline = Date.now() + EVENTBRITE_FRAME_STABILITY_MS + FINAL_EFFECT_POLL_MS;
   let stableSince = null;
-  while (Date.now() <= deadline) {
+  while (true) {
     if (eventbriteTicketFrame(page, eventId, canonicalUrl) !== frame) return false;
     const refreshed = await inspectEventbriteAttendeeFrame(frame, eventId);
     const selected = Array.isArray(refreshed) ? refreshed.find((item) => item.control === operation.token) : null;
