@@ -108,6 +108,14 @@ fence, and treat form-answer composition failure as durable per-item retry rathe
 work. A read-only probe was deliberately cancelled while queued behind Apply's provider-browser lock;
 it produced no provider action and did not delay the next Paid owner.
 
+PR `#5019`, merged as main `fda5f8e6`, implements the next provider-specific step: when the bound
+milestone textarea is hidden, Paid opens the single visible exact-text `やること` tab, waits for the
+bound textarea, rechecks that exactly one form is actionable, and only then uses the official submit.
+The post-Form completion sentence is deterministic and grounded in the confirmed receipt, while
+open-ended Google Form answers remain model-owned. Focused tests (`33`) and fresh read-only review
+pass. Dependency-complete release `20260911T171048-fda5f8e6` is installed only for CrowdWorks Paid
+with receipt `f5ed4e159585505a5189f5ac`; natural official effect/readback remains the active acceptance.
+
 The active atom is **CrowdWorks Paid funded-work acceptance**. Coconala Reply continuous health is
 closed by PR `#5012`, target-only receipt `1d3c873655f62aa5e8957714` and natural failed-zero run
 `18d42f0434e77828-21263`. Lancers project
