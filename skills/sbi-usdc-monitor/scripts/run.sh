@@ -1,21 +1,26 @@
 #!/bin/bash
 # SBI 7 USDC 着金監視 — Base mainnet 上の Anicca Automaton wallet を 1 時間ごとにポーリング
-# 残高変化を検知したら Slack #metrics 通知 + CFO 再 build trigger + dispatch-log
+# 残高変化を検知したら Telegram 通知 + CFO 再 build trigger + dispatch-log
 # Earn-or-Die loop の "確定した過去形収益" の第 1 観測点
 
 set -eu
-ANICCA_HOME="${ANICCA_HOME:-$HOME/.openclaw}"
-DATA="$ANICCA_HOME/skills/sbi-usdc-monitor/data"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+STATE_ROOT="${LIFE_MANAGER_STATE_ROOT:-$HOME/.local/state/life-manager/sbi-usdc-monitor}"
+ENV_FILE="${LIFE_MANAGER_ENV_FILE:-$HOME/.local/state/life-manager/.env}"
+[ -r "$ENV_FILE" ] && set -a && source "$ENV_FILE" && set +a
+DATA="$STATE_ROOT/data"
 mkdir -p "$DATA"
 STATE="$DATA/state.json"
 LOG="$DATA/log.jsonl"
 
-WALLET="0xa3CDd4Ec6b94F01826Aaf90a6d5538A2Aa8C4C21"
+WALLET="${SBI_USDC_WALLET_ADDRESS:-${LIFE_MANAGER_EVM_ADDRESS:-}}"
 USDC_CONTRACT="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 RPC="https://base-rpc.publicnode.com"
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 log() { echo "[$(date +%H:%M:%S)] $*" >&2; }
+[ -n "$WALLET" ] || { log "setup_required: SBI_USDC_WALLET_ADDRESS"; exit 0; }
 
 # eth_call USDC.balanceOf(WALLET)
 ADDR_LOWER=$(echo "$WALLET" | sed 's/0x//' | tr 'A-Z' 'a-z')
@@ -48,23 +53,14 @@ CHANGED=$(python3 -c "print(1 if abs(float('$BAL_USDC') - float('$PREV_USDC')) >
 if [ "$CHANGED" = "1" ]; then
   log "BALANCE CHANGED: prev=\$$PREV_USDC, now=\$$BAL_USDC, delta=\$$DELTA"
 
-  # Slack notify
-  if [ -n "${SLACK_BOT_TOKEN:-}" ] || { set -a; source "$ANICCA_HOME/.env" 2>/dev/null; set +a; [ -n "${SLACK_BOT_TOKEN:-}" ]; }; then
-    set -a; source "$ANICCA_HOME/.env" 2>/dev/null; set +a
-    MSG_EMOJI="💰"
-    [ "$(python3 -c "print(1 if float('$DELTA') < 0 else 0)")" = "1" ] && MSG_EMOJI="💸"
-    MSG="${MSG_EMOJI} Anicca Automaton wallet USDC: prev=\$${PREV_USDC} → now=\$${BAL_USDC} (Δ \$${DELTA}) — *確定収益/支出 on Base mainnet*"
-    curl -sS -X POST https://slack.com/api/chat.postMessage \
-      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-      -H "Content-type: application/json; charset=utf-8" \
-      -d "$(jq -n --arg ch "C091G3PKHL2" --arg t "$MSG" '{channel:$ch,text:$t}')" >/dev/null || log "Slack notify failed"
-  fi
+  MSG_EMOJI="💰"
+  [ "$(python3 -c "print(1 if float('$DELTA') < 0 else 0)")" = "1" ] && MSG_EMOJI="💸"
+  MSG="${MSG_EMOJI} SBI USDC balance: prev=\$${PREV_USDC} → now=\$${BAL_USDC} (Δ \$${DELTA}) — verified on Base mainnet"
+  "$REPO_ROOT/skills/_shared/send-telegram.sh" "$MSG" >/dev/null 2>&1 || log "Telegram notify failed"
 
   # Trigger CFO rebuild (incorporates wallet balance into Anicca's makes/landed)
-  if [ -x "$ANICCA_HOME/skills/cfo-core/run-cfo-hourly.sh" ]; then
-    log "Triggering CFO rebuild..."
-    bash "$ANICCA_HOME/skills/cfo-core/run-cfo-hourly.sh" >/dev/null 2>&1 || log "CFO rebuild failed"
-  fi
+  log "Triggering CFO rebuild..."
+  bash "$REPO_ROOT/skills/cfo/run.sh" >/dev/null 2>&1 || log "CFO rebuild failed"
 fi
 
 # Update state
