@@ -35,6 +35,7 @@ function normalizeSource(origin, raw) {
     throw new Error("git_remote must be an absolute HTTPS URL");
   }
   requireValue(remote.protocol === "https:", "git_remote must be an absolute HTTPS URL");
+  requireValue(!remote.username && !remote.password, "git_remote must not contain credentials");
   requireValue(PINNED_REVISION.test(String(raw.revision || "")), "revision must be a full commit SHA");
   const source = { git_remote: remote.toString(), revision: raw.revision };
   if (raw.subdirectory !== undefined) source.subdirectory = portableRelative(raw.subdirectory, "subdirectory");

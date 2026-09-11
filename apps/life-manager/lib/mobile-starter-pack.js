@@ -16,6 +16,8 @@ function safeRelative(value, field) {
   requireValue(typeof value === "string" && value.length > 0, `${field} required`);
   requireValue(!path.isAbsolute(value) && !path.win32.isAbsolute(value)
     && !value.split(/[\\/]/u).includes(".."), `${field} must be portable`);
+  requireValue(!value.includes("\\") && path.posix.normalize(value) === value
+    && !value.startsWith("./"), `${field} must be canonical`);
   return value;
 }
 
@@ -24,10 +26,11 @@ function digest(file) {
 }
 
 function render(source, identity) {
+  const swiftDisplayName = JSON.stringify(identity.displayName).slice(1, -1);
   const values = {
     PRODUCT_NAME: identity.productSymbol,
     PRODUCT_SYMBOL: identity.productSymbol,
-    DISPLAY_NAME: identity.displayName,
+    DISPLAY_NAME: swiftDisplayName,
     BUNDLE_ID: identity.bundleId,
   };
   let output = source;
@@ -42,8 +45,11 @@ function expectedFiles(packRoot, product, identity) {
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
   requireValue(manifest?.schema_version === "mobile.starter-pack.v1"
     && manifest.template_id === product.source.template_id && Array.isArray(manifest.files), "starter manifest invalid");
+  const seen = new Set();
   return manifest.files.map((item) => {
     const relative = safeRelative(item.path, "starter file path");
+    requireValue(!seen.has(relative), "starter file path duplicated");
+    seen.add(relative);
     requireValue(SHA256.test(String(item.sha256 || "")), "starter file hash invalid");
     const source = path.join(packRoot, relative);
     requireValue(fs.lstatSync(source).isFile(), "starter input must be a regular file");

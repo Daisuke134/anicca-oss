@@ -79,6 +79,11 @@ test("local paths and malformed source descriptors are rejected", (t) => {
     source: { git_remote: "https://example.com/app.git", revision: "main" },
   }), /revision/);
   assert.throws(() => registerMobileProduct(registryFile, {
+    product_id: "credential-remote",
+    origin: "imported",
+    source: { git_remote: "https://token@example.com/app.git", revision: "a".repeat(40) },
+  }), /credentials/);
+  assert.throws(() => registerMobileProduct(registryFile, {
     product_id: "bad-generated",
     origin: "generated",
     source: { repository_name: "missing-template" },

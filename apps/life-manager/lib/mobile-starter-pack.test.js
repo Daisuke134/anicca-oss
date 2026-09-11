@@ -39,6 +39,18 @@ test("materializes a verified starter into the managed product workspace", (t) =
   assert.equal(materializeMobileStarterPack({ product: generated, identity, packRoot, privateRoot: root }).state, "replayed");
 });
 
+test("escapes a product display name as Swift string content", (t) => {
+  const root = privateRoot(t);
+  const result = materializeMobileStarterPack({
+    product: generated,
+    identity: { ...identity, displayName: "Focus \"Bloom\"\nNow" },
+    packRoot,
+    privateRoot: root,
+  });
+  const rendered = fs.readFileSync(path.join(root, result.workspace_rel, "Sources/ContentView.swift"), "utf8");
+  assert.match(rendered, /Text\("Focus \\\"Bloom\\\"\\nNow"\)/);
+});
+
 test("rejects imported products, unsafe workspaces and mutable template input", (t) => {
   const root = privateRoot(t);
   assert.throws(() => materializeMobileStarterPack({
@@ -54,6 +66,16 @@ test("rejects imported products, unsafe workspaces and mutable template input", 
   assert.throws(() => materializeMobileStarterPack({
     product: generated, identity, packRoot: copiedPack, privateRoot: path.join(root, "private"),
   }), /hash mismatch/);
+
+  const noncanonicalPack = path.join(root, "noncanonical-pack");
+  fs.cpSync(packRoot, noncanonicalPack, { recursive: true });
+  const manifestFile = path.join(noncanonicalPack, "manifest.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  manifest.files[0].path = `./${manifest.files[0].path}`;
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+  assert.throws(() => materializeMobileStarterPack({
+    product: generated, identity, packRoot: noncanonicalPack, privateRoot: path.join(root, "canonical-private"),
+  }), /must be canonical/);
 });
 
 test("rejects symlinks and conflicting existing output without replacing it", (t) => {
